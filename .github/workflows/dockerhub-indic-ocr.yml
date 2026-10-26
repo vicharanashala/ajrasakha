@@ -1,0 +1,61 @@
+name: Dockerhub IndicOCR Model Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+  id-token: write
+
+env:
+  DOCKER_IMAGE: indic-ocr
+  MODEL_REPO_PATH: ./ai/ajrasakha/models/indic-ocr
+
+jobs:
+  build-and-push:
+    name: Build & Push IndicOCR Model
+    runs-on: ubuntu-latest
+    
+    # This model requires GPU support
+    # Note: GitHub Actions runners don't have GPU, so we build the image only
+    # The image can then be pulled and run on any machine with NVIDIA GPU
+
+    steps:
+      - name: Free Disk Space
+        run: |
+          sudo rm -rf /usr/share/dotnet
+          sudo rm -rf /usr/local/lib/android
+          sudo rm -rf /opt/ghc
+          sudo rm -rf "/usr/local/share/boost"
+          sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # Remove any existing Docker images to free space
+          docker rmi $(docker images -q) || true
+
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build & Push IndicOCR
+        uses: docker/build-push-action@v5
+        with:
+          context: ${{ env.MODEL_REPO_PATH }}
+          file: ${{ env.MODEL_REPO_PATH }}/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          build-args: |
+            HF_TOKEN=${{ secrets.HF_TOKEN }}
+          # Enable cache to speed up rebuilds
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
