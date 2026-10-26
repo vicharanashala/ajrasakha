@@ -41,6 +41,8 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
+ARG HF_TOKEN
+
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     CUDA_VISIBLE_DEVICES=0 \
