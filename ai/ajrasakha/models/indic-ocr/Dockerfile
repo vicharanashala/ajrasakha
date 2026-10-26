@@ -90,4 +90,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["python", "/app/server.py"]
+# Use the venv python explicitly
+CMD ["/opt/venv/bin/python", "/app/server.py"]
