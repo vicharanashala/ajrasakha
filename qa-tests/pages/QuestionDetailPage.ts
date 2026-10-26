@@ -12,7 +12,7 @@ export class QuestionDetailPage {
   }
 
   async openAllocationTab() {
-    await this.page.getByRole('button', { name: /Allocation/ }).click();
+    await this.page.getByRole('button', { name: /^Allocation/ }).click();
   }
 
   allocationQueueCount() {

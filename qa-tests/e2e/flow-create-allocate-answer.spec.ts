@@ -48,15 +48,25 @@ test.describe('moderator creates, allocates, and receives an expert answer', () 
       throw new Error('Missing EXPERT_EMAIL in qa-tests/.env');
     }
 
+    const questions = new QuestionWorkflowPage(page);
+    const row = await questions.searchQuestion(questionText);
+    await row.getByText(questionText, { exact: true }).click();
+
     const detail = new QuestionDetailPage(page);
+    await expect(detail.title(questionText)).toBeVisible();
     await detail.openAllocationTab();
+    const autoAllocateSwitch = page.getByRole('switch', { name: 'Auto-allocate Experts' });
+    if (await autoAllocateSwitch.isChecked()) {
+      await autoAllocateSwitch.click();
+    }
+    await expect(autoAllocateSwitch).not.toBeChecked();
     await detail.selectExpertsButton().click();
     const dialog = detail.expertsDialog();
     await detail.expertSearchInput().fill(expertEmail);
     await expect(dialog.getByText(expertEmail, { exact: true })).toBeVisible();
-    const checkboxes = dialog.getByRole('checkbox');
-    await expect(checkboxes).toHaveCount(1);
-    await checkboxes.check();
+    const expertCheckbox = dialog.getByRole('checkbox', { name: expertEmail });
+    await expect(expertCheckbox).toHaveCount(1);
+    await expertCheckbox.check();
     await dialog.getByRole('button', { name: 'Submit (1 selected)', exact: true }).click();
 
     await expect(detail.allocationQueueCount()).toHaveText('1 expert in queue');
