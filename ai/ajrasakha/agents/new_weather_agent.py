@@ -304,6 +304,119 @@ def route_weather_query_by_heuristics(query: str) -> str:
     return "get_current_and_forecast_info"
 
 
+# --------------------------------------------------------------------------
+# Out-of-scope questions: the weather tools cannot answer them, so the farmer
+# gets a list of what we can answer instead of the 2-hour expert-queue reply.
+# --------------------------------------------------------------------------
+
+UNSUPPORTED_PARAMETER = "unsupported_parameter"
+BEYOND_FORECAST_RANGE = "beyond_forecast_range"
+LONG_TERM_HISTORY = "long_term_history"
+_UNSUPPORTED_WEATHER_REASONS = frozenset({UNSUPPORTED_PARAMETER, BEYOND_FORECAST_RANGE, LONG_TERM_HISTORY})
+
+# Furthest forecast day the tools serve: today is Day 1, so Day 7 is today + 6.
+_MAX_FORECAST_OFFSET_DAYS = 6
+
+WEATHER_CAPABILITY_MENU = (
+    "I can answer these weather questions for your location:\n"
+    "- Today's weather and the forecast for up to the next 7 days\n"
+    "- Rain: chance of rain, rain recorded in the past 24 hours or past few days, monsoon status\n"
+    "- Temperature, humidity and feels-like, heatwave or cold wave\n"
+    "- Rain or storm expected in the next 1 to 3 hours\n"
+    "- IMD weather warnings and alerts (red / orange / yellow, cyclone, storm)\n"
+    "- Wind speed, air pressure, and the hottest, coldest or wettest day of the past week\n"
+    "- Weather for a past date or the last few days\n"
+    "- Weather at nearby weather stations\n\n"
+    'For example: "Will it rain tomorrow?", "What is the 5-day forecast?", '
+    '"How much rain fell in the past 3 days?"'
+)
+
+_UNSUPPORTED_WEATHER_MESSAGES = {
+    UNSUPPORTED_PARAMETER: "This weather detail is not available from our weather service.",
+    BEYOND_FORECAST_RANGE: "Weather forecasts are available only for the next 7 days, so I cannot share weather beyond that.",
+    LONG_TERM_HISTORY: "Past weather is available only for recent days, not for past months, years or long-term climate trends.",
+}
+
+_UNSUPPORTED_PARAMETER_RE = re.compile(
+    r"\b(?:uv|uv\s*index|ultra\s*violet|aqi|air\s+quality|air\s+pollution|pollution|smog|pm\s*2\.5|pm\s*10"
+    r"|sunrise|sunset|moonrise|moonset|moon\s*phase|full\s+moon|new\s+moon|eclipse"
+    r"|soil\s+moisture|soil\s+temperature|evapotranspiration|dew\s*point|earthquakes?)\b"
+)
+
+_NUM_WORDS = {
+    "one": 1, "two": 2, "three": 3, "four": 4, "five": 5, "six": 6, "seven": 7, "eight": 8, "nine": 9,
+    "ten": 10, "eleven": 11, "twelve": 12, "fifteen": 15, "twenty": 20, "thirty": 30,
+}
+_NUM = r"(\d+|" + "|".join(_NUM_WORDS) + r")"
+
+_FAR_FORECAST_RE = re.compile(
+    r"\b(?:next|coming|upcoming)\s+(?:month|months|year|season|fortnight)\b"
+    r"|\bfortnight\b|\bseasonal\s+forecast\b|\blong[\s-]*range\b|\bthis\s+(?:coming\s+)?season\b"
+    r"|\b(?:next|coming|upcoming|after|in|for)\s+(?:the\s+)?(?:next\s+)?(?:[2-9]|\d{2,}|two|three|four|five|six)\s+weeks?\b"
+    r"|\b(?:next|coming|upcoming|after|in|for)\s+(?:the\s+)?(?:next\s+)?(?:\d+|one|two|three|four|five|six)\s+months?\b"
+)
+_FUTURE_DAYS_RE = re.compile(r"\b(?:next|coming|upcoming)\s+" + _NUM + r"\s*(?:days?|dyas)\b")
+_LONG_HISTORY_RE = re.compile(
+    r"\b(?:last|past|previous)\s+(?:year|years|decade|season)\b"
+    r"|\b(?:last|past|previous)\s+(?:\d+|two|three|four|five|six|ten)\s+(?:months|years)\b"
+    r"|\b(?:years?|months)\s+ago\b|\bclimate\s+change\b"
+)
+
+# Words that show the query is about something the tools do serve; an LLM "out of scope" flag
+# alone is ignored for such a query so a hallucinated flag cannot decline a normal question.
+_IN_SCOPE_KEYWORDS = (
+    _ALERTS_KEYWORDS + _TEMP_KEYWORDS + _RAINFALL_KEYWORDS + _INSIGHT_METRIC_KEYWORDS + _INSIGHT_EXTREME_KEYWORDS
+    + ["forecast", "humid", "weather", "nowcast"]
+)
+
+
+def _num_value(token: str) -> int | None:
+    return _NUM_WORDS.get(token, int(token) if token.isdigit() else None)
+
+
+def detect_unsupported_weather_query(query: str) -> str | None:
+    """Reason a weather query cannot be answered by the weather tools, or None when it can."""
+    q = _PAST_24H_RE.sub(" ", (query or "").lower())
+    if _UNSUPPORTED_PARAMETER_RE.search(q):
+        return UNSUPPORTED_PARAMETER
+    if _FAR_FORECAST_RE.search(q):
+        return BEYOND_FORECAST_RANGE
+    m = _FUTURE_DAYS_RE.search(q)
+    if m and (_num_value(m.group(1)) or 0) > _MAX_FORECAST_OFFSET_DAYS + 1:
+        return BEYOND_FORECAST_RANGE
+    if _LONG_HISTORY_RE.search(q):
+        return LONG_TERM_HISTORY
+    return None
+
+
+def _date_beyond_forecast_range(*dates: str | None) -> bool:
+    """True when any YYYY-MM-DD date falls after the last forecast day."""
+    last_day = (_today_ist() + timedelta(days=_MAX_FORECAST_OFFSET_DAYS)).strftime("%Y-%m-%d")
+    return any(d and d > last_day for d in dates)
+
+
+def unsupported_weather_message(reason: str) -> str:
+    lead = _UNSUPPORTED_WEATHER_MESSAGES.get(reason) or "I could not match this question to the weather information I provide."
+    return f"{lead}\n\n{WEATHER_CAPABILITY_MENU}"
+
+
+def _unsupported_weather_envelope(reason: str) -> str:
+    """Reply for a weather question the tools cannot answer.
+
+    No top-level ``success: false``: that routes to the "weather unavailable" reply, and the
+    ``status`` lets assemble_answer_body skip the relevance check that falls back to the expert queue.
+    """
+    return json.dumps(
+        {
+            "answer": unsupported_weather_message(reason),
+            "tool_data": {"status": "unsupported", "reason": reason},
+            "status": "unsupported",
+            "reason": reason,
+        },
+        ensure_ascii=False,
+    )
+
+
 def _extract_json_object(text: str) -> dict[str, Any] | None:
     if not text:
         return None
@@ -521,6 +634,9 @@ def _normalize_weather_intent(raw: dict[str, Any] | None, query: str) -> dict[st
         "radius_km": radius_km if tool in {"get_weather_nowcast", "get_location_weather"} else None,
         "source": "minimax",
     }
+    unsupported = str(raw.get("unsupported_reason") or "").strip().lower()
+    if unsupported in _UNSUPPORTED_WEATHER_REASONS and not _has_keyword(query.lower(), _IN_SCOPE_KEYWORDS):
+        out["unsupported_reason"] = unsupported
     return out
 
 
@@ -1127,6 +1243,11 @@ async def new_weather(
     Query the cluster-based weather agent (Tools 1 to 7).
     """
     try:
+        declined = detect_unsupported_weather_query(query)
+        if declined:
+            logger.info("new_weather_agent: declining query %r (reason=%s)", query, declined)
+            return _unsupported_weather_envelope(declined)
+
         # The location is always the farmer's profile location (state, district,
         # lat/long) passed in by the planner; nothing is read from the query.
         lat, lon = latitude, longitude
@@ -1216,6 +1337,9 @@ async def new_weather(
 
         # MiniMax-first tool + variable extraction; programmatic heuristics on failure.
         intent = await extract_weather_intent(query)
+        if intent.get("unsupported_reason"):
+            logger.info("new_weather_agent: declining query %r (intent reason=%s)", query, intent["unsupported_reason"])
+            return _unsupported_weather_envelope(intent["unsupported_reason"])
         tool_name = intent.get("tool") or route_weather_query_by_heuristics(query)
 
         # Prefer explicit tool args, then MiniMax, then programmatic extracts.
@@ -1239,6 +1363,14 @@ async def new_weather(
         if intent.get("include_nearby_stations") is None:
             want_nearby = any(k in q_lower for k in ["nearby", "station", "stations", "radius", "50km", "nearest"])
         radius_km = intent.get("radius_km") if intent.get("radius_km") is not None else 50.0
+
+        # A named date past Day 7 ("weather on 20 December") has no forecast to serve.
+        if _date_beyond_forecast_range(eff_target_date, eff_from_date, eff_to_date):
+            logger.info(
+                "new_weather_agent: declining query %r (dates beyond forecast range: %s %s %s)",
+                query, eff_target_date, eff_from_date, eff_to_date,
+            )
+            return _unsupported_weather_envelope(BEYOND_FORECAST_RANGE)
 
         logger.info(
             "new_weather_agent routed query %r to tool %s via %s "

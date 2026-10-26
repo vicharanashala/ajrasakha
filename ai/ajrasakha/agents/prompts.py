@@ -918,6 +918,13 @@ Output JSON keys (use null for unused fields):
 - hours_ahead: integer 1-3 or null (nowcast only)
 - include_nearby_stations: boolean or null
 - radius_km: number or null
+- unsupported_reason: null, or one of the values below when NO tool can answer the query:
+  - "unsupported_parameter" — asks for data the tools do not have: UV index, air quality / AQI / pollution,
+    sunrise / sunset / moon phase, soil moisture / soil temperature, snowfall, dew point, earthquakes
+  - "beyond_forecast_range" — asks about more than 7 days ahead: next month, 2+ weeks, seasonal / long-range outlook
+  - "long_term_history" — asks about past months or years, or long-term climate trends / climate change
+  Keep it null for any normal weather question (rain, temperature, humidity, wind, alerts, forecast up to 7 days,
+  recent past days). When set, still fill "tool" with the closest tool.
 
 Available tools and functionalities:
 - get_current_and_forecast_info
@@ -991,7 +998,10 @@ Query: What was the wind speed yesterday?
 {"tool":"get_weather_history_insights","query_type":"previous","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
 
 Query: Current temperature and humidity
-{"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null}
+{"tool":"get_temperature_info","query_type":"today","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"unsupported_reason":null}
+
+Query: Will it snow here this winter?
+{"tool":"get_current_and_forecast_info","query_type":"forecast","data_type":null,"target_date":null,"from_date":null,"to_date":null,"past_days":null,"forecast_days":null,"hours_ahead":null,"include_nearby_stations":null,"radius_km":null,"unsupported_reason":"beyond_forecast_range"}
 """
 
 NEW_WEATHER_ANSWER_PROMPT = """You are AjraSakha helping an Indian farmer with weather information.
