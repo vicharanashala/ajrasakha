@@ -80,14 +80,29 @@ def _openai_role_chunk(*, model: str, chunk_id: str) -> dict[str, Any]:
 
 
 def _tail_after_streamed(streamed: str, final: str) -> str:
-    """Text of ``final`` not yet sent; never re-sends content already streamed."""
+    """Text of ``final`` not yet sent; never re-sends content already streamed.
+
+    Whitespace-insensitive: later steps may re-space blank lines in the body, which
+    must not cause the sources/disclaimer tail to be dropped.
+    """
     if not final:
         return ""
-    s, f = streamed.strip(), final.strip()
-    if f.startswith(s):
-        return f[len(s) :]
-    logger.warning("final reply does not extend streamed translation; dropping tail")
-    return ""
+    want = "".join(streamed.split())
+    got = 0
+    end = 0
+    for i, ch in enumerate(final):
+        if got == len(want):
+            break
+        if ch.isspace():
+            continue
+        if ch != want[got]:
+            logger.warning("final reply does not extend streamed translation; dropping tail")
+            return ""
+        got += 1
+        end = i + 1
+    if got < len(want):
+        return ""
+    return final[end:]
 
 
 def _extract_text_content(message_chunk: Any) -> str:
