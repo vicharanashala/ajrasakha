@@ -8,6 +8,37 @@ import { client } from "./client/client.gen.ts";
 import { env } from "./config/env.ts";
 import { ToastProvider } from "./shared/components/toast.tsx";
 
+// ── Demo bypass: if visiting /gap-detector, inject a fake auth user into
+//    localStorage BEFORE the router loads, so Firebase's "no user" callback
+//    doesn't redirect to /auth ──────────────────────────────────────────────
+if (window.location.pathname.startsWith("/gap-detector")) {
+  try {
+    const stored = localStorage.getItem("auth-storage");
+    const parsed = stored ? JSON.parse(stored) : {};
+    if (!parsed?.state?.user) {
+      localStorage.setItem(
+        "auth-storage",
+        JSON.stringify({
+          state: {
+            user: {
+              uid: "demo-iitropar",
+              email: "intern@iitropar.ac.in",
+              name: "IIT Ropar Intern",
+              avatar: "",
+            },
+            firebaseUser: null,
+            isAuthenticated: true,
+            loading: false,
+            error: null,
+          },
+          version: 0,
+        })
+      );
+    }
+  } catch (_) {}
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 async function bootstrap() {
   // Enable MSW only when explicitly allowed
   if (env.enableMocks()) {

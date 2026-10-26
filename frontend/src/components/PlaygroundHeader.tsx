@@ -173,6 +173,13 @@ export function PlaygroundHeader({
                 <span>Data Processing</span>
               </TabsTrigger>
             )}
+
+            <a
+              href="/gap-detector"
+              className={"px-2 md:px-3 py-1.5 rounded-lg font-medium text-sm md:text-base transition-all duration-150 flex-shrink-0 flex items-center gap-1.5 "}
+            >
+              <span>GDB Gap Detector</span>
+            </a>
           </TabsList>
         </div>
 

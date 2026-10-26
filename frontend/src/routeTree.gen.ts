@@ -16,6 +16,7 @@ import { Route as PaeExpertIndexRouteImport } from './routes/pae-expert/index'
 import { Route as NotificationsIndexRouteImport } from './routes/notifications/index'
 import { Route as HomeIndexRouteImport } from './routes/home/index'
 import { Route as HistoryIndexRouteImport } from './routes/history/index'
+import { Route as GapDetectorIndexRouteImport } from './routes/gap-detector/index'
 import { Route as FlagsReportedIndexRouteImport } from './routes/flags-reported/index'
 import { Route as CoordinatorIndexRouteImport } from './routes/coordinator/index'
 import { Route as ChatbotIndexRouteImport } from './routes/chatbot/index'
@@ -58,6 +59,11 @@ const HomeIndexRoute = HomeIndexRouteImport.update({
 const HistoryIndexRoute = HistoryIndexRouteImport.update({
   id: '/history/',
   path: '/history/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const GapDetectorIndexRoute = GapDetectorIndexRouteImport.update({
+  id: '/gap-detector/',
+  path: '/gap-detector/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const FlagsReportedIndexRoute = FlagsReportedIndexRouteImport.update({
@@ -107,16 +113,17 @@ export interface FileRoutesByFullPath {
   '/coordinator/profile': typeof CoordinatorProfileRoute
   '/user-history/$userId': typeof UserHistoryUserIdRoute
   '/user/$userId': typeof UserUserIdRoute
-  '/audit/': typeof AuditIndexRoute
-  '/auth/': typeof AuthIndexRoute
-  '/chatbot/': typeof ChatbotIndexRoute
-  '/coordinator/': typeof CoordinatorIndexRoute
-  '/flags-reported/': typeof FlagsReportedIndexRoute
-  '/history/': typeof HistoryIndexRoute
-  '/home/': typeof HomeIndexRoute
-  '/notifications/': typeof NotificationsIndexRoute
-  '/pae-expert/': typeof PaeExpertIndexRoute
-  '/profile/': typeof ProfileIndexRoute
+  '/audit': typeof AuditIndexRoute
+  '/auth': typeof AuthIndexRoute
+  '/chatbot': typeof ChatbotIndexRoute
+  '/coordinator': typeof CoordinatorIndexRoute
+  '/flags-reported': typeof FlagsReportedIndexRoute
+  '/gap-detector': typeof GapDetectorIndexRoute
+  '/history': typeof HistoryIndexRoute
+  '/home': typeof HomeIndexRoute
+  '/notifications': typeof NotificationsIndexRoute
+  '/pae-expert': typeof PaeExpertIndexRoute
+  '/profile': typeof ProfileIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -129,6 +136,7 @@ export interface FileRoutesByTo {
   '/chatbot': typeof ChatbotIndexRoute
   '/coordinator': typeof CoordinatorIndexRoute
   '/flags-reported': typeof FlagsReportedIndexRoute
+  '/gap-detector': typeof GapDetectorIndexRoute
   '/history': typeof HistoryIndexRoute
   '/home': typeof HomeIndexRoute
   '/notifications': typeof NotificationsIndexRoute
@@ -147,6 +155,7 @@ export interface FileRoutesById {
   '/chatbot/': typeof ChatbotIndexRoute
   '/coordinator/': typeof CoordinatorIndexRoute
   '/flags-reported/': typeof FlagsReportedIndexRoute
+  '/gap-detector/': typeof GapDetectorIndexRoute
   '/history/': typeof HistoryIndexRoute
   '/home/': typeof HomeIndexRoute
   '/notifications/': typeof NotificationsIndexRoute
@@ -161,16 +170,17 @@ export interface FileRouteTypes {
     | '/coordinator/profile'
     | '/user-history/$userId'
     | '/user/$userId'
-    | '/audit/'
-    | '/auth/'
-    | '/chatbot/'
-    | '/coordinator/'
-    | '/flags-reported/'
-    | '/history/'
-    | '/home/'
-    | '/notifications/'
-    | '/pae-expert/'
-    | '/profile/'
+    | '/audit'
+    | '/auth'
+    | '/chatbot'
+    | '/coordinator'
+    | '/flags-reported'
+    | '/gap-detector'
+    | '/history'
+    | '/home'
+    | '/notifications'
+    | '/pae-expert'
+    | '/profile'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -183,6 +193,7 @@ export interface FileRouteTypes {
     | '/chatbot'
     | '/coordinator'
     | '/flags-reported'
+    | '/gap-detector'
     | '/history'
     | '/home'
     | '/notifications'
@@ -200,6 +211,7 @@ export interface FileRouteTypes {
     | '/chatbot/'
     | '/coordinator/'
     | '/flags-reported/'
+    | '/gap-detector/'
     | '/history/'
     | '/home/'
     | '/notifications/'
@@ -218,6 +230,7 @@ export interface RootRouteChildren {
   ChatbotIndexRoute: typeof ChatbotIndexRoute
   CoordinatorIndexRoute: typeof CoordinatorIndexRoute
   FlagsReportedIndexRoute: typeof FlagsReportedIndexRoute
+  GapDetectorIndexRoute: typeof GapDetectorIndexRoute
   HistoryIndexRoute: typeof HistoryIndexRoute
   HomeIndexRoute: typeof HomeIndexRoute
   NotificationsIndexRoute: typeof NotificationsIndexRoute
@@ -244,70 +257,77 @@ declare module '@tanstack/react-router' {
     '/profile/': {
       id: '/profile/'
       path: '/profile'
-      fullPath: '/profile/'
+      fullPath: '/profile'
       preLoaderRoute: typeof ProfileIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/pae-expert/': {
       id: '/pae-expert/'
       path: '/pae-expert'
-      fullPath: '/pae-expert/'
+      fullPath: '/pae-expert'
       preLoaderRoute: typeof PaeExpertIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/notifications/': {
       id: '/notifications/'
       path: '/notifications'
-      fullPath: '/notifications/'
+      fullPath: '/notifications'
       preLoaderRoute: typeof NotificationsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/home/': {
       id: '/home/'
       path: '/home'
-      fullPath: '/home/'
+      fullPath: '/home'
       preLoaderRoute: typeof HomeIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/history/': {
       id: '/history/'
       path: '/history'
-      fullPath: '/history/'
+      fullPath: '/history'
       preLoaderRoute: typeof HistoryIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/gap-detector/': {
+      id: '/gap-detector/'
+      path: '/gap-detector'
+      fullPath: '/gap-detector'
+      preLoaderRoute: typeof GapDetectorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/flags-reported/': {
       id: '/flags-reported/'
       path: '/flags-reported'
-      fullPath: '/flags-reported/'
+      fullPath: '/flags-reported'
       preLoaderRoute: typeof FlagsReportedIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/coordinator/': {
       id: '/coordinator/'
       path: '/coordinator'
-      fullPath: '/coordinator/'
+      fullPath: '/coordinator'
       preLoaderRoute: typeof CoordinatorIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/chatbot/': {
       id: '/chatbot/'
       path: '/chatbot'
-      fullPath: '/chatbot/'
+      fullPath: '/chatbot'
       preLoaderRoute: typeof ChatbotIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/': {
       id: '/auth/'
       path: '/auth'
-      fullPath: '/auth/'
+      fullPath: '/auth'
       preLoaderRoute: typeof AuthIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/audit/': {
       id: '/audit/'
       path: '/audit'
-      fullPath: '/audit/'
+      fullPath: '/audit'
       preLoaderRoute: typeof AuditIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
@@ -346,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   ChatbotIndexRoute: ChatbotIndexRoute,
   CoordinatorIndexRoute: CoordinatorIndexRoute,
   FlagsReportedIndexRoute: FlagsReportedIndexRoute,
+  GapDetectorIndexRoute: GapDetectorIndexRoute,
   HistoryIndexRoute: HistoryIndexRoute,
   HomeIndexRoute: HomeIndexRoute,
   NotificationsIndexRoute: NotificationsIndexRoute,
