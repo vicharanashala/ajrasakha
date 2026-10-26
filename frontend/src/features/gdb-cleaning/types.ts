@@ -27,10 +27,22 @@ export interface IGdbCheck {
 export const effectiveResult = (check: IGdbCheck): GdbCheckResult =>
   check.override ? check.override.result : check.result;
 
+export type GdbSourceType = "central" | "state" | "district" | "hyper_local" | "other";
+
+export const SOURCE_TYPE_LABELS: Record<GdbSourceType, string> = {
+  central: "Central",
+  state: "State",
+  district: "District",
+  hyper_local: "Hyper-local",
+  other: "Other",
+};
+
 export interface IGdbSource {
   sourceName: string;
   source: string;
   page: string;
+  // the same types the reviewer app uses for a source
+  sourceType?: GdbSourceType;
 }
 
 // one row of the list

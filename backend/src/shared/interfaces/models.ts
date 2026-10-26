@@ -1017,6 +1017,8 @@ export interface IGdbCleaningSource {
   sourceName: string;
   source: string;
   page: string;
+  /** central, state, district, hyper_local or other: the same types the reviewer app uses */
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 }
 
 /** One answer in the `gdb_cleaning` collection: the answer, the result of each

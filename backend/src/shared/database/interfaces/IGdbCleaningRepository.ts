@@ -53,6 +53,7 @@ export interface IGdbCleaningRepository {
     answerId: string,
     checks: IGdbCleaningCheck[],
     flags: string[],
+    status: 'todo' | 'clean',
   ): Promise<IGdbCleaning | null>;
 
   /** Saves the edited sources, keeping the originals. Only an answer still to do can change. */

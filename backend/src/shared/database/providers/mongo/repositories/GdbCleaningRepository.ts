@@ -168,7 +168,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
         {$set: {correctedAnswer}},
         {returnDocument: 'after'},
       );
@@ -184,12 +184,13 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     answerId: string,
     checks: IGdbCleaningCheck[],
     flags: string[],
+    status: 'todo' | 'clean',
   ): Promise<IGdbCleaning | null> {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
-        {$set: {checks, flags}},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
+        {$set: {checks, flags, status}},
         {returnDocument: 'after'},
       );
     } catch (error: any) {
@@ -209,7 +210,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
         {
           $set: {
             sources,
@@ -238,7 +239,6 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
         {
           answerId: GdbCleaningRepository.toObjectId(answerId),
           status: 'fixed',
-          pushedAt: {$in: [null, undefined]},
         },
         {$set: {pushedAt: new Date(), pushedBy: new ObjectId(reviewerId)}},
         {returnDocument: 'after'},
@@ -273,7 +273,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       }
       // the status in the filter means a decided answer is never changed again
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
         {$set: changes},
         {returnDocument: 'after'},
       );

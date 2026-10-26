@@ -4,9 +4,10 @@ import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
 import { diffWords } from "@/utils/wordDifference";
-import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Trash2, X } from "lucide-react";
+import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
 import { effectiveResult } from "../types";
-import type { IGdbCleaningItem, IGdbSource } from "../types";
+import { SOURCE_TYPE_LABELS } from "../types";
+import type { GdbSourceType, IGdbCleaningItem, IGdbSource } from "../types";
 import { GdbFlagsPanel } from "./GdbFlagsPanel";
 import { HighlightedText } from "./HighlightedText";
 import { StatusBadge } from "./GdbListView";
@@ -27,6 +28,9 @@ interface GdbDetailViewProps {
   onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
   // replaces the golden answer with the accepted correction; resolves once it is done
   onPush: () => Promise<unknown>;
+  // the AI draft in the predefined structure; null when it could not be made
+  onDraftWithAi: () => Promise<string | null>;
+  drafting?: boolean;
   busy?: boolean;
 }
 
@@ -39,6 +43,8 @@ export const GdbDetailView = ({
   onEditFlag,
   onSaveSources,
   onPush,
+  onDraftWithAi,
+  drafting = false,
   busy = false,
 }: GdbDetailViewProps) => {
   const [editing, setEditing] = useState(false);
@@ -58,8 +64,8 @@ export const GdbDetailView = ({
     [item.checks]
   );
   const decided = item.status === "fixed" || item.status === "dismissed";
-  // only an answer with flags still to do can be changed
-  const locked = item.status !== "todo";
+  // an answer can be changed while it is to do or has no flags; a decided one is closed
+  const locked = item.status !== "todo" && item.status !== "clean";
 
   const startSourceEdit = () => {
     setSourceDraft(item.sources.map((source) => ({ ...source })));
@@ -67,10 +73,23 @@ export const GdbDetailView = ({
   };
 
   const changeSource = (index: number, field: keyof IGdbSource, value: string) =>
-    setSourceDraft((draft) => draft.map((source, i) => (i === index ? { ...source, [field]: value } : source)));
+    setSourceDraft((draft) =>
+      draft.map((source, i) =>
+        i === index ? { ...source, [field]: field === "sourceType" ? value || undefined : value } : source
+      )
+    );
 
   // a source needs a link, and a name to show
   const sourcesValid = sourceDraft.every((source) => source.source.trim() && source.sourceName.trim());
+
+  // the draft goes into the correction box; nothing is saved until the expert saves it
+  const draftWithAi = async () => {
+    const text = await onDraftWithAi();
+    if (text) {
+      setDraft(text);
+      setEditing(true);
+    }
+  };
 
   const startEdit = () => {
     setDraft(corrected ?? item.answer);
@@ -209,10 +228,14 @@ export const GdbDetailView = ({
             <Pencil className="w-4 h-4 mr-1" />
             Edit correction
           </Button>
+          <Button variant="outline" onClick={draftWithAi} disabled={locked || busy || drafting}>
+            <Sparkles className="w-4 h-4 mr-1" />
+            {drafting ? "Drafting..." : "Draft with AI"}
+          </Button>
           <Button
             variant="outline"
             onClick={() => onDismiss(comment.trim())}
-            disabled={editing || locked || busy}
+            disabled={editing || locked || busy || item.status === "clean"}
           >
             <X className="w-4 h-4 mr-1" />
             Dismiss flags
@@ -233,11 +256,12 @@ export const GdbDetailView = ({
           )}
           {item.status === "fixed" && (
             <div className="mt-2">
-              {item.pushedAt ? (
-                <p className="text-xs text-green-700 dark:text-green-300">
+              {item.pushedAt && (
+                <p className="mb-1 text-xs text-green-700 dark:text-green-300">
                   Pushed to the golden database on {new Date(item.pushedAt).toLocaleString()}.
                 </p>
-              ) : (
+              )}
+              {!item.pushedAt || item.sourcesEdited ? (
                 <Button
                   size="sm"
                   disabled={busy}
@@ -252,9 +276,9 @@ export const GdbDetailView = ({
                   }}
                 >
                   <Send className="w-4 h-4 mr-1" />
-                  Push to GDB
+                  {item.pushedAt ? "Push again (sources changed)" : "Push to GDB"}
                 </Button>
-              )}
+              ) : null}
             </div>
           )}
         </div>
@@ -276,7 +300,7 @@ export const GdbDetailView = ({
             {sourceDraft.map((source, idx) => (
               <div
                 key={idx}
-                className="grid grid-cols-1 gap-2 rounded-lg border bg-muted/30 p-3 md:grid-cols-[200px_1fr_90px_auto]"
+                className="grid grid-cols-1 gap-2 rounded-lg border bg-muted/30 p-3 md:grid-cols-[200px_1fr_90px_130px_auto]"
               >
                 <Input
                   value={source.sourceName}
@@ -293,6 +317,19 @@ export const GdbDetailView = ({
                   onChange={(e) => changeSource(idx, "page", e.target.value)}
                   placeholder="Page"
                 />
+                <select
+                  value={source.sourceType ?? ""}
+                  onChange={(e) => changeSource(idx, "sourceType", e.target.value)}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  aria-label="Source type"
+                >
+                  <option value="">Type</option>
+                  {(Object.keys(SOURCE_TYPE_LABELS) as GdbSourceType[]).map((type) => (
+                    <option key={type} value={type}>
+                      {SOURCE_TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
                 <Button
                   size="sm"
                   variant="outline"
@@ -306,7 +343,7 @@ export const GdbDetailView = ({
             <Button
               size="sm"
               variant="outline"
-              onClick={() => setSourceDraft((draft) => [...draft, { sourceName: "", source: "", page: "" }])}
+              onClick={() => setSourceDraft((draft) => [...draft, { sourceName: "", source: "", page: "", sourceType: undefined }])}
             >
               <Plus className="w-4 h-4 mr-1" />
               Add a source
@@ -344,6 +381,7 @@ export const GdbDetailView = ({
                 <span className="text-xs font-medium truncate">{source.sourceName}</span>
                 <span className="text-sm truncate text-blue-600 dark:text-blue-400">{source.source}</span>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {source.sourceType ? `${SOURCE_TYPE_LABELS[source.sourceType]} · ` : ""}
                   {source.page ? `pg ${source.page}` : "no page"}
                 </span>
                 <a
