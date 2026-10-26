@@ -24,8 +24,10 @@ from mongo_user import update_user_location_if_changed
 logger = logging.getLogger("langgraph-openai-adapter")
 
 # Farmer-facing graph nodes may stream tokens to the client.
-_FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_reply"})
+_FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_reply", "translate_answer"})
 # Internal nodes must never stream (sanitizer JSON, tool loop, planner, etc.).
+# The only node whose LLM tokens are forwarded live (final back-translation).
+_TRANSLATE_STREAM_NODE = "translate_answer"
 _BLOCK_STREAM_NODES = frozenset({
     "tools",
     "planner",
@@ -69,6 +71,23 @@ def _openai_chunk(
             }
         ],
     }
+
+
+def _openai_role_chunk(*, model: str, chunk_id: str) -> dict[str, Any]:
+    chunk = _openai_chunk(model=model, chunk_id=chunk_id)
+    chunk["choices"][0]["delta"] = {"role": "assistant"}
+    return chunk
+
+
+def _tail_after_streamed(streamed: str, final: str) -> str:
+    """Text of ``final`` not yet sent; never re-sends content already streamed."""
+    if not final:
+        return ""
+    s, f = streamed.strip(), final.strip()
+    if f.startswith(s):
+        return f[len(s) :]
+    logger.warning("final reply does not extend streamed translation; dropping tail")
+    return ""
 
 
 def _extract_text_content(message_chunk: Any) -> str:
@@ -593,10 +612,30 @@ async def stream_openai_from_langgraph(
                 await response.aread()
                 response.raise_for_status()
 
-            # Consume the run stream fully, but do not emit any intermediate text.
-            # The final assistant reply is taken from thread state.
-            async for _line in response.aiter_lines():
-                pass
+            # Only the final back-translation (node ``translate_answer``) is forwarded
+            # live. Every other node's output (planner, tools, follow-up, ...) is
+            # consumed and dropped; the post-translation tail (sources, disclaimers)
+            # and non-LLM replies come from thread state afterwards.
+            streamed = ""
+            current_event: str | None = None
+            async for line in response.aiter_lines():
+                current_event, data = _parse_langgraph_sse_line(line, current_event)
+                if data is None or not (current_event or "").startswith("messages"):
+                    continue
+                if not (isinstance(data, list) and len(data) == 2):
+                    continue
+                message_chunk, metadata = data
+                if _langgraph_node_name(metadata) != _TRANSLATE_STREAM_NODE:
+                    continue
+                if not _should_emit_message_chunk(message_chunk, metadata):
+                    continue
+                delta = _stream_delta_content(streamed, _extract_text_content(message_chunk))
+                if not delta:
+                    continue
+                if not streamed:
+                    yield f"data: {json.dumps(_openai_role_chunk(model=model, chunk_id=chunk_id))}\n\n"
+                streamed += delta
+                yield f"data: {json.dumps(_openai_chunk(content=delta, model=model, chunk_id=chunk_id))}\n\n"
 
             final_reply = ""
             try:
@@ -614,10 +653,14 @@ async def stream_openai_from_langgraph(
                     exc,
                 )
 
-            if final_reply:
-                chunk = _openai_chunk(content=final_reply, model=model, chunk_id=chunk_id)
-                yield f"data: {json.dumps(chunk)}\n\n"
+            if streamed:
+                tail = _tail_after_streamed(streamed, final_reply)
             else:
+                tail = final_reply
+            if tail:
+                chunk = _openai_chunk(content=tail, model=model, chunk_id=chunk_id)
+                yield f"data: {json.dumps(chunk)}\n\n"
+            elif not streamed:
                 logger.warning(
                     "LangGraph run completed with no assistant text in thread state (thread=%s)",
                     thread_id,
