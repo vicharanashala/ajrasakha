@@ -16,7 +16,9 @@
         "crop_price_not_available_in_selected_mandi": "Thank you for reaching out to Annam.ai.\n\nPrice information for [Crop Name] is currently unavailable in [Mandi Name] mandi.\n\nThis may be because no recent market arrivals or price records are available for the selected crop at this mandi. You may check any nearby mandi or try again later.",
         "mandi_not_available": "Thank you for reaching out to Annam.ai.\n\n[Mandi Name] mandi’s information could not be displayed at this time. We are continuously expanding our mandi coverage across India. Please verify the mandi name or search for a nearby mandi to view the latest market prices.",
         "invalid_location_follow_up": "Could not find that state/district. Could you clarify?",
-        "abusive_word_disclaimer": "Your query contains inappropriate language. We request you to use respectful words in your message."
+        "abusive_word_disclaimer": "Your query contains inappropriate language. We request you to use respectful words in your message.",
+        "crop_price_not_available_in_selected_district": "Thank you for reaching out to Annam.ai.\n\nPrice information for [Crop Name] is currently unavailable in [Mandi Name] district.\n\nThis may be because no recent market arrivals or price records are available for the selected crop in this district. You may check any nearby mandi or try again later.",
+        "district_not_available": "Thank you for reaching out to Annam.ai.\n\nMandi information for [Mandi Name] district could not be displayed at this time. We are continuously expanding our mandi coverage across India. Please verify the district name or search for a nearby mandi to view the latest market prices."
       }
     },
     {
@@ -214,7 +216,9 @@
         "crop_price_not_available_in_selected_mandi": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Crop Name] के लिए मूल्य की जानकारी [Mandi Name] मंडी में फिलहाल उपलब्ध नहीं है।\n\nऐसा इसलिए हो सकता है क्योंकि इस मंडी में चुनी गई फसल के लिए हाल ही में बाजार आवक या मूल्य रिकॉर्ड उपलब्ध नहीं है। आप नजदीकी किसी मंडी को देख सकते हैं या बाद में फिर से कोशिश कर सकते हैं।",
         "mandi_not_available": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Mandi Name] मंडी की जानकारी इस समय प्रदर्शित नहीं की जा सकी। हम भारत भर में अपनी मंडी कवरेज का लगातार विस्तार कर रहे हैं। कृपया मंडी के नाम की पुष्टि करें या नवीनतम बाजार मूल्य देखने के लिए पास की किसी मंडी को खोजें।",
         "invalid_location_follow_up": "वह राज्य या जिला नहीं मिला। आप किस राज्य और जिले में हैं?",
-        "abusive_word_disclaimer": "आपके संदेश में अनुचित भाषा है। कृपया सम्मानजनक शब्दों का प्रयोग करें।"
+        "abusive_word_disclaimer": "आपके संदेश में अनुचित भाषा है। कृपया सम्मानजनक शब्दों का प्रयोग करें।",
+        "crop_price_not_available_in_selected_district": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Crop Name] के लिए मूल्य की जानकारी [Mandi Name] जिले में फिलहाल उपलब्ध नहीं है।\n\nऐसा इसलिए हो सकता है क्योंकि इस जिले में चुनी गई फसल के लिए हाल ही में बाजार आवक या मूल्य रिकॉर्ड उपलब्ध नहीं है। आप नजदीकी किसी मंडी को देख सकते हैं या बाद में फिर से कोशिश कर सकते हैं।",
+        "district_not_available": "Annam.ai से संपर्क करने के लिए धन्यवाद।\n\n[Mandi Name] जिले की मंडी जानकारी इस समय प्रदर्शित नहीं की जा सकी। हम भारत भर में अपनी मंडी कवरेज का लगातार विस्तार कर रहे हैं। कृपया जिले के नाम की पुष्टि करें या नवीनतम बाजार मूल्य देखने के लिए पास की किसी मंडी को खोजें।"
       }
     },
     {
@@ -682,7 +686,9 @@
         "crop_price_not_available_in_selected_mandi": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Crop Name] కోసం ధర సమాచారం ప్రస్తుతం [Mandi Name] మండీలో అందుబాటులో లేదు.\n\nఎంచుకున్న పంటకు ఈ మండీలో ఇటీవలి మార్కెట్ రాకలు లేదా ధర రికార్డులు అందుబాటులో లేకపోవడం దీనికి కారణం కావచ్చు. మీరు సమీపంలోని ఏదైనా మండీని తనిఖీ చేయవచ్చు లేదా కొంత సమయం తర్వాత మళ్లీ ప్రయత్నించవచ్చు.",
         "mandi_not_available": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Mandi Name] మండీ సమాచారం ప్రస్తుతం ప్రదర్శించడం సాధ్యం కాలేదు. మేము భారతదేశం అంతటా మా మండీ కవరేజీని నిరంతరం విస్తరిస్తున్నాము. దయచేసి మండీ పేరును ధృవీకరించండి లేదా తాజా మార్కెట్ ధరలను చూడటానికి సమీపంలోని మండీని వెతకండి.",
         "invalid_location_follow_up": "ఆ రాష్ట్రం లేదా జిల్లా దొరకలేదు. మీరు ఏ రాష్ట్రంలో మరియు ఏ జిల్లాలో ఉన్నారు?",
-        "abusive_word_disclaimer": "మీ సందేశంలో అనుచితమైన భాష ఉంది. దయచేసి గౌరవప్రదమైన పదాలను ఉపయోగించండి."
+        "abusive_word_disclaimer": "మీ సందేశంలో అనుచితమైన భాష ఉంది. దయచేసి గౌరవప్రదమైన పదాలను ఉపయోగించండి.",
+        "crop_price_not_available_in_selected_district": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Crop Name] కోసం ధర సమాచారం ప్రస్తుతం [Mandi Name] జిల్లాలో అందుబాటులో లేదు.\n\nఎంచుకున్న పంటకు ఈ జిల్లాలో ఇటీవలి మార్కెట్ రాకలు లేదా ధర రికార్డులు అందుబాటులో లేకపోవడం దీనికి కారణం కావచ్చు. మీరు సమీపంలోని ఏదైనా మండీని తనిఖీ చేయవచ్చు లేదా కొంత సమయం తర్వాత మళ్లీ ప్రయత్నించవచ్చు.",
+        "district_not_available": "Annam.ai-ని సంప్రదించినందుకు ధన్యవాదాలు.\n\n[Mandi Name] జిల్లా మండీ సమాచారం ప్రస్తుతం ప్రదర్శించడం సాధ్యం కాలేదు. మేము భారతదేశం అంతటా మా మండీ కవరేజీని నిరంతరం విస్తరిస్తున్నాము. దయచేసి జిల్లా పేరును ధృవీకరించండి లేదా తాజా మార్కెట్ ధరలను చూడటానికి సమీపంలోని మండీని వెతకండి."
       }
     },
     {

@@ -57,6 +57,13 @@ _TEXT_FIELDS = (
     "abusive_word_disclaimer",
 )
 
+# Optional district-worded variants of the two mandi-unavailable replies. Rows
+# without them fall back to the mandi templates.
+_OPTIONAL_TEXT_FIELDS = (
+    "crop_price_not_available_in_selected_district",
+    "district_not_available",
+)
+
 # The legacy loader stripped surrounding whitespace from these fields. Preserve
 # that runtime behavior while keeping the source JSON values unchanged.
 _STRIPPED_TEXT_FIELDS = frozenset(
@@ -88,6 +95,8 @@ class CatalogRow:
     crop_price_not_available_in_selected_mandi: str
     mandi_not_available: str
     abusive_word_disclaimer: str
+    crop_price_not_available_in_selected_district: str = ""
+    district_not_available: str = ""
 
 
 def _normalize_lang(name: str) -> str:
@@ -158,14 +167,14 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
                 f"required text fields: {', '.join(missing_fields)}"
             )
 
-        unexpected_fields = sorted(set(texts) - set(_TEXT_FIELDS))
+        unexpected_fields = sorted(set(texts) - set(_TEXT_FIELDS) - set(_OPTIONAL_TEXT_FIELDS))
         if unexpected_fields:
             raise ValueError(
                 f"Translation catalogue row {row_number} in {catalog_path} contains "
                 f"unsupported text fields: {', '.join(unexpected_fields)}"
             )
 
-        for field in _TEXT_FIELDS:
+        for field in _TEXT_FIELDS + tuple(f for f in _OPTIONAL_TEXT_FIELDS if f in texts):
             if not isinstance(texts[field], str):
                 raise ValueError(
                     f"Translation catalogue row {row_number} field {field!r} "
@@ -195,6 +204,10 @@ def load_catalog(path: Optional[Path] = None) -> dict[tuple[str, str], CatalogRo
             ),
             mandi_not_available=text("mandi_not_available"),
             abusive_word_disclaimer=text("abusive_word_disclaimer"),
+            crop_price_not_available_in_selected_district=texts.get(
+                "crop_price_not_available_in_selected_district", ""
+            ),
+            district_not_available=texts.get("district_not_available", ""),
         )
 
     if _lang_key(_DEFAULT_SCRIPT, _DEFAULT_VOCAL) not in catalog:
@@ -319,6 +332,18 @@ def get_abusive_word_disclaimer(script_language: str, vocal_language: str) -> st
     """Return localized abusive word disclaimer."""
     row = get_catalog_row(script_language, vocal_language)
     return row.abusive_word_disclaimer
+
+
+def get_district_crop_price_unavailable_reply(script_language: str, vocal_language: str) -> str:
+    """District-worded reply, or '' when the language has no district template."""
+    return get_catalog_row(
+        script_language, vocal_language
+    ).crop_price_not_available_in_selected_district
+
+
+def get_district_unavailable_reply(script_language: str, vocal_language: str) -> str:
+    """District-worded reply, or '' when the language has no district template."""
+    return get_catalog_row(script_language, vocal_language).district_not_available
 
 
 def get_mandi_unavailable_reply(script_language: str, vocal_language: str) -> str:

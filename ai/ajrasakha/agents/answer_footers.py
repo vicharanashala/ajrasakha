@@ -5,12 +5,15 @@ Never passed through the translate LLM; keyed by (script_language, vocal_languag
 
 from __future__ import annotations
 
+import re
 from datetime import datetime, timezone, timedelta
 from typing import Optional
 
 from ajrasakha.agents.retrieval_sanitizer import gdb_has_usable_answers
 from ajrasakha.agents.translation_catalog import (
     get_crop_price_unavailable_reply,
+    get_district_crop_price_unavailable_reply,
+    get_district_unavailable_reply,
     get_mandi_unavailable_reply,
     get_non_agriculture_reply,
     get_weather_unavailable_reply,
@@ -277,6 +280,10 @@ def build_weather_unavailable_content(
     return f"{body}\n\n{FOOTER_SEPARATOR}\n\n{testing}"
 
 
+def _strip_district_suffix(name: str) -> str:
+    return re.sub(r"\s+district$", "", name, flags=re.IGNORECASE).strip()
+
+
 def build_mandi_unavailable_content(
     script_language: str,
     vocal_language: str,
@@ -296,7 +303,16 @@ def build_mandi_unavailable_content(
     if reason == "crop_price_unavailable":
         body = get_crop_price_unavailable_reply(script_language, vocal_language)
         body = body.replace("[Crop Name]", crop_name)
-        if is_district or clean_name.lower().endswith("district"):
+        district_body = (
+            get_district_crop_price_unavailable_reply(script_language, vocal_language)
+            if is_district or clean_name.lower().endswith("district")
+            else ""
+        )
+        if district_body:
+            body = district_body.replace("[Crop Name]", crop_name).replace(
+                "[Mandi Name]", _strip_district_suffix(clean_name)
+            )
+        elif is_district or clean_name.lower().endswith("district"):
             dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
             body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
         elif clean_name.lower().endswith("mandi"):
@@ -305,7 +321,14 @@ def build_mandi_unavailable_content(
             body = body.replace("[Mandi Name]", clean_name)
     elif reason == "mandi_unavailable":
         body = get_mandi_unavailable_reply(script_language, vocal_language)
-        if is_district or clean_name.lower().endswith("district"):
+        district_body = (
+            get_district_unavailable_reply(script_language, vocal_language)
+            if is_district or clean_name.lower().endswith("district")
+            else ""
+        )
+        if district_body:
+            body = district_body.replace("[Mandi Name]", _strip_district_suffix(clean_name))
+        elif is_district or clean_name.lower().endswith("district"):
             dist_label = clean_name if clean_name.lower().endswith("district") else f"{clean_name} district"
             body = body.replace("[Mandi Name] mandi", dist_label).replace("[Mandi Name]", dist_label)
         elif clean_name.lower().endswith("mandi"):
