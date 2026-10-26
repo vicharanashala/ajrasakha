@@ -118,6 +118,10 @@ export class GdbSourceDto {
   @IsString()
   @MaxLength(100)
   page: string;
+
+  @IsOptional()
+  @IsIn(['hyper_local', 'state', 'central', 'district', 'other'])
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 }
 
 export class SaveGdbSourcesDto {
