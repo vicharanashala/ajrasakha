@@ -40,6 +40,7 @@ ENV HF_TOKEN=${HF_TOKEN}
 # We clone the repo so we can run install.sh, then snapshot_download pulls weights.
 RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
     cd /tmp/indic-ocr && \
+    chmod +x install.sh && \
     uv venv /opt/venv && \
     . /opt/venv/bin/activate && \
     ./install.sh --extras all-ocr
