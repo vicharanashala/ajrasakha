@@ -210,6 +210,7 @@ function EntryRow({ entry, onResume }: { entry: ITesterLogEntry; onResume?: (ent
                             <DetailRow label="Translation Quality" value={entry.translationQuality} />
                             <DetailRow label="Translation Error Type" value={entry.translationErrorType} />
                             <DetailRow label="Tagging" value={entry.tagging} />
+                            <DetailRow label="Meta Data Correctly Fetched?" value={entry.metaDataCorrectlyFetched} />
                             <DetailRow label="Allocated to Author?" value={entry.allocatedToReviewer} />
                             <DetailRow label="Author Name" value={entry.authorsName} />
                             <DetailRow label="Author Assignment Time" value={entry.authorAssignmentTime} />
@@ -283,6 +284,8 @@ export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) 
     const [preset, setPreset] = useState<DatePreset>("all");
     const [customStart, setCustomStart] = useState("");
     const [customEnd, setCustomEnd] = useState("");
+    const [customStartTime, setCustomStartTime] = useState("");
+    const [customEndTime, setCustomEndTime] = useState("");
     const [dateField, setDateField] = useState<"testDate" | "createdAt">("testDate");
 
     // Table search & status filter state
@@ -301,7 +304,7 @@ export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) 
 
     useEffect(() => {
         setPage(1);
-    }, [debouncedSearch, statusFilter, preset, customStart, customEnd]);
+    }, [debouncedSearch, statusFilter, preset, customStart, customEnd, customStartTime, customEndTime]);
 
     const { startDate, endDate } = useMemo(() => {
         const now = new Date();
@@ -337,7 +340,7 @@ export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) 
         return { startDate: undefined, endDate: undefined };
     }, [preset, customStart, customEnd]);
 
-    const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd) || Boolean(searchQuery) || statusFilter !== "all";
+    const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd || customStartTime || customEndTime) || Boolean(searchQuery) || statusFilter !== "all";
 
     const { data, isLoading, isError } = useTesterLogHistory(
         page,
@@ -347,12 +350,16 @@ export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) 
         dateField,
         debouncedSearch,
         statusFilter !== "all" ? statusFilter : undefined,
+        preset === "custom" && customStartTime ? customStartTime : undefined,
+        preset === "custom" && customEndTime ? customEndTime : undefined,
     );
 
     const clearFilter = () => {
         setPreset("all");
         setCustomStart("");
         setCustomEnd("");
+        setCustomStartTime("");
+        setCustomEndTime("");
         setDateField("testDate");
         setPage(1);
         setSearchQuery("");
@@ -433,6 +440,32 @@ export function TesterLogHistory({ onResumeEntry }: TesterLogHistoryProps = {}) 
                                 value={customEnd}
                                 onChange={e => {
                                     setCustomEnd(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">Start Time:</span>
+                            <input
+                                type="time"
+                                step="1"
+                                value={customStartTime}
+                                onChange={e => {
+                                    setCustomStartTime(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">End Time:</span>
+                            <input
+                                type="time"
+                                step="1"
+                                value={customEndTime}
+                                onChange={e => {
+                                    setCustomEndTime(e.target.value);
                                     setPage(1);
                                 }}
                                 className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"

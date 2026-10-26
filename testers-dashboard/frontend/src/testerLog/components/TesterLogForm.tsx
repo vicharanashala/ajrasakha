@@ -15,8 +15,7 @@ import { hmsDiff, isTimeEarlier, isTimeInFuture, isMidnightRollover, getLocalDat
 import type { ITesterLogEntry } from "../types";
 import {
     TYPE_OF_QUESTION_OPTIONS,
-    isDynamicTagging,
-    isDuplicateTagging,
+    shouldExcludeReviewerWorkflow,
     isNewQuestionEligibleForHold,
     isCrossPlatform,
     synthesizeOverallTestStatus,
@@ -40,12 +39,14 @@ import {
     TRANSLATION_ERROR_MAP,
     getTranslationErrorOptions,
     DEFECT_SEVERITY_OPTIONS,
+    SEVERITY_TO_TESTER_REMARKS_MAP,
     INDIAN_LANGUAGES_OPTIONS,
     VOICE_ISSUE_OPTIONS,
     VOICE_INPUT_QUALITY_OPTIONS,
     VOICE_OUTPUT_QUALITY_OPTIONS,
     WHATSAPP_VS_WEB_MATCH_OPTIONS,
     TAGGING_OPTIONS,
+    META_DATA_FETCHED_OPTIONS,
     RETRIEVAL_ACCURACY_OPTIONS,
     TESTER_REMARKS_OPTIONS,
     TEXT_FIELD_LIMITS,
@@ -579,6 +580,7 @@ export function validateTesterLogForm(
         }
     }
     checkRequired("tagging", "Tagging");
+    checkRequired("metaDataCorrectlyFetched", "Meta Data Correctly Fetched?");
 
     if (flags.isSavingOnHold) {
         // For On Hold submissions, only Section 1, Question Asked Time, Section 3, and 120-min disclaimer are required
@@ -765,7 +767,6 @@ export function validateTesterLogForm(
         if (!data.defectSeverity) data.defectSeverity = "NA";
         if (!data.defectIdBugRef) data.defectIdBugRef = "NA";
         data.testerRemarks = "No Action Required";
-        data.testerRemarksNotes = "";
     } else {
         checkRequired("defectSeverity", "Defect Severity");
         if (data.defectSeverity === "NA") {
@@ -789,16 +790,14 @@ export function validateTesterLogForm(
         if (data.testerRemarks === "No Action Required") {
             errors.testerRemarks = "A failed test case requires an actionable remark (cannot be 'No Action Required')";
         }
-        if (data.testerRemarks && data.testerRemarks !== "No Action Required") {
-            checkRequired("testerRemarksNotes", "Remarks Details");
-        }
-        if (data.testerRemarksNotes?.trim()) {
-            const rn = data.testerRemarksNotes.trim();
-            if (rn.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
-                errors.testerRemarksNotes = `Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`;
-            } else if (data.testerRemarksNotes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
-                errors.testerRemarksNotes = `Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`;
-            }
+    }
+
+    if (data.testerRemarksNotes?.trim()) {
+        const rn = data.testerRemarksNotes.trim();
+        if (rn.length < TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN) {
+            errors.testerRemarksNotes = `Remarks Details must be at least ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MIN} characters`;
+        } else if (data.testerRemarksNotes.length > TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX) {
+            errors.testerRemarksNotes = `Remarks Details cannot exceed ${TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX} characters`;
         }
     }
 
@@ -1027,6 +1026,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
     }, [isHoldEligible, setValue, getValues]);
 
     const isPass = (overallTestStatus || "").trim().toLowerCase() === "pass";
+    const isFail = (overallTestStatus || "").trim().toLowerCase() === "fail";
 
     const prevOverallStatusRef = useRef<string | undefined>(undefined);
     useEffect(() => {
@@ -1038,11 +1038,19 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
             setValue("defectSeverity", "NA", { shouldDirty: true });
             setValue("defectIdBugRef", "NA", { shouldDirty: true });
             setValue("testerRemarks", "No Action Required", { shouldDirty: true });
-            setValue("testerRemarksNotes", "", { shouldDirty: true });
             clearError("defectSeverity");
             clearError("defectIdBugRef");
             clearError("testerRemarks");
-            clearError("testerRemarksNotes");
+        } else if (current === "fail") {
+            if (getValues("defectSeverity") === "NA") {
+                setValue("defectSeverity", "", { shouldDirty: true });
+            }
+            if (getValues("defectIdBugRef") === "NA") {
+                setValue("defectIdBugRef", "", { shouldDirty: true });
+            }
+            if (getValues("testerRemarks") === "No Action Required") {
+                setValue("testerRemarks", "", { shouldDirty: true });
+            }
         } else if (prev === "pass" && current !== "pass") {
             if (getValues("defectSeverity") === "NA") {
                 setValue("defectSeverity", "", { shouldDirty: true });
@@ -1105,9 +1113,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
         }
     };
 
-    const isDynamic = isDynamicTagging(tagging);
-    const isDuplicate = isDuplicateTagging(tagging);
-    const excludeReviewerWorkflow = isDynamic || isDuplicate;
+    const excludeReviewerWorkflow = shouldExcludeReviewerWorkflow(tagging);
 
     const handleReset = (showToast = true) => {
         try {
@@ -1141,6 +1147,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
             translationQuality: "",
             translationErrorType: "",
             tagging: "",
+            metaDataCorrectlyFetched: "",
             retrievalAccuracy: "",
             allocatedToReviewer: "",
             authorsName: "",
@@ -1300,7 +1307,6 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
             payload.defectSeverity = "NA";
             payload.defectIdBugRef = "NA";
             payload.testerRemarks = "No Action Required";
-            delete payload.testerRemarksNotes;
         }
         if (!isCross) {
             delete payload.webThreadId;
@@ -1492,7 +1498,7 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
     const s2Errors = ["timeQuestionAsked", "timeAnswerReceived", "slaStatus", "waTimeQuestionAsked", "waTimeAnswerReceived", "waSlaStatus"].filter(k => formErrors[k]).length
         + ((isAskedInFuture || isAnsweredInFuture || isWebTimingInvalid) && !formErrors.timeAnswerReceived && !formErrors.timeQuestionAsked ? 1 : 0)
         + ((isWaAskedInFuture || isWaAnsweredInFuture || isWaTimingInvalid) && !formErrors.waTimeAnswerReceived && !formErrors.waTimeQuestionAsked ? 1 : 0);
-    const s3Errors = ["questionInReviewModel", "questionCorrectlyFramed", "originalLanguage", "translatedLanguage", "translationQuality", "translationErrorType", "tagging"].filter(k => formErrors[k]).length;
+    const s3Errors = ["questionInReviewModel", "questionCorrectlyFramed", "originalLanguage", "translatedLanguage", "translationQuality", "translationErrorType", "tagging", "metaDataCorrectlyFetched"].filter(k => formErrors[k]).length;
     const s4Errors = [
         "allocatedToReviewer", "authorsName", "authorAssignmentTime", "authorCompletionTime",
         "reviewer1Name", "reviewer1AssignmentTime", "reviewer1CompletionTime",
@@ -1838,6 +1844,13 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
                     required
                     error={formErrors.tagging}
                     {...register("tagging", { onChange: () => clearError("tagging") })}
+                />
+                <SelectInput
+                    label="Meta Data Correctly Fetched?"
+                    options={META_DATA_FETCHED_OPTIONS}
+                    required
+                    error={formErrors.metaDataCorrectlyFetched}
+                    {...register("metaDataCorrectlyFetched", { onChange: () => clearError("metaDataCorrectlyFetched") })}
                 />
             </FormSection>
 
@@ -2232,11 +2245,20 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
                 )}
                 <SelectInput
                     label="Defect Severity"
-                    options={DEFECT_SEVERITY_OPTIONS}
-                    required={!isPass}
-                    disabled={isPass}
+                    options={isFail ? DEFECT_SEVERITY_OPTIONS.filter((o) => o !== "NA") : DEFECT_SEVERITY_OPTIONS}
+                    required={isFail}
+                    disabled={!isFail}
                     error={formErrors.defectSeverity}
-                    {...register("defectSeverity", { onChange: () => clearError("defectSeverity") })}
+                    {...register("defectSeverity", {
+                        onChange: (e) => {
+                            clearError("defectSeverity");
+                            const mappedRemark = SEVERITY_TO_TESTER_REMARKS_MAP[e.target.value];
+                            if (mappedRemark) {
+                                setValue("testerRemarks", mappedRemark, { shouldDirty: true });
+                                clearError("testerRemarks");
+                            }
+                        },
+                    })}
                 />
                 <DefectIdBugRefInput
                     value={defectIdBugRef}
@@ -2259,30 +2281,23 @@ export function TesterLogForm({ testerName, userEmail, onSuccess, editingEntry, 
                     disabled={isPass}
                     error={formErrors.testerRemarks}
                     {...register("testerRemarks", {
-                        onChange: (e) => {
+                        onChange: () => {
                             clearError("testerRemarks");
-                            if (e.target.value === "No Action Required") {
-                                setValue("testerRemarksNotes", "");
-                                clearError("testerRemarksNotes");
-                            }
                         },
                     })}
                 />
-                {testerRemarks && testerRemarks !== "No Action Required" && (
-                    <VoiceRemarksInput
-                        label="Remarks Details"
-                        placeholder="Write down your detailed remarks..."
-                        maxLength={TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}
-                        required
-                        category={testerRemarks}
-                        error={formErrors.testerRemarksNotes}
-                        value={testerRemarksNotes || ""}
-                        onChange={(val) => {
-                            setValue("testerRemarksNotes", val);
-                            clearError("testerRemarksNotes");
-                        }}
-                    />
-                )}
+                <VoiceRemarksInput
+                    label="Remarks Details"
+                    placeholder="Write down your detailed remarks..."
+                    maxLength={TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX}
+                    category={testerRemarks}
+                    error={formErrors.testerRemarksNotes}
+                    value={testerRemarksNotes || ""}
+                    onChange={(val) => {
+                        setValue("testerRemarksNotes", val);
+                        clearError("testerRemarksNotes");
+                    }}
+                />
             </FormSection>
 
             <div className="flex flex-wrap items-center justify-end gap-3 pt-2">

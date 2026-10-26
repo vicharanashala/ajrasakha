@@ -24,6 +24,8 @@ export function useAnalyticsFilterState(treeOptions: IAnalyticsTypeTreeValues = 
   const [filters, setFilters] = useState({ ...EMPTY_FILTERS });
   const [customStart, setCustomStart] = useState("");
   const [customEnd, setCustomEnd] = useState("");
+  const [customStartTime, setCustomStartTime] = useState("");
+  const [customEndTime, setCustomEndTime] = useState("");
   const [dynamicSubTypes, setDynamicSubTypes] = useState<string[]>([]);
   const [typeBranch, setTypeBranch] = useState<"all" | "Dynamic" | "Static">("all");
   const [staticSubTypes, setStaticSubTypes] = useState<string[]>([]);
@@ -136,6 +138,10 @@ export function useAnalyticsFilterState(treeOptions: IAnalyticsTypeTreeValues = 
     setCustomStart,
     customEnd,
     setCustomEnd,
+    customStartTime,
+    setCustomStartTime,
+    customEndTime,
+    setCustomEndTime,
     dynamicSubTypes,
     typeBranch,
     staticSubTypes,

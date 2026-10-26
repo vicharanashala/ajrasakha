@@ -36,7 +36,7 @@ const SEED = [
       typeOfQuestion: 'Weather Dynamic', questionCategory: 'Climate, Weather & Stress Management', channelTested: 'WebApp',
       languageTested: 'English', overallTestStatus: 'Pass', defectSeverity: 'NA', buildVersion: '0.1',
       queryText: 'secret query', submittedByEmail: 'one@example.com', authorsName: 'Author A', testerRemarksNotes: 'notes',
-      waResponseTimeMins: '', notificationReceived: 'Received' },
+      timeQuestionAsked: '10:00:00', waResponseTimeMins: '', notificationReceived: 'Received' },
     { testId: 'TL-2', submittedByUserId: u1, testerName: 'Tester One', testDate: '2027-01-05', createdAt: new Date('2027-01-05T05:00:00Z'),
       typeOfQuestion: 'WEATHER DYNAMIC', questionCategory: 'Climate, Weather and Stress Management', channelTested: 'Web App',
       languageTested: 'english', overallTestStatus: 'pass', defectSeverity: 'Nil', buildVersion: '1.0' },
@@ -45,7 +45,7 @@ const SEED = [
       overallTestStatus: 'Fail', defectSeverity: 'Critical', buildVersion: '0.1' },
     { testId: 'TL-4', submittedByUserId: u2, testerName: 'Tester Two', testDate: '2027-01-09', createdAt: new Date('2027-01-09T05:00:00Z'),
       typeOfQuestion: 'Dynamic', questionCategory: 'Plant Protection', channelTested: 'Both', overallTestStatus: 'Partial',
-      defectSeverity: 'NIL', buildVersion: ' 1.0 ', waResponseTimeMins: '00:05:00', waOverallTestStatus: 'Pass', webOverallTestStatus: 'Fail' },
+      timeQuestionAsked: '15:30:00', defectSeverity: 'NIL', buildVersion: ' 1.0 ', waResponseTimeMins: '00:05:00', waOverallTestStatus: 'Pass', webOverallTestStatus: 'Fail' },
     { submittedByUserId: u1, testerName: 'Tester One', createdAt: new Date('2027-01-08T05:00:00Z'),
       typeOfQuestion: 'Static Dynamic', channelTested: 'WhatsApp', overallTestStatus: 'NA', buildVersion: '1.0' },
     { testId: 'TL-6', submittedByUserId: u2, testerName: 'Tester Two', testDate: '', createdAt: new Date('2026-11-01T05:00:00Z'),
@@ -166,6 +166,7 @@ describe('TestersDbAnalyticsService.getEntries - filtering in MongoDB', () => {
         ['7 days incl. createdAt fallback', { dateRange: '7days' }, ['(no testId)', 'TL-1', 'TL-2', 'TL-4']],
         ['custom range on createdAt fallback', { dateRange: 'custom', customStart: '2026-10-01', customEnd: '2026-11-30' }, ['TL-6']],
         ['custom open start', { dateRange: 'custom', customStart: '2027-01-09' }, ['TL-1', 'TL-4']],
+        ['custom date and time range', { dateRange: 'custom', customStart: '2027-01-09', customStartTime: '09:00:00', customEndTime: '12:00:00' }, ['TL-1']],
         ['combined filters', { tester: u1, channel: 'WhatsApp', dateRange: '30days' }, ['(no testId)', 'TL-7']],
         ['option with no records', { status: 'Partial', channel: 'WebApp' }, []],
     ];
@@ -178,7 +179,15 @@ describe('TestersDbAnalyticsService.getEntries - filtering in MongoDB', () => {
 
         // Matches Step 4's in-memory filters over every stored entry exactly.
         const selection = selectionFromQuery(query);
-        const inMemory = applyDbDateFilter(applyDbNonDateFilters(stored, selection), selection.dateRange, query.customStart, query.customEnd, NOW);
+        const inMemory = applyDbDateFilter(
+            applyDbNonDateFilters(stored, selection),
+            selection.dateRange,
+            query.customStart,
+            query.customEnd,
+            NOW,
+            query.customStartTime,
+            query.customEndTime,
+        );
         expect(got).toEqual(inMemory.map((e) => e.testId ?? '(no testId)').sort());
 
         // The filter ran in MongoDB: only matching documents were loaded.

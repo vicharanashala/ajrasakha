@@ -104,6 +104,8 @@ export class TesterLogController {
             query.dateField,
             query.search,
             query.status,
+            query.startTime,
+            query.endTime,
         );
     }
 
@@ -124,6 +126,8 @@ export class TesterLogController {
             query.startDate,
             query.endDate,
             query.dateField,
+            query.startTime,
+            query.endTime,
         );
     }
 
@@ -162,6 +166,8 @@ export class TesterLogController {
             query.defectSeverity,
             query.search,
             query.status,
+            query.startTime,
+            query.endTime,
         );
     }
 
@@ -193,6 +199,8 @@ export class TesterLogController {
             query.channelTested,
             query.overallTestStatus,
             query.defectSeverity,
+            query.startTime,
+            query.endTime,
         );
     }
 
@@ -209,6 +217,8 @@ export class TesterLogController {
             query.testerId,
             query.startDate,
             query.endDate,
+            query.startTime,
+            query.endTime,
         );
     }
 
