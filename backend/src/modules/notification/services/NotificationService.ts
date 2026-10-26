@@ -20,6 +20,8 @@ import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { AnnamDatabase } from '#root/shared/database/providers/mongo/AnnamDatabase.js';
 import { IUser } from '#root/shared/interfaces/models.js';
+import axios from 'axios';
+import { faqPopConfig } from '#root/config/faqPop.js';
 
 type AnnamUser = {
   _id?: ObjectId | string;
@@ -535,6 +537,33 @@ export class NotificationService extends BaseService {
   // saveTheNotifications is always the triggering user's own id (loosely used as a "related
   // entity" elsewhere in this file too) since PoP queue item ids aren't guaranteed to be valid
   // Mongo ObjectIds.
+  // GET /dashboard/user-management/upload on the POP microservice is admin-only (`is_admin`,
+  // see DataProcessingDashboard.tsx) — fine when an admin declines (admin_rejected), but
+  // upload_created is fired by the uploader, who gets a 403 calling it themselves (confirmed via
+  // the browser's network tab: the frontend's own getUserManagementList("upload") call 403s for
+  // that role, silently swallowed by its .catch(() => {}), so approverIds never reaches here and
+  // no notification is ever created). This backend is a trusted caller POP already proxies
+  // production traffic for, so it fetches the list itself with an elevated role header instead of
+  // depending on the triggering user's own permissions — the same shift `approved` already made by
+  // resolving admins via userRepo.findAdmins() instead of asking the frontend for them.
+  // POP 401s this without BOTH headers — X-User-Role alone isn't enough ("X-User-Id header is
+  // required -- send the signed-in user's id"). It doesn't validate the id belongs to an actual
+  // admin (confirmed: a bogus ObjectId with X-User-Role: admin still returns 200), so the actor's
+  // own id is fine here — it's never exposed back to them, only used to satisfy this check.
+  private async fetchPopApproverIds(actorId: string): Promise<string[]> {
+    if (!faqPopConfig.popApiUrl) return [];
+    try {
+      const res = await axios.get(`${faqPopConfig.popApiUrl}/dashboard/user-management/upload`, {
+        headers: { 'X-User-Role': 'admin', 'X-User-Id': actorId },
+      });
+      const entries = Array.isArray(res.data) ? res.data : [];
+      return entries.map((e: { user_id?: string }) => e.user_id).filter((id: unknown): id is string => Boolean(id));
+    } catch (err) {
+      console.error('[NotificationService] Failed to fetch PoP approvers list', err);
+      return [];
+    }
+  }
+
   async notifyPopEvent(event: PopNotificationEventBody, currentUser: IUser) {
     const actorId = currentUser._id.toString();
     // Deep-links the push notification (and, same URL shape the in-app bell already navigates to
@@ -555,9 +584,14 @@ export class NotificationService extends BaseService {
 
     switch (event.type) {
       case 'upload_created': {
-        if (!event.approverIds?.length) return;
+        const approverIds = event.approverIds?.length ? event.approverIds : await this.fetchPopApproverIds(actorId);
+        // routing-controllers' ExpressDriver throws its own NotFoundError whenever a controller
+        // action resolves to `undefined` — a bare `return;` here (no recipients to notify) was
+        // masquerading as an HTTP 404, even though @HttpCode(201) is set on the route. Returning
+        // an empty array instead of undefined keeps "nobody to notify" a genuine no-op response.
+        if (!approverIds.length) return [];
         return notifyAll(
-          event.approverIds,
+          approverIds,
           'New PoP document awaiting approval',
           `"${event.itemName}" was uploaded and needs your approval.`,
           'pop_pending_approval',
@@ -573,16 +607,17 @@ export class NotificationService extends BaseService {
         );
       }
       case 'admin_rejected': {
-        if (!event.approverIds?.length) return;
+        const approverIds = event.approverIds?.length ? event.approverIds : await this.fetchPopApproverIds(actorId);
+        if (!approverIds.length) return [];
         return notifyAll(
-          event.approverIds,
+          approverIds,
           'PoP document rejected',
           `"${event.itemName}" was rejected by the admin.`,
           'pop_upload_rejected',
         );
       }
       case 'approver_rejected': {
-        if (!event.uploaderId) return;
+        if (!event.uploaderId) return [];
         return notifyAll(
           [event.uploaderId],
           'PoP document rejected',
@@ -592,7 +627,7 @@ export class NotificationService extends BaseService {
       }
       case 'admin_added': {
         const recipients = [event.uploaderId, event.approverId].filter(Boolean) as string[];
-        if (!recipients.length) return;
+        if (!recipients.length) return [];
         return notifyAll(
           recipients,
           'PoP document published',
@@ -601,6 +636,9 @@ export class NotificationService extends BaseService {
         );
       }
     }
+    // An unrecognized event.type falls through here — same undefined-return-becomes-404 pitfall
+    // as the guards above.
+    return [];
   }
 
   async deleteExpiredSubscriptionForUser(endpoint: string) {
