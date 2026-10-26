@@ -936,9 +936,12 @@ export class UserService extends BaseService {
           session,
         );
 
+        const question = await this.questionRepo.getById(questionId, session);
+
         await this.questionRepo.updateQuestion(
           questionId,
           {
+            previousStatus: question?.status,
             status: 'hold',
             isOnHold: true,
             holdAt: new Date(),
@@ -949,7 +952,6 @@ export class UserService extends BaseService {
 
         // Send notification to the expert that they have been removed from allocation
         try {
-          const question = await this.questionRepo.getById(questionId, session);
           const truncatedQuestionText = question?.question
             ? question.question.length > 50
               ? question.question.substring(0, 50) + '...'
@@ -1878,7 +1880,7 @@ export class UserService extends BaseService {
       `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
-    // 2. Fetch all active, non-blocked review staff (excluding PAE users)
+    // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
     const staff = await this.userRepo.getActiveReviewStaff([
       'expert',
       'moderator',

@@ -141,6 +141,7 @@ type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" 
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
+  if (filter.is_dynamic === true) return "dynamic";
   if (filter.pae_review === true) return "pae";
   if (filter.status === "draft") return "draft";
   if (filter.status === "dynamic") return "dynamic";
@@ -503,7 +504,7 @@ export const QuestionsFilters = ({
 
     if (nextAnswerMode === "search") {
       // Search Results tab → fetch all sources, reset client-side mode
-      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: undefined, is_non_agri: undefined, is_dynamic: undefined, isTrainingQuestion: undefined };
       prevAnswerModeRef.current = "search";
       setAnswerMode("search");
       setAdvanceFilterValues(nextFilters);
@@ -522,24 +523,24 @@ export const QuestionsFilters = ({
     }
 
     if (nextAnswerMode === "non_agri") {
-      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, pae_review: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_non_agri: true, is_dynamic: undefined, pae_review: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "draft") {
-      nextFilters = { ...advanceFilter, source: "all", status: "draft", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "all", status: "draft", is_dynamic: undefined, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "dynamic") {
-      nextFilters = { ...advanceFilter, source: "all", status: "dynamic", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "all", is_dynamic: true, status: "dynamic", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
     } else if (nextAnswerMode === "pae") {
-      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "all", pae_review: true, is_dynamic: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "training") {
-      nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, pae_review: undefined, is_non_agri: undefined, status: "all" };
+      nextFilters = { ...advanceFilter, source: "all", isTrainingQuestion: true, is_dynamic: undefined, pae_review: undefined, is_non_agri: undefined, status: "all" };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else if (nextAnswerMode === "annadatha") {
-      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source: "QUESTION_COLLECTION", is_dynamic: undefined, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     } else {
       const source = answerModeToSource(nextAnswerMode);
-      nextFilters = { ...advanceFilter, source, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
+      nextFilters = { ...advanceFilter, source, is_dynamic: undefined, pae_review: undefined, is_non_agri: undefined, isTrainingQuestion: undefined };
       if (answerMode === "draft" || answerMode === "dynamic") nextFilters.status = "all";
     }
 
@@ -617,6 +618,7 @@ export const QuestionsFilters = ({
       duplicateQuestions: advanceFilter?.duplicateQuestions,
       isOnHold: advanceFilter?.isOnHold,
       is_non_agri: advanceFilter?.is_non_agri,
+      is_dynamic: advanceFilter?.is_dynamic,
       is_testing: advanceFilter?.is_testing,
       isTrainingQuestion: advanceFilter?.isTrainingQuestion,
       unallocatedQuestions: advanceFilter?.unallocatedQuestions,
@@ -638,7 +640,8 @@ export const QuestionsFilters = ({
         key === "closedAtEnd" ||
         key === "state" || // replaced by states
         key === "normalised_crop" || // replaced by normalisedCrops
-        key === "is_non_agri" // tab-level filter, not advanced
+        key === "is_non_agri" || // tab-level filter, not advanced
+        key === "is_dynamic"
       ) {
         return false;
       }
