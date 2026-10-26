@@ -184,6 +184,9 @@ export interface IQuestion {
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
+  /** Status the question had immediately before being put on hold, used to restore
+   *  its original status (e.g. 'dynamic', 'in-review', 'open') when unheld. */
+  previousStatus?: QuestionStatus | null;
   isTesting?: boolean;
   messageId?: string;
   threadId?: string;
