@@ -52,7 +52,7 @@ WORKDIR /app
 # Install Python and runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3.11 python3.11-dev python3.11-distutils \
-        libgomp1 libcusparse12 libnvjitlink12 \
+        libpython3.11 libgomp1 \
         curl git git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
