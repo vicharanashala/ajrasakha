@@ -1,12 +1,12 @@
 # ============================================================
 # IndicOCR — Dockerfile
-# Stage 1: builder (downloads model weights from HuggingFace)
-# Stage 2: runtime (lightweight, only what is needed to serve)
+# Multi-stage build that downloads model weights at build time
+# so the runtime image is self-contained.
 #
 # IMPORTANT: This model is gated. You need to:
 # 1. Accept the license at https://huggingface.co/bodhan-ai/indic-ocr
 # 2. Create a HF token at https://huggingface.co/settings/tokens
-# 3. Set HF_TOKEN secret in GitHub Actions / environment
+# 3. Set HF_TOKEN secret in GitHub Actions
 # ============================================================
 
 # ---- Build stage ----
@@ -18,77 +18,61 @@ WORKDIR /app
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git curl ca-certificates git-lfs \
+        git curl ca-certificates git-lfs build-essential \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs install
 
-# Configure git to use credentials (for gated repos)
-# Create netrc file for git authentication with HF token
+# Create netrc for HuggingFace authentication
 RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
     chmod 600 ~/.netrc
 
-# Install uv (faster package manager)
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
-
-# Set HuggingFace token for downloading gated models
-# This is used by huggingface_hub for API downloads
+# Set HF token env var
 ENV HF_TOKEN=${HF_TOKEN}
 
-# Install the model into a venv
-# The install.sh script detects CUDA and picks the right wheels automatically.
-# We clone the repo so we can run install.sh, then snapshot_download pulls weights.
+# Clone and install the model package
 RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
     cd /tmp/indic-ocr && \
     chmod +x install.sh && \
-    uv venv /opt/venv && \
-    . /opt/venv/bin/activate && \
     ./install.sh --extras all-ocr
 
-# Snapshot model weights (layout + ocr) — done in the venv so hf_hub is available
-RUN . /opt/venv/bin/activate && \
-    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
-
-# Install FastAPI server dependencies (not included in install.sh)
-RUN . /opt/venv/bin/activate && \
-    pip install fastapi uvicorn[standard] python-multipart Pillow
+# Download model weights
+RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
+FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
-ENV DEBIAN_FRONTEND=noninteractive
+ENV DEBIAN_FRONTEND=noninteractive \
+    PYTHONUNBUFFERED=1
+
 WORKDIR /app
 
-# Install runtime dependencies only
+# Install runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-venv libgomp1 \
-        curl ca-certificates \
+        python3.11 libgomp1 curl \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Copy venv from builder
-COPY --from=builder /opt/venv /opt/venv
-ENV PATH="/opt/venv/bin:${PATH}"
+# Copy Python packages from builder (site-packages)
+COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
-# Copy the cloned repo (install.sh ran here, needed for the package source)
-COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
+# Copy model repo (bodhan_genai package)
+COPY --from=builder /tmp/indic-ocr /app/bodhan_genai
 
-# Pre-pull weights into the runtime image so startup doesn't need network
+# Pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
-# Copy application files
-COPY server.py /app/server.py
+# Set HF_HOME for the model
+ENV HF_HOME=/root/.cache/huggingface
+ENV PYTHONPATH=/app/bodhan_genai:$PYTHONPATH
 
-# Warm up vLLM engine once at build time so first request is fast.
-# Uncomment the following two lines if you want eager warmup (adds ~5 min to build):
-# RUN . /opt/venv/bin/activate && \
-#     python -c "from bodhan_genai.ocr import IndicOCR; IndicOCR()"
+# Copy server
+COPY server.py /app/server.py
 
 EXPOSE 8000
 
-# Health-check: give the server 90 s to initialise (vLLM engine startup can be slow)
-HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+# Health check - model takes ~2-3 min to load
+HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-# Use the venv python explicitly
-CMD ["/opt/venv/bin/python", "/app/server.py"]
+CMD ["python", "/app/server.py"]
