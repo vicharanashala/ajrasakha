@@ -49,6 +49,10 @@ RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
 RUN . /opt/venv/bin/activate && \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
+# Install FastAPI server dependencies (not included in install.sh)
+RUN . /opt/venv/bin/activate && \
+    pip install fastapi uvicorn[standard] python-multipart Pillow
+
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04 AS runtime
 
