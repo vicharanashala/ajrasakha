@@ -610,6 +610,7 @@ export class PlivoService {
 
   async saveCallRejected(payload: {
     callUuid: string;
+    bLegUuid?: string;
     agentUserId?: string;
   }): Promise<{ success: boolean }> {
     try {

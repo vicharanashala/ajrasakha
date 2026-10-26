@@ -381,7 +381,14 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       }
 
       if (params.status) {
-        filter.status = params.status;
+        const s = params.status.trim().toLowerCase();
+        if (s === 'canceled' || s === 'cancelled') {
+          filter.status = { $in: ['canceled', 'cancelled'] };
+        } else if (s === 'no-answer' || s === 'no answer') {
+          filter.status = { $in: ['no-answer', 'no answer', 'No Answer'] };
+        } else {
+          filter.status = { $regex: new RegExp(`^${s}$`, 'i') };
+        }
       }
 
       if (params.agentId) {
@@ -508,7 +515,24 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       if (details.from !== undefined) updateDoc.from = details.from;
       if (details.to !== undefined) updateDoc.to = details.to;
       if (details.duration !== undefined) updateDoc.duration = details.duration;
-      if (details.status !== undefined) updateDoc.status = details.status;
+      if (details.status !== undefined) {
+        const normalizedNewStatus = String(details.status).toLowerCase();
+        // Prevent lower-priority statuses from downgrading high-priority terminal outcomes
+        if (['canceled', 'cancelled', 'failed', 'ringing'].includes(normalizedNewStatus)) {
+          const existing = await this.callDetailsCollection.findOne(
+            { callUuid },
+            { projection: { status: 1 }, session }
+          );
+          const existingStatus = existing?.status?.toLowerCase();
+          if (existingStatus && ['completed', 'rejected', 'no-answer'].includes(existingStatus)) {
+            console.log(`🛡️ [CallDetailsRepository] Preserving terminal status '${existingStatus}' for ${callUuid}; ignoring update to '${normalizedNewStatus}'`);
+          } else {
+            updateDoc.status = normalizedNewStatus === 'cancelled' ? 'canceled' : normalizedNewStatus;
+          }
+        } else {
+          updateDoc.status = normalizedNewStatus === 'cancelled' ? 'canceled' : normalizedNewStatus;
+        }
+      }
       if (details.direction !== undefined) updateDoc.direction = details.direction;
       if (details.caller !== undefined) {
         if (!details.caller.detectedLanguage || details.caller.detectedLanguage === 'unknown') {

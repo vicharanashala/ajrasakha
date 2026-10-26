@@ -107,11 +107,24 @@ export class PlivoController {
     let availableAgent: IUser | null = null;
     try {
       const streamUrl = appConfig.plivo.streamUrl;
-      const recordCallbackUrl = appConfig.plivo.recordCallbackUrl;
       const myPlivoNumber = appConfig.plivo.plivo_number;
       const callUuid = req.body?.CallUUID || req.query?.CallUUID;
       const callerNumber = req.body?.From || req.query?.From || 'unknown';
-      // console.log(`📞 [PLIVO-CONTROLLER] Call webhook received: CallUUID=${callUuid}, From=${callerNumber}`);
+
+      // Dynamically resolve public base URL from request headers (Cloud Run / reverse proxy)
+      const reqHost = req.headers['x-forwarded-host'] || req.get('host');
+      const reqProto = req.headers['x-forwarded-proto'] || (req.secure ? 'https' : 'http') || 'https';
+      const reqBaseUrl = reqHost ? `${reqProto}://${reqHost}` : undefined;
+
+      let effectiveRecordCallbackUrl = appConfig.plivo.recordCallbackUrl;
+      if (!effectiveRecordCallbackUrl || effectiveRecordCallbackUrl.includes('localhost')) {
+        effectiveRecordCallbackUrl = reqBaseUrl ? `${reqBaseUrl}/api/plivo/webhook/record` : appConfig.plivo.recordCallbackUrl;
+      }
+
+      let dialActionUrl = effectiveRecordCallbackUrl ? effectiveRecordCallbackUrl.replace('/webhook/record', '/dial-action') : '';
+      if (!dialActionUrl || dialActionUrl.includes('localhost')) {
+        dialActionUrl = reqBaseUrl ? `${reqBaseUrl}/api/plivo/dial-action` : '/api/plivo/dial-action';
+      }
 
       // Check if this call is initiated outbound by an agent's SIP WebRTC softphone
       const isOutbound =
@@ -246,8 +259,8 @@ export class PlivoController {
         const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Stream contentType="audio/x-l16;rate=16000" noiseCancellation="true" audioTrack="both" noiseCancellationLevel="95">${streamUrl}</Stream>
-  <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-  <Dial timeout="60" callerId="${effectiveCallerId}">
+  <Record action="${effectiveRecordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
+  <Dial action="${dialActionUrl}" timeout="60" callerId="${effectiveCallerId}">
     <Number>${destination}</Number>
   </Dial>
 </Response>`;
@@ -337,17 +350,15 @@ export class PlivoController {
           sendSseAlertToAgent(availableAgent._id.toString(), attemptPayload);
         }
 
-        const dialActionUrl = recordCallbackUrl.replace('/webhook/record', '/dial-action');
-
         xml = `<?xml version="1.0" encoding="UTF-8"?>
                     <Response>
                               <Stream contentType="audio/x-l16;rate=16000"
           noiseCancellation="true" audioTrack="both" noiseCancellationLevel="85"
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
-                              <Record action="${recordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-                              <Dial action="${dialActionUrl}" timeout="${dialTimeout}" callerId="${myPlivoNumber}">
-                                        <User sipHeaders="X-PH-parentCallUuid=${callUuid};parentCallUuid=${callUuid}">${endpointUser}</User>
+                              <Record action="${effectiveRecordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
+                              <Dial action="${dialActionUrl}" timeout="${dialTimeout}" callerId="${myPlivoNumber}" sipHeaders="parentCallUuid=${callUuid}">
+                                        <User sipHeaders="parentCallUuid=${callUuid}">${endpointUser}</User>
                               </Dial>
                               <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
                               <Wait length="2" />
@@ -781,17 +792,70 @@ export class PlivoController {
   @HttpCode(200)
   @OpenAPI({ summary: 'Save call rejected state immediately when agent rejects incoming call' })
   async handleBrowserCallRejected(
-    @Body() body: { callUuid: string; agentUserId?: string }
+    @Body() body: { callUuid: string; bLegUuid?: string; agentUserId?: string }
   ): Promise<{ success: boolean }> {
     try {
-      const { callUuid, agentUserId } = body;
-      if (callUuid) {
-        console.log(`❌ [PLIVO-CONTROLLER] Agent explicitly rejected call ${callUuid}`);
-        await this.callDetailsRepository.updateCallDetails(callUuid, {
-          status: 'rejected',
-          duration: 0,
-        });
+      const { callUuid, bLegUuid, agentUserId } = body;
+      console.log(`❌ [PLIVO-CONTROLLER] Agent explicitly rejected call. Received callUuid=${callUuid}, bLegUuid=${bLegUuid}, agentUserId=${agentUserId}`);
+
+      let targetCallUuid = callUuid;
+      let existingCall = targetCallUuid ? await this.callDetailsRepository.getByCallUuid(targetCallUuid) : null;
+
+      // Fallback 1: Resolve via in-memory calls in PlivoService
+      if (!existingCall && agentUserId) {
+        const inMemoryParentUuid = this.plivoService.findParentCallUuid(undefined, agentUserId);
+        if (inMemoryParentUuid) {
+          const parentDoc = await this.callDetailsRepository.getByCallUuid(inMemoryParentUuid);
+          if (parentDoc) {
+            console.log(`🔗 [PLIVO-CONTROLLER] Correlated reject leg ${targetCallUuid} to parent call ${inMemoryParentUuid} via PlivoService`);
+            targetCallUuid = inMemoryParentUuid;
+            existingCall = parentDoc;
+          }
+        }
       }
+
+      // Fallback 2: Resolve via MongoDB agent user's currentCallUuid
+      if (!existingCall && agentUserId) {
+        try {
+          const agentUser = await this.userRepository.findById(agentUserId);
+          if (agentUser?.currentCallUuid) {
+            const agentCall = await this.callDetailsRepository.getByCallUuid(agentUser.currentCallUuid);
+            if (agentCall) {
+              console.log(`🔗 [PLIVO-CONTROLLER] Correlated reject leg ${targetCallUuid} to DB parent ${agentUser.currentCallUuid} via agent user`);
+              targetCallUuid = agentUser.currentCallUuid;
+              existingCall = agentCall;
+            }
+          }
+        } catch (lookupErr) {
+          console.warn(`[PLIVO-CONTROLLER] Error looking up agent user ${agentUserId} on reject:`, lookupErr);
+        }
+      }
+
+      if (targetCallUuid) {
+        if (existingCall) {
+          await this.callDetailsRepository.updateCallDetails(targetCallUuid, {
+            status: 'rejected',
+            duration: 0,
+          });
+          console.log(`✅ [PLIVO-CONTROLLER] Successfully marked call ${targetCallUuid} as 'rejected' in database.`);
+        } else {
+          console.warn(`⚠️ [PLIVO-CONTROLLER] Call ${targetCallUuid} document not found to mark rejected. Creating fallback record.`);
+          await this.callDetailsRepository.create({
+            callUuid: targetCallUuid,
+            from: 'unknown',
+            to: appConfig.plivo.plivo_number || '+918031150392',
+            direction: 'inbound',
+            status: 'rejected',
+            duration: 0,
+            caller: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            agent: { transcript: '', translation: '', detectedLanguage: 'unknown' },
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          });
+        }
+        this.plivoService.markCallTerminalStatus(targetCallUuid, 'rejected');
+      }
+
       if (agentUserId) {
         await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
       }
@@ -821,12 +885,23 @@ export class PlivoController {
   @OpenAPI({ summary: 'Handle Plivo Dial completion and notify agent if call failed to reach interface' })
   async handleDialAction(@Req() req: Request, @Res() res: Response): Promise<any> {
     try {
-      const { DialStatus, DialRingStatus, DialHangupCause, DialALegUUID } = req.body || {};
-      const callUuid = DialALegUUID || req.body?.CallUUID;
-      const callMeta = callUuid ? this.plivoService.getCallMetadata(callUuid) : undefined;
-      const agentUserId = callMeta?.agentUserId;
+      const { DialStatus, DialRingStatus, DialHangupCause, DialALegUUID, DialBLegUUID } = req.body || {};
+      let callUuid = DialALegUUID || req.body?.CallUUID;
+      console.log(`📡 [DIAL-ACTION] Incoming: DialStatus=${DialStatus}, DialRingStatus=${DialRingStatus}, DialHangupCause=${DialHangupCause}, ALeg=${DialALegUUID}, BLeg=${DialBLegUUID}, CallUUID=${req.body?.CallUUID}`);
 
-      // console.log(`📡 [DIAL-ACTION] CallUUID=${callUuid}, Status=${DialStatus}, Rang=${DialRingStatus}, Cause=${DialHangupCause}, Agent=${agentUserId}`);
+      const callMeta = callUuid ? this.plivoService.getCallMetadata(callUuid) : undefined;
+      let agentUserId = callMeta?.agentUserId;
+
+      let existingCall = callUuid ? await this.callDetailsRepository.getByCallUuid(callUuid) : null;
+      if (!existingCall && DialBLegUUID) {
+        const inMemoryParent = this.plivoService.findParentCallUuid(undefined, undefined);
+        if (inMemoryParent) {
+          existingCall = await this.callDetailsRepository.getByCallUuid(inMemoryParent);
+          if (existingCall) {
+            callUuid = inMemoryParent;
+          }
+        }
+      }
 
       const isDeliveryFailure =
         DialRingStatus === 'false' ||
@@ -853,13 +928,13 @@ export class PlivoController {
 
         try {
           if (callUuid) {
-            const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
             if (existingCall) {
               await this.callDetailsRepository.updateCallDetails(callUuid, {
                 status: targetStatus,
                 duration: 0,
                 ...(callerPhone && callerPhone !== 'unknown' ? { from: callerPhone } : {}),
               });
+              console.log(`✅ [DIAL-ACTION] Updated call ${callUuid} status to '${targetStatus}' in DB.`);
             } else {
               let agentObjId: ObjectId | undefined;
               if (agentUserId && ObjectId.isValid(agentUserId)) {
@@ -888,10 +963,21 @@ export class PlivoController {
                 updatedAt: new Date(),
               };
               await this.callDetailsRepository.create(failedCallRecord);
+              console.log(`✅ [DIAL-ACTION] Created call ${callUuid} record with status '${targetStatus}' in DB.`);
             }
+            this.plivoService.markCallTerminalStatus(callUuid, targetStatus);
           }
         } catch (dbErr) {
-          console.error(`❌ [DIAL-ACTION] Failed to persist failed call ${callUuid} in DB:`, dbErr);
+          console.error(`❌ [DIAL-ACTION] Failed to persist call ${callUuid} in DB:`, dbErr);
+        }
+
+        // Always ensure agent is freed if dial attempt did not connect
+        if (agentUserId) {
+          try {
+            await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
+          } catch (mErr) {
+            // ignore
+          }
         }
       }
 
@@ -1063,9 +1149,10 @@ export class PlivoController {
             const hangupCause = String(req.body?.HangupCause || req.query?.HangupCause || '').toLowerCase();
             const plivoCallStatus = String(req.body?.CallStatus || req.query?.CallStatus || '').toLowerCase();
 
-            // If call already has a specific terminal status (e.g. 'rejected' by agent or 'no-answer' by dial-action), preserve it!
-            const alreadyResolvedStatuses = ['rejected', 'no-answer', 'busy', 'failed'];
-            if (existingCall.status && alreadyResolvedStatuses.includes(existingCall.status)) {
+            // If call already has a specific terminal status (e.g. 'completed', 'rejected', or 'no-answer'), preserve it!
+            const alreadyResolvedStatuses = ['completed', 'rejected', 'no-answer', 'busy', 'failed'];
+
+            if (existingCall.status && alreadyResolvedStatuses.includes(existingCall.status.toLowerCase())) {
               console.log(`ℹ️ [PLIVO-CONTROLLER] Call ${callUuid} already has specific terminal status '${existingCall.status}'. Preserving.`);
               if (!freedAgentId && existingCall.agent?.userid) {
                 const dbAgentId = existingCall.agent.userid.toString();
@@ -1079,17 +1166,23 @@ export class PlivoController {
 
             if (!wasConnected) {
               let terminalStatus = 'no-answer';
-              if (hangupCause.includes('reject')) {
+              const hangupSource = String(req.body?.HangupSource || req.query?.HangupSource || '').toLowerCase();
+              const isCallerCancel =
+                hangupCause.includes('cancel') ||
+                hangupCause.includes('originator') ||
+                hangupSource === 'caller';
+
+              if (hangupCause.includes('reject') || hangupCause.includes('decline')) {
                 terminalStatus = 'rejected';
-              } else if (hangupCause.includes('cancel') || hangupCause.includes('originator')) {
+              } else if (isCallerCancel) {
                 terminalStatus = 'canceled';
               } else if (hangupCause.includes('busy') || plivoCallStatus === 'busy') {
                 terminalStatus = 'busy';
               } else if (plivoCallStatus === 'failed') {
                 terminalStatus = 'failed';
-              } else if (hangupCause.includes('normal') || hangupCause.includes('clearing') || duration < 10) {
-                // Caller hung up during welcome prompt or ringing before connecting to agent
-                terminalStatus = 'canceled';
+              } else {
+                // Call was routed towards agent and ended without answer -> 'no-answer'
+                terminalStatus = 'no-answer';
               }
 
               console.log(`📞 [PLIVO-CONTROLLER] Call ${callUuid} ended uncompleted (hangupCause=${req.body?.HangupCause || 'none'}). Updating status to '${terminalStatus}'`);

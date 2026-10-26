@@ -198,6 +198,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   const wsRef = useRef<PlivoWebSocketService | null>(null);
   const activeCallUuidRef = useRef<string | null>(null);
   const parentCallUuidRef = useRef<string | null>(null);
+  const incomingAttemptCallUuidRef = useRef<string | null>(null);
   const lastCallUuidRef = useRef<string | null>(null);
   const activeCallInfoRef = useRef<{ number: string; direction: string } | null>(null);
   const isHangingUpRef = useRef(false);
@@ -470,9 +471,9 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         const callerPhone = callerName || callerID || "Unknown Caller";
         const callUuid = callInfo?.callUUID || callInfo?.calluuid || (callerID?.includes("-") ? callerID : undefined);
 
-        const parentUuid = extractParentCallUuid(_extraHeaders, callInfo, callerID, callerName);
+        const parentUuid = extractParentCallUuid(_extraHeaders, callInfo, callerID, callerName) || incomingAttemptCallUuidRef.current;
         if (parentUuid) {
-          console.log(`🔗 [PlivoContext] Captured parentCallUuid from incoming headers: ${parentUuid}`);
+          console.log(`🔗 [PlivoContext] Captured parentCallUuid from incoming headers or SSE attempt: ${parentUuid}`);
           parentCallUuidRef.current = parentUuid;
         }
 
@@ -596,6 +597,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       client.client.on("onCallCancelled", () => {
         console.log("❌ [PlivoContext] Call cancelled");
         handledAnsweredLegRef.current = null;
+        incomingAttemptCallUuidRef.current = null;
         setCallStatus("idle");
         setActiveCall(null);
         disconnectWebSocket();
@@ -605,6 +607,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       client.client.on("onIncomingCallCanceled", () => {
         console.log("📴 [PlivoContext] Incoming call canceled or timed out");
         handledAnsweredLegRef.current = null;
+        incomingAttemptCallUuidRef.current = null;
         parentCallUuidRef.current = null;
         activeCallUuidRef.current = null;
         activeCallInfoRef.current = null;
@@ -617,6 +620,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
       client.client.on("onIncomingCallIgnored", () => {
         console.log("📴 [PlivoContext] Incoming call ignored");
         handledAnsweredLegRef.current = null;
+        incomingAttemptCallUuidRef.current = null;
         parentCallUuidRef.current = null;
         activeCallUuidRef.current = null;
         activeCallInfoRef.current = null;
@@ -659,6 +663,9 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
               const incomingId = data.callUuid || data.callId || "";
               const callerNumber = data.callerNumber || "Unknown Caller";
               console.log(`📞 [PlivoContext] SSE call_incoming_attempt registered at server for call ${incomingId} from ${callerNumber}`);
+              if (incomingId) {
+                incomingAttemptCallUuidRef.current = incomingId;
+              }
 
               // If the softphone is ALREADY disconnected (e.g. 2G/3G throttled or socket closed), alert IMMEDIATELY!
               if (!isPlivoConnectedRef.current) {
@@ -839,6 +846,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         isHangingUpRef.current = false;
       }
     }
+    incomingAttemptCallUuidRef.current = null;
     parentCallUuidRef.current = null;
     activeCallUuidRef.current = null;
     activeCallInfoRef.current = null;
@@ -851,19 +859,30 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
   }, [disconnectWebSocket, handleMarkAgentAsAvailable]);
 
   const rejectCall = useCallback(() => {
-    const currentUuid = activeCallUuidRef.current || parentCallUuidRef.current;
+    const currentUuid = parentCallUuidRef.current || incomingAttemptCallUuidRef.current || activeCallUuidRef.current;
+    const bLeg = activeCallUuidRef.current !== currentUuid ? activeCallUuidRef.current : undefined;
     const currentAgentId = currentUserRef.current?._id ? String(currentUserRef.current._id) : undefined;
     handledAnsweredLegRef.current = null;
+    const callToReject = activeCallUuidRef.current || currentUuid;
     if (plivoClientRef.current && plivoClientRef.current.client) {
       try {
-        plivoClientRef.current.client.reject();
+        if (callToReject) {
+          plivoClientRef.current.client.reject(callToReject);
+        } else {
+          plivoClientRef.current.client.reject();
+        }
       } catch (error) {
         console.error("❌ [PlivoContext] Error rejecting call:", error);
       }
     }
     if (currentUuid) {
-      plivoApi.saveCallRejected({ callUuid: currentUuid, agentUserId: currentAgentId }).catch(() => {});
+      plivoApi.saveCallRejected({
+        callUuid: currentUuid,
+        bLegUuid: bLeg || undefined,
+        agentUserId: currentAgentId,
+      }).catch(() => {});
     }
+    incomingAttemptCallUuidRef.current = null;
     parentCallUuidRef.current = null;
     activeCallUuidRef.current = null;
     activeCallInfoRef.current = null;

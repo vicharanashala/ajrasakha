@@ -58,6 +58,7 @@ export class PlivoService {
   private callAgentMapping: Map<string, string> = new Map();
   private callMetadataMap: Map<string, { from?: string; to?: string; agentUserId?: string; agentNumber?: string; direction?: 'inbound' | 'outbound'; startTime?: Date }> = new Map();
   private pendingAgentAlerts: Map<string, Array<{ callUuid: string; callerNumber: string; timestamp: Date; reason: string }>> = new Map();
+  private terminalStatusMap: Map<string, string> = new Map();
 
   private lastActivityMap: Map<string, number> = new Map();
   // private audioDumpBuffers: Map<string, Buffer[]> = new Map();
@@ -86,6 +87,7 @@ export class PlivoService {
         this.callMetadataMap.delete(uuid);
         this.callAgentMapping.delete(uuid);
         this.endedCalls.delete(uuid);
+        this.terminalStatusMap.delete(uuid);
       }
     }
 
@@ -661,6 +663,17 @@ export class PlivoService {
     return alerts;
   }
 
+  markCallTerminalStatus(callUuid: string, status: string): void {
+    if (callUuid && status) {
+      this.terminalStatusMap.set(callUuid, status.toLowerCase());
+      console.log(`📌 [PLIVO-SERVICE] Marked terminal status for ${callUuid}: ${status}`);
+    }
+  }
+
+  getCallTerminalStatus(callUuid: string): string | undefined {
+    return this.terminalStatusMap.get(callUuid);
+  }
+
   findParentCallUuid(phoneNumber?: string, agentUserId?: string): string | undefined {
     const now = Date.now();
     // Dialing times out in 40s. A 90s window is ample for incoming bridge connection.
@@ -786,7 +799,7 @@ export class PlivoService {
       }
 
       const existingCall = await this.callDetailsRepository.getByCallUuid(callUuid);
-      const terminalStatuses = ['canceled', 'rejected', 'no-answer', 'busy', 'failed', 'completed'];
+      const terminalStatuses = ['completed', 'rejected', 'no-answer', 'busy', 'failed', 'canceled'];
       let status: string;
 
       if (existingCall?.status && terminalStatuses.includes(existingCall.status.toLowerCase())) {
@@ -799,12 +812,17 @@ export class PlivoService {
           plivoCall?.hangupCause ||
           ''
         ).toLowerCase();
+        const hangupSource = String(plivoCall?.hangupSource || plivoCall?.hangup_source || '').toLowerCase();
+        const isCallerCancel =
+          hangupCause.includes('cancel') ||
+          hangupCause.includes('originator') ||
+          hangupSource === 'caller';
 
         if (existingCall?.status === 'connected') {
           status = 'completed';
-        } else if (hangupCause.includes('reject')) {
+        } else if (hangupCause.includes('reject') || hangupCause.includes('decline')) {
           status = 'rejected';
-        } else if (hangupCause.includes('cancel') || hangupCause.includes('originator')) {
+        } else if (isCallerCancel) {
           status = 'canceled';
         } else if (hangupCause.includes('busy') || rawPlivoStatus === 'busy') {
           status = 'busy';
@@ -812,20 +830,21 @@ export class PlivoService {
           status = 'no-answer';
         } else if (rawPlivoStatus === 'failed') {
           status = 'failed';
-        } else if (hangupCause.includes('normal') || hangupCause.includes('clearing') || duration < 10) {
-          status = 'canceled';
         } else {
-          status = existingCall?.status === 'ringing' ? 'canceled' : 'completed';
+          status = existingCall?.status === 'ringing' ? 'no-answer' : 'completed';
         }
       }
 
       const direction = isOutbound ? 'outbound' : (plivoCall?.callDirection || plivoCall?.direction || 'inbound');
 
+      const isUncompleted = ['rejected', 'no-answer', 'canceled', 'failed'].includes(status);
+      const finalDuration = isUncompleted ? 0 : (duration || 0);
+
       const callDetails = {
         callUuid,
         from: fromNumber,
         to: toNumber,
-        duration: duration || 0,
+        duration: finalDuration,
         status: status,
         direction: direction,
         caller: {
