@@ -71,18 +71,18 @@ export const QuestionsPage = ({
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
   // "A" opens AgriTech Management from the questions list, for the roles that see it
-  // in the sidebar; paused while any dialog or drawer is open. (temporarily commented out)
-  // useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
-  //   const role = currentUser?.role;
-  //   return (
-  //     !isAgriTechOpen &&
-  //     !selectedQuestionId &&
-  //     !!role &&
-  //     role !== "expert" &&
-  //     role !== "tester" &&
-  //     !document.querySelector('[role="dialog"], [role="alertdialog"]')
-  //   );
-  // });
+  // in the sidebar; paused while any dialog or drawer is open.
+  useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
+    const role = currentUser?.role;
+    return (
+      !isAgriTechOpen &&
+      !selectedQuestionId &&
+      !!role &&
+      role !== "expert" &&
+      role !== "tester" &&
+      !document.querySelector('[role="dialog"], [role="alertdialog"]')
+    );
+  });
   const [search, setSearch] = useState("");
   const [searchTabMode, setSearchTabMode] = useState<string>("search");
   const [status, setStatus] = useState<QuestionFilterStatus>("all");
@@ -408,14 +408,14 @@ export const QuestionsPage = ({
   // question's details to a view (like My Assignments) that has fewer pages — snap
   // back to the last valid page so the list isn't stuck on an empty out-of-range page.
   useEffect(() => {
-    if (viewMode !== "review-level") {
+    if (viewMode !== "review-level" && !isLoading && questionData !== undefined) {
       if (totalPages > 0 && currentPage > totalPages) {
         setCurrentPage(totalPages);
       } else if (totalPages === 0 && currentPage > 1) {
         setCurrentPage(1);
       }
     }
-  }, [viewMode, totalPages, currentPage]);
+  }, [viewMode, totalPages, currentPage, isLoading, questionData]);
 
   const hasNext = currentIndex < currentItems.length - 1 || currentPageVal < totalPages;
   const hasPrev = currentIndex > 0 || currentPageVal > 1;
