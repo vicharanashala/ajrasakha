@@ -42,29 +42,34 @@ RUN python -c "from huggingface_hub import snapshot_download; snapshot_download(
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1
+    PYTHONUNBUFFERED=1 \
+    CUDA_VISIBLE_DEVICES=0 \
+    HF_HOME=/root/.cache/huggingface \
+    PYTHONPATH=/tmp/indic-ocr:$PYTHONPATH
 
 WORKDIR /app
 
-# Install runtime dependencies
+# Install Python and runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 libgomp1 curl \
+        python3.11 python3.11-dev python3.11-distutils \
+        libgomp1 libcusparse12 libnvjitlink12 \
+        curl git git-lfs \
     && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python
+    && ln -sf /usr/bin/python3.11 /usr/bin/python \
+    && curl -LsSf https://astral.sh/uv/install.sh | sh
 
-# Copy Python packages from builder (site-packages)
-COPY --from=builder /usr/local/lib/python3.11/site-packages /usr/local/lib/python3.11/site-packages
-COPY --from=builder /usr/local/bin /usr/local/bin
+ENV PATH="/root/.local/bin:${PATH}"
 
-# Copy model repo (bodhan_genai package)
-COPY --from=builder /tmp/indic-ocr /app/bodhan_genai
+# Clone and install the model package
+RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
+    chmod 600 ~/.netrc && \
+    git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
+    cd /tmp/indic-ocr && \
+    chmod +x install.sh && \
+    ./install.sh --extras all-ocr
 
-# Pre-downloaded model weights
+# Copy pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
-
-# Set HF_HOME for the model
-ENV HF_HOME=/root/.cache/huggingface
-ENV PYTHONPATH=/app/bodhan_genai:$PYTHONPATH
 
 # Copy server
 COPY server.py /app/server.py
