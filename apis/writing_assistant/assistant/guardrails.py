@@ -4,8 +4,12 @@ never claims to, prove complete semantic equivalence (Writing Assistant
 Build Plan, "Technical-content preservation policy").
 """
 
+import logging
+
 from . import chemical_detector_client, llm_client, text_checks
 from .models import CheckedTokens, CheckStatus, GuardrailResult, GuardrailStatus, LLMUnavailableError
+
+log = logging.getLogger("writing_assistant.guardrails")
 
 
 def _diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
@@ -33,6 +37,7 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
             "Could not align original and rewritten sentences 1:1 "
             "(sentence count differs) - treated as uncertain."
         )
+        _log_rejection(original_text, rewrite_text, details)
         return GuardrailResult(status=GuardrailStatus.FAILED, checked_tokens=tokens, details=details)
 
     tokens.sentence_alignment = CheckStatus.UNCHANGED
@@ -100,4 +105,19 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     overall_failed = tokens.any_failed() or llm_flagged_change or llm_not_run
     status = GuardrailStatus.FAILED if overall_failed else GuardrailStatus.PASSED
 
+    if overall_failed:
+        _log_rejection(original_text, rewrite_text, details)
+
     return GuardrailResult(status=status, checked_tokens=tokens, details=details)
+
+
+def _log_rejection(original_text: str, rewrite_text: str, details: list[str]) -> None:
+    """Server-side only - never returned in the HTTP response (a rejected
+    suggestedText is never shown to the client either). Without this, a
+    rejected rewrite leaves no trace anywhere, making a false-positive-vs-
+    real-catch call on a real rejection impossible after the fact (see
+    Writing Assistant Build Plan, Revision 12)."""
+    log.info(
+        "Guardrail rejected a rewrite. details=%s original=%r rewrite=%r",
+        details, original_text, rewrite_text,
+    )
