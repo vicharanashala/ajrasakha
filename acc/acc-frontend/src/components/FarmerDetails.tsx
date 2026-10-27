@@ -22,6 +22,7 @@ export { SARVAM_LANGUAGES };
 
 export interface FarmerDetailsRef {
   getProfile: () => FarmerProfile | null;
+  reset: () => void;
 }
 
 interface FarmerDetailsProps {
@@ -44,6 +45,10 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
 
   useImperativeHandle(ref, () => ({
     getProfile: () => farmer,
+    reset: () => {
+      setFarmer(null);
+      lastFetchedPhoneRef.current = null;
+    },
   }), [farmer]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
@@ -160,14 +165,20 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
   };
 
   useEffect(() => {
-    if (phoneNo && phoneNo.trim() !== "") {
-      if (phoneNo !== lastFetchedPhoneRef.current) {
-        lastFetchedPhoneRef.current = phoneNo;
-        fetchFarmerDetails();
+    const cleanPhone = (phoneNo || "").trim();
+    const isValidPhone = Boolean(
+      cleanPhone &&
+      cleanPhone !== "Unknown" &&
+      cleanPhone !== "Unknown Caller" &&
+      !cleanPhone.startsWith("sip:")
+    );
+
+    if (isValidPhone) {
+      if (cleanPhone !== lastFetchedPhoneRef.current) {
+        lastFetchedPhoneRef.current = cleanPhone;
+        setFarmer(null);
+        fetchFarmerDetails(cleanPhone);
       }
-    } else {
-      lastFetchedPhoneRef.current = null;
-      setFarmer(null);
     }
   }, [phoneNo]);
 
@@ -186,17 +197,18 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     isFirstMountRef.current = false;
   }, [extractedProfile, phoneNo, disabled, scheduleAutoSave]);
 
-  const fetchFarmerDetails = async () => {
-    if (!phoneNo) return;
+  const fetchFarmerDetails = async (targetPhone?: string) => {
+    const queryPhone = (targetPhone || phoneNo || "").trim();
+    if (!queryPhone || queryPhone === "Unknown" || queryPhone === "Unknown Caller" || queryPhone.startsWith("sip:")) return;
     setLoading(true);
     try {
-      const data = await plivoService.getFarmerByPhoneNo(phoneNo);
-      const normalized = normalizeProfile(data?.profile || {}, phoneNo);
+      const data = await plivoService.getFarmerByPhoneNo(queryPhone);
+      const normalized = normalizeProfile(data?.profile || {}, queryPhone);
       const profileData = Object.keys(normalized).length > 0 ? normalized : null;
       setFarmer(profileData);
       if (profileData && onProfileUpdated) onProfileUpdated(profileData);
     } catch (error) {
-      console.error(`[FarmerDetails] Failed to fetch farmer details for ${phoneNo}:`, error);
+      console.error(`[FarmerDetails] Failed to fetch farmer details for ${queryPhone}:`, error);
     } finally {
       setLoading(false);
     }

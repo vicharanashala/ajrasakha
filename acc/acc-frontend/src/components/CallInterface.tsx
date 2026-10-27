@@ -1734,15 +1734,6 @@ export const CallInterface = () => {
               const isBrandNewCall = !callUuidRef.current && uuid !== lastCallUuidRef.current;
               if (isBrandNewCall) {
                 console.log(`🔄 [CallInterface] New call session detected: ${uuid} (previous: ${lastCallUuidRef.current})`);
-                // Reset previous phone number and farmer profiles immediately so old call details never leak into new active call
-                setCallPhoneNumber(null);
-                callPhoneNumberRef.current = null;
-                setLastCallPhoneNumber(null);
-                lastCallPhoneNumberRef.current = null;
-                setFarmerProfile(null);
-                activeProfileRef.current = null;
-                setExtractedFarmerProfile(null);
-
                 // Clear transcripts, questions, summary, HITL and simulation states when a new call becomes active
                 setTranscriptsList([]);
                 setQuestions([]);
@@ -1767,8 +1758,35 @@ export const CallInterface = () => {
                 setEditableVillage("");
                 setEditableDomain([]);
                 setEditableSeason("");
-
+                setQueryCards([]);
+                setActiveQueryIndex(0);
                 setIsSimulatingMode(false);
+
+                // Reset farmer profile state for the new incoming call
+                setFarmerProfile(null);
+                activeProfileRef.current = null;
+                setExtractedFarmerProfile(null);
+                farmerDetailsRef.current?.reset?.();
+
+                // If phone number for this new call session is already known in ref, adopt it immediately.
+                // Otherwise clear so stale previous caller's phone is not retained.
+                const newPhone = callPhoneNumberRef.current;
+                const isValidNewPhone = Boolean(
+                  newPhone &&
+                  newPhone !== "Unknown" &&
+                  newPhone !== "Unknown Caller" &&
+                  !newPhone.startsWith("sip:")
+                );
+                if (isValidNewPhone) {
+                  setCallPhoneNumber(newPhone);
+                  setLastCallPhoneNumber(newPhone);
+                  lastCallPhoneNumberRef.current = newPhone;
+                } else {
+                  setCallPhoneNumber(null);
+                  callPhoneNumberRef.current = null;
+                  setLastCallPhoneNumber(null);
+                  lastCallPhoneNumberRef.current = null;
+                }
               }
 
               callUuidRef.current = uuid;
@@ -1781,12 +1799,20 @@ export const CallInterface = () => {
             }
           }}
           onPhoneNumberChange={(phone) => {
-            if (phone && phone !== "Unknown" && phone !== "Unknown Caller") {
+            const isValidPhone = Boolean(
+              phone &&
+              phone !== "Unknown" &&
+              phone !== "Unknown Caller" &&
+              !phone.startsWith("sip:")
+            );
+            if (isValidPhone) {
               callPhoneNumberRef.current = phone;
               lastCallPhoneNumberRef.current = phone;
               setCallPhoneNumber(phone);
               setLastCallPhoneNumber(phone);
             } else if (!phone) {
+              // Call ended: keep lastCallPhoneNumber and lastCallPhoneNumberRef.current intact
+              // so the agent can review the ended call's farmer details without loss!
               setCallPhoneNumber(null);
               callPhoneNumberRef.current = null;
             }
@@ -1801,7 +1827,7 @@ export const CallInterface = () => {
         <div className="w-full flex flex-col space-y-4 min-w-0">
           <FarmerDetails
             ref={farmerDetailsRef}
-            phoneNo={isCallActive ? (callPhoneNumber || "") : (callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || "")}
+            phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
             extractedProfile={extractedFarmerProfile}
             disabled={!isCallActive && !isSimulatingMode && !(callUuid && callUuid.startsWith("testing_")) && !callPhoneNumber && !lastCallPhoneNumber}
             onProfileUpdated={(profile) => {

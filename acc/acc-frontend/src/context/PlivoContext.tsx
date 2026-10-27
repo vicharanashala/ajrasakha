@@ -468,7 +468,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
         }
         clearUndeliveredCallAlert();
 
-        const callerPhone = callerName || callerID || "Unknown Caller";
+        const rawCaller = callerName || callerID || "Unknown Caller";
         const callUuid = callInfo?.callUUID || callInfo?.calluuid || (callerID?.includes("-") ? callerID : undefined);
 
         const parentUuid = extractParentCallUuid(_extraHeaders, callInfo, callerID, callerName) || incomingAttemptCallUuidRef.current;
@@ -477,6 +477,7 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
           parentCallUuidRef.current = parentUuid;
         }
 
+        const callerPhone = rawCaller;
         const effectiveCallUuid = parentUuid || callUuid;
         console.log(`📞 [PlivoContext] Incoming call from: ${callerPhone}, callUUID: ${effectiveCallUuid} (original: ${callUuid}, parent: ${parentUuid})`);
         toast.info(`Incoming call from ${callerPhone}`, { duration: 5000 });
@@ -543,12 +544,13 @@ export const PlivoProvider: React.FC<{ children: React.ReactNode }> = ({ childre
             phoneNumber: currentPhone || undefined,
             direction: currentDir,
             agentUserId: agentIdVal,
-          }).then((res: any) => {
-            if (res?.callUuid && res.callUuid !== answeredCallUuid) {
-              console.log(`🔄 [PlivoContext] Updating active call UUID to server-resolved parent UUID: ${res.callUuid}`);
-              activeCallUuidRef.current = res.callUuid;
-              parentCallUuidRef.current = res.callUuid;
-              setActiveCall((prev) => (prev ? { ...prev, uuid: res.callUuid } : prev));
+          }).then((res) => {
+            const resolvedUuid = res?.callUuid;
+            if (resolvedUuid && resolvedUuid !== answeredCallUuid) {
+              console.log(`🔄 [PlivoContext] Updating active call UUID to server-resolved parent UUID: ${resolvedUuid}`);
+              activeCallUuidRef.current = resolvedUuid;
+              parentCallUuidRef.current = resolvedUuid;
+              setActiveCall((prev) => (prev ? { ...prev, uuid: resolvedUuid } : prev));
             }
           }).catch((e) => console.warn("Failed to notify call answered:", e));
         }

@@ -357,7 +357,7 @@ export class PlivoController {
           >${streamUrl}</Stream>
                               <Speak voice="MAN" language="en-US">${welcomeMessage}</Speak>
                               <Record action="${effectiveRecordCallbackUrl}" method="POST" startOnDialAnswer="true" redirect="false" fileFormat="mp3" maxLength="3600" />
-                              <Dial action="${dialActionUrl}" timeout="${dialTimeout}" callerId="${myPlivoNumber}" sipHeaders="parentCallUuid=${callUuid}">
+                              <Dial action="${dialActionUrl}" timeout="${dialTimeout}" callerId="${callerNumber}" sipHeaders="parentCallUuid=${callUuid}">
                                         <User sipHeaders="parentCallUuid=${callUuid}">${endpointUser}</User>
                               </Dial>
                               <Speak voice="MAN" language="en-US">Thank you for calling Annam Call Centre</Speak>
@@ -672,23 +672,10 @@ export class PlivoController {
         return { success: false, message: 'callUuid is required' };
       }
 
-      const isTestCall = callUuid.startsWith('testing_');
-      let farmerProfile: any = null;
-
-      if (!isTestCall && phoneNumber && phoneNumber.toLowerCase() !== 'unknown') {
-        try {
-          const farmerDoc = await this.callFarmerRepository.findByPhoneNo(phoneNumber);
-          if (farmerDoc) {
-            farmerProfile = farmerDoc.profile || farmerDoc;
-          }
-        } catch (fErr) {
-          console.warn(`[PlivoController] Failed to lookup farmer for ${phoneNumber}:`, fErr);
-        }
-      }
-
       let effectiveCallUuid = callUuid;
       let existingCall = await this.callDetailsRepository.getByCallUuid(effectiveCallUuid);
       const isOutbound = direction === 'outbound' || existingCall?.direction === 'outbound';
+      const isTestCall = callUuid.startsWith('testing_');
 
       // Resolve agent identifier with fallback to authenticated currentUser token
       const effectiveAgentId =
@@ -698,7 +685,7 @@ export class PlivoController {
       // If call is inbound and no document exists for this UUID, check if it's an unmapped bridge leg.
       // Note: If callUuid is ALREADY registered as the parent call in PlivoService (normal path),
       // skip findParentCallUuid completely to guarantee zero cross-talk between concurrent calls.
-      const isAlreadyRegisteredParent = !isOutbound && !isTestCall && !!this.plivoService.getCallMetadata(callUuid);
+      const isAlreadyRegisteredParent = !isOutbound && !!this.plivoService.getCallMetadata(callUuid);
 
       if (!existingCall && !isOutbound && !isTestCall && !isAlreadyRegisteredParent) {
         // Fallback 1: Check in-memory metadata in PlivoService for legs where SIP header was unavailable
@@ -736,6 +723,18 @@ export class PlivoController {
       const toNumber = isOutbound
         ? (phoneNumber || existingCall?.to || inMemoryMeta?.to || '')
         : (existingCall?.to || inMemoryMeta?.to || myPlivoNumber);
+
+      let farmerProfile: any = null;
+      if (!isTestCall && phoneNumber && phoneNumber.toLowerCase() !== 'unknown') {
+        try {
+          const farmerDoc = await this.callFarmerRepository.findByPhoneNo(phoneNumber);
+          if (farmerDoc) {
+            farmerProfile = farmerDoc.profile || farmerDoc;
+          }
+        } catch (fErr) {
+          console.warn(`[PlivoController] Failed to lookup farmer for ${phoneNumber}:`, fErr);
+        }
+      }
 
       const agentId = effectiveAgentId || existingCall?.agent?.userid?.toString();
       let agentObjId: ObjectId | undefined = undefined;
