@@ -5,6 +5,8 @@ import {validate} from 'class-validator';
 import {
   GdbDecisionDto,
   GetGdbCleaningListQuery,
+  SaveGdbCorrectionDto,
+  SaveGdbSourcesDto,
 } from '../classes/validators/GdbCleaningValidators.js';
 
 const check = async (plain: object) => {
@@ -51,5 +53,25 @@ describe('GdbDecisionDto', () => {
     const bad = plainToInstance(GdbDecisionDto, {action: 'delete'});
     expect(await validate(good)).toHaveLength(0);
     expect(await validate(bad)).not.toHaveLength(0);
+  });
+});
+
+describe('SaveGdbCorrectionDto and SaveGdbSourcesDto', () => {
+  const questionId = '64b000000000000000000001';
+
+  it('needs the question id and the corrected answer', async () => {
+    const ok = plainToInstance(SaveGdbCorrectionDto, {questionId, correctedAnswer: 'Text'});
+    expect(await validate(ok)).toHaveLength(0);
+    const noQuestion = plainToInstance(SaveGdbCorrectionDto, {correctedAnswer: 'Text'});
+    expect(await validate(noQuestion)).not.toHaveLength(0);
+  });
+
+  it('needs the question id and a list of sources, but allows an empty list', async () => {
+    const empty = plainToInstance(SaveGdbSourcesDto, {questionId, sources: []});
+    expect(await validate(empty)).toHaveLength(0);
+    const missing = plainToInstance(SaveGdbSourcesDto, {questionId});
+    expect(await validate(missing)).not.toHaveLength(0);
+    const noQuestion = plainToInstance(SaveGdbSourcesDto, {sources: []});
+    expect(await validate(noQuestion)).not.toHaveLength(0);
   });
 });

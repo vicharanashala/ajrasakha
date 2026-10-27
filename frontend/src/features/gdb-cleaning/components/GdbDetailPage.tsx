@@ -72,9 +72,9 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
       onBack={onBack}
       onAccept={(comment) => decision.mutate({ action: "accept", comment })}
       onDismiss={(comment) => decision.mutate({ action: "dismiss", comment })}
-      onSaveCorrection={(text) => saveCorrection.mutateAsync(text)}
+      onSaveCorrection={(text) => saveCorrection.mutateAsync({ questionId: item.questionId, correctedAnswer: text })}
       onEditFlag={(parameter, result, comment) => editFlag.mutateAsync({ parameter, result, comment })}
-      onSaveSources={(sources) => editSources.mutateAsync(sources)}
+      onSaveSources={(sources) => editSources.mutateAsync({ questionId: item.questionId, sources })}
       onPush={() => push.mutateAsync()}
     />
   );

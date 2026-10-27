@@ -67,6 +67,7 @@ export interface IGdbCleaningRepository {
   /** Saves the suggested or edited correction. Only an answer still to do can change. */
   saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
   ): Promise<IGdbCleaning | null>;
 
@@ -81,6 +82,7 @@ export interface IGdbCleaningRepository {
   /** Saves the edited sources, keeping the originals. Only an answer still to do can change. */
   saveSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     originalSources: IGdbCleaningSource[],
     reviewerId: string,

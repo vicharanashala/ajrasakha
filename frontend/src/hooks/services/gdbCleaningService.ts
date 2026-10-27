@@ -124,10 +124,10 @@ class GdbCleaningService {
     return response;
   }
 
-  async saveCorrection(answerId: string, correctedAnswer: string): Promise<IGdbCleaningItem> {
+  async saveCorrection(answerId: string, questionId: string, correctedAnswer: string): Promise<IGdbCleaningItem> {
     const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/correction`, {
       method: "PUT",
-      body: JSON.stringify({ correctedAnswer }),
+      body: JSON.stringify({ questionId, correctedAnswer }),
     });
     if (!response) throw new Error("Failed to save the correction: No response received");
     return response;
@@ -142,10 +142,10 @@ class GdbCleaningService {
     return response;
   }
 
-  async editSources(answerId: string, sources: IGdbSource[]): Promise<IGdbCleaningItem> {
+  async editSources(answerId: string, questionId: string, sources: IGdbSource[]): Promise<IGdbCleaningItem> {
     const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/sources`, {
       method: "PUT",
-      body: JSON.stringify({ sources }),
+      body: JSON.stringify({ questionId, sources }),
     });
     if (!response) throw new Error("Failed to save the sources: No response received");
     return response;
