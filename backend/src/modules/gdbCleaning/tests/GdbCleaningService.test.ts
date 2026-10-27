@@ -7,6 +7,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {IGdbCleaningRepository} from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
 import {GdbCleaningService} from '../services/GdbCleaningService.js';
 
@@ -86,6 +87,18 @@ class FakeRepository implements IGdbCleaningRepository {
     return null;
   }
 
+  async addHistory() {}
+
+  async listHistory() {
+    return {rows: [], totalCount: 0, answers: 0};
+  }
+
+  async countInRange() {
+    const count = (status: GdbCleaningStatus) =>
+      this.docs.filter(d => d.status === status).length;
+    return {fixed: count('fixed'), dismissed: count('dismissed'), pushed: 0};
+  }
+
   async decide(
     answerId: string,
     decision: {
@@ -120,6 +133,7 @@ describe('GdbCleaningService', () => {
       new FakeRepository([todo, decided, makeDoc('clean'), makeDoc('pending')]),
       {} as IAnswerRepository,
       {} as IAnswerApprovalService,
+      {} as IUserRepository,
     );
   });
 

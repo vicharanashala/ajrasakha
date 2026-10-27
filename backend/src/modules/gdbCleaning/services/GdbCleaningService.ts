@@ -1,7 +1,9 @@
 import {inject, injectable} from 'inversify';
+import {ObjectId} from 'mongodb';
 import {BadRequestError, HttpError, NotFoundError} from 'routing-controllers';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {
+  GdbCleaningAction,
   GdbCleaningStatus,
   IGdbCleaning,
   IGdbCleaningCheck,
@@ -12,16 +14,32 @@ import {
   IGdbCleaningRepository,
 } from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
+import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
 import type {UpdateAnswerBody} from '#root/modules/answer/classes/validators/AnswerValidator.js';
 import {
   GdbCleaningItem,
   GdbCleaningListItem,
   GdbCleaningListQuery,
+  GdbHistoryQuery,
+  GdbHistoryResponse,
   IGdbCleaningService,
 } from '../interfaces/IGdbCleaningService.js';
 
 const DEFAULT_LIMIT = 25;
+
+// an answer can be changed while it is to do or has no flags; a decided one is closed
+const isEditable = (status: GdbCleaningStatus) =>
+  status === 'todo' || status === 'clean';
+
+// two lists of sources say the same thing
+const sameSources = (a: IGdbCleaningSource[], b: IGdbCleaningSource[]) => {
+  const key = (s: IGdbCleaningSource) =>
+    [s.source.trim(), String(s.page ?? '').trim(), (s.sourceName ?? '').trim(), s.sourceType ?? ''].join('|');
+  const left = a.map(key).sort();
+  const right = b.map(key).sort();
+  return left.length === right.length && left.every((k, i) => k === right[i]);
+};
 
 // does a check count as a flag, after any change by a reviewer
 const isFlagged = (check: IGdbCleaningCheck) =>
@@ -55,6 +73,7 @@ const toItem = (doc: IGdbCleaning): GdbCleaningItem => ({
 
 @injectable()
 export class GdbCleaningService implements IGdbCleaningService {
+
   constructor(
     @inject(GLOBAL_TYPES.GdbCleaningRepository)
     private readonly repository: IGdbCleaningRepository,
@@ -65,7 +84,42 @@ export class GdbCleaningService implements IGdbCleaningService {
 
     @inject(GLOBAL_TYPES.AnswerApprovalService)
     private readonly approvalService: IAnswerApprovalService,
+
+    // reviewers' names, for the history of everyone
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepository: IUserRepository,
   ) {}
+
+  // A reviewer's action goes in the answer's history. The action itself is already saved,
+  // so a failure here is logged and never undoes or blocks it.
+  private async record(
+    answerId: string,
+    userId: string | undefined,
+    action: GdbCleaningAction,
+    details?: Record<string, unknown>,
+  ): Promise<void> {
+    if (!userId) return;
+    try {
+      await this.repository.addHistory(answerId, {
+        userId: new ObjectId(userId),
+        action,
+        at: new Date(),
+        details,
+      });
+    } catch (error) {
+      console.error(`Could not record "${action}" for answer ${answerId}:`, error);
+    }
+  }
+
+  // two dates, or none
+  private static period(from?: string, to?: string) {
+    if (!from && !to) return {};
+    if (!from || !to) throw new BadRequestError('Give both the start and the end date');
+    const start = new Date(from);
+    const end = new Date(to);
+    if (start > end) throw new BadRequestError('The start date is after the end date');
+    return {from: start, to: end};
+  }
 
   async list(query: GdbCleaningListQuery) {
     const page = query.page ?? 1;
@@ -88,10 +142,57 @@ export class GdbCleaningService implements IGdbCleaningService {
     };
   }
 
-  async summary() {
+  async summary(range?: {from?: string; to?: string}) {
     const counts = await this.repository.countByStatus();
     const total = Object.values(counts).reduce((sum, n) => sum + n, 0);
-    return {...counts, total};
+    const {from, to} = GdbCleaningService.period(range?.from, range?.to);
+    const decided = await this.repository.countInRange(from, to);
+    // to do, no flags and the total are as of now; fixed, dismissed and pushed follow the dates
+    return {
+      ...counts,
+      fixed: decided.fixed,
+      dismissed: decided.dismissed,
+      pushed: decided.pushed,
+      total,
+      ranged: Boolean(from && to),
+    };
+  }
+
+  async history(query: GdbHistoryQuery, userId: string): Promise<GdbHistoryResponse> {
+    const page = query.page ?? 1;
+    const limit = query.limit ?? DEFAULT_LIMIT;
+    const {from, to} = GdbCleaningService.period(query.from, query.to);
+    const {rows, totalCount, answers} = await this.repository.listHistory({
+      userId: query.scope === 'all' ? undefined : userId,
+      from,
+      to,
+      page,
+      limit,
+    });
+    const ids = [...new Set(rows.map(row => row.userId.toString()))];
+    const users = ids.length
+      ? await this.userRepository.getUsersByIds(ids, undefined, {firstName: 1, lastName: 1})
+      : [];
+    const nameOf = (id: string) => {
+      const user = users.find(u => String(u._id) === id);
+      return user ? [user.firstName, user.lastName].filter(Boolean).join(' ') : null;
+    };
+    return {
+      entries: rows.map(row => ({
+        answerId: row.answerId.toString(),
+        question: row.question,
+        action: row.action,
+        at: new Date(row.at).toISOString(),
+        userId: row.userId.toString(),
+        userName: nameOf(row.userId.toString()),
+        details: row.details ?? null,
+      })),
+      totalCount,
+      totalPages: Math.max(1, Math.ceil(totalCount / limit)),
+      page,
+      limit,
+      answersHandled: answers,
+    };
   }
 
   filterOptions() {
@@ -107,11 +208,14 @@ export class GdbCleaningService implements IGdbCleaningService {
   async saveCorrection(
     answerId: string,
     correctedAnswer: string,
+    reviewerId?: string,
   ): Promise<GdbCleaningItem> {
     const text = correctedAnswer.trim();
     if (!text) throw new BadRequestError('The correction cannot be empty');
     const updated = await this.repository.saveCorrection(answerId, text);
-    return toItem(updated ?? (await this.explainRefusal(answerId)));
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
+    await this.record(answerId, reviewerId, 'correction_saved');
+    return item;
   }
 
   async editFlag(
@@ -123,7 +227,7 @@ export class GdbCleaningService implements IGdbCleaningService {
     if (!comment) throw new BadRequestError('A comment is required');
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    if (current.status !== 'todo') return toItem(await this.explainRefusal(answerId));
+    if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const target = (current.checks ?? []).find(c => c.parameter === edit.parameter);
     if (!target) {
       throw new BadRequestError(`There is no check called "${edit.parameter}"`);
@@ -148,8 +252,21 @@ export class GdbCleaningService implements IGdbCleaningService {
       };
     });
     const flags = checks.filter(isFlagged).map(c => c.parameter);
-    const updated = await this.repository.saveChecks(answerId, checks, flags);
-    return toItem(updated ?? (await this.explainRefusal(answerId)));
+    // the row follows its flags: any flag left means "to do", none means "no flags"
+    const stillOpen = flags.length > 0 || (current.notEvaluated ?? []).length > 0;
+    const updated = await this.repository.saveChecks(
+      answerId,
+      checks,
+      flags,
+      stillOpen ? 'todo' : 'clean',
+    );
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
+    await this.record(answerId, reviewerId, 'flag_changed', {
+      parameter: edit.parameter,
+      result: edit.result,
+      comment,
+    });
+    return item;
   }
 
   async editSources(
@@ -159,11 +276,12 @@ export class GdbCleaningService implements IGdbCleaningService {
   ): Promise<GdbCleaningItem> {
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    if (current.status !== 'todo') return toItem(await this.explainRefusal(answerId));
+    if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const clean = sources.map(source => ({
       sourceName: source.sourceName.trim(),
       source: source.source.trim(),
       page: source.page.trim(),
+      ...(source.sourceType ? {sourceType: source.sourceType} : {}),
     }));
     // the first edit keeps the pipeline's sources, later edits keep those
     const original = current.originalSources ?? current.sources ?? [];
@@ -173,7 +291,9 @@ export class GdbCleaningService implements IGdbCleaningService {
       original,
       reviewerId,
     );
-    return toItem(updated ?? (await this.explainRefusal(answerId)));
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
+    await this.record(answerId, reviewerId, 'sources_edited', {count: clean.length});
+    return item;
   }
 
   async pushToGdb(
@@ -185,9 +305,6 @@ export class GdbCleaningService implements IGdbCleaningService {
     if (row.status !== 'fixed' || !row.correctedAnswer?.trim()) {
       throw new HttpError(409, 'Only an accepted correction can be pushed');
     }
-    if (row.pushedAt) {
-      throw new HttpError(409, 'This correction was already pushed to the golden answer');
-    }
     const golden = await this.answerRepository.getById(answerId);
     if (!golden) {
       throw new NotFoundError('The golden answer was not found');
@@ -195,22 +312,50 @@ export class GdbCleaningService implements IGdbCleaningService {
     if (!golden.isFinalAnswer) {
       throw new BadRequestError('Only the final answer of a question can be replaced');
     }
-    // the correction was written for the text that was checked: if the golden answer changed since, stop
-    if ((golden.answer ?? '').trim() !== row.answer.trim()) {
+    // the golden answer must still be the text that was checked, or the correction that was pushed
+    // from here before: anything else was edited by someone else in between, so stop
+    const goldenText = (golden.answer ?? '').trim();
+    const correction = row.correctedAnswer.trim();
+    if (goldenText !== row.answer.trim() && goldenText !== correction) {
       throw new HttpError(
         409,
         'The golden answer was edited after it was checked. Review it again before pushing',
       );
+    }
+    // the sources of the row, as the expert left them. A source whose link is unchanged keeps the type it had
+    const goldenSources = golden.sources ?? [];
+    const sources = (row.sources ?? []).map(source => {
+      const before = goldenSources.find(g => g.source === source.source);
+      const sourceType = source.sourceType ?? before?.sourceType;
+      return {
+        ...(sourceType ? {sourceType} : {}),
+        sourceName: source.sourceName,
+        source: source.source,
+        page: source.page,
+      };
+    });
+    const sourcesChanged = !sameSources(
+      sources as IGdbCleaningSource[],
+      goldenSources.map(g => ({
+        source: g.source,
+        sourceName: g.sourceName ?? '',
+        page: String(g.page ?? ''),
+        sourceType: g.sourceType,
+      })),
+    );
+    if (goldenText === correction && !sourcesChanged) {
+      throw new HttpError(409, 'The golden answer already matches this row: nothing to push');
     }
     // the app's own edit flow: it updates the answer, its embedding and the question's text and
     // embedding together, and refuses a question without a normalised crop and location
     await this.approvalService.approveAnswer(reviewerId, {
       answerId,
       questionId: row.questionId.toString(),
-      answer: row.correctedAnswer.trim(),
-      sources: golden.sources ?? [],
+      answer: correction,
+      sources: sources.length ? sources : goldenSources,
     } as UpdateAnswerBody);
     const updated = await this.repository.markPushed(answerId, reviewerId);
+    await this.record(answerId, reviewerId, 'pushed');
     return toItem(updated ?? row);
   }
 
@@ -226,12 +371,18 @@ export class GdbCleaningService implements IGdbCleaningService {
     const comment = decision.comment?.trim() || null;
 
     if (decision.action === 'dismiss') {
+      const open = await this.repository.getByAnswerId(answerId);
+      if (open && open.status === 'clean') {
+        throw new BadRequestError('This answer has no flags to dismiss');
+      }
       const updated = await this.repository.decide(answerId, {
         status: 'dismissed',
         comment,
         reviewerId,
       });
-      return toItem(updated ?? (await this.explainRefusal(answerId)));
+      const item = toItem(updated ?? (await this.explainRefusal(answerId)));
+      await this.record(answerId, reviewerId, 'dismissed', {comment});
+      return item;
     }
 
     // accepting needs a correction: the one in the request, or the one saved earlier
@@ -248,7 +399,9 @@ export class GdbCleaningService implements IGdbCleaningService {
       comment,
       reviewerId,
     });
-    return toItem(updated ?? (await this.explainRefusal(answerId)));
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
+    await this.record(answerId, reviewerId, 'accepted', {comment});
+    return item;
   }
 
   // The update only goes through for an answer that is still "todo".

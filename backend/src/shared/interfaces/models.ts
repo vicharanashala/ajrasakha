@@ -1020,6 +1020,25 @@ export interface IGdbCleaningSource {
   sourceName: string;
   source: string;
   page: string;
+  /** central, state, district, hyper_local or other: the same types the reviewer app uses */
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
+}
+
+export type GdbCleaningAction =
+  | 'accepted'
+  | 'dismissed'
+  | 'flag_changed'
+  | 'sources_edited'
+  | 'correction_saved'
+  | 'pushed';
+
+/** One thing a reviewer did on an answer. It is kept on the answer's own row, so the page's
+ *  database user needs no other collection. */
+export interface IGdbCleaningHistoryEntry {
+  userId: ObjectId;
+  action: GdbCleaningAction;
+  at: Date;
+  details?: Record<string, unknown>;
 }
 
 /** One answer in the `gdb_cleaning` collection: the answer, the result of each
@@ -1038,6 +1057,8 @@ export interface IGdbCleaning {
   originalSources?: IGdbCleaningSource[];
   sourcesEditedBy?: ObjectId | null;
   sourcesEditedAt?: Date | null;
+  /** everything reviewers did on this answer, oldest first */
+  history?: IGdbCleaningHistoryEntry[];
   /** set when the accepted correction was pushed to the golden answer */
   pushedAt?: Date | null;
   pushedBy?: ObjectId | null;
