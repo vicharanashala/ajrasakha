@@ -112,7 +112,6 @@ export class GdbCleaningController {
   ) {
     return this.service.saveCorrection(
       params.answerId,
-      body.questionId,
       body.correctedAnswer,
       user._id.toString(),
     );
@@ -137,7 +136,7 @@ export class GdbCleaningController {
   @OpenAPI({
     summary: 'Correct the sources of the answer',
     description:
-      'Replaces the whole list of sources on this row, matched by answer and question. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
+      'Replaces the list of sources on this row. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
   })
   @Put('/:answerId/sources')
   @HttpCode(200)
@@ -149,7 +148,6 @@ export class GdbCleaningController {
   ) {
     return this.service.editSources(
       params.answerId,
-      body.questionId,
       body.sources,
       user._id.toString(),
     );

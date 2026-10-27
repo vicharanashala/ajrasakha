@@ -205,25 +205,14 @@ export class GdbCleaningService implements IGdbCleaningService {
     return toItem(doc);
   }
 
-  // The answer must exist and belong to the given question, or it is not found.
-  private async requireMatch(answerId: string, questionId: string): Promise<IGdbCleaning> {
-    const doc = await this.repository.getByAnswerId(answerId);
-    if (!doc || doc.questionId.toString() !== questionId) {
-      throw new NotFoundError(`Answer "${answerId}" not found for question "${questionId}"`);
-    }
-    return doc;
-  }
-
   async saveCorrection(
     answerId: string,
-    questionId: string,
     correctedAnswer: string,
     reviewerId?: string,
   ): Promise<GdbCleaningItem> {
     const text = correctedAnswer.trim();
     if (!text) throw new BadRequestError('The correction cannot be empty');
-    await this.requireMatch(answerId, questionId);
-    const updated = await this.repository.saveCorrection(answerId, questionId, text);
+    const updated = await this.repository.saveCorrection(answerId, text);
     const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'correction_saved');
     return item;
@@ -282,23 +271,22 @@ export class GdbCleaningService implements IGdbCleaningService {
 
   async editSources(
     answerId: string,
-    questionId: string,
     sources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<GdbCleaningItem> {
-    const current = await this.requireMatch(answerId, questionId);
+    const current = await this.repository.getByAnswerId(answerId);
+    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
     if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const clean = sources.map(source => ({
-      sourceName: source.sourceName?.trim(),
-      source: source.source?.trim(),
-      page: source.page?.trim(),
+      sourceName: source.sourceName.trim(),
+      source: source.source.trim(),
+      page: source.page.trim(),
       ...(source.sourceType ? {sourceType: source.sourceType} : {}),
     }));
     // the first edit keeps the pipeline's sources, later edits keep those
     const original = current.originalSources ?? current.sources ?? [];
     const updated = await this.repository.saveSources(
       answerId,
-      questionId,
       clean,
       original,
       reviewerId,
