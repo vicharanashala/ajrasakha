@@ -99,7 +99,6 @@ export interface IGdbCleaningService {
 
   saveCorrection(
     answerId: string,
-    questionId: string,
     correctedAnswer: string,
     reviewerId?: string,
   ): Promise<GdbCleaningItem>;
@@ -117,7 +116,6 @@ export interface IGdbCleaningService {
   /** A reviewer corrects the sources of the answer. The pipeline's own are kept. */
   editSources(
     answerId: string,
-    questionId: string,
     sources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<GdbCleaningItem>;
