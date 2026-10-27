@@ -403,6 +403,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_dynamic === true) {
+      params.append("is_dynamic", "true");
+    }
+
     if (filter.is_testing === true) {
       params.append("is_testing", "true");
     }
@@ -1403,6 +1407,10 @@ export class QuestionService {
 
     if (filter.is_non_agri === true) {
       params.append("is_non_agri", "true");
+    }
+
+    if (filter.is_dynamic === true) {
+      params.append("is_dynamic", "true");
     }
 
     if (filter.is_testing === true) {

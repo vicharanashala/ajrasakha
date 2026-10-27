@@ -159,7 +159,8 @@ export interface IUserRepository {
   }>;
 
   /**
-   * Finds all active, non-blocked users matching the specified roles.
+   * Finds all active review staff (excluding deactivated in-active accounts)
+   * matching the specified roles.
    * Defaults to review staff: expert, moderator, gate_keeper, auditor.
    */
   getActiveReviewStaff(

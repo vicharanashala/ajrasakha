@@ -53,6 +53,32 @@ _FORMULATION_SUFFIX_RE = re.compile(
 _LEET_MAP = str.maketrans(
     {"@": "a", "0": "o", "1": "i", "3": "e", "4": "a", "5": "s", "7": "t", "$": "s"}
 )
+_CONFUSABLE_MAP = str.maketrans(
+    {
+        "А": "A",
+        "В": "B",
+        "Е": "E",
+        "К": "K",
+        "М": "M",
+        "Н": "H",
+        "О": "O",
+        "Р": "P",
+        "С": "C",
+        "Т": "T",
+        "Х": "X",
+        "а": "a",
+        "в": "b",
+        "е": "e",
+        "к": "k",
+        "м": "m",
+        "н": "h",
+        "о": "o",
+        "р": "p",
+        "с": "c",
+        "т": "t",
+        "х": "x",
+    }
+)
 
 # These are language signals, not chemical names. They make a close spelling
 # less likely to be reported when it is being used as a place/name reference.
@@ -118,6 +144,7 @@ class _ScoredCandidate:
 
 
 def _normalize(value: str) -> str:
+    value = value.translate(_CONFUSABLE_MAP)
     value = unicodedata.normalize("NFKD", value)
     value = value.encode("ascii", "ignore").decode("ascii")
     value = value.lower().replace("’", "'")
@@ -341,6 +368,34 @@ def _has_strong_chemical_context(words: list[str], start: int, end: int) -> bool
     return bool(surrounding & _AGRICULTURAL_CONTEXT)
 
 
+def _is_place_name_context(words: list[str], start: int, end: int) -> bool:
+    before = [_squash(word) for word in words[max(0, start - 3) : start]]
+    after = [_squash(word) for word in words[end : end + 3]]
+    location_nouns = _LOCATION_CONTEXT | {
+        "area", "block", "colony", "farm", "field", "mandal", "market",
+        "panchayat", "region", "station", "taluk",
+    }
+
+    if before and before[-1] in location_nouns:
+        return True
+    if after and after[0] in location_nouns:
+        return True
+    if len(before) >= 2 and before[-2:] in (
+        ["called", "the"],
+        ["named", "the"],
+        ["is", "called"],
+        ["is", "named"],
+    ):
+        return True
+    if before and before[-1] in {"called", "named"}:
+        return True
+    if len(after) >= 2 and after[:2] == ["is", "a"]:
+        return len(after) >= 3 and after[2] in location_nouns
+    if len(after) >= 2 and after[0] in {"a", "an", "the"}:
+        return after[1] in location_nouns
+    return False
+
+
 def _looks_like_scientific_name(term: str) -> bool:
     words = term.split()
     if len(words) != 2:
@@ -369,7 +424,15 @@ def _best_fuzzy_match(
     sentence_context, sentence_bonus = _sentence_context(words, start, end)
     scored: list[tuple[float, str, tuple[str, str], str]] = []
 
+    if _is_place_name_context(words, start, end):
+        return None
+
     for candidate in candidates:
+        # A fuzzy single-word chemical candidate must be compared with one
+        # input token. Otherwise surrounding dosage, connector, or advisory
+        # words can turn an unrelated phrase into a chemical typo.
+        if len(normalized.split()) > 1 and len(candidate.split()) == 1:
+            continue
         candidate_compact = _squash(candidate)
         distance = _edit_distance(compact, candidate_compact)
         # Base typo tolerance on the text supplied by the user. Using the
@@ -489,7 +552,8 @@ def detect_chemicals(text: str) -> dict[str, str]:
             detail=f"Field 'text' must not exceed {_MAX_INPUT_CHARACTERS} characters.",
         )
     _ensure_loaded()
-    words = [_normalize(word) for word in _WORD_RE.findall(text)]
+    normalized_text = _normalize(text)
+    words = [_normalize(word) for word in _WORD_RE.findall(normalized_text)]
     if len(words) > _MAX_INPUT_WORDS:
         raise HTTPException(
             status_code=413,
@@ -510,6 +574,8 @@ def detect_chemicals(text: str) -> dict[str, str]:
 
             exact = _CANDIDATES.get(term)
             if exact:
+                if _is_place_name_context(words, start, end):
+                    continue
                 if _is_common_alias(term) and (
                     _context_score(words, start, end) <= 0
                     or _biological_context_score(words, start, end) < 0
@@ -563,13 +629,15 @@ def detect_chemicals(text: str) -> dict[str, str]:
                         _record_match(found, hit, scores, 1.0)
                     covered.update(range(start, end))
 
-    code_words = [_normalize(word) for word in _CODE_RE.findall(text)]
+    code_words = [_normalize(word) for word in _CODE_RE.findall(normalized_text)]
     for n in range(1, min(_MAX_CANDIDATE_WORDS, 3) + 1):
         for start in range(len(code_words) - n + 1):
             squashed = _squash(" ".join(code_words[start : start + n]))
             value = _CANDIDATES_SQUASHED.get(squashed)
             if value:
                 code_term = " ".join(code_words[start : start + n])
+                if _is_place_name_context(code_words, start, start + n):
+                    continue
                 if _is_common_alias(code_term):
                     continue
                 _record_match(found, value, scores, 1.15)
@@ -579,7 +647,7 @@ def detect_chemicals(text: str) -> dict[str, str]:
         if value:
             _record_match(found, value, scores, 1.1)
 
-    for raw_token in _RAW_TOKEN_RE.findall(text):
+    for raw_token in _RAW_TOKEN_RE.findall(normalized_text):
         decoded = _leet_decode(raw_token)
         if not decoded or len(decoded) < _MIN_TOKEN_LEN:
             continue
