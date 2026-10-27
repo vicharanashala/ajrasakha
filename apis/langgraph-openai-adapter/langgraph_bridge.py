@@ -84,24 +84,54 @@ def _tail_after_streamed(streamed: str, final: str) -> str:
 
     Whitespace-insensitive: later steps may re-space blank lines in the body, which
     must not cause the sources/disclaimer tail to be dropped.
+    
+    If the streamed content doesn't match the start of final at all (e.g., due to
+    LLM producing slightly different text during streaming), we fall back to returning
+    the entire final reply to ensure sources and disclaimers are always delivered.
     """
     if not final:
         return ""
+    if not streamed:
+        return final
+    
+    # Normalize streamed for comparison
     want = "".join(streamed.split())
+    if not want:
+        return final
+    
     got = 0
     end = 0
     for i, ch in enumerate(final):
         if got == len(want):
+            # We've matched all streamed content - return the rest
             break
         if ch.isspace():
             continue
         if ch != want[got]:
-            logger.warning("final reply does not extend streamed translation; dropping tail")
-            return ""
+            # Mismatch detected - if we matched at least 80% of streamed, 
+            # try to find the tail from where we left off
+            # Otherwise, fall back to returning the entire final reply
+            if got < len(want) * 0.8:
+                logger.warning(
+                    "final reply diverges too much from streamed translation "
+                    "(matched %d/%d chars); returning full final reply to ensure "
+                    "sources/disclaimer are delivered",
+                    got,
+                    len(want),
+                )
+                return final
+            # We matched most of streamed, find tail from current position
+            # Skip whitespace to find next meaningful character
+            while end < len(final) and final[end].isspace():
+                end += 1
+            break
         got += 1
         end = i + 1
+    
     if got < len(want):
-        return ""
+        # Partial match but didn't complete - return tail from current position
+        return final[end:]
+    
     return final[end:]
 
 
