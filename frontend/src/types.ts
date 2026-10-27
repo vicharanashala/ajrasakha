@@ -213,7 +213,7 @@ export interface IQuestion {
     crop: string;
     normalised_crop?: string;
     season: string;
-    domain: string;
+    domain: string[];
   };
   isAutoAllocate: boolean;
   aiInitialAnswer?: string;

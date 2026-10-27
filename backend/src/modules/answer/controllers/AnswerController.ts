@@ -658,5 +658,36 @@ export class AnswerController {
   ) {
     return await this.answerService.detectChemicals(body.text);
   }
+
+  @OpenAPI({ summary: 'Submit answer quality check to GDB cleaning pipeline' })
+  @Post('/check-quality')
+  @HttpCode(200)
+  @Authorized()
+  async submitAnswerCheck(
+    @Body() body: any,
+  ) {
+    return await this.answerService.submitAnswerCheck(body);
+  }
+
+  @OpenAPI({ summary: 'Get answer quality check status / report by job ID' })
+  @Get('/check-quality/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  async getAnswerCheck(
+    @Param('jobId') jobId: string,
+  ) {
+    return await this.answerService.getAnswerCheck(jobId);
+  }
+
+  @OpenAPI({ summary: 'Generate Farmer-Friendly Versions (FFV) for an answer' })
+  @Post('/ffv')
+  @HttpCode(200)
+  @Authorized()
+  async generateFfv(
+    @Body() body: { question: string; answer: string; domains?: string[] },
+  ) {
+    console.log("body ",body)
+    return await this.answerService.generateFfv(body);
+  }
 }
 

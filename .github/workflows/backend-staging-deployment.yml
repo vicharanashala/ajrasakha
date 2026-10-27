@@ -162,6 +162,8 @@ jobs:
             ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
             CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
             GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
+            ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
+            FFV_PORT=${{ secrets.FFV_PORT}}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────
