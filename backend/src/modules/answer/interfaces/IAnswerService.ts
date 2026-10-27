@@ -63,4 +63,18 @@ export interface IAnswerService
     search?: string,
     filters?: ClosedAnswerFilters,
   ): Promise<{answers: any[]; totalAnswers: number}>;
+
+  submitAnswerCheck(payload: any): Promise<{ job_id: string; status: string; message?: string }>;
+  getAnswerCheck(jobId: string): Promise<any>;
+  generateFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{
+    results: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions: number;
+  }>;
 }
