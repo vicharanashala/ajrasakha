@@ -674,7 +674,13 @@ async def stream_openai_from_langgraph(
                     continue
                 if not _should_emit_message_chunk(message_chunk, metadata):
                     continue
-                delta = _stream_delta_content(streamed, _extract_text_content(message_chunk))
+                text = _extract_text_content(message_chunk)
+                if "chunk" in _message_type(message_chunk).lower():
+                    # Token delta: append verbatim (repeated tokens such as "\n" are real).
+                    delta = text
+                else:
+                    # Whole message re-emitted at node end: only its unseen suffix is new.
+                    delta = text[len(streamed) :] if streamed and text.startswith(streamed) else ""
                 if not delta:
                     continue
                 if not streamed:
