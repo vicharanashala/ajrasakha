@@ -13,6 +13,7 @@ import {
   Menu,
   MessageSquare,
   Phone,
+  Sparkles,
   TrendingUp,
   Upload,
   Users,
@@ -122,6 +123,10 @@ export const MobileSidebar = ({
 
     ...(user && user.role === "expert"
       ? [{ id: "questions", label: "Questions", icon: MessageSquare }]
+      : []),
+
+    ...(user && user.role === "expert"
+      ? [{ id: "revamp_qa", label: "Revamp QA", icon: Sparkles }]
       : []),
 
     ...(user && user.role !== "call_agent"
