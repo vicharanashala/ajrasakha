@@ -158,6 +158,7 @@ export class GdbSourceDto {
   @MaxLength(2000)
   source: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   page: string;

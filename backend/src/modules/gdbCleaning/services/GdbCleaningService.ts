@@ -289,9 +289,9 @@ export class GdbCleaningService implements IGdbCleaningService {
     const current = await this.requireMatch(answerId, questionId);
     if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const clean = sources.map(source => ({
-      sourceName: source.sourceName.trim(),
-      source: source.source.trim(),
-      page: source.page.trim(),
+      sourceName: source.sourceName?.trim(),
+      source: source.source?.trim(),
+      page: source.page?.trim(),
       ...(source.sourceType ? {sourceType: source.sourceType} : {}),
     }));
     // the first edit keeps the pipeline's sources, later edits keep those
