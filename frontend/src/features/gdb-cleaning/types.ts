@@ -89,6 +89,7 @@ export interface IGdbListItem {
 
 // one answer with everything the review screen needs
 export interface IGdbCleaningItem extends IGdbListItem {
+  questionId: string;
   answer: string;
   sources: IGdbSource[];
   // the 13 checks, in order
