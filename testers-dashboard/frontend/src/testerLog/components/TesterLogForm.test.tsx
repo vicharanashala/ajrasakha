@@ -2,6 +2,13 @@
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render } from "@testing-library/react";
 import { TesterLogForm, validateTesterLogForm } from "./TesterLogForm";
+import {
+    isDynamicTagging,
+    isDuplicateTagging,
+    shouldExcludeReviewerWorkflow,
+    META_DATA_FETCHED_OPTIONS,
+    RETRIEVAL_ACCURACY_OPTIONS,
+} from "../types";
 
 const mutate = vi.fn();
 const updateMutate = vi.fn();
@@ -66,7 +73,6 @@ describe("validateTesterLogForm", () => {
         expect(errors.defectSeverity).toBeUndefined();
         expect(errors.defectIdBugRef).toBeUndefined();
         expect(data.testerRemarks).toBe("No Action Required");
-        expect(data.testerRemarksNotes).toBe("");
         expect(data.defectSeverity).toBe("NA");
         expect(data.defectIdBugRef).toBe("NA");
     });
@@ -99,7 +105,7 @@ describe("validateTesterLogForm", () => {
         expect(errors.testerRemarks).toBe("Tester Remarks is required");
     });
 
-    it("requires Remarks Details when testerRemarks is not 'No Action Required'", () => {
+    it("allows Remarks Details to be optional and independent when testerRemarks is selected", () => {
         const data: any = {
             typeOfQuestion: "Unique",
             buildVersion: "1.0",
@@ -125,7 +131,11 @@ describe("validateTesterLogForm", () => {
         };
 
         const errors = validateTesterLogForm(data, { isCross: false, excludeReviewerWorkflow: true });
-        expect(errors.testerRemarksNotes).toBe("Remarks Details is required");
+        expect(errors.testerRemarksNotes).toBeUndefined();
+
+        data.testerRemarksNotes = "a";
+        const errShort = validateTesterLogForm(data, { isCross: false, excludeReviewerWorkflow: true });
+        expect(errShort.testerRemarksNotes).toBe("Remarks Details must be at least 3 characters");
     });
 
     it("validates Author Name format even when Allocated to Author? is NA", () => {
@@ -330,10 +340,10 @@ describe("validateTesterLogForm", () => {
         expect(err.defectSeverity).toBe("A failed test case requires a valid Defect Severity (cannot be 'NA')");
         expect(err.testerRemarks).toBe("A failed test case requires an actionable remark (cannot be 'No Action Required')");
 
-        // When actionable remark is selected but notes are empty
+        // When actionable remark is selected, remarks details is independent and optional
         baseData.testerRemarks = "Defect Logged";
         const errNotes = validateTesterLogForm(baseData, { isCross: false, excludeReviewerWorkflow: true });
-        expect(errNotes.testerRemarksNotes).toBe("Remarks Details is required");
+        expect(errNotes.testerRemarksNotes).toBeUndefined();
     });
 
     it("validates chronological ordering of review workflow stages (Issue #15)", () => {
@@ -390,6 +400,7 @@ describe("validateTesterLogForm", () => {
             translationQuality: "Excellent",
             translationErrorType: "NA - Translation is accurate",
             tagging: "New Question",
+            metaDataCorrectlyFetched: "Correctly fetched Crop",
             msg120MinShownToUser: "Not Received",
         };
 
@@ -415,6 +426,7 @@ describe("validateTesterLogForm", () => {
             translationQuality: "Excellent",
             translationErrorType: "NA - Translation is accurate",
             tagging: "New Question",
+            metaDataCorrectlyFetched: "Correctly fetched Crop",
             msg120MinShownToUser: "Not Received",
         };
 
@@ -441,6 +453,7 @@ describe("validateTesterLogForm", () => {
             translationQuality: "Excellent",
             translationErrorType: "NA - Translation is accurate",
             tagging: "New Question",
+            metaDataCorrectlyFetched: "Correctly fetched Crop",
             msg120MinShownToUser: "Yes",
             overallTestStatus: "On Hold",
         };
@@ -589,5 +602,162 @@ describe("Date preset range calculations", () => {
         const daysCount = Math.round(diffMs / (1000 * 60 * 60 * 24)) + 1;
         expect(daysCount).toBe(30);
         expect(54 * daysCount).toBe(1620);
+    });
+});
+
+describe("Tagging and Reviewer Workflow Inclusion", () => {
+    it("includes reviewer workflow for wrongly tagged options", () => {
+        expect(isDuplicateTagging("Wrongly tagged as duplicate")).toBe(false);
+        expect(isDynamicTagging("Wrongly tagged as dynamic")).toBe(false);
+        expect(isDynamicTagging("Wrongly tagged as Static Dynamic")).toBe(false);
+        expect(isDynamicTagging("Wrongly tagged as static dynamic")).toBe(false);
+
+        expect(shouldExcludeReviewerWorkflow("Wrongly tagged as duplicate")).toBe(false);
+        expect(shouldExcludeReviewerWorkflow("Wrongly tagged as dynamic")).toBe(false);
+        expect(shouldExcludeReviewerWorkflow("Wrongly tagged as Static Dynamic")).toBe(false);
+        expect(shouldExcludeReviewerWorkflow("Wrongly tagged as static dynamic")).toBe(false);
+    });
+
+    it("excludes reviewer workflow for correctly/properly tagged duplicate and dynamic options", () => {
+        expect(shouldExcludeReviewerWorkflow("Correctly tagged as duplicate")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Duplicate but not tagged")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Queue Duplicate")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Correctly tagged as dynamic")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Dynamic but not tagged")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Correctly tagged as Static Dynamic")).toBe(true);
+        expect(shouldExcludeReviewerWorkflow("Static Dynamic but not tagged")).toBe(true);
+    });
+
+    it("renders reviewer workflow section in form when wrongly tagged is selected", () => {
+        const { container, queryByText } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+            />
+        );
+
+        const taggingSelect = container.querySelector('select[name="tagging"]') as HTMLSelectElement;
+        expect(taggingSelect).not.toBeNull();
+
+        // When correctly tagged as dynamic, Reviewer Workflow is hidden
+        fireEvent.change(taggingSelect, { target: { value: "Correctly tagged as dynamic" } });
+        expect(queryByText("4. Reviewer Workflow")).toBeNull();
+
+        // When Wrongly tagged as duplicate is selected, Reviewer Workflow is included
+        fireEvent.change(taggingSelect, { target: { value: "Wrongly tagged as duplicate" } });
+        expect(queryByText("4. Reviewer Workflow")).not.toBeNull();
+
+        // When Wrongly tagged as dynamic is selected, Reviewer Workflow is included
+        fireEvent.change(taggingSelect, { target: { value: "Wrongly tagged as dynamic" } });
+        expect(queryByText("4. Reviewer Workflow")).not.toBeNull();
+
+        // When Wrongly tagged as Static Dynamic is selected, Reviewer Workflow is included
+        fireEvent.change(taggingSelect, { target: { value: "Wrongly tagged as Static Dynamic" } });
+        expect(queryByText("4. Reviewer Workflow")).not.toBeNull();
+    });
+});
+
+describe("Retrieval Accuracy and Meta Data dropdown options", () => {
+    it("includes NA in RETRIEVAL_ACCURACY_OPTIONS", () => {
+        expect(RETRIEVAL_ACCURACY_OPTIONS).toContain("NA");
+    });
+
+    it("has all 10 expected options in META_DATA_FETCHED_OPTIONS", () => {
+        expect(META_DATA_FETCHED_OPTIONS).toEqual([
+            "Correctly fetched State",
+            "Wrongly fetched State",
+            "Correctly fetched Crop",
+            "Wrongly fetched Crop",
+            "Correctly fetched Domain",
+            "Wrongly fetched Domain",
+            "Correctly fetched District",
+            "Wrongly fetched District",
+            "Correctly fetched Season",
+            "Wrongly fetched Season",
+        ]);
+    });
+
+    it("requires Meta Data Correctly Fetched in validateTesterLogForm", () => {
+        const errors = validateTesterLogForm({} as any, { isCross: false, excludeReviewerWorkflow: true });
+        expect(errors.metaDataCorrectlyFetched).toBe("Meta Data Correctly Fetched? is required");
+    });
+
+    it("renders Meta Data Correctly Fetched field in section 3 with all options", () => {
+        const { container } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+            />
+        );
+
+        const select = container.querySelector('select[name="metaDataCorrectlyFetched"]') as HTMLSelectElement;
+        expect(select).not.toBeNull();
+        const optionValues = Array.from(select.options).map(o => o.value).filter(Boolean);
+        expect(optionValues).toEqual(META_DATA_FETCHED_OPTIONS);
+    });
+});
+
+describe("Defect Severity, Tester Remarks mapping and Remarks Details independence", () => {
+    it("disables Defect Severity when overallTestStatus is not Fail", () => {
+        const { container } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+            />
+        );
+
+        const defectSeveritySelect = container.querySelector('select[name="defectSeverity"]') as HTMLSelectElement;
+        expect(defectSeveritySelect).not.toBeNull();
+        expect(defectSeveritySelect.disabled).toBe(true);
+    });
+
+    it("enables Defect Severity, removes NA option and maps severity to tester remarks on Fail", () => {
+        const { container } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+            />
+        );
+
+        const overallStatusSelect = container.querySelector('select[name="overallTestStatus"]') as HTMLSelectElement;
+        const defectSeveritySelect = container.querySelector('select[name="defectSeverity"]') as HTMLSelectElement;
+        const testerRemarksSelect = container.querySelector('select[name="testerRemarks"]') as HTMLSelectElement;
+
+        // Set to Fail
+        fireEvent.change(overallStatusSelect, { target: { value: "Fail" } });
+        expect(defectSeveritySelect.disabled).toBe(false);
+
+        // Verify NA is removed from Defect Severity options
+        const severityOptions = Array.from(defectSeveritySelect.options).map(o => o.value);
+        expect(severityOptions).not.toContain("NA");
+
+        // Verify mapping: Critical -> Needs Review
+        fireEvent.change(defectSeveritySelect, { target: { value: "Critical" } });
+        expect(testerRemarksSelect.value).toBe("Needs Review");
+
+        // High -> Major Modification
+        fireEvent.change(defectSeveritySelect, { target: { value: "High" } });
+        expect(testerRemarksSelect.value).toBe("Major Modification");
+
+        // Medium -> Minor Modification
+        fireEvent.change(defectSeveritySelect, { target: { value: "Medium" } });
+        expect(testerRemarksSelect.value).toBe("Minor Modification");
+
+        // Low -> Minor Modification
+        fireEvent.change(defectSeveritySelect, { target: { value: "Low" } });
+        expect(testerRemarksSelect.value).toBe("Minor Modification");
+    });
+
+    it("renders Remarks Details text input independently of Tester Remarks selection", () => {
+        const { getByPlaceholderText } = render(
+            <TesterLogForm
+                testerName="Tester A"
+                userEmail="tester@example.com"
+            />
+        );
+
+        // Remarks details textarea should exist immediately even when tester remarks is blank or No Action Required
+        const remarksTextarea = getByPlaceholderText("Write down your detailed remarks...") as HTMLTextAreaElement;
+        expect(remarksTextarea).not.toBeNull();
     });
 });

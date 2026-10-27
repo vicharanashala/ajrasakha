@@ -106,7 +106,7 @@ describe('TestersDbAnalyticsController', () => {
         expect(props.has('source')).toBe(false);
         expect(props.has('excludeFailures')).toBe(false);
         expect([...props].sort()).toEqual(
-            ['build', 'category', 'channel', 'customEnd', 'customStart', 'dateRange', 'dynamicSubTypes', 'language',
+            ['build', 'category', 'channel', 'customEnd', 'customEndTime', 'customStart', 'customStartTime', 'dateRange', 'dynamicSubTypes', 'language',
              'severity', 'staticSubTypes', 'status', 'tester', 'type', 'typeBranch'].sort(),
         );
     });

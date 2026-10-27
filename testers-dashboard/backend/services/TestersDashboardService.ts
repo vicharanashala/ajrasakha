@@ -168,6 +168,7 @@ export function mapTesterLogEntryToRecord(entry: any): TestersDashboardRecord {
         'Translation Quality': entry.translationQuality || '',
         'Translation Error Type': entry.translationErrorType || '',
         'Tagging': entry.tagging || '',
+        'Meta Data Correctly Fetched?': entry.metaDataCorrectlyFetched || '',
         'Retrieval Accuracy': entry.retrievalAccuracy || '',
         'Allocated to Reviewer?': entry.allocatedToReviewer || '',
         "Author's Name": entry.authorsName || '',
