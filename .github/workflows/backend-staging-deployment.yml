@@ -62,17 +62,10 @@ jobs:
 
       # Tag with the real HEAD of whatever was checked out — github.sha is the dispatch
       # ref's commit, which differs when `inputs.ref` overrides it.
-      - name: Resolve commit + image tags
+      - name: Resolve commit
         id: meta
         run: |
           SHA="$(git rev-parse HEAD)"
-          REPO="${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}"
-          {
-            echo "tags<<EOF"
-            echo "$REPO:staging"
-            echo "$REPO:staging-$SHA"
-            echo "EOF"
-          } >> "$GITHUB_OUTPUT"
           echo "sha=$SHA" >> "$GITHUB_OUTPUT"
           echo "Deploying '$(git rev-parse --abbrev-ref HEAD)' @ $SHA"
 
@@ -86,6 +79,7 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
       # :staging tags only — this can never overwrite the :latest image production runs.
+      # We tag :staging, :staging-<run_id> (immune to secret-masking truncation), and :staging-<sha>.
       - name: Build and Push Docker Image
         uses: docker/build-push-action@v5
         with:
@@ -93,7 +87,10 @@ jobs:
           file: ./backend/Dockerfile.app
           push: true
           platforms: linux/amd64
-          tags: ${{ steps.meta.outputs.tags }}
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ github.run_id }}
+            ${{ steps.meta.outputs.sha != '' && format('{0}/{1}:staging-{2}', secrets.DOCKERHUB_USERNAME, env.DOCKER_IMAGE, steps.meta.outputs.sha) || '' }}
           build-args: |
             NODE_ENV=staging
 
@@ -115,10 +112,9 @@ jobs:
         with:
           service: ${{ env.GCP_SERVICE }}
           region: ${{ env.GCP_REGION }}
-          # Immutable tag for the exact commit of `inputs.ref` — reproducible redeploys.
-          # Assembled HERE (not passed as a job output) because outputs containing a secret
-          # are redacted to an empty string by GitHub.
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ needs.build.outputs.sha }}
+          # Deploy using the immutable staging-<run_id> tag. This avoids any GitHub Actions secret-redaction
+          # issues that can corrupt git SHAs passed between jobs, while ensuring a unique, reproducible image per run.
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ github.run_id }}
           project_id: ${{ secrets.GCP_PROJECT_ID }}
 
           # NODE_ENV must be exactly "staging" or the app crashes on boot:
