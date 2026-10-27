@@ -9,7 +9,7 @@ import {
   getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
-  uploadDashboardDocument,
+  submitPendingUpload,
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
@@ -288,13 +288,17 @@ export default function AddDocumentForm({ onUploadQueued }) {
     }
     if (currentUserName) fields.uploaded_by = currentUserName;
     // District/KVK are form fields of the upload itself now (2026-10-06), not of a placement
-    // group — sent alongside language/placements_json (see uploadDashboardDocument in api.ts).
+    // group — sent alongside language/placements_json (see submitPendingUpload in api.ts).
     if (districtId) fields.district_id = districtId;
     if (kvkId) fields.kvk_id = kvkId;
     setSubmitting(true);
     try {
-      const result = await uploadDashboardDocument(file, fields, placements, language);
+      // Queues on OUR OWN backend (fast — no Tailscale hop in this request), which forwards to
+      // PoP in the background. A duplicate (our own pending queue, or PoP's live queue) throws
+      // here and is shown as an error below instead of being silently queued.
+      const result = await submitPendingUpload(file, fields, placements, language);
       toast.success("Upload queued");
+      if (result?.warning) toast.warning(result.warning);
       setValues(emptyValues());
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
