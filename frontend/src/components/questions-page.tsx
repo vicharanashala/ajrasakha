@@ -70,16 +70,14 @@ export const QuestionsPage = ({
     setIsAgriTechOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  // "A" opens AgriTech Management from the questions list, for the roles that see it
-  // in the sidebar; paused while any dialog or drawer is open.
+  // "A" opens AgriTech Management from the questions list, for admins only;
+  // paused while any dialog or drawer is open.
   useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
     const role = currentUser?.role;
     return (
       !isAgriTechOpen &&
       !selectedQuestionId &&
-      !!role &&
-      role !== "expert" &&
-      role !== "tester" &&
+      role === "admin" &&
       !document.querySelector('[role="dialog"], [role="alertdialog"]')
     );
   });
@@ -663,7 +661,7 @@ export const QuestionsPage = ({
         )
       ) : (
         <>
-          {isAgriTechOpen ? (
+          {isAgriTechOpen && currentUser?.role === "admin" ? (
             <CropManagementModal
               variant="page"
               open

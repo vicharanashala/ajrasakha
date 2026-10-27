@@ -24,8 +24,10 @@ from mongo_user import update_user_location_if_changed
 logger = logging.getLogger("langgraph-openai-adapter")
 
 # Farmer-facing graph nodes may stream tokens to the client.
-_FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_reply"})
+_FARMER_FACING_STREAM_NODES = frozenset({"synthesize", "clarify", "empty_gdb_reply", "translate_answer"})
 # Internal nodes must never stream (sanitizer JSON, tool loop, planner, etc.).
+# The only node whose LLM tokens are forwarded live (final back-translation).
+_TRANSLATE_STREAM_NODE = "translate_answer"
 _BLOCK_STREAM_NODES = frozenset({
     "tools",
     "planner",
@@ -69,6 +71,68 @@ def _openai_chunk(
             }
         ],
     }
+
+
+def _openai_role_chunk(*, model: str, chunk_id: str) -> dict[str, Any]:
+    chunk = _openai_chunk(model=model, chunk_id=chunk_id)
+    chunk["choices"][0]["delta"] = {"role": "assistant"}
+    return chunk
+
+
+def _tail_after_streamed(streamed: str, final: str) -> str:
+    """Text of ``final`` not yet sent; never re-sends content already streamed.
+
+    Whitespace-insensitive: later steps may re-space blank lines in the body, which
+    must not cause the sources/disclaimer tail to be dropped.
+    
+    If the streamed content doesn't match the start of final at all (e.g., due to
+    LLM producing slightly different text during streaming), we fall back to returning
+    the entire final reply to ensure sources and disclaimers are always delivered.
+    """
+    if not final:
+        return ""
+    if not streamed:
+        return final
+    
+    # Normalize streamed for comparison
+    want = "".join(streamed.split())
+    if not want:
+        return final
+    
+    got = 0
+    end = 0
+    for i, ch in enumerate(final):
+        if got == len(want):
+            # We've matched all streamed content - return the rest
+            break
+        if ch.isspace():
+            continue
+        if ch != want[got]:
+            # Mismatch detected - if we matched at least 80% of streamed, 
+            # try to find the tail from where we left off
+            # Otherwise, fall back to returning the entire final reply
+            if got < len(want) * 0.8:
+                logger.warning(
+                    "final reply diverges too much from streamed translation "
+                    "(matched %d/%d chars); returning full final reply to ensure "
+                    "sources/disclaimer are delivered",
+                    got,
+                    len(want),
+                )
+                return final
+            # We matched most of streamed, find tail from current position
+            # Skip whitespace to find next meaningful character
+            while end < len(final) and final[end].isspace():
+                end += 1
+            break
+        got += 1
+        end = i + 1
+    
+    if got < len(want):
+        # Partial match but didn't complete - return tail from current position
+        return final[end:]
+    
+    return final[end:]
 
 
 def _extract_text_content(message_chunk: Any) -> str:
@@ -593,10 +657,36 @@ async def stream_openai_from_langgraph(
                 await response.aread()
                 response.raise_for_status()
 
-            # Consume the run stream fully, but do not emit any intermediate text.
-            # The final assistant reply is taken from thread state.
-            async for _line in response.aiter_lines():
-                pass
+            # Only the final back-translation (node ``translate_answer``) is forwarded
+            # live. Every other node's output (planner, tools, follow-up, ...) is
+            # consumed and dropped; the post-translation tail (sources, disclaimers)
+            # and non-LLM replies come from thread state afterwards.
+            streamed = ""
+            current_event: str | None = None
+            async for line in response.aiter_lines():
+                current_event, data = _parse_langgraph_sse_line(line, current_event)
+                if data is None or not (current_event or "").startswith("messages"):
+                    continue
+                if not (isinstance(data, list) and len(data) == 2):
+                    continue
+                message_chunk, metadata = data
+                if _langgraph_node_name(metadata) != _TRANSLATE_STREAM_NODE:
+                    continue
+                if not _should_emit_message_chunk(message_chunk, metadata):
+                    continue
+                text = _extract_text_content(message_chunk)
+                if "chunk" in _message_type(message_chunk).lower():
+                    # Token delta: append verbatim (repeated tokens such as "\n" are real).
+                    delta = text
+                else:
+                    # Whole message re-emitted at node end: only its unseen suffix is new.
+                    delta = text[len(streamed) :] if streamed and text.startswith(streamed) else ""
+                if not delta:
+                    continue
+                if not streamed:
+                    yield f"data: {json.dumps(_openai_role_chunk(model=model, chunk_id=chunk_id))}\n\n"
+                streamed += delta
+                yield f"data: {json.dumps(_openai_chunk(content=delta, model=model, chunk_id=chunk_id))}\n\n"
 
             final_reply = ""
             try:
@@ -614,10 +704,14 @@ async def stream_openai_from_langgraph(
                     exc,
                 )
 
-            if final_reply:
-                chunk = _openai_chunk(content=final_reply, model=model, chunk_id=chunk_id)
-                yield f"data: {json.dumps(chunk)}\n\n"
+            if streamed:
+                tail = _tail_after_streamed(streamed, final_reply)
             else:
+                tail = final_reply
+            if tail:
+                chunk = _openai_chunk(content=tail, model=model, chunk_id=chunk_id)
+                yield f"data: {json.dumps(chunk)}\n\n"
+            elif not streamed:
                 logger.warning(
                     "LangGraph run completed with no assistant text in thread state (thread=%s)",
                     thread_id,
