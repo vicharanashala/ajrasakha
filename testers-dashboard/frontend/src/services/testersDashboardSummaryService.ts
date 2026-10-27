@@ -8,6 +8,8 @@ export interface ITestersDashboardSummaryQuery {
     dateRange?: string;
     customStart?: string;
     customEnd?: string;
+    customStartTime?: string;
+    customEndTime?: string;
     type?: string;
     category?: string;
     build?: string;
@@ -384,6 +386,8 @@ export class TestersDashboardSummaryService {
         if (query.dateRange) params.append("dateRange", query.dateRange);
         if (query.customStart) params.append("customStart", query.customStart);
         if (query.customEnd) params.append("customEnd", query.customEnd);
+        if (query.customStartTime) params.append("customStartTime", query.customStartTime);
+        if (query.customEndTime) params.append("customEndTime", query.customEndTime);
         if (query.type) params.append("type", query.type);
         if (query.category) params.append("category", query.category);
         if (query.build) params.append("build", query.build);

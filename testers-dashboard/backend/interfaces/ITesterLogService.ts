@@ -36,6 +36,7 @@ export interface TesterLogEntry {
     translationQuality?: string;
     translationErrorType?: string;
     tagging?: string;
+    metaDataCorrectlyFetched?: string;
     retrievalAccuracy?: string;
 
     // Section 4: Reviewer Workflow
@@ -209,6 +210,7 @@ export interface QuestionTypeCountRow {
     target: number;
     actual: number;
     achievementPct: number;
+    onHold?: number;
     // This category's own Web App / WhatsApp split (the Excel's per-type
     // channel targets); on the Total row, the sums across categories.
     webApp: ChannelCountSummary;
@@ -233,6 +235,8 @@ export interface AdminSummaryCounts {
     // Entries in scope whose typeOfQuestion maps to none of the 6
     // categories (e.g. a bare historical "Dynamic", or blank).
     uncategorizedCount: number;
+    onHoldCount: number;
+    totalLogged: number;
 }
 
 // One row of the Summary tab's per-tester table (All Testers view only).
@@ -247,6 +251,9 @@ export interface TesterQuestionTypeRow {
     target: number;
     actual: number;
     achievementPct: number;
+    onHold: number;
+    uncategorized: number;
+    totalLogged: number;
 }
 
 export interface TesterQuestionTypeSummaryResult {
@@ -275,6 +282,8 @@ export interface TesterQuestionTypeSummaryResult {
     byType: QuestionTypeCountRow[];
     // Entries in scope not counted in any category - see AdminSummaryCounts.
     uncategorizedCount: number;
+    onHoldCount: number;
+    totalLogged: number;
     // Present only when no single tester is selected (All Testers).
     byTester?: TesterQuestionTypeRow[];
 }
@@ -398,6 +407,8 @@ export interface ITesterLogService {
         dateField?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getAllEntries(
@@ -413,6 +424,8 @@ export interface ITesterLogService {
         defectSeverity?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<PaginatedTesterLogEntries>;
 
     getTesterOptions(): Promise<TesterOption[]>;
@@ -426,6 +439,8 @@ export interface ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterLogSummary>;
 
     // Excel is the only export format. Takes no filter params - always every row, regardless
@@ -436,6 +451,8 @@ export interface ITesterLogService {
         testerId?: string,
         startDate?: string,
         endDate?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterQuestionTypeSummaryResult>;
 
     getMySummary(
@@ -443,6 +460,8 @@ export interface ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterLogSummaryResponse>;
 
     formatRemarks(
