@@ -45,6 +45,34 @@ export interface IGdbSource {
   sourceType?: GdbSourceType;
 }
 
+export type GdbAction =
+  | "accepted"
+  | "dismissed"
+  | "flag_changed"
+  | "sources_edited"
+  | "correction_saved"
+  | "pushed";
+
+export const ACTION_LABELS: Record<GdbAction, string> = {
+  accepted: "Accepted correction",
+  dismissed: "Dismissed flags",
+  flag_changed: "Changed a flag",
+  sources_edited: "Edited sources",
+  correction_saved: "Saved correction",
+  pushed: "Pushed to GDB",
+};
+
+// one thing a reviewer did on an answer
+export interface IGdbHistoryEntry {
+  answerId: string;
+  question: string;
+  action: GdbAction;
+  at: string;
+  userId: string;
+  userName: string | null;
+  details: Record<string, unknown> | null;
+}
+
 // one row of the list
 export interface IGdbListItem {
   id: string;

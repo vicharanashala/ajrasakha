@@ -2,6 +2,7 @@ import {Transform, Type} from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -51,6 +52,44 @@ export class GetGdbCleaningListQuery {
   @Transform(toList)
   @IsIn(STATUSES, {each: true})
   statuses?: ('pending' | 'clean' | 'todo' | 'fixed' | 'dismissed')[];
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
+export class GetGdbCleaningSummaryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
+
+export class GetGdbHistoryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  // a reviewer's own actions, or everyone's
+  @IsOptional()
+  @IsIn(['mine', 'all'])
+  scope?: 'mine' | 'all';
 
   @IsOptional()
   @Type(() => Number)
@@ -135,6 +174,8 @@ export class SaveGdbSourcesDto {
 export const GDB_CLEANING_VALIDATORS = [
   GdbCleaningAnswerParam,
   GetGdbCleaningListQuery,
+  GetGdbCleaningSummaryQuery,
+  GetGdbHistoryQuery,
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,

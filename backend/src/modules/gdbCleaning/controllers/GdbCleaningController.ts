@@ -20,6 +20,8 @@ import {
   GdbCleaningAnswerParam,
   GdbDecisionDto,
   GetGdbCleaningListQuery,
+  GetGdbCleaningSummaryQuery,
+  GetGdbHistoryQuery,
   SaveGdbCorrectionDto,
   SaveGdbSourcesDto,
 } from '../classes/validators/GdbCleaningValidators.js';
@@ -53,12 +55,31 @@ export class GdbCleaningController {
     return this.service.list(query);
   }
 
-  @OpenAPI({summary: 'Number of answers in each status'})
+  @OpenAPI({
+    summary: 'Number of answers in each status',
+    description:
+      'With from and to, fixed, dismissed and pushed count only those in that period.',
+  })
   @Get('/summary')
   @HttpCode(200)
   @Authorized(ROLES)
-  async summary() {
-    return this.service.summary();
+  async summary(@QueryParams() query: GetGdbCleaningSummaryQuery) {
+    return this.service.summary(query);
+  }
+
+  @OpenAPI({
+    summary: 'History of what reviewers did, newest first',
+    description:
+      'Your own actions by default; scope=all shows everyone\'s. from and to are ISO dates.',
+  })
+  @Get('/history')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async history(
+    @QueryParams() query: GetGdbHistoryQuery,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.history(query, user._id.toString());
   }
 
   @OpenAPI({summary: 'States, crops and flags available as filters'})
@@ -87,8 +108,13 @@ export class GdbCleaningController {
   async saveCorrection(
     @Params() params: GdbCleaningAnswerParam,
     @Body() body: SaveGdbCorrectionDto,
+    @CurrentUser() user: IUser,
   ) {
-    return this.service.saveCorrection(params.answerId, body.correctedAnswer);
+    return this.service.saveCorrection(
+      params.answerId,
+      body.correctedAnswer,
+      user._id.toString(),
+    );
   }
 
   @OpenAPI({

@@ -2,6 +2,7 @@ import { apiFetch } from "../api/api-fetch";
 import { env } from "@/config/env";
 import type {
   GdbStatus,
+  IGdbHistoryEntry,
   IGdbCleaningItem,
   IGdbListItem,
   IGdbSource,
@@ -27,7 +28,28 @@ export interface IGdbListResponse {
   limit: number;
 }
 
-export type IGdbSummary = Record<GdbStatus, number> & { total: number };
+// from and to are ISO times; leave both out for all time
+export interface IGdbRange {
+  from?: string;
+  to?: string;
+}
+
+export type IGdbSummary = Record<GdbStatus, number> & { total: number; pushed: number; ranged: boolean };
+
+export interface IGdbHistoryParams extends IGdbRange {
+  scope?: "mine" | "all";
+  page?: number;
+  limit?: number;
+}
+
+export interface IGdbHistoryResponse {
+  entries: IGdbHistoryEntry[];
+  totalCount: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+  answersHandled: number;
+}
 
 export interface IGdbFilterOptions {
   states: string[];
@@ -65,9 +87,28 @@ class GdbCleaningService {
     return response;
   }
 
-  async summary(): Promise<IGdbSummary> {
-    const response = await apiFetch<IGdbSummary>(`${this._baseUrl}/summary`);
+  async summary(range: IGdbRange = {}): Promise<IGdbSummary> {
+    const query = new URLSearchParams();
+    if (range.from && range.to) {
+      query.append("from", range.from);
+      query.append("to", range.to);
+    }
+    const response = await apiFetch<IGdbSummary>(`${this._baseUrl}/summary?${query.toString()}`);
     if (!response) throw new Error("Failed to load the summary: No response received");
+    return response;
+  }
+
+  async history(params: IGdbHistoryParams): Promise<IGdbHistoryResponse> {
+    const query = new URLSearchParams();
+    if (params.from && params.to) {
+      query.append("from", params.from);
+      query.append("to", params.to);
+    }
+    if (params.scope) query.append("scope", params.scope);
+    if (params.page) query.append("page", params.page.toString());
+    if (params.limit) query.append("limit", params.limit.toString());
+    const response = await apiFetch<IGdbHistoryResponse>(`${this._baseUrl}/history?${query.toString()}`);
+    if (!response) throw new Error("Failed to load the history: No response received");
     return response;
   }
 

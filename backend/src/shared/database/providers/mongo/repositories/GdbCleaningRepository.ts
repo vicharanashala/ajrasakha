@@ -7,12 +7,15 @@ import {
   GdbCleaningStatus,
   IGdbCleaning,
   IGdbCleaningCheck,
+  IGdbCleaningHistoryEntry,
   IGdbCleaningSource,
 } from '#root/shared/interfaces/models.js';
 import {
   GdbCleaningListRow,
+  GdbHistoryRow,
   IGdbCleaningListFilters,
   IGdbCleaningRepository,
+  IGdbHistoryFilters,
 } from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
 
 const STATUSES: GdbCleaningStatus[] = [
@@ -225,6 +228,108 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       if (error instanceof BadRequestError) throw error;
       throw new InternalServerError(
         `Failed to save the sources: ${error.message}`,
+      );
+    }
+  }
+
+  async addHistory(
+    answerId: string,
+    entry: IGdbCleaningHistoryEntry,
+  ): Promise<void> {
+    try {
+      if (!this.collection) await this.init();
+      await this.collection.updateOne(
+        {answerId: GdbCleaningRepository.toObjectId(answerId)},
+        {$push: {history: entry}},
+      );
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to record the history: ${error.message}`,
+      );
+    }
+  }
+
+  async listHistory(filters: IGdbHistoryFilters): Promise<{
+    rows: GdbHistoryRow[];
+    totalCount: number;
+    answers: number;
+  }> {
+    try {
+      if (!this.collection) await this.init();
+      const match: Record<string, unknown> = {};
+      if (filters.userId) {
+        match['history.userId'] = GdbCleaningRepository.toObjectId(filters.userId);
+      }
+      if (filters.from && filters.to) {
+        match['history.at'] = {$gte: filters.from, $lte: filters.to};
+      }
+      const [result] = await this.collection
+        .aggregate<{
+          rows: GdbHistoryRow[];
+          total: {n: number}[];
+          answers: {n: number}[];
+        }>([
+          {$match: {'history.0': {$exists: true}}},
+          {$unwind: '$history'},
+          {$match: match},
+          {$sort: {'history.at': -1}},
+          {
+            $facet: {
+              rows: [
+                {$skip: (filters.page - 1) * filters.limit},
+                {$limit: filters.limit},
+                {
+                  $project: {
+                    _id: 0,
+                    answerId: 1,
+                    question: 1,
+                    userId: '$history.userId',
+                    action: '$history.action',
+                    at: '$history.at',
+                    details: '$history.details',
+                  },
+                },
+              ],
+              total: [{$count: 'n'}],
+              answers: [{$group: {_id: '$answerId'}}, {$count: 'n'}],
+            },
+          },
+        ])
+        .toArray();
+      return {
+        rows: result?.rows ?? [],
+        totalCount: result?.total[0]?.n ?? 0,
+        answers: result?.answers[0]?.n ?? 0,
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to load the history: ${error.message}`,
+      );
+    }
+  }
+
+  async countInRange(
+    from?: Date,
+    to?: Date,
+  ): Promise<{fixed: number; dismissed: number; pushed: number}> {
+    try {
+      if (!this.collection) await this.init();
+      const decidedIn = from && to ? {reviewedAt: {$gte: from, $lte: to}} : {};
+      const [fixed, dismissed, pushed] = await Promise.all([
+        this.collection.countDocuments({status: 'fixed', ...decidedIn}),
+        this.collection.countDocuments({status: 'dismissed', ...decidedIn}),
+        this.collection.countDocuments(
+          from && to
+            ? {pushedAt: {$gte: from, $lte: to}}
+            : {pushedAt: {$ne: null}},
+        ),
+      ]);
+      return {fixed, dismissed, pushed};
+    } catch (error: any) {
+      throw new InternalServerError(
+        `Failed to count by date: ${error.message}`,
       );
     }
   }
