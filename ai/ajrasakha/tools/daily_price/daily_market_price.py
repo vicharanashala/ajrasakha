@@ -36,6 +36,9 @@ PRICE_RECORD_LIMIT = 100
 # Cap how many markets we load after state+crop narrowing before distance ranking
 MAX_CANDIDATE_MARKETS = int(os.getenv("MARKET_MAX_CANDIDATE_MARKETS", 500))
 MAX_ACTIONS = int(os.getenv("MARKET_MAX_ACTIONS", "3"))
+# When the user's lat/long is known, never serve prices from a mandi farther than this
+# (km) unless the caller passed an explicit radius_km.
+DEFAULT_MAX_RADIUS_KM = float(os.getenv("MARKET_DEFAULT_MAX_RADIUS_KM", 50))
 # Safety timeout for Mongo reads (ms) — prevent MCP session hangs
 MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
 
@@ -761,8 +764,18 @@ def mandi_price_tool(
             if ranked:
                 docs = ranked
                 mode = "state_then_distance"
+            elif radius_km is not None:
+                # Nothing within the radius — do not fall back to arbitrary far-away mandis.
+                return {
+                    "count": 0,
+                    "mode": "no_market_within_radius",
+                    "markets": [],
+                    "_raw_docs": [],
+                    "error": f"No market found within {radius_km:g} km in '{state}'.",
+                    "error_code": "MARKET_NOT_FOUND",
+                }
             else:
-                # Keep state hits but cap when no geo coords / outside radius
+                # Keep state hits but cap when no geo coords
                 limit = DEFAULT_TOP_N_NEAREST if nearest_market else 1
                 docs = docs[:limit]
                 mode = "state_exact_no_geo_match"
@@ -1243,6 +1256,12 @@ def mandi_price_tool(
                     return latest
             return local
 
+        has_geo = lat is not None and long is not None
+        geo_radius_km = (
+            float(radius_km) if radius_km is not None
+            else (DEFAULT_MAX_RADIUS_KM if has_geo else None)
+        )
+
         stages: list[tuple[str, Optional[str], Optional[float], Optional[float], bool]] = []
         # (priority_label, market_name_arg, lat_arg, lon_arg, nearest_market_arg)
         if explicit_market_query:
@@ -1255,7 +1274,9 @@ def mandi_price_tool(
                 stages.append(("market_name", market_name, None, None, False))
             if lat is not None and long is not None:
                 stages.append(("lat_long", None, lat, long, nearest_market if nearest_market else True))
-            stages.append(("state", None, None, None, False))
+            if not has_geo:
+                # With a known user location, never fall back to arbitrary state-wide mandis.
+                stages.append(("state", None, None, None, False))
 
         result: dict[str, Any] = {"error": "No price records found.", "error_code": "NO_PRICE_DATA"}
         raw_docs: list[dict] = []
@@ -1295,7 +1316,7 @@ def mandi_price_tool(
                     for doc in _district_raw_docs:
                         coords = _market_lat_lon(doc)
                         dist = _haversine_km(stage_lat, stage_lon, coords[0], coords[1]) if coords else 99999.0
-                        if radius_km is not None and dist > float(radius_km):
+                        if geo_radius_km is not None and dist > geo_radius_km:
                             continue
                         scored.append((dist, doc))
                     scored.sort(key=lambda item: item[0])
@@ -1336,7 +1357,7 @@ def mandi_price_tool(
                 lat=stage_lat,
                 long=stage_lon,
                 nearest_market=stage_nearest,
-                radius_km=radius_km if priority_label == "lat_long" else None,
+                radius_km=geo_radius_km if priority_label == "lat_long" else None,
                 market_ids=(
                     candidate_market_ids
                     if explicit_market_query and priority_label == "market_name"
@@ -1387,7 +1408,9 @@ def mandi_price_tool(
                         market_name, len(_district_raw_docs),
                     )
                     # Inject district_markets + state stages to continue cascade
-                    remaining_stages = [("district_markets", market_name, lat, long, True), ("state", None, None, None, False)]
+                    remaining_stages = [("district_markets", market_name, lat, long, True)]
+                if not has_geo:
+                    remaining_stages.append(("state", None, None, None, False))
                     explicit_market_query = False
                     # Append remaining stages and continue cascade
                     stages.extend(remaining_stages)
