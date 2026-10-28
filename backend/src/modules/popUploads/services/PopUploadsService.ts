@@ -109,7 +109,14 @@ export class PopUploadsService {
       this.popRepo.findCatalogueBySha256(sha256),
     ]);
     if (ownDuplicate) {
-      throw new ConflictError(`This exact file is already in your upload queue as "${ownDuplicate.filename}"`);
+      if (ownDuplicate.status === 'failed') {
+        // A failed doc never reached PoP, so it isn't a real duplicate — just dead weight left
+        // over from the earlier attempt. Clear it out of the way instead of trapping the user
+        // behind their own failure with no way to retry.
+        await this.pendingRepo.deleteById(String(ownDuplicate._id));
+      } else {
+        throw new ConflictError(`This exact file is already in your upload queue as "${ownDuplicate.filename}"`);
+      }
     }
     if (popQueued) {
       throw new ConflictError(
