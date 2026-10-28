@@ -10,7 +10,6 @@ import {
   getDashboardDistricts,
   getDashboardKvks,
   uploadDashboardDocument,
-  getUserManagementList,
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
@@ -298,17 +297,12 @@ export default function AddDocumentForm({ onUploadQueued }) {
     setSubmitting(true);
     try {
       const result = await uploadDashboardDocument(file, fields, placements, language);
-      getUserManagementList("upload")
-        .then((approvers) => {
-          const approverIds = (approvers || []).map((a) => a.user_id).filter(Boolean);
-          if (approverIds.length) {
-            return notificationService.notifyPopEvent({
-              type: "upload_created",
-              itemName: file.name,
-              approverIds,
-            });
-          }
-        })
+      // No client-side approver list fetch — that endpoint is admin-only on PoP's side and 403s
+      // silently for an uploader/approver, which was dropping this notification entirely for
+      // anyone but an admin. Same pattern as handleResubmitUpload's "upload_created" call: the
+      // backend resolves the approver list itself (NotificationService.fetchPopApproverIds).
+      notificationService
+        .notifyPopEvent({ type: "upload_created", itemName: file.name })
         .catch(() => {}); // Notifying approvers is best-effort — never block the upload on it.
       toast.success("Upload queued");
       setValues(emptyValues());
