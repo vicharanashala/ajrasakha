@@ -113,6 +113,11 @@ export class PendingPopUploadRepository implements IPendingPopUploadRepository {
     }
   }
 
+  async deleteById(id: string): Promise<void> {
+    await this.init();
+    await this.collection.deleteOne({_id: new ObjectId(id) as any});
+  }
+
   async resetStuckProcessing(): Promise<void> {
     await this.init();
     await this.collection.updateMany(

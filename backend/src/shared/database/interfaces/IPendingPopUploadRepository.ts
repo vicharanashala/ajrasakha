@@ -32,6 +32,11 @@ export interface IPendingPopUploadRepository {
   /** Deletes the GridFS bytes once they're no longer needed (succeeded, or permanently failed). */
   deleteFile(gridfsFileId: IPendingPopUpload['gridfsFileId']): Promise<void>;
 
+  /** Removes the tracking doc itself. Used once a `succeeded` item has been confirmed resolved
+   *  on PoP's side (no longer in pop_upload_queue_items — catalogued or rejected/removed), since
+   *  nothing else ever prunes this collection. */
+  deleteById(id: string): Promise<void>;
+
   /** Boot-time recovery: anything left `processing` (an instance died mid-work) goes back to
    *  `received` so a fresh claim can pick it up. */
   resetStuckProcessing(): Promise<void>;
