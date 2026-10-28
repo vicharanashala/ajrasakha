@@ -343,7 +343,6 @@ export class PlivoService {
       const response = await apiFetch<CallFarmer>(url);
       return response;
     } catch (error) {
-      console.warn(`[FARMER_FLOW] PlivoService.getFarmerByPhoneNo: Note for phoneNo ${phoneNo}:`, error);
       return null;
     }
   }
@@ -360,7 +359,7 @@ export class PlivoService {
       });
       return response?.id || '';
     } catch (error) {
-      console.error(`[FARMER_FLOW] PlivoService.createFarmer: Error for phoneNo ${phoneNo}:`, error);
+      console.error(`POST /api/farmer error:`, error);
       throw error;
     }
   }
@@ -377,7 +376,7 @@ export class PlivoService {
       });
       return response?.success || false;
     } catch (error) {
-      console.error(`[FARMER_FLOW] PlivoService.updateFarmer: Error for phoneNo ${phoneNo}:`, error);
+      console.error(`PUT /api/farmer/${phoneNo} error:`, error);
       throw error;
     }
   }

@@ -136,6 +136,25 @@ export class CallFarmerRepository implements ICallFarmerRepository {
       await this.init();
       const now = new Date();
       const phoneVariants = getPhoneVariations(farmer.phoneNo);
+
+      const existingDoc = await this.callFarmersCollection.findOne(
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
+        { session }
+      );
+
+      const existingProfile = existingDoc?.profile || {};
+      const mergedProfile: FarmerProfile = { ...existingProfile };
+
+      for (const [key, val] of Object.entries(farmer.profile || {})) {
+        if (val === undefined) continue;
+        (mergedProfile as any)[key] = val;
+      }
+
       const result = await this.callFarmersCollection.updateOne(
         {
           $or: [
@@ -145,7 +164,7 @@ export class CallFarmerRepository implements ICallFarmerRepository {
         },
         {
           $set: {
-            profile: farmer.profile,
+            profile: mergedProfile,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -171,6 +190,28 @@ export class CallFarmerRepository implements ICallFarmerRepository {
       await this.init();
       const now = new Date();
       const phoneVariants = getPhoneVariations(phoneNo);
+
+      const existingDoc = await this.callFarmersCollection.findOne(
+        {
+          $or: [
+            { phoneNo: { $in: phoneVariants } },
+            { "profile.phoneNo": { $in: phoneVariants } }
+          ]
+        },
+        { session }
+      );
+
+      const existingProfile = existingDoc?.profile || {};
+      const mergedProfile: FarmerProfile = { ...existingProfile };
+
+      for (const [key, val] of Object.entries(profile || {})) {
+        if (val === undefined) {
+          // Do not delete existing field if not provided in update
+          continue;
+        }
+        (mergedProfile as any)[key] = val;
+      }
+
       const result = await this.callFarmersCollection.updateOne(
         {
           $or: [
@@ -180,7 +221,7 @@ export class CallFarmerRepository implements ICallFarmerRepository {
         },
         {
           $set: {
-            profile,
+            profile: mergedProfile,
             updatedAt: now,
           },
           $setOnInsert: {
@@ -190,6 +231,7 @@ export class CallFarmerRepository implements ICallFarmerRepository {
         },
         { upsert: true, session },
       );
+
       return (result.modifiedCount > 0 || result.upsertedCount > 0 || result.matchedCount > 0);
     } catch (error: any) {
       console.error(`[FARMER_FLOW] CallFarmerRepository.update: Error updating farmer record for phoneNo ${phoneNo}:`, error.stack || error);

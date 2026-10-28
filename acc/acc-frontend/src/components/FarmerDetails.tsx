@@ -54,43 +54,70 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const lastFetchedPhoneRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const isFirstMountRef = useRef<boolean>(true);
 
   const normalizeProfile = (raw: any, activePhone?: string): FarmerProfile => {
     if (!raw) return {};
-    const phone = activePhone || raw.phoneNo || raw.extracted_phone || raw.phone || "";
-    const primaryCrop = raw.primaryCrop || raw.extracted_primary_crop || raw.extracted_crop || raw.crop || "";
-    const secondaryCropsRaw = raw.secondaryCrop || raw.extracted_secondary_crops || raw.extracted_secondary_crop || (Array.isArray(raw.cropsCultivated) ? raw.cropsCultivated.filter((c: string) => c !== primaryCrop).join(", ") : "");
+    const phone = activePhone ?? raw.phoneNo ?? raw.extracted_phone ?? raw.phone;
+    const primaryCrop = raw.primaryCrop ?? raw.extracted_primary_crop ?? raw.extracted_crop ?? raw.crop;
+    const secondaryCropsRaw = raw.secondaryCrop ?? raw.extracted_secondary_crops ?? raw.extracted_secondary_crop ?? (Array.isArray(raw.cropsCultivated) ? raw.cropsCultivated.filter((c: string) => c !== primaryCrop).join(", ") : undefined);
     const secondaryCrop = Array.isArray(secondaryCropsRaw)
       ? secondaryCropsRaw.join(", ")
       : typeof secondaryCropsRaw === "string"
-        ? secondaryCropsRaw
-        : "";
+        ? secondaryCropsRaw.trim()
+        : undefined;
 
-    return {
-      farmerName: raw.farmerName || raw.extracted_name || raw.name || raw.farmer_name || "",
-      phoneNo: phone,
-      age: raw.age !== undefined && raw.age !== null ? Number(raw.age) : raw.extracted_age !== undefined && raw.extracted_age !== null ? Number(raw.extracted_age) : undefined,
-      gender: raw.gender || raw.extracted_gender || "",
-      villageName: raw.villageName || raw.extracted_village || raw.village || "",
-      blockName: raw.blockName || raw.extracted_block || raw.block || "",
-      district: raw.district || raw.extracted_district || "",
-      state: raw.state || raw.extracted_state || "",
-      primaryCrop: primaryCrop,
-      secondaryCrop: secondaryCrop,
-      languagePreference: raw.languagePreference || raw.extracted_language_preference || raw.extracted_language || raw.language || "",
-      yearsOfExperience: raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null
-        ? Number(raw.yearsOfExperience)
-        : raw.extracted_years_of_experience !== undefined && raw.extracted_years_of_experience !== null
-          ? Number(raw.extracted_years_of_experience)
-          : undefined,
-      highestEducatedPerson: raw.highestEducatedPerson || raw.extracted_highest_education || raw.extracted_highest_educated || "",
-      numberOfSmartphones: raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null
-        ? Number(raw.numberOfSmartphones)
-        : raw.extracted_smartphones_at_home !== undefined && raw.extracted_smartphones_at_home !== null
-          ? Number(raw.extracted_smartphones_at_home)
-          : undefined,
-    };
+    const normalized: FarmerProfile = {};
+    if (phone !== undefined && typeof phone === "string") normalized.phoneNo = phone.trim();
+
+    const name = raw.farmerName ?? raw.extracted_name ?? raw.name ?? raw.farmer_name;
+    if (name !== undefined && typeof name === "string") normalized.farmerName = name.trim();
+
+    const ageVal = raw.age !== undefined && raw.age !== null && raw.age !== ""
+      ? Number(raw.age)
+      : raw.extracted_age !== undefined && raw.extracted_age !== null && raw.extracted_age !== ""
+        ? Number(raw.extracted_age)
+        : undefined;
+    if (ageVal !== undefined && !isNaN(ageVal)) normalized.age = ageVal;
+
+    const gender = raw.gender ?? raw.extracted_gender;
+    if (gender !== undefined && typeof gender === "string") normalized.gender = gender.trim();
+
+    const village = raw.villageName ?? raw.extracted_village ?? raw.village;
+    if (village !== undefined && typeof village === "string") normalized.villageName = village.trim();
+
+    const block = raw.blockName ?? raw.extracted_block ?? raw.block;
+    if (block !== undefined && typeof block === "string") normalized.blockName = block.trim();
+
+    const district = raw.district ?? raw.extracted_district;
+    if (district !== undefined && typeof district === "string") normalized.district = district.trim();
+
+    const state = raw.state ?? raw.extracted_state;
+    if (state !== undefined && typeof state === "string") normalized.state = state.trim();
+
+    if (primaryCrop !== undefined && typeof primaryCrop === "string") normalized.primaryCrop = primaryCrop.trim();
+    if (secondaryCrop !== undefined && typeof secondaryCrop === "string") normalized.secondaryCrop = secondaryCrop;
+
+    const lang = raw.languagePreference ?? raw.extracted_language_preference ?? raw.extracted_language ?? raw.language;
+    if (lang !== undefined && typeof lang === "string") normalized.languagePreference = lang.trim();
+
+    const expVal = raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null && raw.yearsOfExperience !== ""
+      ? Number(raw.yearsOfExperience)
+      : raw.extracted_years_of_experience !== undefined && raw.extracted_years_of_experience !== null && raw.extracted_years_of_experience !== ""
+        ? Number(raw.extracted_years_of_experience)
+        : undefined;
+    if (expVal !== undefined && !isNaN(expVal)) normalized.yearsOfExperience = expVal;
+
+    const edu = raw.highestEducatedPerson ?? raw.extracted_highest_education ?? raw.extracted_highest_educated;
+    if (edu !== undefined && typeof edu === "string") normalized.highestEducatedPerson = edu.trim();
+
+    const phonesVal = raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null && raw.numberOfSmartphones !== ""
+      ? Number(raw.numberOfSmartphones)
+      : raw.extracted_smartphones_at_home !== undefined && raw.extracted_smartphones_at_home !== null && raw.extracted_smartphones_at_home !== ""
+        ? Number(raw.extracted_smartphones_at_home)
+        : undefined;
+    if (phonesVal !== undefined && !isNaN(phonesVal)) normalized.numberOfSmartphones = phonesVal;
+
+    return normalized;
   };
 
   const persistFarmerProfile = useCallback(async (profileToSave: FarmerProfile, targetPhone?: string) => {
@@ -114,15 +141,16 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
 
       await plivoService.updateFarmer(phoneKey, cleanPayload);
       setSaveStatus("saved");
-      console.log(`✅ [FARMER_FLOW] Successfully auto-saved farmer profile for ${phoneKey}:`, cleanPayload);
     } catch (err) {
-      console.error(`❌ [FARMER_FLOW] Failed to auto-save farmer profile for ${phoneKey}:`, err);
+      console.error(`Failed to save farmer profile for ${phoneKey}:`, err);
       setSaveStatus("error");
     }
   }, [phoneNo]);
 
   const scheduleAutoSave = useCallback((updatedProfile: FarmerProfile) => {
-    if (disabled) return;
+    if (disabled) {
+      return;
+    }
     if (autoSaveTimerRef.current) {
       clearTimeout(autoSaveTimerRef.current);
     }
@@ -161,6 +189,7 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     } catch (err: any) {
       setSaveStatus("error");
       toast.error("Failed to save farmer profile.");
+      console.error(`Failed to save farmer profile:`, err);
     }
   };
 
@@ -186,29 +215,60 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     if (extractedProfile && Object.keys(extractedProfile).length > 0) {
       const normalized = normalizeProfile(extractedProfile, phoneNo);
       setFarmer((prev) => {
-        const merged = { ...(prev || {}), ...normalized };
-        if (onProfileUpdated) onProfileUpdated(merged);
-        if (!isFirstMountRef.current && !disabled) {
-          scheduleAutoSave(merged);
+        // NON-DESTRUCTIVE MERGE:
+        // Only merge non-empty fields from extractedProfile into fields that are currently empty in prev.
+        const merged: FarmerProfile = { ...(prev || {}) };
+        let hasChanges = false;
+        for (const [k, v] of Object.entries(normalized)) {
+          if (v !== undefined && v !== null && v !== "") {
+            const currentVal = (merged as any)[k];
+            if (currentVal === undefined || currentVal === null || currentVal === "") {
+              (merged as any)[k] = v;
+              hasChanges = true;
+            }
+          }
         }
-        return merged;
+        if (hasChanges && onProfileUpdated) {
+          onProfileUpdated(merged);
+        }
+        return hasChanges ? merged : prev;
       });
     }
-    isFirstMountRef.current = false;
-  }, [extractedProfile, phoneNo, disabled, scheduleAutoSave]);
+  }, [extractedProfile, phoneNo, onProfileUpdated]);
 
   const fetchFarmerDetails = async (targetPhone?: string) => {
     const queryPhone = (targetPhone || phoneNo || "").trim();
-    if (!queryPhone || queryPhone === "Unknown" || queryPhone === "Unknown Caller" || queryPhone.startsWith("sip:")) return;
+    if (!queryPhone || queryPhone === "Unknown" || queryPhone === "Unknown Caller" || queryPhone.startsWith("sip:")) {
+      return;
+    }
     setLoading(true);
     try {
       const data = await plivoService.getFarmerByPhoneNo(queryPhone);
-      const normalized = normalizeProfile(data?.profile || {}, queryPhone);
-      const profileData = Object.keys(normalized).length > 0 ? normalized : null;
-      setFarmer(profileData);
-      if (profileData && onProfileUpdated) onProfileUpdated(profileData);
+      const normalizedDb = normalizeProfile(data?.profile || {}, queryPhone);
+      setFarmer((prev) => {
+        if (!data?.profile && prev) {
+          return prev;
+        }
+        // The DB data is the source of truth
+        const merged: FarmerProfile = { ...normalizedDb };
+        // Only if a field was completely undefined in DB and prev has a non-empty value:
+        if (prev) {
+          for (const [k, v] of Object.entries(prev)) {
+            if (v !== undefined && v !== null && v !== "") {
+              const dbVal = (merged as any)[k];
+              if (dbVal === undefined) {
+                (merged as any)[k] = v;
+              }
+            }
+          }
+        }
+        if (onProfileUpdated && Object.keys(merged).length > 0) {
+          onProfileUpdated(merged);
+        }
+        return Object.keys(merged).length > 0 ? merged : null;
+      });
     } catch (error) {
-      console.error(`[FarmerDetails] Failed to fetch farmer details for ${queryPhone}:`, error);
+      console.error(`Failed to fetch farmer details for ${queryPhone}:`, error);
     } finally {
       setLoading(false);
     }

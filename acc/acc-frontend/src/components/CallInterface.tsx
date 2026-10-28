@@ -1400,9 +1400,8 @@ export const CallInterface = () => {
         if (phoneToSave) {
           try {
             await plivoService.updateFarmer(phoneToSave, farmerProfileData);
-            console.log(`✅ [FARMER_FLOW] Auto-saved extracted farmer details for ${phoneToSave}`);
           } catch (e) {
-            console.warn(`[FARMER_FLOW] Could not auto-save extracted farmer profile:`, e);
+            console.warn(`Could not auto-save extracted farmer profile:`, e);
           }
         }
       }
@@ -1534,9 +1533,8 @@ export const CallInterface = () => {
             primaryCrop: editableCrop || farmerProfileToPersist.primaryCrop,
           };
           await plivoService.updateFarmer(targetPhone, profilePayload);
-          console.log(`✅ [FARMER_FLOW] Saved farmer details on approval for ${targetPhone}`);
         } catch (farmerErr) {
-          console.warn(`[FARMER_FLOW] Error saving farmer details on approval:`, farmerErr);
+          console.warn(`Error saving farmer details on approval:`, farmerErr);
         }
       }
 

@@ -1002,13 +1002,11 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  onClick={() =>
+                                  onClick={() => {
                                     setSelectedCallForDetails(
-                                      selectedCallForDetails === call.uuid
-                                        ? null
-                                        : call.uuid,
-                                    )
-                                  }
+                                      selectedCallForDetails === call.uuid ? null : call.uuid
+                                    );
+                                  }}
                                   className="gap-1.5 h-8 px-3 text-xs"
                                 >
                                   <Eye className="h-3.5 w-3.5" />
