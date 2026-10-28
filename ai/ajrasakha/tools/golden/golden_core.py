@@ -339,6 +339,7 @@ async def vector_rag_search(
     use_dual_search: bool = False,
     embedding_field: str = "embedding",  # "embedding" for v1, "question_embedding" for v2
     crop_field: str = "normalised_crop",  # details.<crop_field>; "crop" for the fallback pass
+    use_keyword_crop_match: bool = True,  # Use regex/keyword match for crop (e.g., "Mustard" matches "Rapeseed & Mustard")
 ) -> list[QuestionAnswerPair]:
     crop, state = _normalize_crop_state(crop, state)
     k = top_k or GOLDEN_RAG_TOP_K
@@ -347,7 +348,12 @@ async def vector_rag_search(
     
     filters: dict[str, Any] = {"status": "closed"}
     if crop != "all":
-        filters[f"details.{crop_field}"] = crop
+        if use_keyword_crop_match:
+            # Use regex to match crop as substring (case-insensitive)
+            # This allows "Mustard" to match "Rapeseed & Mustard"
+            filters[f"details.{crop_field}"] = {"$options": "i", "$regex": crop}
+        else:
+            filters[f"details.{crop_field}"] = crop
     if state != "all":
         filters["details.state"] = state
     if season:
@@ -512,6 +518,7 @@ async def strict_exact_search(
     state: str,
     *,
     crop_field: str = "normalised_crop",  # details.<crop_field>; "crop" for the fallback pass
+    use_keyword_crop_match: bool = True,  # Use regex/keyword match for crop (e.g., "Mustard" matches "Rapeseed & Mustard")
 ) -> list[QuestionAnswerPair]:
     crop, state = _normalize_crop_state(crop, state)
     log.info(
@@ -522,7 +529,12 @@ async def strict_exact_search(
     )
     meta_filter: dict = {"status": "closed"}
     if crop != "all":
-        meta_filter[f"details.{crop_field}"] = crop
+        if use_keyword_crop_match:
+            # Use regex to match crop as substring (case-insensitive)
+            # This allows "Mustard" to match "Rapeseed & Mustard"
+            meta_filter[f"details.{crop_field}"] = {"$options": "i", "$regex": crop}
+        else:
+            meta_filter[f"details.{crop_field}"] = crop
     if state != "all":
         meta_filter["details.state"] = state
 
