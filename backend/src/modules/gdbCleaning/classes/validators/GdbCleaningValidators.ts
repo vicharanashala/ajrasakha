@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -53,6 +54,11 @@ export class GetGdbCleaningListQuery {
   @IsIn(STATUSES, {each: true})
   statuses?: ('pending' | 'clean' | 'todo' | 'fixed' | 'dismissed')[];
 
+  // my own answers, or those nobody holds
+  @IsOptional()
+  @IsIn(['me', 'unassigned'])
+  assignee?: 'me' | 'unassigned';
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -65,6 +71,11 @@ export class GetGdbCleaningListQuery {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class ReleaseGdbReviewerDto {
+  @IsMongoId()
+  userId: string;
 }
 
 export class GetGdbCleaningSummaryQuery {
