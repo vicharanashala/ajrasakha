@@ -149,7 +149,22 @@ export class PopUploadsService {
 
   async getMine(uploaderId: string): Promise<PopUploadSummary[]> {
     const docs = await this.pendingRepo.findByUploader(uploaderId);
-    return docs.map(toSummary);
+    const live = await Promise.all(docs.map(doc => this.pruneIfResolved(doc)));
+    return live.filter((doc): doc is IPendingPopUpload => doc !== null).map(toSummary);
+  }
+
+  // Nothing else ever removes a `succeeded` tracking doc (GridFS bytes are already gone by
+  // then — only the metadata row is left). Once PoP no longer has this sha256 in its own live
+  // queue, the item has been resolved there (catalogued or rejected/removed) and our row is
+  // stale, so prune it here, lazily, the same fetch-on-view way History already works — no new
+  // polling/cron needed. `received`/`processing` are still in flight and `failed` never reached
+  // PoP's queue in the first place, so only `succeeded` is eligible for this check.
+  private async pruneIfResolved(doc: IPendingPopUpload): Promise<IPendingPopUpload | null> {
+    if (doc.status !== 'succeeded') return doc;
+    const stillQueued = await this.popRepo.findQueuedBySha256(doc.sha256);
+    if (stillQueued) return doc;
+    await this.pendingRepo.deleteById(String(doc._id));
+    return null;
   }
 
   async processQueue(): Promise<void> {
