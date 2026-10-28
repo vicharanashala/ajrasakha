@@ -91,13 +91,25 @@ def sanitize_stored_location(
 
 def fetch_farmer_profile_location(user_id: str) -> dict[str, Any] | None:
     """The farmer profile location from the Ajrasakha client API (``GET /user/{id}``)."""
-    base_url = os.getenv("AJRASAKHA_CLIENT_BASE_URL", "").strip().rstrip("/")
+    base_url = (
+        os.getenv("AJRASAKHA_CLIENT_BASE_URL")
+        or os.getenv("WEB_APPLICATION_BASE_URL")
+        or os.getenv("WEB_APP_URL")
+        or ""
+    ).strip().rstrip("/")
     if not base_url:
         logger.warning("AJRASAKHA_CLIENT_BASE_URL is not set: no farmer profile location")
         return None
+    api_key = (
+        os.getenv("WEB_APPLICATION_API_AUTH_KEY")
+        or os.getenv("AJRASAKHA_CLIENT_API_KEY", "")
+    ).strip().strip('"').strip("'")
     resp = httpx.get(
         f"{base_url}/user/{user_id}",
-        headers={"x-api-key": os.getenv("AJRASAKHA_CLIENT_API_KEY", "")},
+        headers={
+            "x-api-key": api_key,
+            "x-internal-api-key": api_key,
+        },
         timeout=5.0,
     )
     if resp.status_code == 404:
