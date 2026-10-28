@@ -51,7 +51,8 @@ export type GdbAction =
   | "flag_changed"
   | "sources_edited"
   | "correction_saved"
-  | "pushed";
+  | "pushed"
+  | "released";
 
 export const ACTION_LABELS: Record<GdbAction, string> = {
   accepted: "Accepted correction",
@@ -60,6 +61,7 @@ export const ACTION_LABELS: Record<GdbAction, string> = {
   sources_edited: "Edited sources",
   correction_saved: "Saved correction",
   pushed: "Pushed to GDB",
+  released: "Released an answer",
 };
 
 // one thing a reviewer did on an answer
@@ -85,6 +87,10 @@ export interface IGdbListItem {
   // names of the checks that could not run
   notEvaluated: string[];
   status: GdbStatus;
+  // who holds the answer; only that reviewer can change it
+  assigned: boolean;
+  assignedToMe: boolean;
+  assignedToName: string | null;
 }
 
 // one answer with everything the review screen needs

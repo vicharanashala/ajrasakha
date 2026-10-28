@@ -37,6 +37,10 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   private async init(): Promise<void> {
     this.collection = await this.db.getCollection<IGdbCleaning>('gdb_cleaning');
+    // keeps "the oldest free to-do answers" and "my answers" fast on a large collection
+    await this.collection
+      .createIndex({status: 1, assignedTo: 1, _id: 1})
+      .catch(error => console.error('Could not create the assignment index:', error.message));
   }
 
   private static escapeRegex(value: string): string {
@@ -61,6 +65,11 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       if (filters.crops?.length) query.crop = {$in: filters.crops};
       if (filters.statuses?.length) query.status = {$in: filters.statuses};
       if (filters.flags?.length) query.flags = {$in: filters.flags};
+      if (filters.assignedTo) {
+        query.assignedTo = GdbCleaningRepository.toObjectId(filters.assignedTo);
+      } else if (filters.unassigned) {
+        query.assignedTo = {$exists: false};
+      }
 
       const search = filters.search?.trim();
       if (search) {
@@ -87,6 +96,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
               flags: 1,
               notEvaluated: 1,
               status: 1,
+              assignedTo: 1,
             },
           })
           .sort({_id: 1})
@@ -229,6 +239,116 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       throw new InternalServerError(
         `Failed to save the sources: ${error.message}`,
       );
+    }
+  }
+
+  async countOpenAssigned(userId: string): Promise<number> {
+    try {
+      if (!this.collection) await this.init();
+      return await this.collection.countDocuments({
+        status: 'todo',
+        assignedTo: GdbCleaningRepository.toObjectId(userId),
+      });
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(`Failed to count assigned answers: ${error.message}`);
+    }
+  }
+
+  async claimFree(userId: string, limit: number): Promise<number> {
+    try {
+      if (!this.collection) await this.init();
+      const owner = GdbCleaningRepository.toObjectId(userId);
+      let claimed = 0;
+      // Each answer is taken only if it is still free when the update runs, so two reviewers asking
+      // at the same moment never get the same one. A lost race is made up with another try.
+      for (let attempt = 0; attempt < 3 && claimed < limit; attempt++) {
+        const free = await this.collection
+          .find({status: 'todo', assignedTo: {$exists: false}}, {projection: {_id: 1}})
+          .sort({_id: 1})
+          .limit(limit - claimed)
+          .toArray();
+        if (!free.length) break;
+        const result = await this.collection.updateMany(
+          {_id: {$in: free.map(doc => doc._id)}, assignedTo: {$exists: false}},
+          {$set: {assignedTo: owner, assignedAt: new Date()}},
+        );
+        claimed += result.modifiedCount;
+      }
+      return claimed;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(`Failed to assign answers: ${error.message}`);
+    }
+  }
+
+  async release(answerId: string): Promise<boolean> {
+    try {
+      if (!this.collection) await this.init();
+      const result = await this.collection.updateOne(
+        {answerId: GdbCleaningRepository.toObjectId(answerId), assignedTo: {$exists: true}},
+        {$unset: {assignedTo: '', assignedAt: ''}},
+      );
+      return result.modifiedCount > 0;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(`Failed to release the answer: ${error.message}`);
+    }
+  }
+
+  async releaseOf(userId: string, onlyUntouched: boolean): Promise<number> {
+    try {
+      if (!this.collection) await this.init();
+      const result = await this.collection.updateMany(
+        {
+          status: 'todo',
+          assignedTo: GdbCleaningRepository.toObjectId(userId),
+          // an answer the reviewer has worked on has a history; an untouched one has none
+          ...(onlyUntouched ? {'history.0': {$exists: false}} : {}),
+        },
+        {$unset: {assignedTo: '', assignedAt: ''}},
+      );
+      return result.modifiedCount;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(`Failed to release answers: ${error.message}`);
+    }
+  }
+
+  async listAssignees(): Promise<string[]> {
+    try {
+      if (!this.collection) await this.init();
+      const ids = await this.collection.distinct('assignedTo', {
+        status: 'todo',
+        assignedTo: {$exists: true},
+      });
+      return ids.map(id => id.toString());
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to list reviewers: ${error.message}`);
+    }
+  }
+
+  async lastActivityAt(userId: string): Promise<Date | null> {
+    try {
+      if (!this.collection) await this.init();
+      const owner = GdbCleaningRepository.toObjectId(userId);
+      const [acted] = await this.collection
+        .aggregate<{at: Date}>([
+          {$match: {'history.userId': owner}},
+          {$unwind: '$history'},
+          {$match: {'history.userId': owner}},
+          {$group: {_id: null, at: {$max: '$history.at'}}},
+        ])
+        .toArray();
+      const given = await this.collection.findOne(
+        {assignedTo: owner},
+        {projection: {assignedAt: 1}, sort: {assignedAt: -1}},
+      );
+      const times = [acted?.at, given?.assignedAt].filter(Boolean) as Date[];
+      return times.length ? new Date(Math.max(...times.map(t => new Date(t).getTime()))) : null;
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(`Failed to read the reviewer's activity: ${error.message}`);
     }
   }
 

@@ -89,6 +89,40 @@ class FakeRepository implements IGdbCleaningRepository {
 
   async addHistory() {}
 
+  // what the assignment tests set up and read back
+  open = 0;
+  claims: number[] = [];
+  assignees: string[] = [];
+  lastActivity: Date | null = null;
+  activity: Record<string, Date | null> = {};
+  released: [string, boolean][] = [];
+
+  async countOpenAssigned() {
+    return this.open;
+  }
+
+  async claimFree(_userId: string, limit: number) {
+    this.claims.push(limit);
+    return limit;
+  }
+
+  async release() {
+    return false;
+  }
+
+  async releaseOf(userId: string, onlyUntouched: boolean) {
+    this.released.push([userId, onlyUntouched]);
+    return 1;
+  }
+
+  async listAssignees() {
+    return this.assignees;
+  }
+
+  async lastActivityAt(userId: string) {
+    return this.activity[userId] ?? this.lastActivity;
+  }
+
   async listHistory() {
     return {rows: [], totalCount: 0, answers: 0};
   }
@@ -231,5 +265,96 @@ describe('GdbCleaningService', () => {
     ).rejects.toMatchObject({httpCode: 409});
     expect(decided.status).toBe('fixed');
     expect(decided.correctedAnswer).toBe('Spray Chlorantraniliprole.');
+  });
+});
+
+describe('GdbCleaningService assignment', () => {
+  const people = (...users: object[]) =>
+    ({getUsersByIds: async () => users}) as unknown as IUserRepository;
+  const build = (repo: FakeRepository, users: IUserRepository = people()) =>
+    new GdbCleaningService(
+      repo,
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
+      users,
+    );
+
+  it('only the reviewer who holds an answer can change it', async () => {
+    const mine = makeDoc('todo', {assignedTo: new ObjectId(reviewerId)});
+    const service = build(new FakeRepository([mine]));
+    const id = mine.answerId.toString();
+    await expect(
+      service.decide(id, {action: 'dismiss'}, new ObjectId().toString()),
+    ).rejects.toMatchObject({httpCode: 403});
+    await expect(
+      service.saveCorrection(id, 'Text.', new ObjectId().toString()),
+    ).rejects.toMatchObject({httpCode: 403});
+    expect(mine.status).toBe('todo');
+    const item = await service.decide(id, {action: 'dismiss'}, reviewerId);
+    expect(item.status).toBe('dismissed');
+  });
+
+  it('an answer nobody holds is open to every reviewer', async () => {
+    const free = makeDoc('todo');
+    const item = await build(new FakeRepository([free])).decide(
+      free.answerId.toString(),
+      {action: 'dismiss'},
+      reviewerId,
+    );
+    expect(item.status).toBe('dismissed');
+  });
+
+  it('tops a reviewer up to 50 and no further', async () => {
+    const repo = new FakeRepository([]);
+    const service = build(repo);
+    repo.open = 45;
+    expect(await service.refill(reviewerId)).toEqual({open: 50, claimed: 5});
+    repo.open = 50;
+    expect(await service.refill(reviewerId)).toEqual({open: 50, claimed: 0});
+    expect(repo.claims).toEqual([5]);
+  });
+
+  it('gives a reviewer the next answers when they finish one they held', async () => {
+    const mine = makeDoc('todo', {assignedTo: new ObjectId(reviewerId)});
+    const repo = new FakeRepository([mine]);
+    repo.open = 49;
+    await build(repo).decide(mine.answerId.toString(), {action: 'dismiss'}, reviewerId);
+    expect(repo.claims).toEqual([1]);
+  });
+
+  it('does not hand out answers to a reviewer who finishes one nobody gave them', async () => {
+    const free = makeDoc('todo');
+    const repo = new FakeRepository([free]);
+    await build(repo).decide(free.answerId.toString(), {action: 'dismiss'}, reviewerId);
+    expect(repo.claims).toEqual([]);
+  });
+
+  it('the hourly job frees answers of removed, quiet and tops up active reviewers', async () => {
+    const gone = new ObjectId().toString();
+    const blocked = new ObjectId().toString();
+    const quiet = new ObjectId().toString();
+    const active = new ObjectId().toString();
+    const repo = new FakeRepository([]);
+    repo.assignees = [gone, blocked, quiet, active];
+    const service = build(
+      repo,
+      people(
+        {_id: new ObjectId(blocked), role: 'admin', isBlocked: true},
+        {_id: new ObjectId(quiet), role: 'admin'},
+        {_id: new ObjectId(active), role: 'admin'},
+      ),
+    );
+    repo.activity = {
+      [quiet]: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      [active]: new Date(),
+    };
+    const result = await service.runAssignmentCron();
+    expect(repo.released).toEqual([
+      [gone, false],
+      [blocked, false],
+      [quiet, true],
+    ]);
+    expect(repo.claims).toEqual([50]);
+    expect(result).toEqual({released: 3, toppedUp: 50});
   });
 });
