@@ -34,6 +34,7 @@ interface ReviewerActivity {
   isSplit: boolean;
   originalStartAt: string;
   originalEndAt: string;
+  activityType?: string;
 }
 
 const chartConfig = {
@@ -56,20 +57,6 @@ interface DayLifecycle {
   hours: HourLifecycle[];
 }
 
-interface ReviewerLifecycleData {
-  reviewerId: string;
-  startDate: string;
-  endDate: string;
-  lifecycle: DayLifecycle[];
-}
-
-interface ReviewerLifecycleProps {
-  data?: ReviewerLifecycleData;
-  isLoading?: boolean;
-  dateRange?: DateRange;
-  onDateRangeChange?: (range: DateRange | undefined) => void;
-}
-
 interface UserRoleHistory {
   role: string;
   from: string;
@@ -80,10 +67,15 @@ interface ReviewerLifecycleData {
   reviewerId: string;
   startDate: string;
   endDate: string;
-
   roleHistory: UserRoleHistory[];
-
   lifecycle: DayLifecycle[];
+}
+
+interface ReviewerLifecycleProps {
+  data?: ReviewerLifecycleData;
+  isLoading?: boolean;
+  dateRange?: DateRange;
+  onDateRangeChange?: (range: DateRange | undefined) => void;
 }
 
 const formatTime = (date: string, withSeconds = false) => {
@@ -124,18 +116,6 @@ const formatDuration = (ms: number) => {
   return parts.join(" ");
 };
 
-interface ReviewerActivity {
-  questionId: string;
-  startAt: string;
-  endAt: string;
-  durationMs: number;
-  status: string;
-  isSplit: boolean;
-  originalStartAt: string;
-  originalEndAt: string;
-  activityType?: string;
-}
-
 export const ReviewerLifecycle = ({
   data,
   isLoading,
@@ -157,9 +137,23 @@ export const ReviewerLifecycle = ({
       return data.lifecycle.map((day) => {
         const activities = day.hours.flatMap((hour) => hour.activities);
 
-        const questionIds = new Set(
-          activities.map((activity) => activity.questionId),
-        );
+        const authoredCount = new Set(
+          activities
+            .filter((activity) => activity.activityType === "authored")
+            .map((activity) => activity.questionId),
+        ).size;
+
+        const reviewedCount = new Set(
+          activities
+            .filter((activity) => activity.activityType === "reviewed")
+            .map((activity) => activity.questionId),
+        ).size;
+
+        const moderatedCount = new Set(
+          activities
+            .filter((activity) => activity.activityType === "moderated")
+            .map((activity) => activity.questionId),
+        ).size;
 
         return {
           key: day.date,
@@ -171,19 +165,13 @@ export const ReviewerLifecycle = ({
             0,
           ),
 
-          questions: questionIds.size,
+          questions: authoredCount + reviewedCount + moderatedCount,
 
-          authored: activities.filter(
-            (activity) => activity.activityType === "authored",
-          ).length,
+          authored: authoredCount,
 
-          reviewed: activities.filter(
-            (activity) => activity.activityType === "reviewed",
-          ).length,
+          reviewed: reviewedCount,
 
-          moderated: activities.filter(
-            (activity) => activity.activityType === "moderated",
-          ).length,
+          moderated: moderatedCount,
 
           activities,
         };
@@ -191,35 +179,49 @@ export const ReviewerLifecycle = ({
     }
 
     const hourlyData = data.lifecycle.flatMap((day) =>
-      day.hours.map((hour) => ({
-        key: `${day.date}-${hour.hourStart}`,
+      day.hours.map((hour) => {
+        const authoredCount = new Set(
+          hour.activities
+            .filter((activity) => activity.activityType === "authored")
+            .map((activity) => activity.questionId),
+        ).size;
 
-        label: `${formatChartDate(day.date)} ${formatTime(hour.hourStart)}`,
+        const reviewedCount = new Set(
+          hour.activities
+            .filter((activity) => activity.activityType === "reviewed")
+            .map((activity) => activity.questionId),
+        ).size;
 
-        fullLabel: `${formatDate(day.date)} • ${formatTime(
-          hour.hourStart,
-        )} - ${formatTime(hour.hourEnd)}`,
+        const moderatedCount = new Set(
+          hour.activities
+            .filter((activity) => activity.activityType === "moderated")
+            .map((activity) => activity.questionId),
+        ).size;
 
-        timestamp: new Date(hour.hourStart).getTime(),
+        return {
+          key: `${day.date}-${hour.hourStart}`,
 
-        durationMs: hour.totalWorkDurationMs ?? 0,
+          label: `${formatChartDate(day.date)} ${formatTime(hour.hourStart)}`,
 
-        questions: hour.totalQuestions,
+          fullLabel: `${formatDate(day.date)} • ${formatTime(
+            hour.hourStart,
+          )} - ${formatTime(hour.hourEnd)}`,
 
-        authored: hour.activities.filter(
-          (activity) => activity.activityType === "authored",
-        ).length,
+          timestamp: new Date(hour.hourStart).getTime(),
 
-        reviewed: hour.activities.filter(
-          (activity) => activity.activityType === "reviewed",
-        ).length,
+          durationMs: hour.totalWorkDurationMs ?? 0,
 
-        moderated: hour.activities.filter(
-          (activity) => activity.activityType === "moderated",
-        ).length,
+          questions: authoredCount + reviewedCount + moderatedCount,
 
-        activities: hour.activities,
-      })),
+          authored: authoredCount,
+
+          reviewed: reviewedCount,
+
+          moderated: moderatedCount,
+
+          activities: hour.activities,
+        };
+      }),
     );
 
     return hourlyData.sort((a, b) => a.timestamp - b.timestamp);
@@ -449,16 +451,20 @@ const LifecycleTooltip = ({ active, payload, roleHistory }: any) => {
 
   const item = payload[0].payload;
 
-  const activityStartTimes = item.activities.map((activity: ReviewerActivity) =>
-    new Date(activity.startAt).getTime(),
+  const activityStartTimes = (item.activities || []).map(
+    (activity: ReviewerActivity) => new Date(activity.startAt).getTime(),
   );
 
-  const activityEndTimes = item.activities.map((activity: ReviewerActivity) =>
-    new Date(activity.endAt).getTime(),
+  const activityEndTimes = (item.activities || []).map(
+    (activity: ReviewerActivity) => new Date(activity.endAt).getTime(),
   );
 
-  const bucketStart = Math.min(...activityStartTimes);
-  const bucketEnd = Math.max(...activityEndTimes);
+  const bucketStart = activityStartTimes.length
+    ? Math.min(...activityStartTimes)
+    : 0;
+  const bucketEnd = activityEndTimes.length
+    ? Math.max(...activityEndTimes)
+    : 0;
 
   const roles = roleHistory.filter((history: UserRoleHistory) => {
     const roleStart = new Date(history.from).getTime();
