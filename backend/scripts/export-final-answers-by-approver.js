@@ -4,6 +4,8 @@
  * Starting point: `answers` where isFinalAnswer === true and approvedBy === TARGET_USER_ID.
  * For each matching answer (one row each):
  *   • QID / Question / status  ← questions (by answers.questionId → questions._id)
+ *   • State … Tools Used       ← questions.details (one column per field)
+ *   • Source                   ← questions.source (where the question came from)
  *   • answer / sources         ← the answer document itself
  *   • Author                   ← users(question_submissions.history[0].updatedBy)
  *   • Review Level N           ← users(question_submissions.history[N].updatedBy)
@@ -132,6 +134,27 @@ function toText(value) {
   return typeof value === 'string' ? value : String(value);
 }
 
+// Joins a list value (e.g. domain, tools_used) into one cell; passes scalars through.
+function listText(value) {
+  if (Array.isArray(value)) return value.map(fieldText).filter(Boolean).join(', ');
+  return fieldText(value);
+}
+
+// Flattens question.details into cell values. crop may be a string or { name } (ICropRef).
+function questionDetailCells(details) {
+  const d = details && typeof details === 'object' ? details : {};
+  const crop = typeof d.crop === 'string' ? d.crop : d.crop?.name;
+  return {
+    state: fieldText(d.state),
+    district: fieldText(d.district),
+    crop: fieldText(crop),
+    normalisedCrop: fieldText(d.normalised_crop),
+    season: fieldText(d.season),
+    domain: listText(d.domain),
+    toolsUsed: listText(d.tools_used),
+  };
+}
+
 // Builds a filesystem-safe, non-colliding output path for this run.
 function buildOutputPath() {
   const stamp = new Date().toISOString().replace(/\.\d+Z$/, '').replace(/:/g, '-');
@@ -189,7 +212,12 @@ try {
     /* 2. Related questions and submissions, fetched in bulk. */
     const questionIds = answers.map(a => a.questionId);
     const [questions, submissions] = await Promise.all([
-      findByIds(questionsCol, '_id', questionIds, { question: 1, status: 1 }),
+      findByIds(questionsCol, '_id', questionIds, {
+        question: 1,
+        status: 1,
+        details: 1,
+        source: 1,
+      }),
       findByIds(submissionsCol, 'questionId', questionIds, { questionId: 1, history: 1 }),
     ]);
     const questionById = new Map(questions.map(q => [idStr(q._id), q]));
@@ -286,6 +314,8 @@ try {
           slNo: index + 1,
           qid: question ? idStr(question._id) : '',
           question: toText(question?.question),
+          ...questionDetailCells(question?.details),
+          questionSource: toText(question?.source),
           status: toText(question?.status),
           answer: toText(a.answer),
           sources: formatSources(a.sources),
@@ -300,6 +330,14 @@ try {
       { header: 'Sl No', key: 'slNo', width: 8 },
       { header: 'QID', key: 'qid', width: 27, text: true },
       { header: 'Question', key: 'question', width: 60, wrap: true },
+      { header: 'State', key: 'state', width: 18 },
+      { header: 'District', key: 'district', width: 18 },
+      { header: 'Crop', key: 'crop', width: 18 },
+      { header: 'Normalised Crop', key: 'normalisedCrop', width: 18 },
+      { header: 'Season', key: 'season', width: 14 },
+      { header: 'Domain', key: 'domain', width: 30, wrap: true },
+      { header: 'Tools Used', key: 'toolsUsed', width: 24, wrap: true },
+      { header: 'Source', key: 'questionSource', width: 14 },
       { header: 'status', key: 'status', width: 14 },
       { header: 'answer', key: 'answer', width: 80, wrap: true },
       { header: 'sources', key: 'sources', width: 60, wrap: true },
