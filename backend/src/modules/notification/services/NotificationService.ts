@@ -6,6 +6,7 @@ import { INotificationRepository } from '#root/shared/database/interfaces/INotif
 import {
   AddPushSubscriptionBody,
   NotificationResponse,
+  PopNotificationEventBody,
 } from '#root/modules/notification/validators/NotificationValidators.js';
 import { BadRequestError, ForbiddenError, NotFoundError } from 'routing-controllers';
 import {
@@ -19,6 +20,8 @@ import { IQuestionSubmissionRepository } from '#root/shared/database/interfaces/
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { AnnamDatabase } from '#root/shared/database/providers/mongo/AnnamDatabase.js';
 import { IUser } from '#root/shared/interfaces/models.js';
+import axios from 'axios';
+import { faqPopConfig } from '#root/config/faqPop.js';
 
 type AnnamUser = {
   _id?: ObjectId | string;
@@ -47,8 +50,8 @@ export class NotificationService extends BaseService {
   constructor(
     @inject(GLOBAL_TYPES.NotificationRepository)
     private readonly notificationRepository: INotificationRepository,
-    // @inject(GLOBAL_TYPES.UserRepository)
-    // private readonly userRepo: IUserRepository,
+    @inject(GLOBAL_TYPES.UserRepository)
+    private readonly userRepo: IUserRepository,
 
     // @inject(GLOBAL_TYPES.QuestionSubmissionRepository)
     // private readonly questionSubmissionRepo: IQuestionSubmissionRepository,
@@ -476,6 +479,7 @@ export class NotificationService extends BaseService {
     userId: string,
     type: string,
     session?: ClientSession,
+    url?: string,
   ) {
     // return await this._withTransaction(async (session: ClientSession) => {
     await this.notificationRepository.addNotification(
@@ -523,8 +527,118 @@ export class NotificationService extends BaseService {
     // await sendEmailNotification(user.email.toString(), title, message, html);
     await notifyUser(userId, title, subscription, async (endpoint: string) => {
       await this.deleteExpiredSubscriptionForUser(endpoint)
-    });
+    }, undefined, url);
     // });
+  }
+
+  // PoP upload-queue notifications. The queue itself (upload/approve/decline/add-to-db) lives in
+  // the external POP microservice, so this is only ever called by the frontend right after one of
+  // those actions succeeds there — it can't be triggered from inside this backend. `entityId` on
+  // saveTheNotifications is always the triggering user's own id (loosely used as a "related
+  // entity" elsewhere in this file too) since PoP queue item ids aren't guaranteed to be valid
+  // Mongo ObjectIds.
+  // GET /dashboard/user-management/upload on the POP microservice is admin-only (`is_admin`,
+  // see DataProcessingDashboard.tsx) — fine when an admin declines (admin_rejected), but
+  // upload_created is fired by the uploader, who gets a 403 calling it themselves (confirmed via
+  // the browser's network tab: the frontend's own getUserManagementList("upload") call 403s for
+  // that role, silently swallowed by its .catch(() => {}), so approverIds never reaches here and
+  // no notification is ever created). This backend is a trusted caller POP already proxies
+  // production traffic for, so it fetches the list itself with an elevated role header instead of
+  // depending on the triggering user's own permissions — the same shift `approved` already made by
+  // resolving admins via userRepo.findAdmins() instead of asking the frontend for them.
+  // POP 401s this without BOTH headers — X-User-Role alone isn't enough ("X-User-Id header is
+  // required -- send the signed-in user's id"). It doesn't validate the id belongs to an actual
+  // admin (confirmed: a bogus ObjectId with X-User-Role: admin still returns 200), so the actor's
+  // own id is fine here — it's never exposed back to them, only used to satisfy this check.
+  private async fetchPopApproverIds(actorId: string): Promise<string[]> {
+    if (!faqPopConfig.popApiUrl) return [];
+    try {
+      const res = await axios.get(`${faqPopConfig.popApiUrl}/dashboard/user-management/upload`, {
+        headers: { 'X-User-Role': 'admin', 'X-User-Id': actorId },
+      });
+      const entries = Array.isArray(res.data) ? res.data : [];
+      return entries.map((e: { user_id?: string }) => e.user_id).filter((id: unknown): id is string => Boolean(id));
+    } catch (err) {
+      console.error('[NotificationService] Failed to fetch PoP approvers list', err);
+      return [];
+    }
+  }
+
+  async notifyPopEvent(event: PopNotificationEventBody, currentUser: IUser) {
+    const actorId = currentUser._id.toString();
+    // Deep-links the push notification (and, same URL shape the in-app bell already navigates to
+    // on click) straight to the PoP upload queue, instead of the dead '/notifications' page.
+    // TanStack Router's default search codec JSON-encodes each value (confirmed: this app passes
+    // no custom parseSearch/stringifySearch to createRouter in main.tsx, so it's on the default),
+    // so a bare `popQueue=1` parses back as the NUMBER 1, failing the route's `z.string()` schema
+    // with "expected string, received number" — exactly what clicking this URL from the OS-level
+    // push notification hit. `%221%22` is `encodeURIComponent('"1"')`, the same form the in-app
+    // navigate() produces, which JSON.parses back to the STRING "1".
+    const popQueueUrl = '/home?popQueue=%221%22';
+    const notifyAll = (userIds: string[], title: string, message: string, type: string) =>
+      Promise.all(
+        userIds
+          .filter(id => id && id !== actorId)
+          .map(userId => this.saveTheNotifications(message, title, actorId, userId, type, undefined, popQueueUrl)),
+      );
+
+    switch (event.type) {
+      case 'upload_created': {
+        const approverIds = event.approverIds?.length ? event.approverIds : await this.fetchPopApproverIds(actorId);
+        // routing-controllers' ExpressDriver throws its own NotFoundError whenever a controller
+        // action resolves to `undefined` — a bare `return;` here (no recipients to notify) was
+        // masquerading as an HTTP 404, even though @HttpCode(201) is set on the route. Returning
+        // an empty array instead of undefined keeps "nobody to notify" a genuine no-op response.
+        if (!approverIds.length) return [];
+        return notifyAll(
+          approverIds,
+          'New PoP document awaiting approval',
+          `"${event.itemName}" was uploaded and needs your approval.`,
+          'pop_pending_approval',
+        );
+      }
+      case 'approved': {
+        const admins = await this.userRepo.findAdmins();
+        return notifyAll(
+          admins.map(a => a._id.toString()),
+          'PoP document awaiting admin review',
+          `"${event.itemName}" was approved and needs your review.`,
+          'pop_pending_admin_review',
+        );
+      }
+      case 'admin_rejected': {
+        const approverIds = event.approverIds?.length ? event.approverIds : await this.fetchPopApproverIds(actorId);
+        if (!approverIds.length) return [];
+        return notifyAll(
+          approverIds,
+          'PoP document rejected',
+          `"${event.itemName}" was rejected by the admin.`,
+          'pop_upload_rejected',
+        );
+      }
+      case 'approver_rejected': {
+        if (!event.uploaderId) return [];
+        return notifyAll(
+          [event.uploaderId],
+          'PoP document rejected',
+          `"${event.itemName}" was rejected by the approver.`,
+          'pop_upload_rejected',
+        );
+      }
+      case 'admin_added': {
+        const recipients = [event.uploaderId, event.approverId].filter(Boolean) as string[];
+        if (!recipients.length) return [];
+        return notifyAll(
+          recipients,
+          'PoP document published',
+          `"${event.itemName}" was added to the document database.`,
+          'pop_document_published',
+        );
+      }
+    }
+    // An unrecognized event.type falls through here — same undefined-return-becomes-404 pitfall
+    // as the guards above.
+    return [];
   }
 
   async deleteExpiredSubscriptionForUser(endpoint: string) {
