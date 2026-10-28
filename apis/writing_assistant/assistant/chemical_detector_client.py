@@ -42,11 +42,14 @@ def detect_chemicals(text: str) -> dict[str, str]:
     except (httpx.HTTPError, ValueError):
         # One bounded retry: a 502 from Render's edge proxy mid-cold-start
         # returns immediately (it never hits the 35s timeout above), so the
-        # timeout bump alone doesn't cover this failure mode. ~10s is inside
-        # the ~25-30s cold-start window already measured against the real
-        # deployment - gives the container a real chance to finish waking up
-        # before the second attempt. Still fails closed if this also fails.
-        time.sleep(10)
+        # timeout bump alone doesn't cover this failure mode. 25s, not 10s -
+        # a 10s wait still wasn't enough: a real recurrence confirmed via
+        # Render logs that the detector service produced zero log output
+        # (app or request) for the entire ~15-minute window around a second
+        # live failure, meaning it was still cold at the 10s retry. 25s sits
+        # inside the ~25-30s cold-start window already measured against the
+        # real deployment. Still fails closed if this also fails.
+        time.sleep(25)
         try:
             data = _call(text)
         except (httpx.HTTPError, ValueError) as exc:

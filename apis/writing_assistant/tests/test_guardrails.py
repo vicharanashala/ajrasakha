@@ -115,6 +115,35 @@ def test_quantity_instruction_reassociation_is_rejected():
     assert result.checked_tokens.numbers_and_units == CheckStatus.CHANGED
 
 
+# Example L - synonym swaps within a marker category pass (Revision 13):
+# a real live rejection showed "only when permitted" -> "only if ... permits"
+# being rejected for using 'if' instead of 'when', though the condition
+# itself was unchanged. negation/conditions/certainty-polarity are now
+# presence-based, not exact-word-based, so these synonym swaps pass.
+def test_conditional_marker_synonym_swap_passes():
+    result = guardrails.run_guardrail(
+        "Repeat applications only when permitted by the label.",
+        "Repeat applications only if the label permits them.",
+    )
+    assert result.checked_tokens.conditions == CheckStatus.UNCHANGED
+
+
+def test_negation_synonym_swap_passes():
+    result = guardrails.run_guardrail(
+        "Do not spray during windy conditions.",
+        "Avoid spraying during windy conditions.",
+    )
+    assert result.checked_tokens.negation == CheckStatus.UNCHANGED
+
+
+def test_certainty_same_polarity_synonym_swap_passes():
+    result = guardrails.run_guardrail(
+        "This may help reduce the spread of the disease.",
+        "This could help reduce the spread of the disease.",
+    )
+    assert result.checked_tokens.certainty_language == CheckStatus.UNCHANGED
+
+
 # Example L - ambiguous sentence alignment (rewrite merges two sentences)
 def test_ambiguous_alignment_is_rejected():
     result = guardrails.run_guardrail(

@@ -103,6 +103,20 @@ def extract_certainty_markers(sentence: str) -> frozenset[str]:
     return frozenset(w for w in words if w in HEDGE_WORDS or w in ABSOLUTE_WORDS)
 
 
+def extract_certainty_polarities(sentence: str) -> frozenset[str]:
+    """Which certainty *polarity* (hedge/absolute) is present - not which
+    specific word. A same-polarity synonym swap (e.g. 'may' -> 'could') is
+    a wording choice, not a claim-strength change; only a shift between
+    polarities (or dropping one) should fail this check."""
+    words = _words(sentence)
+    polarities = set()
+    if any(w in HEDGE_WORDS for w in words):
+        polarities.add("hedge")
+    if any(w in ABSOLUTE_WORDS for w in words):
+        polarities.add("absolute")
+    return frozenset(polarities)
+
+
 def extract_crop_names(sentence: str) -> frozenset[str]:
     return frozenset(w for w in _words(sentence) if w in CROP_NAMES)
 

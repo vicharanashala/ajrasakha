@@ -35,6 +35,13 @@ def test_extract_certainty_markers_hedge_vs_absolute():
     assert "completely" in text_checks.extract_certainty_markers("This will completely eliminate the disease.")
 
 
+def test_extract_certainty_polarities():
+    assert text_checks.extract_certainty_polarities("This may help reduce the spread.") == frozenset({"hedge"})
+    assert text_checks.extract_certainty_polarities("This could help reduce the spread.") == frozenset({"hedge"})
+    assert text_checks.extract_certainty_polarities("This will completely eliminate it.") == frozenset({"absolute"})
+    assert text_checks.extract_certainty_polarities("Apply the treatment now.") == frozenset()
+
+
 def test_extract_crop_names():
     assert text_checks.extract_crop_names("My paddy field has pests.") == frozenset({"paddy"})
     assert text_checks.extract_crop_names("My wheat field has pests.") == frozenset({"wheat"})

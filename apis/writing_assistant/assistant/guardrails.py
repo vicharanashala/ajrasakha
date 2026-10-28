@@ -24,6 +24,29 @@ def _diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
     return CheckStatus.UNCHANGED if any_present else CheckStatus.NA
 
 
+def _presence_diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
+    """Like _diff_check, but only compares whether the extractor found
+    anything at all, not which specific word - correct for a marker
+    category where every member is a safe synonym for another (negation:
+    'not' vs 'avoid'; conditions: 'when' vs 'if' - both just mean "this is
+    conditional"). Unlike crop names or treatment terms, where the
+    specific word *is* the protected content, swapping within one of
+    these categories doesn't change what's being said. Confirmed as a
+    real false-positive source from a live rejection (Writing Assistant
+    Build Plan, Revision 13) - "only when permitted" -> "only if ...
+    permits" was rejected for using 'if' instead of 'when', despite the
+    condition itself being unchanged."""
+    any_present = False
+    for orig_s, rew_s in pairs:
+        o_present = bool(extractor(orig_s))
+        r_present = bool(extractor(rew_s))
+        if o_present or r_present:
+            any_present = True
+        if o_present != r_present:
+            return CheckStatus.CHANGED
+    return CheckStatus.UNCHANGED if any_present else CheckStatus.NA
+
+
 def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     details: list[str] = []
     tokens = CheckedTokens()
@@ -46,11 +69,11 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     if tokens.numbers_and_units == CheckStatus.CHANGED:
         details.append("A number/unit present in the original does not appear unchanged in the rewrite.")
 
-    tokens.certainty_language = _diff_check(pairs, text_checks.extract_certainty_markers)
+    tokens.certainty_language = _diff_check(pairs, text_checks.extract_certainty_polarities)
     if tokens.certainty_language == CheckStatus.CHANGED:
-        details.append("A hedge or absolute-certainty term changed between the original and the rewrite.")
+        details.append("Claim strength shifted between hedged and absolute certainty.")
 
-    tokens.negation = _diff_check(pairs, text_checks.extract_negations)
+    tokens.negation = _presence_diff_check(pairs, text_checks.extract_negations)
     if tokens.negation == CheckStatus.CHANGED:
         details.append("A negation marker (e.g. 'not'/'never'/'avoid') was added or removed.")
 
@@ -66,7 +89,7 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     if tokens.timing == CheckStatus.CHANGED:
         details.append("A timing phrase (before/after/within/every ...) differs between the original and the rewrite.")
 
-    tokens.conditions = _diff_check(pairs, text_checks.extract_conditional_markers)
+    tokens.conditions = _presence_diff_check(pairs, text_checks.extract_conditional_markers)
     if tokens.conditions == CheckStatus.CHANGED:
         details.append("A conditional marker (if/when/unless/only ...) was added or removed.")
 
