@@ -7,6 +7,7 @@
  *   • answer / sources         ← the answer document itself
  *   • Author                   ← users(question_submissions.history[0].updatedBy)
  *   • Review Level N           ← users(question_submissions.history[N].updatedBy)
+ *   • Closed By (last column)  ← users(TARGET_USER_ID), the approver of every exported answer
  *
  * Review Level columns are generated up to the longest history among the exported rows.
  * If several submissions exist for one question, the one with the lowest _id (oldest) is used.
@@ -214,12 +215,20 @@ try {
         if (uid) userIds.add(uid);
       }
     }
+    // The approver (Closed By) is resolved in the same batch as the history users.
+    userIds.add(TARGET_USER_ID);
     const users = await findByIds(usersCol, '_id', [...userIds], {
       email: 1,
       firstName: 1,
       lastName: 1,
     });
     const userById = new Map(users.map(u => [idStr(u._id), u]));
+
+    // Same value on every row, since all exported answers share this approver.
+    const approver = userById.get(TARGET_USER_ID);
+    const closedBy = approver ? formatUser(approver) : '';
+    if (!approver) warn(`Approver ${TARGET_USER_ID} (Closed By) not found in users.`);
+    else if (!closedBy) warn(`Approver ${TARGET_USER_ID} has no email or name.`);
 
     // Maps a question's submission history to identity cells: [Author, Level 1, ...].
     const resolveHistory = (qid, submission) => {
@@ -300,6 +309,7 @@ try {
         key: `h${i + 1}`,
         width: 42,
       })),
+      { header: 'Closed By', key: 'closedBy', width: 42 },
     ];
 
     const outPath = buildOutputPath();
@@ -317,6 +327,7 @@ try {
       row.identities.forEach((value, i) => {
         record[`h${i}`] = value;
       });
+      record.closedBy = closedBy;
 
       // Cut text that exceeds Excel's cell limit and keep the full value in the sidecar.
       for (const [key, value] of Object.entries(record)) {
