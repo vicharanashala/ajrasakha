@@ -338,6 +338,7 @@ async def vector_rag_search(
     top_k: int | None = None,
     use_dual_search: bool = False,
     embedding_field: str = "embedding",  # "embedding" for v1, "question_embedding" for v2
+    crop_field: str = "normalised_crop",  # details.<crop_field>; "crop" for the fallback pass
 ) -> list[QuestionAnswerPair]:
     crop, state = _normalize_crop_state(crop, state)
     k = top_k or GOLDEN_RAG_TOP_K
@@ -346,7 +347,7 @@ async def vector_rag_search(
     
     filters: dict[str, Any] = {"status": "closed"}
     if crop != "all":
-        filters["details.normalised_crop"] = crop
+        filters[f"details.{crop_field}"] = crop
     if state != "all":
         filters["details.state"] = state
     if season:
@@ -509,6 +510,8 @@ async def strict_exact_search(
     query: str,
     crop: str,
     state: str,
+    *,
+    crop_field: str = "normalised_crop",  # details.<crop_field>; "crop" for the fallback pass
 ) -> list[QuestionAnswerPair]:
     crop, state = _normalize_crop_state(crop, state)
     log.info(
@@ -519,7 +522,7 @@ async def strict_exact_search(
     )
     meta_filter: dict = {"status": "closed"}
     if crop != "all":
-        meta_filter["details.normalised_crop"] = crop
+        meta_filter[f"details.{crop_field}"] = crop
     if state != "all":
         meta_filter["details.state"] = state
 

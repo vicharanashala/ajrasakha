@@ -401,6 +401,43 @@ async def gdb_search(
     )
 
     if not rag_pairs and crop != "all":
+        # Fallback 1: same crop value against details.crop instead of details.normalised_crop.
+        log.info(
+            "gdb_search: no hits on details.normalised_crop=%s; retrying on details.crop",
+            crop,
+        )
+        strict_results = await strict_exact_search(
+            query=query, crop=crop, state=state, crop_field="crop"
+        )
+        log.info(
+            "gdb_search strict exact (details.crop) returned %d hit(s)",
+            len(strict_results),
+        )
+        if strict_results:
+            log.info(
+                "gdb_search done path=strict_exact_details_crop question_id=%s",
+                strict_results[0].question_id,
+            )
+            return _exact_match_response(
+                query,
+                state,
+                crop,
+                strict_results[0],
+                original_crop=original_crop,
+                crop_fallback=False,
+            )
+        rag_pairs = await vector_rag_search(
+            query,
+            crop,
+            state,
+            season=season,
+            domain=domain,
+            use_dual_search=use_dual_search,
+            embedding_field=embedding_field,
+            crop_field="crop",
+        )
+
+    if not rag_pairs and crop != "all":
         log.info(
             "gdb_search: no retrieval hits for crop=%s; retrying with crop=all",
             crop,
