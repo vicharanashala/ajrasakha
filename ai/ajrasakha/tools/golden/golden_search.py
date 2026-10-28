@@ -21,6 +21,7 @@ try:
         GEMMA_MODEL,
         _decision_to_score,
         classify_pair,
+        decide_answer_source,
         filter_relevance_batch,
         select_best_match,
     )
@@ -42,6 +43,7 @@ except ImportError:
         GEMMA_MODEL,
         _decision_to_score,
         classify_pair,
+        decide_answer_source,
         filter_relevance_batch,
         select_best_match,
     )
@@ -326,6 +328,29 @@ async def _run_gemma_pipeline(
     return response
 
 
+async def _attach_answer_source(
+    response: dict[str, Any], scoring_query: str
+) -> dict[str, Any]:
+    """Ask Gemma whether this query wants the stored answer, a live tool's, or both.
+
+    The verdict rides home on `classification_audit.answer_source`; the agent's
+    plan_executor reads it and serves the side Gemma picked. No match means there is
+    nothing to weigh, so no verdict — and a caller that ignores the field behaves
+    exactly as before.
+    """
+    match = response.get("exact_match") or response.get("selected_match") or {}
+    if not match.get("question"):
+        return response
+    audit = response.get("classification_audit")
+    if not isinstance(audit, dict):
+        audit = {}
+        response["classification_audit"] = audit
+    audit["answer_source"] = await decide_answer_source(
+        scoring_query, match.get("question", ""), match.get("answer", "")
+    )
+    return response
+
+
 async def gdb_search(
     rephrased_query: str,
     crop: str,
@@ -381,13 +406,16 @@ async def gdb_search(
             "gdb_search done path=strict_exact question_id=%s",
             strict_results[0].question_id,
         )
-        return _exact_match_response(
-            query,
-            state,
-            crop,
-            strict_results[0],
-            original_crop=original_crop,
-            crop_fallback=False,
+        return await _attach_answer_source(
+            _exact_match_response(
+                query,
+                state,
+                crop,
+                strict_results[0],
+                original_crop=original_crop,
+                crop_fallback=False,
+            ),
+            scoring_query,
         )
 
     rag_pairs = await vector_rag_search(
@@ -416,13 +444,16 @@ async def gdb_search(
                 "gdb_search done path=strict_exact_crop_fallback question_id=%s",
                 strict_results[0].question_id,
             )
-            return _exact_match_response(
-                query,
-                state,
-                "all",
-                strict_results[0],
-                original_crop=original_crop,
-                crop_fallback=True,
+            return await _attach_answer_source(
+                _exact_match_response(
+                    query,
+                    state,
+                    "all",
+                    strict_results[0],
+                    original_crop=original_crop,
+                    crop_fallback=True,
+                ),
+                scoring_query,
             )
 
         rag_pairs = await vector_rag_search(
@@ -446,15 +477,18 @@ async def gdb_search(
         log.warning("gdb_search done path=empty (no vector hits)")
         return response
 
-    return await _run_gemma_pipeline(
-        query,
-        crop,
-        state,
-        rag_pairs,
-        response,
-        original_crop=original_crop,
-        crop_fallback=crop_fallback,
-        scoring_query=scoring_query,
+    return await _attach_answer_source(
+        await _run_gemma_pipeline(
+            query,
+            crop,
+            state,
+            rag_pairs,
+            response,
+            original_crop=original_crop,
+            crop_fallback=crop_fallback,
+            scoring_query=scoring_query,
+        ),
+        scoring_query,
     )
 
 
