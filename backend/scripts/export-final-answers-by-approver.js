@@ -82,11 +82,47 @@ function formatUser(user) {
   return email || name;
 }
 
-// Serializes the answer's sources array into one readable cell value.
+// Known SourceItem fields; anything else on a source is appended so no data is dropped.
+const KNOWN_SOURCE_KEYS = new Set(['sourceName', 'source', 'sourceType', 'page']);
+
+// Renders a single field value as plain text (objects/arrays as compact JSON).
+function fieldText(value) {
+  if (value === null || value === undefined) return '';
+  return typeof value === 'object' ? JSON.stringify(value) : String(value).trim();
+}
+
+// Formats one source as "Name - link (Type: X, Page: Y, extra: value)".
+function formatSourceItem(item) {
+  if (item === null || item === undefined) return '';
+  if (typeof item !== 'object') return fieldText(item);
+
+  const name = fieldText(item.sourceName);
+  const link = fieldText(item.source);
+  const main = [name, link].filter(Boolean).join(' - ');
+
+  const details = [];
+  const type = fieldText(item.sourceType);
+  const page = fieldText(item.page);
+  if (type) details.push(`Type: ${type}`);
+  if (page) details.push(`Page: ${page}`);
+  for (const [key, value] of Object.entries(item)) {
+    const text = KNOWN_SOURCE_KEYS.has(key) ? '' : fieldText(value);
+    if (text) details.push(`${key}: ${text}`);
+  }
+
+  if (!details.length) return main;
+  return main ? `${main} (${details.join(', ')})` : details.join(', ');
+}
+
+// Formats the answer's sources as a numbered list, one source per line.
 function formatSources(sources) {
   if (sources === null || sources === undefined) return '';
-  if (typeof sources === 'string') return sources;
-  return JSON.stringify(sources, null, 2);
+  if (!Array.isArray(sources)) return formatSourceItem(sources);
+  return sources
+    .map(formatSourceItem)
+    .filter(Boolean)
+    .map((line, i) => `${i + 1}. ${line}`)
+    .join('\n');
 }
 
 // Coerces a value to cell text without producing "undefined" / "null".
