@@ -937,6 +937,19 @@ export interface IQuestionRepository {
   updateNormalisedCrop(questionId: string, normalisedCrop: string): Promise<{ modifiedCount: number }>;
 
   /**
+   * Find questions where details.normalised_crop matches a given crop name (case-insensitive).
+   */
+  findQuestionsByNormalisedCrop(cropName: string): Promise<IQuestion[]>;
+
+  /**
+   * Bulk update details.normalised_crop for multiple questions by their IDs.
+   */
+  updateQuestionsNormalisedCrop(
+    questionIds: string[],
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }>;
+
+  /**
    * Bulk update embeddings for multiple questions using bulkWrite.
    * @param updates Array of { questionId, embedding, normalisedCrop? }
    */

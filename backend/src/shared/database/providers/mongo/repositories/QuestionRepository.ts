@@ -10422,6 +10422,60 @@ export class QuestionRepository implements IQuestionRepository {
     return { modifiedCount: result.modifiedCount };
   }
 
+  /**
+   * Find questions where details.normalised_crop matches a given crop name (case-insensitive).
+   */
+  async findQuestionsByNormalisedCrop(
+    cropName: string,
+  ): Promise<IQuestion[]> {
+    await this.init();
+
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
+
+    const questions = await this.QuestionCollection.find(
+      { 'details.normalised_crop': regex },
+      {
+        projection: {
+          _id: 1,
+          question: 1,
+          'details.crop': 1,
+          'details.normalised_crop': 1,
+          'details.state': 1,
+          'details.district': 1,
+          status: 1,
+          createdAt: 1,
+        },
+      },
+    )
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return questions as unknown as IQuestion[];
+  }
+
+  /**
+   * Bulk update details.normalised_crop for multiple questions by their IDs.
+   */
+  async updateQuestionsNormalisedCrop(
+    questionIds: string[],
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    if (!questionIds || questionIds.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const objectIds = questionIds.map(id => new ObjectId(id));
+    const result = await this.QuestionCollection.updateMany(
+      { _id: { $in: objectIds } },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
   async getUserActivityMetrics(
     userId: string,
     startDate: Date,

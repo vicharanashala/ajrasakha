@@ -1,8 +1,8 @@
 import { injectable, inject } from 'inversify';
-import { BadRequestError } from 'routing-controllers';
+import { BadRequestError, NotFoundError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ICrop, ICropAlias, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
+import { ICrop, ICropAlias, IQuestion, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
@@ -11,7 +11,9 @@ import {
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
 } from '../classes/validators/CropValidators.js';
+import { deleteMediaByUrl } from '#root/modules/dashboard/utils/uploadMedia.js';
 import {
   CropImportChange,
   CropImportEntry,
@@ -96,6 +98,10 @@ export class CropService extends BaseService implements ICropService {
       type: crop.type ?? 'crop',
       aliases: (crop.aliases ?? []).filter((a): a is ICropAlias => typeof a !== 'string'),
     }));
+  }
+
+  async getAllNormalisedCrops(): Promise<ICrop[]> {
+    return this.cropRepository.getAllNormalisedCrops();
   }
 
   /**
@@ -356,4 +362,95 @@ export class CropService extends BaseService implements ICropService {
       throw error;
     }
   }
-}
+
+  async getAffectedQuestions(cropId: string): Promise<{ count: number; questions: IQuestion[] }> {
+    const crop = await this.cropRepository.getCropById(cropId);
+    if (!crop) {
+      throw new NotFoundError('Crop not found');
+    }
+
+    const questions = await this.questionRepository.findQuestionsByNormalisedCrop(crop.name);
+    return {
+      count: questions.length,
+      questions,
+    };
+  }
+
+  async deleteOrReassignCrop(
+    cropId: string,
+    dto: DeleteCropDto,
+    userId: string,
+  ): Promise<{ cropDeleted: boolean; reassignedCount: number; message: string }> {
+    const cropToDelete = await this.cropRepository.getCropById(cropId);
+    if (!cropToDelete) {
+      throw new NotFoundError('Crop not found');
+    }
+
+    // 1. Find all affected questions currently in the DB
+    const affectedQuestions = await this.questionRepository.findQuestionsByNormalisedCrop(cropToDelete.name);
+    const totalAffectedCount = affectedQuestions.length;
+
+    // 2. Case A: 0 questions affected -> Direct deletion
+    if (totalAffectedCount === 0) {
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+      return {
+        cropDeleted: true,
+        reassignedCount: 0,
+        message: `Crop "${cropToDelete.name}" deleted successfully`,
+      };
+    }
+
+    // 3. For > 0 questions, a replacement crop is required
+    if (!dto.replacementCropId) {
+      throw new BadRequestError('A replacement crop must be selected to reassign affected questions');
+    }
+
+    if (dto.replacementCropId === cropId) {
+      throw new BadRequestError('Replacement crop cannot be the crop being deleted');
+    }
+
+    const replacementCrop = await this.cropRepository.getCropById(dto.replacementCropId);
+    if (!replacementCrop) {
+      throw new NotFoundError('Replacement crop not found');
+    }
+
+    const questionIdsToReassign = dto.questionIds && dto.questionIds.length > 0
+      ? dto.questionIds
+      : affectedQuestions.map(q => q._id!.toString());
+
+    // Execute reassignment
+    const updateResult = await this.questionRepository.updateQuestionsNormalisedCrop(
+      questionIdsToReassign,
+      replacementCrop.name,
+    );
+
+    // If ALL affected questions are reassigned, delete the crop from crop_master
+    const allQuestionsCovered = questionIdsToReassign.length >= totalAffectedCount;
+
+    if (allQuestionsCovered) {
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+      return {
+        cropDeleted: true,
+        reassignedCount: updateResult.modifiedCount,
+        message: `Crop "${cropToDelete.name}" deleted and ${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}"`,
+      };
+    }
+
+    // Partial reassignment - crop is kept in crop_master
+    return {
+      cropDeleted: false,
+      reassignedCount: updateResult.modifiedCount,
+      message: `${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}". Remaining questions still reference "${cropToDelete.name}"`,
+    };
+  }
+}

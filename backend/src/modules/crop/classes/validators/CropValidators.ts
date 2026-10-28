@@ -242,11 +242,33 @@ class GetAllCropsQuery {
   limit?: number;
 }
 
+class DeleteCropDto {
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the replacement crop from crop_master (required if reassigning questions)',
+    example: '650e9c0f5f1b2c002f4d9e00',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsMongoId()
+  replacementCropId?: string;
+
+  @JSONSchema({
+    description: 'Array of question IDs whose normalised_crop should be replaced',
+    example: ['650e9c0f5f1b2c002f4d9e01'],
+    type: 'array',
+  })
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds?: string[];
+}
+
 export {
   CropIdParam,
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
 };
 
 export const CROP_VALIDATORS = [
@@ -254,4 +276,5 @@ export const CROP_VALIDATORS = [
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
 ];

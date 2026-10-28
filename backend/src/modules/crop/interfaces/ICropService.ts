@@ -1,8 +1,9 @@
-import {ICrop, ICropAlias} from '#root/shared/interfaces/models.js';
+import {ICrop, ICropAlias, IQuestion} from '#root/shared/interfaces/models.js';
 import {
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
 } from '../classes/validators/CropValidators.js';
 import {CropImportChange, CropImportEntry, CropImportResult} from '../utils/importAliases.js';
 
@@ -26,4 +27,12 @@ export interface ICropService {
   }>;
   createCrop(dto: CreateCropDto, userId: string): Promise<ICrop>;
   updateCrop(cropId: string, dto: UpdateCropDto, userId: string): Promise<ICrop | null>;
+  getAffectedQuestions(cropId: string): Promise<{ count: number; questions: IQuestion[] }>;
+  deleteOrReassignCrop(
+    cropId: string,
+    dto: DeleteCropDto,
+    userId: string,
+  ): Promise<{ cropDeleted: boolean; reassignedCount: number; message: string }>;
+  getAllNormalisedCrops(): Promise<ICrop[]>;
 }
+
