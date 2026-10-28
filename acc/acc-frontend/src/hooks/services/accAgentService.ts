@@ -40,16 +40,16 @@ export interface CorrectedData {
   season: string;
   farmerName?: string;
   farmerPhone?: string;
-  farmerAge?: number;
+  farmerAge?: number | null;
   farmerGender?: string;
   farmerVillage?: string;
   farmerBlock?: string;
   farmerPrimaryCrop?: string;
   farmerSecondaryCrops?: string[] | string;
   farmerLanguagePreference?: string;
-  farmerYearsOfExperience?: number;
+  farmerYearsOfExperience?: number | null;
   farmerHighestEducation?: string;
-  farmerSmartphonesAtHome?: number;
+  farmerSmartphonesAtHome?: number | null;
 }
 
 export interface QAMetadata {

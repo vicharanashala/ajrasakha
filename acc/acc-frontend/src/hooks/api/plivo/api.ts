@@ -105,7 +105,7 @@ export interface MakeCallResponse {
 
 export interface FarmerProfile {
   farmerName?: string;
-  age?: number;
+  age?: number | null;
   gender?: string;
   villageName?: string;
   blockName?: string;
@@ -113,13 +113,13 @@ export interface FarmerProfile {
   state?: string;
   phoneNo?: string;
   languagePreference?: string;
-  yearsOfExperience?: number;
+  yearsOfExperience?: number | null;
   primaryCrop?: string;
   secondaryCrop?: string;
   awarenessOfKCC?: boolean;
   usesAgriApps?: boolean;
   highestEducatedPerson?: string;
-  numberOfSmartphones?: number;
+  numberOfSmartphones?: number | null;
   location?: {
     latitude: number;
     longitude: number;

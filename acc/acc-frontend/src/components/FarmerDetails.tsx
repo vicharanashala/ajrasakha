@@ -72,12 +72,12 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     const name = raw.farmerName ?? raw.extracted_name ?? raw.name ?? raw.farmer_name;
     if (name !== undefined && typeof name === "string") normalized.farmerName = name.trim();
 
-    const ageVal = raw.age !== undefined && raw.age !== null && raw.age !== ""
-      ? Number(raw.age)
+    const ageVal = raw.age !== undefined
+      ? (raw.age === null || raw.age === "" ? null : Number(raw.age))
       : raw.extracted_age !== undefined && raw.extracted_age !== null && raw.extracted_age !== ""
         ? Number(raw.extracted_age)
         : undefined;
-    if (ageVal !== undefined && !isNaN(ageVal)) normalized.age = ageVal;
+    if (ageVal !== undefined && (ageVal === null || !isNaN(ageVal))) normalized.age = ageVal;
 
     const gender = raw.gender ?? raw.extracted_gender;
     if (gender !== undefined && typeof gender === "string") normalized.gender = gender.trim();
@@ -100,22 +100,22 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     const lang = raw.languagePreference ?? raw.extracted_language_preference ?? raw.extracted_language ?? raw.language;
     if (lang !== undefined && typeof lang === "string") normalized.languagePreference = lang.trim();
 
-    const expVal = raw.yearsOfExperience !== undefined && raw.yearsOfExperience !== null && raw.yearsOfExperience !== ""
-      ? Number(raw.yearsOfExperience)
+    const expVal = raw.yearsOfExperience !== undefined
+      ? (raw.yearsOfExperience === null || raw.yearsOfExperience === "" ? null : Number(raw.yearsOfExperience))
       : raw.extracted_years_of_experience !== undefined && raw.extracted_years_of_experience !== null && raw.extracted_years_of_experience !== ""
         ? Number(raw.extracted_years_of_experience)
         : undefined;
-    if (expVal !== undefined && !isNaN(expVal)) normalized.yearsOfExperience = expVal;
+    if (expVal !== undefined && (expVal === null || !isNaN(expVal))) normalized.yearsOfExperience = expVal;
 
     const edu = raw.highestEducatedPerson ?? raw.extracted_highest_education ?? raw.extracted_highest_educated;
     if (edu !== undefined && typeof edu === "string") normalized.highestEducatedPerson = edu.trim();
 
-    const phonesVal = raw.numberOfSmartphones !== undefined && raw.numberOfSmartphones !== null && raw.numberOfSmartphones !== ""
-      ? Number(raw.numberOfSmartphones)
+    const phonesVal = raw.numberOfSmartphones !== undefined
+      ? (raw.numberOfSmartphones === null || raw.numberOfSmartphones === "" ? null : Number(raw.numberOfSmartphones))
       : raw.extracted_smartphones_at_home !== undefined && raw.extracted_smartphones_at_home !== null && raw.extracted_smartphones_at_home !== ""
         ? Number(raw.extracted_smartphones_at_home)
         : undefined;
-    if (phonesVal !== undefined && !isNaN(phonesVal)) normalized.numberOfSmartphones = phonesVal;
+    if (phonesVal !== undefined && (phonesVal === null || !isNaN(phonesVal))) normalized.numberOfSmartphones = phonesVal;
 
     return normalized;
   };
@@ -127,7 +127,20 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     }
 
     // Must have at least some data to save
-    const hasData = profileToSave.farmerName || profileToSave.villageName || profileToSave.primaryCrop || profileToSave.state || profileToSave.district || profileToSave.blockName;
+    const hasData = Boolean(
+      profileToSave.farmerName ||
+      profileToSave.villageName ||
+      profileToSave.primaryCrop ||
+      profileToSave.state ||
+      profileToSave.district ||
+      profileToSave.blockName ||
+      profileToSave.age !== undefined ||
+      profileToSave.yearsOfExperience !== undefined ||
+      profileToSave.numberOfSmartphones !== undefined ||
+      profileToSave.gender ||
+      profileToSave.highestEducatedPerson ||
+      profileToSave.languagePreference
+    );
     if (!hasData) {
       return;
     }
@@ -477,7 +490,10 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
               <Input
                 disabled={disabled}
                 value={activeProfile.age !== undefined && activeProfile.age !== null ? String(activeProfile.age) : ""}
-                onChange={(e) => handleFieldChange("age", e.target.value ? Number(e.target.value) || e.target.value : undefined)}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  handleFieldChange("age", val === "" ? null : isNaN(Number(val)) ? val : Number(val));
+                }}
                 placeholder="Enter age"
                 className={inputClass}
               />
@@ -543,7 +559,10 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
                     ? String(activeProfile.yearsOfExperience)
                     : ""
                 }
-                onChange={(e) => handleFieldChange("yearsOfExperience", e.target.value ? Number(e.target.value) || e.target.value : undefined)}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  handleFieldChange("yearsOfExperience", val === "" ? null : isNaN(Number(val)) ? val : Number(val));
+                }}
                 placeholder="Enter years of experience"
                 className={inputClass}
               />
@@ -575,7 +594,10 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
                     ? String(activeProfile.numberOfSmartphones)
                     : ""
                 }
-                onChange={(e) => handleFieldChange("numberOfSmartphones", e.target.value ? Number(e.target.value) || e.target.value : undefined)}
+                onChange={(e) => {
+                  const val = e.target.value.trim();
+                  handleFieldChange("numberOfSmartphones", val === "" ? null : isNaN(Number(val)) ? val : Number(val));
+                }}
                 placeholder="Enter number of smartphones"
                 className={inputClass}
               />
