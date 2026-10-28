@@ -5,6 +5,7 @@ import {
   useEditGdbSources,
   useGdbDecision,
   useGdbItem,
+  useReleaseGdbAnswer,
   usePushToGdb,
   useSaveGdbCorrection,
 } from "@/hooks/api/gdbCleaning/useGdbCleaning";
@@ -25,6 +26,7 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
   const editFlag = useEditGdbFlag(id);
   const editSources = useEditGdbSources(id);
   const push = usePushToGdb(id);
+  const release = useReleaseGdbAnswer(id);
   // the AI draft the author page uses: it returns an answer in the predefined structure
   const aiDraft = useFetchAnswer();
 
@@ -50,7 +52,8 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
     <GdbDetailView
       key={item.id}
       item={item}
-      busy={saveCorrection.isPending || decision.isPending || editFlag.isPending || editSources.isPending || push.isPending}
+      busy={saveCorrection.isPending || decision.isPending || editFlag.isPending || editSources.isPending || push.isPending || release.isPending}
+      onRelease={() => release.mutate()}
       drafting={aiDraft.isPending}
       onDraftWithAi={async () => {
         try {

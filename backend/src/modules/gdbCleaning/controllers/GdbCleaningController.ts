@@ -22,6 +22,7 @@ import {
   GetGdbCleaningListQuery,
   GetGdbCleaningSummaryQuery,
   GetGdbHistoryQuery,
+  ReleaseGdbReviewerDto,
   SaveGdbCorrectionDto,
   SaveGdbSourcesDto,
 } from '../classes/validators/GdbCleaningValidators.js';
@@ -51,8 +52,31 @@ export class GdbCleaningController {
   @Get('/')
   @HttpCode(200)
   @Authorized(ROLES)
-  async list(@QueryParams() query: GetGdbCleaningListQuery) {
-    return this.service.list(query);
+  async list(
+    @QueryParams() query: GetGdbCleaningListQuery,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.list(query, user._id.toString());
+  }
+
+  @OpenAPI({
+    summary: 'Give the reviewer up to 50 to-do answers of their own',
+    description:
+      'Tops the reviewer up to 50 open answers with the oldest ones nobody holds. Each answer goes to one reviewer only.',
+  })
+  @Post('/assignments/refill')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async refill(@CurrentUser() user: IUser) {
+    return this.service.refill(user._id.toString());
+  }
+
+  @OpenAPI({summary: 'Take all the to-do answers back from a reviewer'})
+  @Post('/assignments/release-all')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async releaseAll(@Body() body: ReleaseGdbReviewerDto) {
+    return this.service.releaseAll(body.userId);
   }
 
   @OpenAPI({
@@ -94,8 +118,22 @@ export class GdbCleaningController {
   @Get('/:answerId')
   @HttpCode(200)
   @Authorized(ROLES)
-  async get(@Params() params: GdbCleaningAnswerParam) {
-    return this.service.get(params.answerId);
+  async get(
+    @Params() params: GdbCleaningAnswerParam,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.get(params.answerId, user._id.toString());
+  }
+
+  @OpenAPI({summary: 'Take an answer back from the reviewer who holds it'})
+  @Post('/:answerId/release')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async release(
+    @Params() params: GdbCleaningAnswerParam,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.release(params.answerId, user._id.toString());
   }
 
   @OpenAPI({

@@ -14,6 +14,10 @@ export interface GdbCleaningListItem {
   flags: string[];
   notEvaluated: string[];
   status: GdbCleaningStatus;
+  /** who holds the answer; null when nobody (or the name is not known) */
+  assignedToName: string | null;
+  assignedToMe: boolean;
+  assigned: boolean;
 }
 
 export interface GdbCleaningItem extends GdbCleaningListItem {
@@ -65,12 +69,13 @@ export interface GdbCleaningListQuery {
   crops?: string[];
   flags?: string[];
   statuses?: GdbCleaningStatus[];
+  assignee?: 'me' | 'unassigned';
   page?: number;
   limit?: number;
 }
 
 export interface IGdbCleaningService {
-  list(query: GdbCleaningListQuery): Promise<{
+  list(query: GdbCleaningListQuery, viewerId?: string): Promise<{
     items: GdbCleaningListItem[];
     totalCount: number;
     totalPages: number;
@@ -95,7 +100,19 @@ export interface IGdbCleaningService {
     flags: string[];
   }>;
 
-  get(answerId: string): Promise<GdbCleaningItem>;
+  get(answerId: string, viewerId?: string): Promise<GdbCleaningItem>;
+
+  /** Tops the reviewer up to 50 to-do answers of their own. */
+  refill(userId: string): Promise<{open: number; claimed: number}>;
+
+  /** Takes an answer back from whoever holds it. */
+  release(answerId: string, byUserId: string): Promise<GdbCleaningItem>;
+
+  /** Takes all of a reviewer's to-do answers back. */
+  releaseAll(userId: string): Promise<{released: number}>;
+
+  /** The job that runs every hour: frees quiet and removed reviewers' answers and tops up the others. */
+  runAssignmentCron(): Promise<{released: number; toppedUp: number}>;
 
   saveCorrection(
     answerId: string,

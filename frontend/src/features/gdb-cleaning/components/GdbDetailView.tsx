@@ -28,6 +28,8 @@ interface GdbDetailViewProps {
   onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
   // replaces the golden answer with the accepted correction; resolves once it is done
   onPush: () => Promise<unknown>;
+  // takes the answer back from whoever holds it
+  onRelease: () => void;
   // the AI draft in the predefined structure; null when it could not be made
   onDraftWithAi: () => Promise<string | null>;
   drafting?: boolean;
@@ -43,6 +45,7 @@ export const GdbDetailView = ({
   onEditFlag,
   onSaveSources,
   onPush,
+  onRelease,
   onDraftWithAi,
   drafting = false,
   busy = false,
@@ -65,7 +68,9 @@ export const GdbDetailView = ({
   );
   const decided = item.status === "fixed" || item.status === "dismissed";
   // an answer can be changed while it is to do or has no flags; a decided one is closed
-  const locked = item.status !== "todo" && item.status !== "clean";
+  // an answer held by another reviewer can be read but not changed
+  const heldByOther = item.assigned && !item.assignedToMe;
+  const locked = (item.status !== "todo" && item.status !== "clean") || heldByOther;
 
   const startSourceEdit = () => {
     setSourceDraft(item.sources.map((source) => ({ ...source })));
@@ -119,6 +124,23 @@ export const GdbDetailView = ({
           ))}
         </div>
       </div>
+
+      {item.assigned && item.status === "todo" && (
+        <div
+          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm ${
+            heldByOther ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-muted/30 text-muted-foreground"
+          }`}
+        >
+          <span>
+            {heldByOther
+              ? `Assigned to ${item.assignedToName ?? "another reviewer"}. You can read it but not change it.`
+              : "Assigned to you."}
+          </span>
+          <Button size="sm" variant="outline" onClick={onRelease} disabled={busy}>
+            Release
+          </Button>
+        </div>
+      )}
 
       {item.status === "pending" ? (
         <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">

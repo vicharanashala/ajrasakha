@@ -47,9 +47,11 @@ export const StatusBadge = ({ status }: { status: GdbStatus }) => (
 
 interface GdbListViewProps {
   onOpen: (id: string) => void;
+  // "me" shows only the answers given to the reviewer
+  assignee?: "me";
 }
 
-export const GdbListView = ({ onOpen }: GdbListViewProps) => {
+export const GdbListView = ({ onOpen, assignee }: GdbListViewProps) => {
   const [search, setSearch] = useState("");
   const [typed, setTyped] = useState("");
   const [state, setState] = useState<string[]>([]);
@@ -75,6 +77,7 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
     crops: crop,
     flags: flag,
     statuses: status as GdbStatus[],
+    assignee,
     page,
     limit: pageSize,
   });
@@ -143,18 +146,19 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
               <TableHead>Crop</TableHead>
               <TableHead>Flags</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Held by</TableHead>
               <TableHead className="w-[90px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                   {isLoading
                     ? "Loading answers..."
                     : error
                     ? `Could not load the answers: ${(error as Error).message}`
-                    : "No answers match these filters"}
+                    : assignee === "me" ? "No answers are assigned to you right now" : "No answers match these filters"}
                 </TableCell>
               </TableRow>
             )}
@@ -199,6 +203,9 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {item.assignedToMe ? "You" : item.assigned ? item.assignedToName ?? "Another reviewer" : "-"}
                   </TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => onOpen(item.id)}>
