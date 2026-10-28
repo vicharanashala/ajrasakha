@@ -116,9 +116,10 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         }
         await (questionRepo as any).updateQuestion(questionId, {
           isOnHold: false,
-          status: 'open',
+          status: (question as any).previousStatus || 'open',
           accumulatedHoldMs: prevAccum + segmentMs,
           holdAt: null,
+          previousStatus: null,
         });
       }
 

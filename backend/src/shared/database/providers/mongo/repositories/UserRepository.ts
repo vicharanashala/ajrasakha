@@ -333,6 +333,22 @@ export class UserRepository implements IUserRepository {
     return uniqueUsers;
   }
 
+  async getActiveReviewStaff(
+    roles: string[] = ['expert', 'moderator', 'gate_keeper', 'auditor'],
+    session?: ClientSession,
+  ): Promise<IUser[]> {
+    await this.init();
+    return this.usersCollection
+      .find(
+        {
+          role: { $in: roles as any },
+          status: { $ne: 'in-active' },
+        },
+        { session },
+      )
+      .toArray();
+  }
+
   async findAllUsers(
     page: number,
     limit: number,

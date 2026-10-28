@@ -40,7 +40,6 @@ import { Input } from "@/components/atoms/input";
 import { Pagination } from "@/components/pagination";
 import { Button } from "./atoms/button";
 import { DateRangeFilter } from "./DateRangeFilter";
-import { Badge } from "./atoms/badge";
 import { ConfirmationModal } from "./confirmation-modal";
 import { useRemoveExpertAllocations } from "@/hooks/api/Admin/useRemoveExpertAllocations";
 import { useGetAllocatedQuestions } from "@/hooks/api/question/useGetAllocatedQuestions";
@@ -531,12 +530,6 @@ const [dateRange, setDateRange] = useState<
                       Remove Allocations
                     </Button>
 
-                    <Badge
-                      variant="default"
-                      className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                    >
-                      New
-                    </Badge>
                   </div>
                 }
               />

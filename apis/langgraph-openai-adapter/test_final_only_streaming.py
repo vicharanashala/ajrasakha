@@ -102,3 +102,45 @@ async def test_stream_is_final_only(monkeypatch):
     assert "ENGLISH_INTERMEDIATE" not in joined
     assert "PUNJABI_FINAL" in joined
 
+
+
+class _TokenClient(_FakeAsyncClient):
+    TOKENS = ["A", "\n", "\n", "B", "B", "\u0d4b", "\u0d4b"]
+
+    def stream(self, method, url, json=None, headers=None):
+        lines = ["event: messages"]
+        meta = {"langgraph_node": "translate_answer"}
+        for tok in self.TOKENS:
+            chunk = {"type": "AIMessageChunk", "content": tok}
+            lines.append(f"data: {json_module.dumps([chunk, meta])}")
+            lines.append("event: messages")
+        return _FakeStreamResponse(lines)
+
+
+@pytest.mark.asyncio
+async def test_repeated_tokens_kept_and_tail_appended(monkeypatch):
+    monkeypatch.setattr(langgraph_bridge.httpx, "AsyncClient", _TokenClient)
+    body = "".join(_TokenClient.TOKENS)
+
+    async def _fake_fetch(*args, **kwargs):
+        return [
+            {"type": "human", "content": "q"},
+            {"type": "ai", "content": body + "\n\n___\nFOOTER"},
+        ]
+
+    monkeypatch.setattr(langgraph_bridge, "fetch_thread_messages", _fake_fetch)
+
+    contents = []
+    async for line in langgraph_bridge.stream_openai_from_langgraph(
+        {"messages": [{"role": "user", "content": "q"}], "stream": True, "model": "m"},
+        request_headers={},
+        context_headers={},
+    ):
+        if line.startswith("data: {"):
+            delta = json_module.loads(line[6:])["choices"][0]["delta"]
+            contents.append(delta.get("content", ""))
+
+    joined = "".join(contents)
+    assert joined.startswith(body)  # no repeated token was dropped
+    assert joined.endswith("FOOTER")
+    assert joined.count("FOOTER") == 1

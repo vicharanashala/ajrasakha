@@ -1,5 +1,8 @@
 import {Transform, Type} from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
+  IsDateString,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -8,6 +11,7 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateNested,
 } from 'class-validator';
 
 const STATUSES = ['pending', 'clean', 'todo', 'fixed', 'dismissed'];
@@ -63,7 +67,49 @@ export class GetGdbCleaningListQuery {
   limit?: number;
 }
 
+export class GetGdbCleaningSummaryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
+
+export class GetGdbHistoryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  // a reviewer's own actions, or everyone's
+  @IsOptional()
+  @IsIn(['mine', 'all'])
+  scope?: 'mine' | 'all';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
 export class SaveGdbCorrectionDto {
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(20000)
@@ -87,9 +133,62 @@ export class GdbDecisionDto {
   comment?: string;
 }
 
+export class EditGdbFlagDto {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  parameter: string;
+
+  @IsString()
+  @IsIn(['PASS', 'FAIL'])
+  result: 'PASS' | 'FAIL';
+
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  comment: string;
+}
+
+export class GdbSourceDto {
+  @IsString()
+  @MaxLength(500)
+  sourceName: string;
+
+  @IsString()
+  @MaxLength(2000)
+  source: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(100)
+  page: string;
+
+  @IsOptional()
+  @IsIn(['hyper_local', 'state', 'central', 'district', 'other'])
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
+}
+
+export class SaveGdbSourcesDto {
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
+  // the complete list of sources; an empty list is allowed and clears them
+  @IsArray()
+  @ArrayMaxSize(30)
+  @ValidateNested({each: true})
+  @Type(() => GdbSourceDto)
+  sources: GdbSourceDto[];
+}
+
 export const GDB_CLEANING_VALIDATORS = [
   GdbCleaningAnswerParam,
   GetGdbCleaningListQuery,
+  GetGdbCleaningSummaryQuery,
+  GetGdbHistoryQuery,
   SaveGdbCorrectionDto,
   GdbDecisionDto,
+  EditGdbFlagDto,
+  GdbSourceDto,
+  SaveGdbSourcesDto,
 ];

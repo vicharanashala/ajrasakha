@@ -6,6 +6,7 @@ import {
   getDashboardStates,
   getDashboardFolders,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
   uploadDashboardDocument,
@@ -25,7 +26,7 @@ const labelClass = "text-xs font-medium text-foreground/70";
 
 function emptyValues() {
   const v = {};
-  for (const f of DOCUMENT_METADATA_FIELDS) v[f.key] = "";
+  for (const f of DOCUMENT_METADATA_FIELDS) v[f.key] = f.type === "multiselect" ? [] : "";
   return v;
 }
 
@@ -127,6 +128,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
   const [stateOptions, setStateOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   const [folderOptions, setFolderOptions] = useState([]);
   // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified — per the
   // user's decision (same as translated_by/reviewed_by, see TranslateReviewCell.tsx), uploaded_by
@@ -140,6 +142,9 @@ export default function AddDocumentForm({ onUploadQueued }) {
       .catch(() => {});
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
+      .catch(() => {});
+    getDashboardDomains()
+      .then((d) => setDomainOptions(d || []))
       .catch(() => {});
   }, []);
 
@@ -339,6 +344,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
               value={values[f.key]}
               onChange={(v) => setValue(f.key, v)}
               className={inputClass}
+              options={f.key === "domain" ? domainOptions : undefined}
             />
           </div>
         ))}

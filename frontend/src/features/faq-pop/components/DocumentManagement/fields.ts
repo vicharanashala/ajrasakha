@@ -4,7 +4,7 @@
 // the full edit form share this one list, same as before. Field *shapes* (ids, language) changed
 // from the old POP-Translation backend this used to be verified against — see api.ts's header.
 
-export type FieldType = "text" | "number" | "date" | "select";
+export type FieldType = "text" | "number" | "date" | "select" | "multiselect";
 
 export type FieldDef = {
   key: string;
@@ -58,7 +58,13 @@ export const SEASON_OPTIONS = [
   "Not Applicable",
 ];
 
-export const DOMAIN_OPTIONS = [
+// Domain is now backend-validated (2026-10-22) — the 19 allowed names come from
+// GET /dashboard/domains (api.ts's getDashboardDomains), not a hardcoded list, since the backend
+// is the source of truth an unknown name 422s against. This fallback is only for the brief window
+// before that fetch resolves (same role FORMAT_ORIGINAL_OPTIONS-style static lists used to play);
+// every real consumer (AddDocumentForm/UploadEditForm/UniqueDocumentEditForm/UniqueDocumentsTable)
+// fetches and passes its own domainOptions down instead of importing this.
+export const DOMAIN_OPTIONS_FALLBACK = [
   "Soil Health and Nutrient Management",
   "Irrigation and Water Management",
   "Insect and Pest Management",
@@ -78,7 +84,15 @@ export const DOMAIN_OPTIONS = [
   "Animal Husbandry and Livestock",
   "Fisheries and Aquaculture",
   "Allied Agricultural Activities",
+  "All",
 ];
+
+// Domain's value is always a string[] now (2026-10-22 backend change — a document can belong to
+// several domains), never a plain string. Joins for read-only display; forms use MultiSelector
+// directly on the array (see MetadataFieldInput's "multiselect" case).
+export function formatDomainValue(value: unknown): string {
+  return Array.isArray(value) && value.length > 0 ? value.join(", ") : "";
+}
 
 // format_original IS user-settable (confirmed by backend, despite docs/first_render_frontend.md
 // being silent on it — PATCH has always taken it, and POST /dashboard/uploads now takes an
@@ -136,7 +150,7 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
   { key: "advisory_type", label: "Advisory Type", type: "select", options: ADVISORY_TYPE_OPTIONS, group: "Advisory Classification" },
   { key: "advisory_scope", label: "Advisory Scope", type: "select", options: ADVISORY_SCOPE_OPTIONS, group: "Advisory Classification" },
   { key: "season", label: "Season", type: "select", options: SEASON_OPTIONS, group: "Advisory Classification" },
-  { key: "domain", label: "Domain", type: "select", options: DOMAIN_OPTIONS, group: "Advisory Classification" },
+  { key: "domain", label: "Domain", type: "multiselect", group: "Advisory Classification" },
   // On upload, blank = auto-detect from the file extension (uploadDashboardDocument only appends
   // non-empty fields to the form, so a blank pick sends nothing). On PATCH (the edit form), blank
   // sends null and CLEARS the field — UniqueDocumentEditForm.tsx hides the blank option here for

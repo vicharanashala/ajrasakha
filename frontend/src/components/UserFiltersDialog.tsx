@@ -420,9 +420,6 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button variant="outline" className="gap-2 relative">
-          <Badge className="absolute -top-2 -right-1 h-4 text-[9px] px-1.5 py-0 bg-red-500 hover:bg-red-600 border-0 z-10 text-white">
-            New
-          </Badge>
           <Filter className="h-4 w-4 text-primary" />
           Filters
           {activeFiltersCount > 0 && (
@@ -584,7 +581,6 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                     iconColor="text-blue-500"
                     title="Verification"
                     subtitle="Identity verification status"
-                    badge="New"
                     value={draftVerified}
                     onChange={setDraftVerified}
                     options={[
@@ -612,7 +608,6 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                     iconColor="text-amber-500"
                     title="Special Task Force"
                     subtitle="STF team member status"
-                    badge="New"
                     value={draftStf}
                     onChange={setDraftStf}
                     options={[
@@ -640,7 +635,6 @@ export const UserFiltersDialog: React.FC<UserFiltersDialogProps> = ({
                     iconColor="text-purple-500"
                     title="Training Users"
                     subtitle="Users in training phase"
-                    badge="New"
                     value={draftTmu}
                     onChange={setDraftTmu}
                     options={[
