@@ -1,4 +1,5 @@
 import {
+  GdbCleaningAction,
   GdbCleaningStatus,
   IGdbCleaningCheck,
   IGdbCleaningSource,
@@ -30,6 +31,34 @@ export interface GdbCleaningItem extends GdbCleaningListItem {
   reviewedAt: string | null;
 }
 
+export interface GdbHistoryQuery {
+  from?: string;
+  to?: string;
+  scope?: 'mine' | 'all';
+  page?: number;
+  limit?: number;
+}
+
+export interface GdbHistoryEntry {
+  answerId: string;
+  question: string;
+  action: GdbCleaningAction;
+  at: string;
+  userId: string;
+  userName: string | null;
+  details: Record<string, unknown> | null;
+}
+
+export interface GdbHistoryResponse {
+  entries: GdbHistoryEntry[];
+  totalCount: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+  /** how many different answers the entries are about */
+  answersHandled: number;
+}
+
 export interface GdbCleaningListQuery {
   search?: string;
   states?: string[];
@@ -49,9 +78,16 @@ export interface IGdbCleaningService {
     limit: number;
   }>;
 
-  summary(): Promise<
-    Record<GdbCleaningStatus, number> & {total: number}
+  /** Counts by status. With two dates, fixed, dismissed and pushed count only those in that period; the rest is as of now. */
+  summary(range?: {from?: string; to?: string}): Promise<
+    Record<GdbCleaningStatus, number> & {total: number; pushed: number; ranged: boolean}
   >;
+
+  /** What reviewers did, newest first. Only the caller's own actions unless scope is "all". */
+  history(
+    query: GdbHistoryQuery,
+    userId: string,
+  ): Promise<GdbHistoryResponse>;
 
   filterOptions(): Promise<{
     states: string[];
@@ -63,7 +99,9 @@ export interface IGdbCleaningService {
 
   saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
+    reviewerId?: string,
   ): Promise<GdbCleaningItem>;
 
   /** A reviewer says a check is not a problem (PASS) or is one (FAIL). A comment is required. */
@@ -79,6 +117,7 @@ export interface IGdbCleaningService {
   /** A reviewer corrects the sources of the answer. The pipeline's own are kept. */
   editSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<GdbCleaningItem>;

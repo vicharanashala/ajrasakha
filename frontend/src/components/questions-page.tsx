@@ -70,16 +70,14 @@ export const QuestionsPage = ({
     setIsAgriTechOpen(true);
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
-  // "A" opens AgriTech Management from the questions list, for the roles that see it
-  // in the sidebar; paused while any dialog or drawer is open.
+  // "A" opens AgriTech Management from the questions list, for admins only;
+  // paused while any dialog or drawer is open.
   useKeyboardShortcuts([{ key: "a", handler: openAgriTech }], () => {
     const role = currentUser?.role;
     return (
       !isAgriTechOpen &&
       !selectedQuestionId &&
-      !!role &&
-      role !== "expert" &&
-      role !== "tester" &&
+      role === "admin" &&
       !document.querySelector('[role="dialog"], [role="alertdialog"]')
     );
   });
@@ -111,6 +109,7 @@ export const QuestionsPage = ({
   const [duplicateQuestions, setDuplicateQuestions] = useState(false);
   const [paeReview, setPaeReview] = useState<boolean | undefined>(undefined);
   const [isNonAgri, setIsNonAgri] = useState<boolean | undefined>(undefined);
+  const [isDynamic, setIsDynamic] = useState<boolean | undefined>(undefined);
   const [isTesting, setIsTesting] = useState<boolean | undefined>(undefined);
   const [isTrainingQuestion, setIsTrainingQuestion] = useState<boolean | undefined>(undefined);
   const [closedAtEnd, setClosedAtEnd] = useState<Date | undefined>(undefined);
@@ -195,7 +194,7 @@ export const QuestionsPage = ({
     };
   }, [source]);
 
-  const filter = useMemo(
+  const filter: AdvanceFilterValues = useMemo(
     () => {
       const isDedicated = viewMode === "dedicated";
       return {
@@ -229,6 +228,7 @@ export const QuestionsPage = ({
         unallocatedQuestions,
         pae_review: paeReview,
         is_non_agri: isNonAgri,
+        is_dynamic: isDynamic,
         is_testing: isTesting,
         isTrainingQuestion,
         // Dedicated tab: filter to questions assigned to the current moderator
@@ -278,6 +278,7 @@ export const QuestionsPage = ({
       unallocatedQuestions,
       paeReview,
       isNonAgri,
+      isDynamic,
       isTesting,
       isTrainingQuestion,
       viewMode,
@@ -463,37 +464,7 @@ export const QuestionsPage = ({
     }
   }, [pendingNav, isLoading, isReviewLoading, currentItems]);
 
-  const onChangeFilters = (next: {
-    status?: QuestionFilterStatus;
-    source?: QuestionSourceFilter;
-    priority?: QuestionPriorityFilter;
-    state?: string;
-    states?: string[];
-    crop?: string;
-    normalised_crop?: string;
-    normalisedCrops?: string[];
-    domain?: string;
-    user?: string;
-    assignedUser?: string;
-    answersCount?: [number, number];
-    dateRange?: QuestionDateRangeFilter;
-    startTime?: Date | undefined;
-    endTime?: Date | undefined;
-    review_level?: ReviewLevel;
-    closedAtEnd?: Date | undefined;
-    closedAtStart?: Date | undefined;
-    consecutiveApprovals?: string;
-    autoAllocateFilter?: string;
-    autoAllocateModeratorFilter?: string;
-    closedInTwoHrs?: boolean;
-    hiddenQuestions?: boolean;
-    duplicateQuestions?: boolean;
-    isOnHold?: boolean;
-    unallocatedQuestions?: boolean;
-    pae_review?: boolean;
-    is_non_agri?: boolean;
-    is_testing?: boolean;
-  }) => {
+  const onChangeFilters = (next: AdvanceFilterValues) => {
     if (next.status !== undefined) setStatus(next.status);
     if (next.source !== undefined) setSource(next.source);
     if (next.state !== undefined) setState(next.state);
@@ -507,11 +478,11 @@ export const QuestionsPage = ({
     if (next.domain !== undefined) setDomain(next.domain);
     if (next.user !== undefined) setUser(next.user);
     if (next.assignedUser !== undefined) setAssignedUser(next.assignedUser);
-    if (next.startTime !== undefined) setStartTime(next.startTime);
-    if (next.endTime !== undefined) setEndTime(next.endTime);
+    if (next.startTime !== undefined) setStartTime(next.startTime ?? undefined);
+    if (next.endTime !== undefined) setEndTime(next.endTime ?? undefined);
     if (next.review_level !== undefined) setReviewLevel(next.review_level);
-    if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart);
-    if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd);
+    if (next.closedAtStart !== undefined) setClosedAtStart(next.closedAtStart ?? undefined);
+    if (next.closedAtEnd !== undefined) setClosedAtEnd(next.closedAtEnd ?? undefined);
     if (next.consecutiveApprovals !== undefined)
       setConsecutiveApprovals(next.consecutiveApprovals);
     if (next.autoAllocateFilter !== undefined)
@@ -534,6 +505,8 @@ export const QuestionsPage = ({
       setPaeReview(next.pae_review);
     if ("is_non_agri" in next)
       setIsNonAgri(next.is_non_agri);
+    if ("is_dynamic" in next)
+      setIsDynamic(next.is_dynamic);
     if ("is_testing" in next)
       setIsTesting(next.is_testing);
     if ("isTrainingQuestion" in next)
@@ -580,6 +553,7 @@ export const QuestionsPage = ({
     setIsOnHold(false);
     setPaeReview(undefined);
     setIsNonAgri(undefined);
+    setIsDynamic(undefined);
     setIsTesting(undefined);
     setIsTrainingQuestion(undefined);
   };
@@ -687,7 +661,7 @@ export const QuestionsPage = ({
         )
       ) : (
         <>
-          {isAgriTechOpen ? (
+          {isAgriTechOpen && currentUser?.role === "admin" ? (
             <CropManagementModal
               variant="page"
               open

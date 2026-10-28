@@ -7,12 +7,15 @@ import {
   GdbCleaningStatus,
   IGdbCleaning,
   IGdbCleaningCheck,
+  IGdbCleaningHistoryEntry,
   IGdbCleaningSource,
 } from '#root/shared/interfaces/models.js';
 import {
   GdbCleaningListRow,
+  GdbHistoryRow,
   IGdbCleaningListFilters,
   IGdbCleaningRepository,
+  IGdbHistoryFilters,
 } from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
 
 const STATUSES: GdbCleaningStatus[] = [
@@ -42,7 +45,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   private static toObjectId(id: string): ObjectId {
     if (!ObjectId.isValid(id)) {
-      throw new BadRequestError(`Invalid answer id "${id}"`);
+      throw new BadRequestError(`Invalid id "${id}"`);
     }
     return new ObjectId(id);
   }
@@ -163,12 +166,17 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   async saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
   ): Promise<IGdbCleaning | null> {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {
+          answerId: GdbCleaningRepository.toObjectId(answerId),
+          questionId: GdbCleaningRepository.toObjectId(questionId),
+          status: {$in: ['todo', 'clean']},
+        },
         {$set: {correctedAnswer}},
         {returnDocument: 'after'},
       );
@@ -184,12 +192,13 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     answerId: string,
     checks: IGdbCleaningCheck[],
     flags: string[],
+    status: 'todo' | 'clean',
   ): Promise<IGdbCleaning | null> {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
-        {$set: {checks, flags}},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
+        {$set: {checks, flags, status}},
         {returnDocument: 'after'},
       );
     } catch (error: any) {
@@ -202,6 +211,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   async saveSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     originalSources: IGdbCleaningSource[],
     reviewerId: string,
@@ -209,7 +219,11 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {
+          answerId: GdbCleaningRepository.toObjectId(answerId),
+          questionId: GdbCleaningRepository.toObjectId(questionId),
+          status: {$in: ['todo', 'clean']},
+        },
         {
           $set: {
             sources,
@@ -228,6 +242,108 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     }
   }
 
+  async addHistory(
+    answerId: string,
+    entry: IGdbCleaningHistoryEntry,
+  ): Promise<void> {
+    try {
+      if (!this.collection) await this.init();
+      await this.collection.updateOne(
+        {answerId: GdbCleaningRepository.toObjectId(answerId)},
+        {$push: {history: entry}},
+      );
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to record the history: ${error.message}`,
+      );
+    }
+  }
+
+  async listHistory(filters: IGdbHistoryFilters): Promise<{
+    rows: GdbHistoryRow[];
+    totalCount: number;
+    answers: number;
+  }> {
+    try {
+      if (!this.collection) await this.init();
+      const match: Record<string, unknown> = {};
+      if (filters.userId) {
+        match['history.userId'] = GdbCleaningRepository.toObjectId(filters.userId);
+      }
+      if (filters.from && filters.to) {
+        match['history.at'] = {$gte: filters.from, $lte: filters.to};
+      }
+      const [result] = await this.collection
+        .aggregate<{
+          rows: GdbHistoryRow[];
+          total: {n: number}[];
+          answers: {n: number}[];
+        }>([
+          {$match: {'history.0': {$exists: true}}},
+          {$unwind: '$history'},
+          {$match: match},
+          {$sort: {'history.at': -1}},
+          {
+            $facet: {
+              rows: [
+                {$skip: (filters.page - 1) * filters.limit},
+                {$limit: filters.limit},
+                {
+                  $project: {
+                    _id: 0,
+                    answerId: 1,
+                    question: 1,
+                    userId: '$history.userId',
+                    action: '$history.action',
+                    at: '$history.at',
+                    details: '$history.details',
+                  },
+                },
+              ],
+              total: [{$count: 'n'}],
+              answers: [{$group: {_id: '$answerId'}}, {$count: 'n'}],
+            },
+          },
+        ])
+        .toArray();
+      return {
+        rows: result?.rows ?? [],
+        totalCount: result?.total[0]?.n ?? 0,
+        answers: result?.answers[0]?.n ?? 0,
+      };
+    } catch (error: any) {
+      if (error instanceof BadRequestError) throw error;
+      throw new InternalServerError(
+        `Failed to load the history: ${error.message}`,
+      );
+    }
+  }
+
+  async countInRange(
+    from?: Date,
+    to?: Date,
+  ): Promise<{fixed: number; dismissed: number; pushed: number}> {
+    try {
+      if (!this.collection) await this.init();
+      const decidedIn = from && to ? {reviewedAt: {$gte: from, $lte: to}} : {};
+      const [fixed, dismissed, pushed] = await Promise.all([
+        this.collection.countDocuments({status: 'fixed', ...decidedIn}),
+        this.collection.countDocuments({status: 'dismissed', ...decidedIn}),
+        this.collection.countDocuments(
+          from && to
+            ? {pushedAt: {$gte: from, $lte: to}}
+            : {pushedAt: {$ne: null}},
+        ),
+      ]);
+      return {fixed, dismissed, pushed};
+    } catch (error: any) {
+      throw new InternalServerError(
+        `Failed to count by date: ${error.message}`,
+      );
+    }
+  }
+
   async markPushed(
     answerId: string,
     reviewerId: string,
@@ -238,7 +354,6 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
         {
           answerId: GdbCleaningRepository.toObjectId(answerId),
           status: 'fixed',
-          pushedAt: {$in: [null, undefined]},
         },
         {$set: {pushedAt: new Date(), pushedBy: new ObjectId(reviewerId)}},
         {returnDocument: 'after'},
@@ -273,7 +388,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       }
       // the status in the filter means a decided answer is never changed again
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: 'todo'},
+        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
         {$set: changes},
         {returnDocument: 'after'},
       );

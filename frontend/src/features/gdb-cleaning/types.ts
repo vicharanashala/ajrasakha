@@ -27,10 +27,50 @@ export interface IGdbCheck {
 export const effectiveResult = (check: IGdbCheck): GdbCheckResult =>
   check.override ? check.override.result : check.result;
 
+export type GdbSourceType = "central" | "state" | "district" | "hyper_local" | "other";
+
+export const SOURCE_TYPE_LABELS: Record<GdbSourceType, string> = {
+  central: "Central",
+  state: "State",
+  district: "District",
+  hyper_local: "Hyper-local",
+  other: "Other",
+};
+
 export interface IGdbSource {
   sourceName: string;
   source: string;
   page: string;
+  // the same types the reviewer app uses for a source
+  sourceType?: GdbSourceType;
+}
+
+export type GdbAction =
+  | "accepted"
+  | "dismissed"
+  | "flag_changed"
+  | "sources_edited"
+  | "correction_saved"
+  | "pushed";
+
+export const ACTION_LABELS: Record<GdbAction, string> = {
+  accepted: "Accepted correction",
+  dismissed: "Dismissed flags",
+  flag_changed: "Changed a flag",
+  sources_edited: "Edited sources",
+  correction_saved: "Saved correction",
+  pushed: "Pushed to GDB",
+};
+
+// one thing a reviewer did on an answer
+export interface IGdbHistoryEntry {
+  answerId: string;
+  question: string;
+  action: GdbAction;
+  at: string;
+  userId: string;
+  userName: string | null;
+  details: Record<string, unknown> | null;
 }
 
 // one row of the list
@@ -49,6 +89,7 @@ export interface IGdbListItem {
 
 // one answer with everything the review screen needs
 export interface IGdbCleaningItem extends IGdbListItem {
+  questionId: string;
   answer: string;
   sources: IGdbSource[];
   // the 13 checks, in order

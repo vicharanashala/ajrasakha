@@ -342,7 +342,7 @@ export class UserRepository implements IUserRepository {
       .find(
         {
           role: { $in: roles as any },
-          isBlocked: { $ne: true },
+          status: { $ne: 'in-active' },
         },
         { session },
       )

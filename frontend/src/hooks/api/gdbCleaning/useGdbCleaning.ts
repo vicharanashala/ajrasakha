@@ -4,7 +4,9 @@ import {
   gdbCleaningService,
   type IGdbDecisionRequest,
   type IGdbFlagEdit,
+  type IGdbHistoryParams,
   type IGdbListParams,
+  type IGdbRange,
 } from "@/hooks/services/gdbCleaningService";
 import type { IGdbCleaningItem, IGdbSource } from "@/features/gdb-cleaning/types";
 
@@ -17,10 +19,18 @@ export const useGdbList = (params: IGdbListParams) =>
     placeholderData: keepPreviousData,
   });
 
-export const useGdbSummary = () =>
+export const useGdbSummary = (range: IGdbRange = {}) =>
   useQuery({
-    queryKey: [KEY, "summary"],
-    queryFn: () => gdbCleaningService.summary(),
+    queryKey: [KEY, "summary", range],
+    queryFn: () => gdbCleaningService.summary(range),
+    placeholderData: keepPreviousData,
+  });
+
+export const useGdbHistory = (params: IGdbHistoryParams) =>
+  useQuery({
+    queryKey: [KEY, "history", params],
+    queryFn: () => gdbCleaningService.history(params),
+    placeholderData: keepPreviousData,
   });
 
 export const useGdbFilterOptions = () =>
@@ -47,14 +57,16 @@ const useRefreshAfterChange = () => {
     queryClient.setQueryData([KEY, "item", saved.id], saved);
     queryClient.invalidateQueries({ queryKey: [KEY, "list"] });
     queryClient.invalidateQueries({ queryKey: [KEY, "summary"] });
+    queryClient.invalidateQueries({ queryKey: [KEY, "history"] });
     queryClient.invalidateQueries({ queryKey: [KEY, "filters"] });
   };
 };
 
 export const useSaveGdbCorrection = (answerId: string) => {
   const refresh = useRefreshAfterChange();
-  return useMutation<IGdbCleaningItem, Error, string>({
-    mutationFn: (correctedAnswer) => gdbCleaningService.saveCorrection(answerId, correctedAnswer),
+  return useMutation<IGdbCleaningItem, Error, { questionId: string; correctedAnswer: string }>({
+    mutationFn: ({ questionId, correctedAnswer }) =>
+      gdbCleaningService.saveCorrection(answerId, questionId, correctedAnswer),
     onSuccess: (saved) => {
       refresh(saved);
       toast.success("Correction saved");
@@ -77,8 +89,8 @@ export const useEditGdbFlag = (answerId: string) => {
 
 export const useEditGdbSources = (answerId: string) => {
   const refresh = useRefreshAfterChange();
-  return useMutation<IGdbCleaningItem, Error, IGdbSource[]>({
-    mutationFn: (sources) => gdbCleaningService.editSources(answerId, sources),
+  return useMutation<IGdbCleaningItem, Error, { questionId: string; sources: IGdbSource[] }>({
+    mutationFn: ({ questionId, sources }) => gdbCleaningService.editSources(answerId, questionId, sources),
     onSuccess: (saved) => {
       refresh(saved);
       toast.success("Sources saved");

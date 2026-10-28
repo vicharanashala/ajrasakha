@@ -2,6 +2,7 @@ import {Transform, Type} from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
+  IsDateString,
   IsIn,
   IsNotEmpty,
   IsNumber,
@@ -66,7 +67,49 @@ export class GetGdbCleaningListQuery {
   limit?: number;
 }
 
+export class GetGdbCleaningSummaryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+}
+
+export class GetGdbHistoryQuery {
+  @IsOptional()
+  @IsDateString()
+  from?: string;
+
+  @IsOptional()
+  @IsDateString()
+  to?: string;
+
+  // a reviewer's own actions, or everyone's
+  @IsOptional()
+  @IsIn(['mine', 'all'])
+  scope?: 'mine' | 'all';
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  page?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsNumber()
+  @Min(1)
+  @Max(100)
+  limit?: number;
+}
+
 export class SaveGdbCorrectionDto {
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
   @IsString()
   @IsNotEmpty()
   @MaxLength(20000)
@@ -115,12 +158,22 @@ export class GdbSourceDto {
   @MaxLength(2000)
   source: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   page: string;
+
+  @IsOptional()
+  @IsIn(['hyper_local', 'state', 'central', 'district', 'other'])
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 }
 
 export class SaveGdbSourcesDto {
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
+  // the complete list of sources; an empty list is allowed and clears them
   @IsArray()
   @ArrayMaxSize(30)
   @ValidateNested({each: true})
@@ -131,6 +184,8 @@ export class SaveGdbSourcesDto {
 export const GDB_CLEANING_VALIDATORS = [
   GdbCleaningAnswerParam,
   GetGdbCleaningListQuery,
+  GetGdbCleaningSummaryQuery,
+  GetGdbHistoryQuery,
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,
