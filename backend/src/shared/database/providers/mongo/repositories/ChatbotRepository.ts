@@ -8088,7 +8088,7 @@ export class ChatbotRepository implements IChatbotRepository {
       const totalUsers = finalList.length;
       const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
       const inactiveUsers = totalUsers - activeUsers;
-      const totalMessagesCount = finalList.reduce(
+      const rawMessagesCount = finalList.reduce(
         (sum, u) => sum + u.totalQuestions,
         0,
       );
@@ -8194,16 +8194,19 @@ export class ChatbotRepository implements IChatbotRepository {
         totalNonAgriQuestionsCount += res.total;
       }
 
-      const totalQueries = totalMessagesCount + totalQuestionsCount;
+      const totalMessagesCount =
+        totalQuestionsCount + totalNonAgriQuestionsCount;
+      const totalQueries = totalMessagesCount;
 
       // Update finalList users with their specific counts
       for (const u of finalList) {
         const uId = String(u.userId);
         const qCount = questionCountMap.get(uId) || 0;
-        u.totalMessagesCount = u.totalQuestions || 0;
+        const nonAgriCount = nonAgriQuestionCountMap.get(uId) || 0;
         u.totalQuestionsCount = qCount;
-        u.totalNonAgriQuestionsCount = nonAgriQuestionCountMap.get(uId) || 0;
-        u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
+        u.totalNonAgriQuestionsCount = nonAgriCount;
+        u.totalMessagesCount = qCount + nonAgriCount;
+        u.totalQueries = u.totalMessagesCount;
       }
 
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
@@ -8222,7 +8225,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRoleCounts,
         activeUsers,
         inactiveUsers,
-        totalQuestions: totalMessagesCount, // Legacy field
+        totalQuestions: rawMessagesCount, // Legacy field
         totalQueries,
         totalMessagesCount,
         totalQuestionsCount,
