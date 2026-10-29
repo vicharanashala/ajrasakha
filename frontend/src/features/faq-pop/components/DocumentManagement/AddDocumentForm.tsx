@@ -296,7 +296,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
     if (kvkId) fields.kvk_id = kvkId;
     setSubmitting(true);
     try {
-      const result = await uploadDashboardDocument(file, fields, placements, language);
+      const result = await submitPendingUpload(file, fields, placements, language);
       // No client-side approver list fetch — that endpoint is admin-only on PoP's side and 403s
       // silently for an uploader/approver, which was dropping this notification entirely for
       // anyone but an admin. Same pattern as handleResubmitUpload's "upload_created" call: the
