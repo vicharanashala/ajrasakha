@@ -768,7 +768,11 @@ export type INotificationType =
   | 'delayed_question'
   | 'moderator_approval'
   | 'allocation_removal'
-  | 'coordinator_message';
+  | 'coordinator_message'
+  | 'pop_pending_approval'
+  | 'pop_pending_admin_review'
+  | 'pop_upload_rejected'
+  | 'pop_document_published';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;

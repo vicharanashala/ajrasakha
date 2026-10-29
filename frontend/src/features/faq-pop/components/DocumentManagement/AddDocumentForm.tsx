@@ -15,6 +15,9 @@ import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
 import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
+import { NotificationService } from "@/hooks/services/notificationService";
+
+const notificationService = new NotificationService();
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -293,10 +296,14 @@ export default function AddDocumentForm({ onUploadQueued }) {
     if (kvkId) fields.kvk_id = kvkId;
     setSubmitting(true);
     try {
-      // Queues on OUR OWN backend (fast — no Tailscale hop in this request), which forwards to
-      // PoP in the background. A duplicate (our own pending queue, or PoP's live queue) throws
-      // here and is shown as an error below instead of being silently queued.
-      const result = await submitPendingUpload(file, fields, placements, language);
+      const result = await uploadDashboardDocument(file, fields, placements, language);
+      // No client-side approver list fetch — that endpoint is admin-only on PoP's side and 403s
+      // silently for an uploader/approver, which was dropping this notification entirely for
+      // anyone but an admin. Same pattern as handleResubmitUpload's "upload_created" call: the
+      // backend resolves the approver list itself (NotificationService.fetchPopApproverIds).
+      notificationService
+        .notifyPopEvent({ type: "upload_created", itemName: file.name })
+        .catch(() => {}); // Notifying approvers is best-effort — never block the upload on it.
       toast.success("Upload queued");
       if (result?.warning) toast.warning(result.warning);
       setValues(emptyValues());

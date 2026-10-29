@@ -35,6 +35,13 @@ import { installTailnetProxy, tailnetAgentFor } from './bootstrap/tailnetProxy.j
 if (aiConfig.useTailnetProxy) installTailnetProxy();
 
 const app = express();
+// Express generates a weak ETag for every JSON response by default and will reply 304 Not
+// Modified whenever a client's If-None-Match happens to match it — fine for static/cacheable
+// content, wrong here: every route in this API serves live, frequently-changing data (notably
+// GET /notifications), and fetch() resolves a 304 by transparently returning the browser's
+// stale cached body, with no way for calling code to tell. Disabling it makes every response
+// always reflect current state, which is what an API like this actually needs.
+app.disable('etag');
 
 
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
