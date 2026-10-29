@@ -1,4 +1,4 @@
-import { PlusCircle, X } from "lucide-react";
+import { PlusCircle, X, Pencil, Check, Slash } from "lucide-react";
 import { Input } from "./atoms/input";
 import { useState, type KeyboardEvent } from "react";
 import { ScrollArea } from "./atoms/scroll-area";
@@ -49,6 +49,20 @@ export const SourceUrlManager = ({
   const [urlInput, setUrlInput] = useState("");
   const [pageInput, setPageInput] = useState("");
 
+  // Edit mode state for existing sources
+  const [editingIndex, setEditingIndex] = useState<number | null>(null);
+  const [editForm, setEditForm] = useState<{
+    sourceType: SourceType | "";
+    sourceName: string;
+    source: string;
+    page: string;
+  }>({
+    sourceType: "",
+    sourceName: "",
+    source: "",
+    page: "",
+  });
+
   const isPdfLink = (url: string) => /\.pdf($|\?|#)/i.test(url) || /pdf/i.test(url);
 
   const validatePageInput = (input: string): boolean => {
@@ -58,6 +72,104 @@ export const SourceUrlManager = ({
       const n = Number(p);
       return Number.isInteger(n) && n >= 1;
     });
+  };
+
+  // Start editing a source
+  const startEditSource = (index: number) => {
+    const source = sources[index];
+    setEditingIndex(index);
+    setEditForm({
+      sourceType: source.sourceType ?? "",
+      sourceName: source.sourceName ?? "",
+      source: source.source ?? "",
+      page: source.page != null ? String(source.page) : "",
+    });
+  };
+
+  // Cancel editing
+  const cancelEditSource = () => {
+    setEditingIndex(null);
+    setEditForm({
+      sourceType: "",
+      sourceName: "",
+      source: "",
+      page: "",
+    });
+  };
+
+  // Save the edited source
+  const saveEditSource = () => {
+    if (!editForm.sourceType) {
+      toast.error("Please select a source type.");
+      return;
+    }
+
+    if (!editForm.sourceName.trim()) {
+      toast.error("Please enter the source name.");
+      return;
+    }
+
+    const trimmedUrl = editForm.source.trim();
+
+    if (!trimmedUrl) {
+      toast.error("Please enter the source URL.");
+      return;
+    }
+
+    let parsedUrl: URL;
+
+    try {
+      parsedUrl = new URL(trimmedUrl);
+    } catch {
+      toast.error("Please enter a valid URL.");
+      return;
+    }
+
+    if (!allowAnyUrl) {
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isZohoWorkDrive =
+        hostname.includes("zoho") && hostname.includes("workdrive");
+
+      if (!isZohoWorkDrive) {
+        toast.error("Only Zoho WorkDrive URLs are allowed.");
+        return;
+      }
+    }
+
+    const trimmedPage = editForm.page.trim();
+    const isPdf = isPdfLink(trimmedUrl);
+
+    if (isPdf && !trimmedPage) {
+      toast.error("Page number is required for PDF links.");
+      return;
+    }
+
+    if (trimmedPage && !validatePageInput(trimmedPage)) {
+      toast.error("Please enter valid page number(s) (e.g. 1 or 1,2,3).");
+      return;
+    }
+
+    // Create updated source with all fields preserved
+    const updatedSource: SourceItem = {
+      sourceType: editForm.sourceType as SourceType,
+      sourceName: editForm.sourceName.trim(),
+      source: trimmedUrl,
+      page: trimmedPage || undefined,
+    };
+
+    // Update sources array immutably
+    const updatedSources = sources.map((s, i) =>
+      i === editingIndex ? updatedSource : s
+    );
+
+    onSourcesChange(updatedSources);
+    cancelEditSource();
+    toast.success("Source updated successfully.");
+  };
+
+  // Remove source by index
+  const removeSource = (index: number) => {
+    onSourcesChange(sources.filter((_, i) => i !== index));
   };
 
   const addSource = () => {
@@ -146,10 +258,6 @@ export const SourceUrlManager = ({
     }
   };
 
-  const removeSource = (index: number) => {
-    onSourcesChange(sources.filter((_, idx) => idx !== index));
-  };
-
   return (
     <div className={`grid gap-3 ${className}`}>
       <label className="text-sm font-medium text-foreground">
@@ -221,45 +329,124 @@ export const SourceUrlManager = ({
               {sources.map((item, idx) => (
                 <div
                   key={idx}
-                  className="grid grid-cols-[140px_1fr_auto_auto] items-center gap-6 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors"
+                  className={`grid items-center gap-2 px-3 py-2 bg-tag border border-tag-border rounded-lg text-sm text-tag-foreground hover:bg-tag-hover transition-colors ${
+                    editingIndex === idx ? 'ring-2 ring-primary' : ''
+                  }`}
+                  style={{ gridTemplateColumns: editingIndex === idx ? '1fr' : '140px 1fr auto auto' }}
                 >
-                  {/* Column 1: Source Type Badge */}
-                  {item.sourceType ? (
-                    <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
-                      {(() => {
-                        const label = SOURCE_TYPE_LABELS[item.sourceType!] || item.sourceType;
-                        return item.sourceName && item.sourceName.toLowerCase() !== (label || '').toLowerCase()
-                          ? `${label}: ${item.sourceName}`
-                          : label;
-                      })()}
-                    </span>
+                  {editingIndex === idx ? (
+                    // Edit mode: Show inline form
+                    <div className="flex flex-col gap-2 w-full py-1">
+                      <div className="flex gap-2 items-center flex-wrap">
+                        <Select
+                          value={editForm.sourceType}
+                          onValueChange={(value) => setEditForm(f => ({ ...f, sourceType: value as SourceType }))}
+                        >
+                          <SelectTrigger className="w-32 h-8 text-xs">
+                            <SelectValue placeholder="Type" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {SOURCE_TYPE_OPTIONS.map((opt) => (
+                              <SelectItem key={opt.value} value={opt.value}>
+                                {opt.label}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <Input
+                          value={editForm.sourceName}
+                          onChange={(e) => setEditForm(f => ({ ...f, sourceName: e.target.value }))}
+                          placeholder="Source name"
+                          className="flex-1 h-8 text-xs"
+                        />
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="url"
+                          value={editForm.source}
+                          onChange={(e) => setEditForm(f => ({ ...f, source: e.target.value }))}
+                          placeholder="Source URL"
+                          className="flex-1 h-8 text-xs"
+                        />
+                        <Input
+                          type="text"
+                          value={editForm.page}
+                          onChange={(e) => setEditForm(f => ({ ...f, page: e.target.value }))}
+                          placeholder="Page(s)"
+                          className="w-24 h-8 text-xs"
+                        />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                        <button
+                          type="button"
+                          onClick={cancelEditSource}
+                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
+                          title="Cancel"
+                        >
+                          <Slash className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={saveEditSource}
+                          className="p-1.5 text-green-600 hover:text-green-700 transition-colors rounded"
+                          title="Save"
+                        >
+                          <Check className="h-4 w-4" />
+                        </button>
+                      </div>
+                    </div>
                   ) : (
-                    <span />
+                    // View mode: Show source details
+                    <>
+                      {/* Column 1: Source Type Badge */}
+                      {item.sourceType ? (
+                        <span className="inline-flex items-center px-2.5 py-1 rounded-md text-xs font-medium bg-foreground/10 text-foreground border border-foreground/20 whitespace-nowrap overflow-x-auto">
+                          {(() => {
+                            const label = SOURCE_TYPE_LABELS[item.sourceType!] || item.sourceType;
+                            return item.sourceName && item.sourceName.toLowerCase() !== (label || '').toLowerCase()
+                              ? `${label}: ${item.sourceName}`
+                              : label;
+                          })()}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+
+                      {/* Column 2: Link */}
+                      <span className="truncate" title={item.source}>
+                        {item.source}
+                      </span>
+
+                      {/* Column 3: Page Number */}
+                      {item.page ? (
+                        <span className="text-xs text-muted-foreground whitespace-nowrap">
+                          pg {item.page}
+                        </span>
+                      ) : (
+                        <span />
+                      )}
+
+                      {/* Column 4: Edit and Remove Buttons */}
+                      <div className="flex gap-1">
+                        <button
+                          type="button"
+                          onClick={() => startEditSource(idx)}
+                          className="flex-shrink-0 p-1 text-tag-foreground/60 hover:text-tag-foreground transition-colors"
+                          aria-label="Edit source"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => removeSource(idx)}
+                          className="flex-shrink-0 p-1 text-tag-foreground/60 hover:text-tag-foreground transition-colors"
+                          aria-label="Remove source"
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </>
                   )}
-
-                  {/* Column 2: Link */}
-                  <span className="truncate" title={item.source}>
-                    {item.source}
-                  </span>
-
-                  {/* Column 3: Page Number */}
-                  {item.page ? (
-                    <span className="text-xs text-muted-foreground whitespace-nowrap">
-                      pg {item.page}
-                    </span>
-                  ) : (
-                    <span />
-                  )}
-
-                  {/* Column 4: Remove Button */}
-                  <button
-                    type="button"
-                    onClick={() => removeSource(idx)}
-                    className="flex-shrink-0 text-tag-foreground/60 hover:text-tag-foreground transition-colors"
-                    aria-label="Remove source"
-                  >
-                    <X className="h-3.5 w-3.5" />
-                  </button>
                 </div>
               ))}
             </div>
