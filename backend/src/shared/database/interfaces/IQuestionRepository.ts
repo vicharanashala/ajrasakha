@@ -939,7 +939,29 @@ export interface IQuestionRepository {
   /**
    * Find questions where details.normalised_crop matches a given crop name (case-insensitive).
    */
-  findQuestionsByNormalisedCrop(cropName: string): Promise<IQuestion[]>;
+  findQuestionsByNormalisedCrop(
+    cropName: string,
+    options?: { page?: number; limit?: number; search?: string },
+  ): Promise<{
+    questions: IQuestion[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }>;
+
+  /**
+   * Count questions where details.normalised_crop matches a given crop name.
+   */
+  countQuestionsByNormalisedCrop(cropName: string): Promise<number>;
+
+  /**
+   * Reassign all questions matching a given normalized crop to a new crop name in a single atomic update.
+   */
+  reassignAllQuestionsByNormalisedCrop(
+    fromCropName: string,
+    toCropName: string,
+  ): Promise<{ modifiedCount: number }>;
 
   /**
    * Bulk update details.normalised_crop for multiple questions by their IDs.

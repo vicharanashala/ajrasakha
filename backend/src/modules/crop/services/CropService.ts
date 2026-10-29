@@ -12,6 +12,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
   DeleteCropDto,
+  GetAffectedQuestionsQuery,
 } from '../classes/validators/CropValidators.js';
 import { deleteMediaByUrl } from '#root/modules/dashboard/utils/uploadMedia.js';
 import {
@@ -363,16 +364,32 @@ export class CropService extends BaseService implements ICropService {
     }
   }
 
-  async getAffectedQuestions(cropId: string): Promise<{ count: number; questions: IQuestion[] }> {
+  async getAffectedQuestions(
+    cropId: string,
+    options?: GetAffectedQuestionsQuery,
+  ): Promise<{
+    count: number;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    cropName: string;
+    questions: IQuestion[];
+  }> {
     const crop = await this.cropRepository.getCropById(cropId);
     if (!crop) {
       throw new NotFoundError('Crop not found');
     }
 
-    const questions = await this.questionRepository.findQuestionsByNormalisedCrop(crop.name);
+    const result = await this.questionRepository.findQuestionsByNormalisedCrop(crop.name, options);
     return {
-      count: questions.length,
-      questions,
+      count: result.total,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      cropName: crop.name,
+      questions: result.questions,
     };
   }
 
@@ -386,9 +403,8 @@ export class CropService extends BaseService implements ICropService {
       throw new NotFoundError('Crop not found');
     }
 
-    // 1. Find all affected questions currently in the DB
-    const affectedQuestions = await this.questionRepository.findQuestionsByNormalisedCrop(cropToDelete.name);
-    const totalAffectedCount = affectedQuestions.length;
+    // 1. Get total count of affected questions currently in the DB
+    const totalAffectedCount = await this.questionRepository.countQuestionsByNormalisedCrop(cropToDelete.name);
 
     // 2. Case A: 0 questions affected -> Direct deletion
     if (totalAffectedCount === 0) {
@@ -419,20 +435,47 @@ export class CropService extends BaseService implements ICropService {
       throw new NotFoundError('Replacement crop not found');
     }
 
-    const questionIdsToReassign = dto.questionIds && dto.questionIds.length > 0
-      ? dto.questionIds
-      : affectedQuestions.map(q => q._id!.toString());
+    // 4. Check if this is a Full Migration & Deletion:
+    const isFullReassignment =
+      dto.reassignAll === true ||
+      (!dto.questionIds && dto.reassignAll !== false) ||
+      (dto.questionIds && dto.questionIds.length >= totalAffectedCount);
 
-    // Execute reassignment
+    if (isFullReassignment) {
+      // Direct atomic reassign across all questions matching cropToDelete.name on MongoDB
+      const updateResult = await this.questionRepository.reassignAllQuestionsByNormalisedCrop(
+        cropToDelete.name,
+        replacementCrop.name,
+      );
+
+      // Permanently remove crop from crop_master & delete image
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+
+      return {
+        cropDeleted: true,
+        reassignedCount: updateResult.modifiedCount,
+        message: `Crop "${cropToDelete.name}" deleted and ${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}"`,
+      };
+    }
+
+    // 5. Partial reassignment with specific questionIds
+    if (!dto.questionIds || dto.questionIds.length === 0) {
+      throw new BadRequestError('Please select questions to reassign or choose Reassign All');
+    }
+
     const updateResult = await this.questionRepository.updateQuestionsNormalisedCrop(
-      questionIdsToReassign,
+      dto.questionIds,
       replacementCrop.name,
     );
 
-    // If ALL affected questions are reassigned, delete the crop from crop_master
-    const allQuestionsCovered = questionIdsToReassign.length >= totalAffectedCount;
-
-    if (allQuestionsCovered) {
+    // Check if any questions remain
+    const remainingCount = await this.questionRepository.countQuestionsByNormalisedCrop(cropToDelete.name);
+    if (remainingCount === 0) {
       await this.cropRepository.deleteCrop(cropId);
       if (cropToDelete.imageUrl) {
         try {
@@ -442,15 +485,14 @@ export class CropService extends BaseService implements ICropService {
       return {
         cropDeleted: true,
         reassignedCount: updateResult.modifiedCount,
-        message: `Crop "${cropToDelete.name}" deleted and ${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}"`,
+        message: `All remaining questions reassigned to "${replacementCrop.name}". Crop "${cropToDelete.name}" deleted`,
       };
     }
 
-    // Partial reassignment - crop is kept in crop_master
     return {
       cropDeleted: false,
       reassignedCount: updateResult.modifiedCount,
-      message: `${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}". Remaining questions still reference "${cropToDelete.name}"`,
+      message: `${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}". ${remainingCount} questions still reference "${cropToDelete.name}"`,
     };
   }
-}
+}

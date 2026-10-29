@@ -10427,31 +10427,88 @@ export class QuestionRepository implements IQuestionRepository {
    */
   async findQuestionsByNormalisedCrop(
     cropName: string,
-  ): Promise<IQuestion[]> {
+    options?: { page?: number; limit?: number; search?: string },
+  ): Promise<{
+    questions: IQuestion[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
     await this.init();
 
     const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
+    const cropRegex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
 
-    const questions = await this.QuestionCollection.find(
-      { 'details.normalised_crop': regex },
-      {
-        projection: {
-          _id: 1,
-          question: 1,
-          'details.crop': 1,
-          'details.normalised_crop': 1,
-          'details.state': 1,
-          'details.district': 1,
-          status: 1,
-          createdAt: 1,
+    const filter: any = { 'details.normalised_crop': cropRegex };
+
+    if (options?.search && options.search.trim()) {
+      const searchRegex = new RegExp(escapeRegex(options.search.trim()), 'i');
+      filter.$or = [
+        { question: searchRegex },
+        { 'details.crop': searchRegex },
+        { 'details.state': searchRegex },
+        { 'details.district': searchRegex },
+      ];
+    }
+
+    const page = Math.max(1, Number(options?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(options?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const [total, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter),
+      this.QuestionCollection.find(
+        filter,
+        {
+          projection: {
+            _id: 1,
+            question: 1,
+            'details.crop': 1,
+            'details.normalised_crop': 1,
+            'details.state': 1,
+            'details.district': 1,
+            status: 1,
+            createdAt: 1,
+          },
         },
-      },
-    )
-      .sort({ createdAt: -1 })
-      .toArray();
+      )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
 
-    return questions as unknown as IQuestion[];
+    return {
+      questions: questions as unknown as IQuestion[],
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async countQuestionsByNormalisedCrop(cropName: string): Promise<number> {
+    await this.init();
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
+    return this.QuestionCollection.countDocuments({ 'details.normalised_crop': regex });
+  }
+
+  async reassignAllQuestionsByNormalisedCrop(
+    fromCropName: string,
+    toCropName: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escapeRegex(fromCropName.trim())}\\s*$`, 'i');
+
+    const result = await this.QuestionCollection.updateMany(
+      { 'details.normalised_crop': regex },
+      { $set: { 'details.normalised_crop': toCropName, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
   }
 
   /**

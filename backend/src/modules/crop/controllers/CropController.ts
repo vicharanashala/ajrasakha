@@ -31,6 +31,7 @@ import {
   UpdateCropDto,
   GetAllCropsQuery,
   DeleteCropDto,
+  GetAffectedQuestionsQuery,
 } from '../classes/validators/CropValidators.js';
 import {ICropService} from '../interfaces/ICropService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -888,8 +889,17 @@ export class CropController {
   @Authorized(['admin', 'moderator'])
   async getAffectedQuestions(
     @Params() { cropId }: CropIdParam,
-  ): Promise<{ count: number; questions: any[] }> {
-    return this.cropService.getAffectedQuestions(cropId);
+    @QueryParams() query: GetAffectedQuestionsQuery,
+  ): Promise<{
+    count: number;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    cropName: string;
+    questions: any[];
+  }> {
+    return this.cropService.getAffectedQuestions(cropId, query);
   }
 
   // ─── DELETE / REASSIGN CROP ──────────────────────────────────────────────

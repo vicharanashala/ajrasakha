@@ -1,5 +1,6 @@
 import {
   IsNotEmpty,
+  IsBoolean,
   IsString,
   IsArray,
   IsOptional,
@@ -242,6 +243,28 @@ class GetAllCropsQuery {
   limit?: number;
 }
 
+class GetAffectedQuestionsQuery {
+  @JSONSchema({ description: 'Page number', example: 1, type: 'number' })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  page?: number = 1;
+
+  @JSONSchema({ description: 'Items per page', example: 10, type: 'number' })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+
+  @JSONSchema({ description: 'Search questions by text, crop or location', example: 'tomato', type: 'string' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
 class DeleteCropDto {
   @JSONSchema({
     description: 'MongoDB ObjectId of the replacement crop from crop_master (required if reassigning questions)',
@@ -261,6 +284,15 @@ class DeleteCropDto {
   @IsArray()
   @IsString({ each: true })
   questionIds?: string[];
+
+  @JSONSchema({
+    description: 'Set true to reassign all questions for this crop directly on MongoDB without passing individual IDs',
+    example: true,
+    type: 'boolean',
+  })
+  @IsOptional()
+  @IsBoolean()
+  reassignAll?: boolean;
 }
 
 export {
@@ -269,6 +301,7 @@ export {
   UpdateCropDto,
   GetAllCropsQuery,
   DeleteCropDto,
+  GetAffectedQuestionsQuery,
 };
 
 export const CROP_VALIDATORS = [
@@ -277,4 +310,5 @@ export const CROP_VALIDATORS = [
   UpdateCropDto,
   GetAllCropsQuery,
   DeleteCropDto,
+  GetAffectedQuestionsQuery,
 ];
