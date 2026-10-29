@@ -254,7 +254,10 @@ function ActivityCard({
   viewType: QuestionActivityViewType;
   onTimelineClick?: (dates: string[]) => void;
 }) {
-  const isQuestionView = viewType === "questions" || viewType === "non_agri";
+  const isQuestionView =
+    viewType === "questions" ||
+    viewType === "non_agri" ||
+    viewType === "messages";
   const text = isQuestionView ? item.question : item.message;
   const displayText =
     text?.trim() ||

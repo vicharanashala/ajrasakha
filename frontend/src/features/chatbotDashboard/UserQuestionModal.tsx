@@ -103,7 +103,7 @@ const UserQuestionsModal = ({
   const activeData = useMemo(() => {
     if (viewType === "questions") return fullData?.questions;
     if (viewType === "non_agri") return fullData?.nonAgriQuestions;
-    return fullData?.messages;
+    return fullData?.allQuestions;
   }, [fullData, viewType]);
   const items = useMemo(
     () => (activeData?.items || []) as QuestionActivityItem[],

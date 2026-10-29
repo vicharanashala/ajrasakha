@@ -8529,6 +8529,31 @@ export class ChatbotRepository implements IChatbotRepository {
     );
   }
 
+  async getUserAllQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'all',
+    );
+  }
+
   /**
    * Shared query behind both the Agri and Non-Agri tabs on the user-activity
    * modal. Both tabs use identical threadId/messageId/userId matching,
@@ -8549,7 +8574,7 @@ export class ChatbotRepository implements IChatbotRepository {
     limit = 12,
     startDate: string | undefined,
     endDate: string | undefined,
-    statusMode: 'agri' | 'non_agri',
+    statusMode: 'agri' | 'non_agri' | 'all',
   ) {
     try {
       await this.initReviewSystem();
@@ -8612,6 +8637,13 @@ export class ChatbotRepository implements IChatbotRepository {
         matchQuery.status = 'non_agri';
       }
 
+      if (statusMode === 'all') {
+        // Agri + Non-Agri: the base match without its status exclusion.
+        matchQuery.$and = (matchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        );
+      }
+
       if (startDate || endDate) {
   matchQuery.createdAt = {};
 
@@ -8641,6 +8673,14 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const skip = (page - 1) * limit;
 
+      const questionKey = {
+        $toLower: {
+          $trim: {
+            input: '$question',
+          },
+        },
+      };
+
       const pipeline = [
         {
           $match: matchQuery,
@@ -8654,13 +8694,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
         {
           $group: {
-            _id: {
-              $toLower: {
-                $trim: {
-                  input: '$question',
-                },
-              },
-            },
+            _id:
+              statusMode === 'all'
+                ? {question: questionKey, status: '$status'}
+                : questionKey,
 
             repeatedCount: {
               $sum: 1,
