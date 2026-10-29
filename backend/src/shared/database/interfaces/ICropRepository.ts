@@ -16,4 +16,6 @@ export interface ICropRepository {
   findByNameOrAlias(cropName: string): Promise<ICrop | null>;
   findByNames(names: string[]): Promise<ICrop[]>;
   findChemicalByNameOrAlias(name: string): Promise<ICrop | null>;
+  getAllNormalisedCrops(): Promise<ICrop[]>;
 }
+
