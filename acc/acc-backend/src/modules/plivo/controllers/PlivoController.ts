@@ -1301,6 +1301,7 @@ export class PlivoController {
               username: agentName,
               email: agentEmail
             },
+            conversations: call.conversations || [],
             recording: call.recording,
             recordings: call.recordings || (call.recording ? [call.recording] : []),
             queries: call.queries,

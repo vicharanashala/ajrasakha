@@ -65,6 +65,16 @@ export interface CallRecordingItem {
   createdAt?: string;
 }
 
+export interface CallTranscriptMessage {
+  track: 'inbound' | 'outbound';
+  speaker?: 'caller' | 'agent';
+  originalText?: string;
+  translatedText?: string;
+  text?: string;
+  detectedLanguage?: string;
+  timestamp?: string | Date;
+}
+
 export interface CallHistoryItem {
   uuid: string;
   from: string;
@@ -80,6 +90,7 @@ export interface CallHistoryItem {
   callDetails?: {
     caller?: { transcript: string; translation: string; detectedLanguage: string };
     agent?: { transcript: string; translation: string; detectedLanguage: string; userid?: string; username?: string; email?: string };
+    conversations?: CallTranscriptMessage[];
     recording?: CallRecordingItem;
     recordings?: CallRecordingItem[];
     queries?: CallQuery[];

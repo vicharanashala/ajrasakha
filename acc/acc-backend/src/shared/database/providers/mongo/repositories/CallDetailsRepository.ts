@@ -562,6 +562,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         updateDoc.agent = details.agent;
       }
 
+      if (details.conversations !== undefined) updateDoc.conversations = details.conversations;
       if (details.recording !== undefined) updateDoc.recording = details.recording;
 
       await this.callDetailsCollection.updateOne(

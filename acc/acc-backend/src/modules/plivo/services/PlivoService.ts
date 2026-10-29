@@ -9,7 +9,7 @@ import plivo from 'plivo';
 import axios, { AxiosInstance } from 'axios';
 import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
-import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import type { ICallDetailsRepository, CallTranscriptMessage } from '#shared/database/interfaces/ICallDetailsRepository.js';
 
 
 interface WsSession {
@@ -52,6 +52,7 @@ export class PlivoService {
   private readonly translateApiUrl = /*aiConfig.accTranslateApiUrl*/"http://100.100.108.44:8110/v1/translate/to-english";
   private activeTranscriptions: Map<string, string> = new Map();
   private activeTranslations: Map<string, string> = new Map();
+  private activeTranscriptTurns: Map<string, CallTranscriptMessage[]> = new Map();
   private detectedLanguages: Map<string, string> = new Map();
   private activeStreams: Map<string, SarvamStreamSession> = new Map();
   private plivoClient: plivo.Client;
@@ -463,6 +464,18 @@ export class PlivoService {
         const isOutbound = this.callMetadataMap.get(callId)?.direction === 'outbound';
         const mappedTrack: 'inbound' | 'outbound' = isOutbound ? (track === 'inbound' ? 'outbound' : 'inbound') : track;
 
+        // Record individual dialogue turn in memory
+        const turns = this.activeTranscriptTurns.get(callId) || [];
+        turns.push({
+          track: mappedTrack,
+          speaker: mappedTrack === 'inbound' ? 'caller' : 'agent',
+          originalText,
+          translatedText: finalTranslatedText || '',
+          detectedLanguage: session.detectedLanguage,
+          timestamp: new Date()
+        });
+        this.activeTranscriptTurns.set(callId, turns);
+
         session.onTranscript({
           track: mappedTrack,
           originalText,
@@ -513,6 +526,19 @@ export class PlivoService {
         const currentTrans = this.activeTranslations.get(key) || '';
         this.activeTranslations.set(key, (currentTrans + ' ' + remainingTranslated).trim());
       }
+
+      const isOutbound = this.callMetadataMap.get(callId)?.direction === 'outbound';
+      const mappedTrack: 'inbound' | 'outbound' = isOutbound ? (track === 'inbound' ? 'outbound' : 'inbound') : track;
+      const turns = this.activeTranscriptTurns.get(callId) || [];
+      turns.push({
+        track: mappedTrack,
+        speaker: mappedTrack === 'inbound' ? 'caller' : 'agent',
+        originalText: remainingOriginal,
+        translatedText: remainingTranslated || '',
+        detectedLanguage: session.detectedLanguage,
+        timestamp: new Date()
+      });
+      this.activeTranscriptTurns.set(callId, turns);
     }
 
     try {
@@ -577,6 +603,7 @@ export class PlivoService {
   clearTranscript(callId: string): void {
     this.lastActivityMap.delete(callId);
     this.endedCalls.delete(callId);
+    this.activeTranscriptTurns.delete(callId);
     for (const track of ['inbound', 'outbound'] as const) {
       // Safety fallback to dump audio if not finalized prior
       // this.saveAudioDump(callId, track);
@@ -602,6 +629,10 @@ export class PlivoService {
       }
     }
     this.callAgentMapping.delete(callId);
+  }
+
+  getTranscriptTurns(callId: string): CallTranscriptMessage[] {
+    return this.activeTranscriptTurns.get(callId) || [];
   }
 
 
@@ -857,7 +888,8 @@ export class PlivoService {
           translation: agentTranslation,
           detectedLanguage: agentLanguage,
           userid: agentUserIdObj,
-        }
+        },
+        conversations: this.activeTranscriptTurns.get(callUuid) || [],
       };
 
       if (existingCall) {

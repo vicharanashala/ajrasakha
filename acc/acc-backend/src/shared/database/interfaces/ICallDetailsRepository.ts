@@ -1,5 +1,14 @@
 import type { ClientSession, ObjectId } from 'mongodb';
 
+export interface CallTranscriptMessage {
+  track: 'inbound' | 'outbound';
+  speaker: 'caller' | 'agent';
+  originalText: string;
+  translatedText: string;
+  detectedLanguage?: string;
+  timestamp: Date | string;
+}
+
 export interface CallParticipant {
   transcript: string;
   translation: string;
@@ -95,6 +104,7 @@ export interface CallDetails {
   direction?: string;
   caller: CallParticipant;
   agent: CallParticipant;
+  conversations?: CallTranscriptMessage[];
   recording?: CallRecording;
   recordings?: CallRecording[];
   QA_pairs?: QAPairs;

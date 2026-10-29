@@ -179,12 +179,12 @@ export const initWebSocket = (server: Server) => {
         await plivoService.saveCallDetails(callId.toString());
       } catch (saveError) {
         console.error('❌ [WEBSOCKET] Failed to save call details:', saveError);
-      }
-
-      try {
-        plivoService.clearTranscript(callId.toString());
-      } catch (clearError) {
-        console.error('❌ [WEBSOCKET] Failed to clear transcript:', clearError);
+      } finally {
+        try {
+          plivoService.clearTranscript(callId.toString());
+        } catch (clearError) {
+          console.error('❌ [WEBSOCKET] Failed to clear transcript:', clearError);
+        }
       }
 
       if (agentUserId) {
