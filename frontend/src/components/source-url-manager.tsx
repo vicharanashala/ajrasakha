@@ -1,4 +1,4 @@
-import { PlusCircle, X, Pencil, Check, Slash } from "lucide-react";
+import { PlusCircle, X, Pencil } from "lucide-react";
 import { Input } from "./atoms/input";
 import { useState, type KeyboardEvent } from "react";
 import { ScrollArea } from "./atoms/scroll-area";
@@ -97,74 +97,26 @@ export const SourceUrlManager = ({
     });
   };
 
-  // Save the edited source
-  const saveEditSource = () => {
-    if (!editForm.sourceType) {
-      toast.error("Please select a source type.");
-      return;
-    }
+  // Update source in state (auto-save on change)
+  const updateSourceInState = (form: typeof editForm) => {
+    if (editingIndex === null) return;
 
-    if (!editForm.sourceName.trim()) {
-      toast.error("Please enter the source name.");
-      return;
-    }
-
-    const trimmedUrl = editForm.source.trim();
-
-    if (!trimmedUrl) {
-      toast.error("Please enter the source URL.");
-      return;
-    }
-
-    let parsedUrl: URL;
-
-    try {
-      parsedUrl = new URL(trimmedUrl);
-    } catch {
-      toast.error("Please enter a valid URL.");
-      return;
-    }
-
-    if (!allowAnyUrl) {
-      const hostname = parsedUrl.hostname.toLowerCase();
-      const isZohoWorkDrive =
-        hostname.includes("zoho") && hostname.includes("workdrive");
-
-      if (!isZohoWorkDrive) {
-        toast.error("Only Zoho WorkDrive URLs are allowed.");
-        return;
-      }
-    }
-
-    const trimmedPage = editForm.page.trim();
-    const isPdf = isPdfLink(trimmedUrl);
-
-    if (isPdf && !trimmedPage) {
-      toast.error("Page number is required for PDF links.");
-      return;
-    }
-
-    if (trimmedPage && !validatePageInput(trimmedPage)) {
-      toast.error("Please enter valid page number(s) (e.g. 1 or 1,2,3).");
-      return;
-    }
-
-    // Create updated source with all fields preserved
-    const updatedSource: SourceItem = {
-      sourceType: editForm.sourceType as SourceType,
-      sourceName: editForm.sourceName.trim(),
-      source: trimmedUrl,
-      page: trimmedPage || undefined,
+    // For now, we'll update the sources array with the new values
+    // Validation will happen when clicking Save Changes in the parent form
+    const updatedSources = [...sources];
+    updatedSources[editingIndex] = {
+      sourceType: form.sourceType as SourceType,
+      sourceName: form.sourceName.trim() || form.sourceName,
+      source: form.source.trim() || form.source,
+      page: form.page.trim() ? (isPdfLink(form.source) ? form.page.trim() : parseInt(form.page) || undefined) : undefined,
     };
-
-    // Update sources array immutably
-    const updatedSources = sources.map((s, i) =>
-      i === editingIndex ? updatedSource : s
-    );
-
     onSourcesChange(updatedSources);
+  };
+
+  // Save the edited source (kept for potential future use with validation)
+  const saveEditSource = () => {
+    // No-op since we auto-save on change
     cancelEditSource();
-    toast.success("Source updated successfully.");
   };
 
   // Remove source by index
@@ -340,7 +292,11 @@ export const SourceUrlManager = ({
                       <div className="flex gap-2 items-center flex-wrap">
                         <Select
                           value={editForm.sourceType}
-                          onValueChange={(value) => setEditForm(f => ({ ...f, sourceType: value as SourceType }))}
+                          onValueChange={(value) => {
+                            const newForm = { ...editForm, sourceType: value as SourceType };
+                            setEditForm(newForm);
+                            updateSourceInState(newForm);
+                          }}
                         >
                           <SelectTrigger className="w-32 h-8 text-xs">
                             <SelectValue placeholder="Type" />
@@ -355,7 +311,11 @@ export const SourceUrlManager = ({
                         </Select>
                         <Input
                           value={editForm.sourceName}
-                          onChange={(e) => setEditForm(f => ({ ...f, sourceName: e.target.value }))}
+                          onChange={(e) => {
+                            const newForm = { ...editForm, sourceName: e.target.value };
+                            setEditForm(newForm);
+                            updateSourceInState(newForm);
+                          }}
                           placeholder="Source name"
                           className="flex-1 h-8 text-xs"
                         />
@@ -364,35 +324,25 @@ export const SourceUrlManager = ({
                         <Input
                           type="url"
                           value={editForm.source}
-                          onChange={(e) => setEditForm(f => ({ ...f, source: e.target.value }))}
+                          onChange={(e) => {
+                            const newForm = { ...editForm, source: e.target.value };
+                            setEditForm(newForm);
+                            updateSourceInState(newForm);
+                          }}
                           placeholder="Source URL"
                           className="flex-1 h-8 text-xs"
                         />
                         <Input
                           type="text"
                           value={editForm.page}
-                          onChange={(e) => setEditForm(f => ({ ...f, page: e.target.value }))}
+                          onChange={(e) => {
+                            const newForm = { ...editForm, page: e.target.value };
+                            setEditForm(newForm);
+                            updateSourceInState(newForm);
+                          }}
                           placeholder="Page(s)"
                           className="w-24 h-8 text-xs"
                         />
-                      </div>
-                      <div className="flex gap-2 justify-end">
-                        <button
-                          type="button"
-                          onClick={cancelEditSource}
-                          className="p-1.5 text-muted-foreground hover:text-foreground transition-colors rounded"
-                          title="Cancel"
-                        >
-                          <Slash className="h-4 w-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={saveEditSource}
-                          className="p-1.5 text-green-600 hover:text-green-700 transition-colors rounded"
-                          title="Save"
-                        >
-                          <Check className="h-4 w-4" />
-                        </button>
                       </div>
                     </div>
                   ) : (
@@ -430,11 +380,11 @@ export const SourceUrlManager = ({
                       <div className="flex gap-1">
                         <button
                           type="button"
-                          onClick={() => startEditSource(idx)}
+                          onClick={() => editingIndex === idx ? cancelEditSource() : startEditSource(idx)}
                           className="flex-shrink-0 p-1 text-tag-foreground/60 hover:text-tag-foreground transition-colors"
-                          aria-label="Edit source"
+                          aria-label={editingIndex === idx ? "Exit edit mode" : "Edit source"}
                         >
-                          <Pencil className="h-3.5 w-3.5" />
+                          <Pencil className={`h-3.5 w-3.5 ${editingIndex === idx ? 'text-primary' : ''}`} />
                         </button>
                         <button
                           type="button"
