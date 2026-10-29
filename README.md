@@ -48,3 +48,50 @@ This ensures farmers always get a helpful response — whether from verified exp
 - **Quality that keeps improving**, as AI answers undergo expert review.
 - **Saved history** for referencing past answers.
 - **24/7 availability**, helping farmers make timely decisions during critical farming periods.
+
+## Getting Started
+
+### Prerequisites
+
+Ensure you have the following installed on your machine:
+
+- **Node.js**: v18.0.0 or higher
+- **pnpm**: v9 or higher (`npm install -g pnpm`)
+- **Docker & Docker Compose** *(optional, for containerized services)*
+
+### Environment Setup
+
+1. Copy the example environment file:
+   ```bash
+   cp .env.example .env
+   ```
+2. Configure the required environment variables in `.env` (such as database connection strings, Firebase credentials, and API keys).
+
+### Running Locally
+
+#### 1. Frontend (Reviewer Web Interface)
+
+```bash
+cd frontend
+pnpm install
+pnpm dev
+```
+The frontend development server will start on `http://localhost:5173`.
+
+#### 2. Backend (API Server)
+
+```bash
+cd backend
+pnpm install
+pnpm dev
+```
+The backend API server will start on `http://localhost:4000` (or the `APP_PORT` defined in your `.env`).
+
+### Running with Docker Compose
+
+To build and run the reviewer stack (backend and frontend) together:
+
+```bash
+docker compose -f docker-compose.app.yml up --build
+```
+This serves the frontend on `http://localhost:8080` (or your configured `FRONTEND_PORT`) and proxies API requests to the backend container.
