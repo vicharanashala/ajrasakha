@@ -4,6 +4,7 @@ import {
   Get,
   Post,
   Put,
+  Delete,
   Body,
   HttpCode,
   Params,
@@ -29,6 +30,8 @@ import {
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
+  GetAffectedQuestionsQuery,
 } from '../classes/validators/CropValidators.js';
 import {ICropService} from '../interfaces/ICropService.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
@@ -126,6 +129,16 @@ export class CropController {
   @OpenAPI({ summary: 'List the crop-side entry categories (known + custom) for the UI.' })
   async getEntryTypes(): Promise<{ types: string[] }> {
     return { types: await this.cropService.getEntryTypes() };
+  }
+
+  // All normalized crops from crop_master (for replacement / selection)
+  @Get('/normalised-list')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'List all normalized crops from crop_master collection for replacement selection' })
+  async getAllNormalisedCrops(): Promise<{ crops: ICrop[] }> {
+    const crops = await this.cropService.getAllNormalisedCrops();
+    return { crops };
   }
 
   // Which of the given names already exist, so the import preview can flag them.
@@ -865,6 +878,91 @@ export class CropController {
     };
   }
 
+  // ─── GET AFFECTED QUESTIONS ──────────────────────────────────────────────
 
+  @OpenAPI({
+    summary: 'Get all questions affected by a crop',
+    description: 'Retrieves all questions where details.normalised_crop matches the given crop name.',
+  })
+  @Get('/:cropId/affected-questions')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  async getAffectedQuestions(
+    @Params() { cropId }: CropIdParam,
+    @QueryParams() query: GetAffectedQuestionsQuery,
+  ): Promise<{
+    count: number;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    cropName: string;
+    questions: any[];
+  }> {
+    return this.cropService.getAffectedQuestions(cropId, query);
+  }
+
+  // ─── DELETE / REASSIGN CROP ──────────────────────────────────────────────
+
+  @OpenAPI({
+    summary: 'Delete a crop and optionally reassign its affected questions',
+    description: 'Deletes a crop from crop_master if all questions are reassigned or none exist. Otherwise reassigns selected questions.',
+  })
+  @Delete('/:cropId')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  async deleteCrop(
+    @Params() { cropId }: CropIdParam,
+    @Body({ required: false }) dto: DeleteCropDto,
+    @CurrentUser() currentUser: IUser,
+  ): Promise<{ success: boolean; message: string; cropDeleted: boolean; reassignedCount: number }> {
+    const existing = await this.cropService.getCropById(cropId);
+    if (!existing) {
+      throw new NotFoundError(`Crop with ID "${cropId}" not found`);
+    }
+
+    const result = await this.cropService.deleteOrReassignCrop(
+      cropId,
+      dto || {},
+      currentUser._id!.toString(),
+    );
+
+    // Audit trail logging
+    const action = result.cropDeleted
+      ? AuditAction.DELETE_CROP
+      : AuditAction.REASSIGN_CROP_QUESTIONS;
+
+    this.auditTrailsService.createAuditTrail({
+      category: AuditCategory.CROP_MANAGEMENT,
+      action,
+      actor: {
+        id: currentUser._id!.toString(),
+        name: `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() || currentUser.email || 'User',
+        email: currentUser.email,
+        role: currentUser.role,
+        avatar: currentUser?.avatar || '',
+      },
+      outcome: { status: OutComeStatus.SUCCESS },
+      context: {
+        ...this.entryAuditContext(cropId, existing.name),
+        replacementCropId: dto?.replacementCropId,
+        reassignedCount: result.reassignedCount,
+        cropDeleted: result.cropDeleted,
+      },
+      changes: {
+        before: { crop: existing },
+        after: {
+          cropDeleted: result.cropDeleted,
+          reassignedCount: result.reassignedCount,
+          replacementCropId: dto?.replacementCropId,
+        },
+      },
+    } as ModeratorAuditTrail);
+
+    return {
+      success: true,
+      ...result,
+    };
+  }
 }
 
