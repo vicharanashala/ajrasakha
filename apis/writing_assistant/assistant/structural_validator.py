@@ -52,8 +52,11 @@ def _has_textual_evidence(step: ReferenceStep, draft_text: str) -> bool:
 def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list[StepCoverageResult], list[int | None]]:
     results = []
     section_indices: list[int | None] = []
+    all_step_names = [s.step for s in structure.steps]
     for step in structure.steps:
-        coverage, section_index = llm_client.classify_step_coverage(draft_text, step.step, step.example)
+        coverage, section_index = llm_client.classify_step_coverage(
+            draft_text, step.step, step.example, all_step_names
+        )
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only
         # ever downgrades toward "missing", never promotes away from it.

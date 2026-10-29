@@ -121,34 +121,59 @@ def classify_and_select(
 _STEP_COVERAGE_SYSTEM_PROMPT = (
     "You check whether a farmer-facing draft answer covers one specific "
     "expected step from a reference answer structure. The draft is given "
-    "as a numbered list of sections. Recognize equivalent wording - do "
-    "not require exact keyword matches. If the draft has no sentence or "
-    "heading about this step's topic at all, respond missing - do not "
-    "give partial credit just because a different section's content is "
-    "thematically related (e.g. a section about chemical control does "
-    "not cover a missing decision-point step just because both concern "
-    "treatment). Respond only with a JSON object of this exact shape: "
-    '{"coverage": "covered" or "partial" or "missing", "section_index": '
-    "<the 1-based section number that primarily addresses this step, or "
-    'null if coverage is "missing">}. "covered" means the draft clearly '
-    'addresses this step (even in different words). "partial" means the '
+    "as a numbered list of sections. You are also given the full ordered "
+    "list of every other expected step, for context only - credit THIS "
+    "step only for content that is distinctly about its own topic, never "
+    "for content that is more specifically a different listed step's "
+    "topic - even when the two are related by the same underlying "
+    "narrative (e.g. severity and a decision-to-escalate step both "
+    "discuss how bad the problem is getting, but a decision step still "
+    "needs its own explicit decision/threshold content, not just the "
+    "severity step's description of the problem worsening). A step late "
+    "in the list (e.g. a closing summary/conclusion step) must not be "
+    "credited just because the draft's earlier sections already cover "
+    "the facts it would summarize - a summary step needs the draft to "
+    "actually tie them together, not merely contain them elsewhere. "
+    "Recognize equivalent "
+    "wording - do not require exact keyword matches. If the draft has no "
+    "sentence or heading distinctly about this step's own topic, respond "
+    "missing - do not give partial credit just because a different "
+    "section's content is thematically related (e.g. a section about "
+    "chemical control does not cover a missing decision-point step just "
+    "because both concern treatment). Respond only with a JSON object of "
+    'this exact shape: {"coverage": "covered" or "partial" or "missing", '
+    '"section_index": <the 1-based section number that primarily '
+    "addresses THIS step specifically, or null if coverage is "
+    '"missing">}. "covered" means the draft clearly addresses this '
+    'step\'s own topic (even in different words). "partial" means the '
     "draft touches on it but leaves out part of what the step/example "
     'describes. "missing" means the draft does not address this step\'s '
-    "topic at all."
+    "own topic at all."
 )
 
 
-def classify_step_coverage(draft_text: str, step_description: str, example: str) -> tuple[StepCoverage, int | None]:
+def classify_step_coverage(
+    draft_text: str, step_description: str, example: str, all_step_descriptions: list[str] | None = None
+) -> tuple[StepCoverage, int | None]:
     """Returns (coverage, section_index) - section_index is the 1-based
     index (per text_checks.split_sections) of the draft section that
     primarily addresses this step, or None when coverage is missing.
     Used by structural_validator to flag out-of-order sections (Writing
-    Assistant Build Plan, Revision 14, ISS-06)."""
+    Assistant Build Plan, Revision 14, ISS-06).
+
+    all_step_descriptions (every step's name, this one included, in
+    order) gives the model the context to tell "this is distinctly
+    step N's own topic" apart from "this merely overlaps with a
+    different step's topic" - confirmed live that a summary/conclusion-
+    style step was otherwise credited just because the facts it would
+    summarize already existed in other, genuinely-present sections
+    (Writing Assistant Build Plan, Revision 16, ISS-05)."""
     sections = text_checks.split_sections(draft_text)
     numbered_draft = "\n\n".join(f"[{i}] {s}" for i, s in enumerate(sections, start=1))
-    user_content = json.dumps(
-        {"draft": numbered_draft, "expected_step": step_description, "example_of_what_satisfies_it": example}
-    )
+    payload = {"draft": numbered_draft, "expected_step": step_description, "example_of_what_satisfies_it": example}
+    if all_step_descriptions:
+        payload["all_expected_steps_in_order_for_context_only"] = all_step_descriptions
+    user_content = json.dumps(payload)
     messages = [
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
