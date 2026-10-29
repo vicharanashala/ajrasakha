@@ -1240,112 +1240,138 @@ Rules:
 
 Examples:
 Query: What is the highest price of Banana in Cuddalore, Tamil Nadu?
-{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+{"action":"get_highest_price","commodity_name":"Banana","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
 
 Query: What is the minimum price of Banana in Cuddalore, Tamil Nadu?
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Banana","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
 
 Query: What is the minimum price of Banana in Cuddalore, Tamil Nadu on 2026-09-09
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"09-Sep-2026","to_date":"09-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Banana","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"09-Sep-2026","to_date":"09-Sep-2026","market_name":"Cuddalore","search_by_apmc":false,"state":"Tamil Nadu","sort_order":null}
 
 Query: What is today's market price of cabbage in Alappuzha district, Kerala?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Alappuzha","search_by_apmc":false,"state":"Kerala","sort_order":null}
+{"action":"get_today_price","commodity_name":"Cabbage","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Alappuzha","search_by_apmc":false,"state":"Kerala","sort_order":null}
 
 Query: Tomato price in Rohtak district
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rohtak","search_by_apmc":false,"state":null,"sort_order":null}
+{"action":"get_today_price","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rohtak","search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: What is the price of onion in Rupnagar, Punjab?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":false,"state":"Punjab","sort_order":null}
+{"action":"get_today_price","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":false,"state":"Punjab","sort_order":null}
 
 Query: tomato rate in Ludhiana
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":false,"state":null,"sort_order":null}
+{"action":"get_today_price","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: onion price in Rupnagar mandi
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":true,"state":null,"sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Onion","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: What is the minimum and maximum price of coconut at Chengannur Market today
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Chengannur","search_by_apmc":true,"state":null,"sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Coconut","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Chengannur","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: Minimum and maximum price of wheat in Ludhiana mandi today
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":true,"state":null,"sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Wheat","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Ludhiana","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: What is the min and max price of tomato today?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"search_by_apmc":false,"state":null,"sort_order":null}
+{"action":"get_today_price","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"search_by_apmc":false,"state":null,"sort_order":null}
 
 Query: highest modal price of onion in bihar on 19th august
-{"action":"get_highest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"search_by_apmc":false,"state":"Bihar","sort_order":null}
+{"action":"get_highest_price","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"19-Aug-2026","to_date":"19-Aug-2026","market_name":null,"search_by_apmc":false,"state":"Bihar","sort_order":null}
 
 Query: Minimum price of Potato in Perumbavoor market
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Perumbavoor","search_by_apmc":true,"state":null,"sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Potato","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Perumbavoor","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: Lowest price of onion in Azadpur mandi today
-{"action":"get_lowest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Azadpur","state":null,"sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Onion","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Azadpur","state":null,"sort_order":null}
 
 Query: Maximum price of wheat in Aluva market
-{"action":"get_highest_price","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Aluva","state":null,"sort_order":null}
+{"action":"get_highest_price","commodity_name":"Wheat","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Aluva","state":null,"sort_order":null}
 
 Query: What is wheat price near me today?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"state":null,"sort_order":null}
+{"action":"get_today_price","commodity_name":"Wheat","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":null,"state":null,"sort_order":null}
 
 Query: 13 august potato price in Aluva Market, Kerala
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"13-Aug-2026","to_date":"13-Aug-2026","market_name":"Aluva","state":"Kerala","sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Potato","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"13-Aug-2026","to_date":"13-Aug-2026","market_name":"Aluva","state":"Kerala","sort_order":null}
 
 Query: 20 august potato price in Aluva
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":"Aluva","state":null,"sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Potato","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":"Aluva","state":null,"sort_order":null}
 
 Query: Onion prices in Maharashtra last 15 days
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra","sort_order":null}
+{"action":"get_price_history","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":15,"from_date":null,"to_date":null,"market_name":null,"state":"Maharashtra","sort_order":null}
 
 Query: What is the average tomato price this week?
-{"action":"get_price_summary","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_price_summary","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: What is the modal price of onion in Assam?
-{"action":"get_today_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
+{"action":"get_today_price","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
 
 Query: What is the price of wheat in Karapa APMC?
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Karapa","state":"Andhra Pradesh","sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Wheat","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Karapa","state":"Andhra Pradesh","sort_order":null}
 
 Query: What is the price of groundnut in Adoni APMC?
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Adoni","state":"Andhra Pradesh","sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Groundnut","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":"Adoni","state":"Andhra Pradesh","sort_order":null}
 
 Query: Which mandis are near me?
-{"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"search_markets","commodity_name":null,"nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: nearby market for rice in Guwahati
-{"action":"search_markets","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
+{"action":"search_markets","commodity_name":"Rice","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Assam","sort_order":null}
 
 Query: What is wheat price today and which mandis are near me?
-{"action":["get_today_price","search_markets"],"nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":["get_today_price","search_markets"],"commodity_name":"Wheat","nearest_market":true,"radius_km":50,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: yesterday's onion price near me
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
+{"action":"get_price_history","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
 
 Query: day before yesterday rice price
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
+{"action":"get_price_history","commodity_name":"Rice","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"20-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
 
 Query: highest arrival quantity for cotton
-{"action":"get_extreme_arrival","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"highest"}
+{"action":"get_extreme_arrival","commodity_name":"Cotton","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":"highest"}
 
 Query: lowest modal price of onion last week
-{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"state":null,"sort_order":null}
 
 Query: lowest price of wheat today in Punjab
-{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Punjab","sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Wheat","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"state":"Punjab","sort_order":null}
 
 Query: lowest onion price yesterday near me
-{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"21-Aug-2026","to_date":"21-Aug-2026","market_name":null,"state":null,"sort_order":null}
 
 Query: lowest price of tomato on 15 august in Maharashtra
-{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"15-Aug-2026","to_date":"15-Aug-2026","market_name":null,"state":"Maharashtra","sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"15-Aug-2026","to_date":"15-Aug-2026","market_name":null,"state":"Maharashtra","sort_order":null}
 
 Query: lowest potato price from 1st august to 20 august in UP
-{"action":"get_lowest_price","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":"Uttar Pradesh","sort_order":null}
+{"action":"get_lowest_price","commodity_name":"Potato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":"Uttar Pradesh","sort_order":null}
 
 Query: compare onion price in Azadpur mandi and Ludhiana mandi
 {"action":null,"commodity_name":"Onion","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":true,"state":null,"sort_order":null,"unsupported_reason":"multi_market_comparison"}
 
 Query: will wheat price go up next week in Punjab
 {"action":null,"commodity_name":"Wheat","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":false,"state":"Punjab","sort_order":null,"unsupported_reason":"forecast_or_advice"}
+
+COMMODITY EXTRACTION (CRITICAL — commodity_name is required for every price/arrival action):
+- The farmer's QUERY is the source of truth. Return EVERY crop/commodity the query names, in the order
+  named. Never return only one when the query names several.
+- Two or more crops, joined by "and", "&", "," , "or", "vs", "compare", "aur", "tatha", "mattu", "um" →
+  JSON array, e.g. "paddy and turmeric" → ["Paddy","Turmeric"]; "wheat, rice & maize" → ["Wheat","Rice","Maize"].
+- Exactly one crop → a plain string. Never an empty string. Never include words like "price", "rate", "today",
+  "mandi" in a commodity.
+- "Crop Context" in the input is only a fallback for queries that name NO crop (e.g. "price near me").
+  If the query names crops, IGNORE Crop Context completely — do not drop a crop the farmer named because
+  it differs from Crop Context, and do not add Crop Context when the farmer named other crops.
+- Translate regional / Hindi / vernacular names to the standard English commodity name
+  (dhan/chawal → Paddy or Rice as the farmer said it, gehu → Wheat, haldi → Turmeric, pyaz → Onion,
+  aloo → Potato, tamatar → Tomato, kapas → Cotton, makka → Maize, sarson → Mustard). Keep "Paddy" as "Paddy"
+  and "Rice" as "Rice" — they are different commodities.
+- Do not invent or substitute a commodity the query did not name.
+
+Examples (multiple commodities):
+Query: What is today's price of paddy and turmeric?
+{"action":"get_today_price","commodity_name":["Paddy","Turmeric"],"nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":false,"state":null,"sort_order":null}
+
+Query: aaj haldi aur dhan ka bhav kya hai
+{"action":"get_today_price","commodity_name":["Turmeric","Paddy"],"nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":false,"state":null,"sort_order":null}
+
+Query: wheat, rice and maize price in Punjab last 7 days
+{"action":"get_price_history","commodity_name":["Wheat","Rice","Maize"],"nearest_market":true,"radius_km":null,"lookback_days":7,"from_date":null,"to_date":null,"market_name":null,"search_by_apmc":false,"state":"Punjab","sort_order":null}
 
 Relative date rules:
 - "yesterday" → set from_date and to_date to yesterday's date (Today's Date minus 1 day), use action="get_price_history" (or "get_lowest_price"/"get_highest_price" if asking for lowest/highest)
@@ -1367,16 +1393,16 @@ Date range rules (CRITICAL):
 - Date range: from_date != to_date (e.g. "from 1 august to 22 august")
 
 Query: tomato price in Assam from 1st august to 22 august
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"22-Aug-2026","market_name":null,"state":"Assam","sort_order":null}
+{"action":"get_price_history","commodity_name":"Tomato","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"22-Aug-2026","market_name":null,"state":"Assam","sort_order":null}
 
 Query: wheat price from 5 july to 15 july in Maharashtra
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"05-Jul-2026","to_date":"15-Jul-2026","market_name":null,"state":"Maharashtra","sort_order":null}
+{"action":"get_price_history","commodity_name":"Wheat","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"05-Jul-2026","to_date":"15-Jul-2026","market_name":null,"state":"Maharashtra","sort_order":null}
 
 Query: rice price between 1st and 10th august in Kottayam mandi
-{"action":"get_price_with_nearby","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"10-Aug-2026","market_name":"Kottayam","state":null,"sort_order":null}
+{"action":"get_price_with_nearby","commodity_name":"Rice","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"01-Aug-2026","to_date":"10-Aug-2026","market_name":"Kottayam","state":null,"sort_order":null}
 
 Query: onion price from 10 august to 20 august near me
-{"action":"get_price_history","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
+{"action":"get_price_history","commodity_name":"Onion","nearest_market":true,"radius_km":null,"lookback_days":null,"from_date":"10-Aug-2026","to_date":"20-Aug-2026","market_name":null,"state":null,"sort_order":null}
 """
 
 DAILY_PRICE_SUMMARY_PROMPT = """You are AjraSakha helping an Indian farmer with mandi/commodity prices.

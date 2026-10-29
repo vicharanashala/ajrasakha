@@ -957,7 +957,7 @@ async def extract_daily_price_intent(
     today_str = datetime.now().strftime("%d-%b-%Y")
     ctx_lines = [f"Today's Date: {today_str}"]
     if crop and str(crop).strip() and str(crop).strip().lower() not in {"all", "any", "general"}:
-        ctx_lines.append(f"Crop Context: {str(crop).strip()}")
+        ctx_lines.append(f"Crop Context (fallback only; ignore if the query names a crop): {str(crop).strip()}")
     if state and str(state).strip() and str(state).strip().lower() not in {"all", "not specified", "unknown"}:
         ctx_lines.append(f"State Context: {str(state).strip()}")
     if lat is not None and lon is not None:
