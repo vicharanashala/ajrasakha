@@ -146,17 +146,17 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         return () => navigator.serviceWorker.removeEventListener("message", handler);
     }, [queryClient]);
 
-    // Fallback only — same reasoning as the PoP upload queue's own SSE+poll pairing (see
-    // DocumentManagementPanel.tsx's setInterval(refetchAll, 60000)): the push's postMessage above
-    // is the primary signal, but a push notification can still land (OS banner shows) without its
-    // postMessage reaching this tab, e.g. when the service worker was idle-terminated and the
-    // browser re-wakes a fresh instance for just the push event. Without this, the bell/sidebar can
-    // silently miss an update even though the push itself clearly arrived.
+    // Fallback only — the push's postMessage above is the primary signal, but it can land
+    // unreliably per-tab (the OS banner — a separate step in the same service-worker push handler
+    // — keeps arriving even when postMessage to this tab doesn't, a known service-worker
+    // reliability gap rather than anything specific to a notification type). 10s, not 60s: every
+    // one of these notifications is tied to a live PoP upload-queue action someone is actively
+    // waiting on, so a stale bell/sidebar for up to a minute reads as broken, not just late.
     useEffect(() => {
         const id = setInterval(() => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             queryClient.invalidateQueries({ queryKey: ["user"] });
-        }, 60000);
+        }, 10000);
         return () => clearInterval(id);
     }, [queryClient]);
 
