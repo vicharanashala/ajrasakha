@@ -291,6 +291,7 @@ export default function DocumentManagementPanel({
       refetchTranslationJobs(),
       refetchTerminalJobs(),
       ...(finishedFilter ? [refetchFinishedJobs()] : []),
+      ...(showHistoryRef.current ? [refetchHistory()] : []),
     ]);
   }
 
@@ -512,11 +513,20 @@ export default function DocumentManagementPanel({
   async function handleApproveUpload(item) {
     setBusyUploadId(item.id);
     try {
+      // Level 0 covers both: a fresh self-upload (never left the uploader) and the uploader
+      // approving their own item back from a decline — either way this is the first time it's
+      // leaving the uploader, same recipients/meaning as "upload_created". Level 1 is the existing
+      // approver -> admin transition.
+      const wasExpertStage = itemLevel(item) === 0;
       const updated = await approveDashboardUpload(item.id, currentUserName);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
       notificationService
-        .notifyPopEvent({ type: "approved", itemName: item.shareable_name || item.id })
-        .catch(() => {}); // Notifying admins is best-effort — never block the approve action on it.
+        .notifyPopEvent(
+          wasExpertStage
+            ? { type: "upload_created", itemName: item.shareable_name || item.id }
+            : { type: "approved", itemName: item.shareable_name || item.id },
+        )
+        .catch(() => {}); // Best-effort — never block the approve action on it.
       toast.success("Approved");
     } catch (err) {
       toast.error(err.message || "Failed to approve");
