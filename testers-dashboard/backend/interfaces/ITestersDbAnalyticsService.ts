@@ -18,7 +18,7 @@ export const DB_ANALYTICS_ENTRY_FIELDS = [
     'responseTimeMins', 'slaStatus',
     // Section 3: Question Quality
     'questionInReviewModel', 'questionCorrectlyFramed', 'originalLanguage', 'translatedLanguage',
-    'translationQuality', 'translationErrorType', 'tagging', 'retrievalAccuracy',
+    'translationQuality', 'translationErrorType', 'tagging', 'metaDataCorrectlyFetched', 'retrievalAccuracy',
     // Section 4: Reviewer Workflow (durations only)
     'allocatedToReviewer', 'authorTatMins', 'review1TatMins', 'review2TatMins', 'review3TatMins',
     'review4TatMins', 'review5TatMins', 'moderatorTatMins',

@@ -273,6 +273,7 @@ function EntryRow({ entry }: { entry: ITesterLogEntry }) {
                             <DetailRow label="Translation Quality" value={entry.translationQuality} />
                             <DetailRow label="Translation Error Type" value={entry.translationErrorType} />
                             <DetailRow label="Tagging" value={entry.tagging} />
+                            <DetailRow label="Meta Data Correctly Fetched?" value={entry.metaDataCorrectlyFetched} />
                             <DetailRow label="Allocated to Author?" value={entry.allocatedToReviewer} />
                             <DetailRow label="Author Name" value={entry.authorsName} />
                             <DetailRow label="Author Assignment Time" value={entry.authorAssignmentTime} />
@@ -353,6 +354,8 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
     const [preset, setPreset] = useState<DatePreset>("today");
     const [customStart, setCustomStart] = useState("");
     const [customEnd, setCustomEnd] = useState("");
+    const [customStartTime, setCustomStartTime] = useState("");
+    const [customEndTime, setCustomEndTime] = useState("");
     const [dateField, setDateField] = useState<"testDate" | "createdAt">("testDate");
 
     // Table search & status filter state
@@ -427,10 +430,10 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         return { startDate: undefined, endDate: undefined };
     }, [preset, customStart, customEnd, todayStr]);
 
-    const isCustomEmpty = preset === "custom" && !customStart?.trim() && !customEnd?.trim();
+    const isCustomEmpty = preset === "custom" && !customStart?.trim() && !customEnd?.trim() && !customStartTime?.trim() && !customEndTime?.trim();
     const isCustomDateInverted = Boolean(customStart?.trim() && customEnd?.trim() && customStart.trim() > customEnd.trim());
     const isSingleDay = preset === "today" || Boolean(startDate && endDate && startDate === endDate) || Boolean(startDate && !endDate && startDate === todayStr);
-    const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd);
+    const hasActiveFilter = preset !== "all" || Boolean(customStart || customEnd || customStartTime || customEndTime);
     const showAllTimeView = preset === "all" || isCustomEmpty || (!startDate && Boolean(endDate));
 
     // Fetch summary metrics
@@ -438,7 +441,13 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         data: summaryData,
         isLoading: summaryLoading,
         isError: summaryError,
-    } = useTesterLogSummary(startDate, endDate, dateField);
+    } = useTesterLogSummary(
+        startDate,
+        endDate,
+        dateField,
+        preset === "custom" && customStartTime ? customStartTime : undefined,
+        preset === "custom" && customEndTime ? customEndTime : undefined,
+    );
 
     // Fetch individual test history records for this tester and date filter with search & status filters applied server-side
     const {
@@ -452,13 +461,17 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
         endDate,
         dateField,
         debouncedSearch,
-        statusFilter !== "all" ? statusFilter : undefined
+        statusFilter !== "all" ? statusFilter : undefined,
+        preset === "custom" && customStartTime ? customStartTime : undefined,
+        preset === "custom" && customEndTime ? customEndTime : undefined,
     );
 
     const clearFilter = () => {
         setPreset("all");
         setCustomStart("");
         setCustomEnd("");
+        setCustomStartTime("");
+        setCustomEndTime("");
         setDateField("testDate");
         setPage(1);
         setSearchQuery("");
@@ -676,6 +689,32 @@ export function TesterLogSummary({ onLogNewTest }: TesterLogSummaryProps = {}) {
                                 value={customEnd}
                                 onChange={e => {
                                     setCustomEnd(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">Start Time:</span>
+                            <input
+                                type="time"
+                                step="1"
+                                value={customStartTime}
+                                onChange={e => {
+                                    setCustomStartTime(e.target.value);
+                                    setPage(1);
+                                }}
+                                className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                            <span className="text-xs text-muted-foreground font-medium">End Time:</span>
+                            <input
+                                type="time"
+                                step="1"
+                                value={customEndTime}
+                                onChange={e => {
+                                    setCustomEndTime(e.target.value);
                                     setPage(1);
                                 }}
                                 className="h-7 px-2 text-xs border border-border rounded-md bg-background text-foreground focus:outline-none focus:ring-1 focus:ring-primary"
