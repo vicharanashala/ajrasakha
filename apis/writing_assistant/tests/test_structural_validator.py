@@ -19,6 +19,14 @@ from assistant.reference_data import load_from_local_dir, validate_and_build
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
 
+# Shares real words with both fixture steps' own step+example text
+# (step 1 "Introduction": "Test the soil before applying anything.";
+# step 2 "Correction": "Apply the recommended nutrient correction.") -
+# satisfies the ISS-05 textual-evidence check (Revision 15) so these
+# tests exercise the logic they claim to, rather than coincidentally
+# passing because every step got overridden to "missing".
+_REALISTIC_DRAFT = "Test the soil before applying the recommended nutrient correction."
+
 
 @pytest.fixture
 def dataset():
@@ -43,7 +51,7 @@ def test_missing_steps_reported_not_invented(monkeypatch, dataset):
 
     result = structural_validator.validate_structure(
         "My fixture soil looks poor what should I do?",
-        "The soil looks fine. Farmers should monitor it regularly.",
+        "We ran a soil test and it looks fine. Farmers should monitor it regularly.",
         dataset,
     )
 
@@ -59,14 +67,14 @@ def test_missing_steps_reported_not_invented(monkeypatch, dataset):
 
 def test_all_steps_covered_is_complete(monkeypatch, dataset):
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.COVERED, 1))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.COMPLETE
 
 
 def test_partial_coverage_with_no_missing_step_is_partial(monkeypatch, dataset):
     coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.PARTIAL, 2)])
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: next(coverages))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.PARTIAL
 
 
@@ -90,7 +98,7 @@ def test_selection_ambiguity_short_circuits_before_coverage_scoring(monkeypatch,
 
     monkeypatch.setattr(llm_client, "classify_step_coverage", _should_not_be_called)
 
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.NEEDS_CLARIFICATION
     assert result.steps is None
 
@@ -101,14 +109,14 @@ def test_selection_ambiguity_short_circuits_before_coverage_scoring(monkeypatch,
 # issue on a correct draft.
 def test_covered_step_has_no_suggestion_text(monkeypatch, dataset):
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.COVERED, 1))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.steps[0].suggestion_1 is None
     assert result.steps[0].suggestion_2 is None
 
 
 def test_partial_step_keeps_its_suggestion_text(monkeypatch, dataset):
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.PARTIAL, 1))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.steps[0].suggestion_1 == "Always test first"
     assert result.steps[0].suggestion_2 == "Avoid guessing the dose"
 
@@ -120,7 +128,7 @@ def test_out_of_order_step_is_flagged(monkeypatch, dataset):
     # located in section 1 - Correction appears before Introduction.
     coverages = iter([(StepCoverage.COVERED, 2), (StepCoverage.COVERED, 1)])
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: next(coverages))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert len(result.order_warnings) == 1
     assert "Correction" in result.order_warnings[0]
     assert "Introduction" in result.order_warnings[0]
@@ -129,7 +137,7 @@ def test_out_of_order_step_is_flagged(monkeypatch, dataset):
 def test_in_order_steps_have_no_warnings(monkeypatch, dataset):
     coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.COVERED, 2)])
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: next(coverages))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.order_warnings == []
 
 
@@ -137,8 +145,36 @@ def test_missing_step_never_gets_an_order_warning(monkeypatch, dataset):
     # A missing step has no position at all - must never be fabricated.
     coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.MISSING, None)])
     monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: next(coverages))
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.order_warnings == []
+
+
+# ISS-05 (Writing Assistant Build Plan, Revision 15): confirmed live that
+# prompt tightening alone wasn't enough when a removed step's topic is
+# still name-dropped once, in passing, in an unrelated section - the LLM
+# still gave partial credit. A deterministic textual-evidence check now
+# overrides that to "missing" when the step's own topic has no real
+# presence anywhere in the draft.
+def test_llm_overclaim_on_genuinely_absent_step_is_overridden_to_missing(monkeypatch, dataset):
+    # The LLM (wrongly) says "partial" even though the draft never
+    # actually addresses "Correction" - it only incidentally reuses the
+    # word "correction" in an unrelated sentence.
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.PARTIAL, 1))
+    result = structural_validator.validate_structure(
+        "q", "The soil was tested and a minor correction was noted in the report.", dataset
+    )
+    assert result.steps[1].step == "Correction"
+    assert result.steps[1].coverage == StepCoverage.MISSING
+    assert result.steps[1].example == "Apply the recommended nutrient correction."
+
+
+def test_llm_missing_is_never_promoted_by_the_textual_check(monkeypatch, dataset):
+    # The override only ever downgrades toward "missing" - it must never
+    # promote a step the LLM already scored missing, even if the draft
+    # happens to share real words with that step's topic.
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.MISSING, None))
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
+    assert all(s.coverage == StepCoverage.MISSING for s in result.steps)
 
 
 def test_coverage_scoring_unavailable_needs_clarification(monkeypatch, dataset):
@@ -146,5 +182,5 @@ def test_coverage_scoring_unavailable_needs_clarification(monkeypatch, dataset):
         raise LLMUnavailableError("simulated outage")
 
     monkeypatch.setattr(llm_client, "classify_step_coverage", _raise)
-    result = structural_validator.validate_structure("q", "d", dataset)
+    result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.NEEDS_CLARIFICATION

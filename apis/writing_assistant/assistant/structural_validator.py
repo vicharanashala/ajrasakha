@@ -6,11 +6,12 @@ Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
 "Separate responsibilities").
 """
 
-from . import llm_client, reference_selector
+from . import llm_client, reference_selector, text_checks
 from .models import (
     LLMUnavailableError,
     MatchedReference,
     ReferenceDataset,
+    ReferenceStep,
     ReferenceStructure,
     StepCoverage,
     StepCoverageResult,
@@ -18,12 +19,47 @@ from .models import (
     StructuralValidationStatus,
 )
 
+# Deliberately low bar: only overrides toward "missing" when a step's own
+# topic shares fewer than this many significant words with *any single*
+# draft section - catches a step that's genuinely absent (its topic
+# merely name-dropped once, in passing, elsewhere) without second-
+# guessing a real different-wording rewrite that still uses some of the
+# same real nouns (crop/treatment/duration terms are rarely replaced with
+# a wildly different synonym in practice). Confirmed necessary live: the
+# tightened step-coverage prompt alone still gave partial credit to a
+# fully-removed section whose topic word appeared once in an unrelated
+# neighboring section (Writing Assistant Build Plan, Revision 15, ISS-05).
+_MIN_SHARED_TERMS_FOR_TRUST = 2
+
+
+def _has_textual_evidence(step: ReferenceStep, draft_text: str) -> bool:
+    # The example's own text, not the step name - a step name like
+    # "Cultural control"/"Chemical control" shares the generic word
+    # "control" with several other steps in the same "X control"
+    # framework, which made every step look like it had evidence
+    # anywhere "control" appeared. The example is the specific,
+    # concrete description - confirmed by re-testing live after the
+    # step-name version failed to catch a real removed section.
+    step_terms = text_checks.significant_words(step.example)
+    if not step_terms:
+        return True  # nothing meaningful to check against - don't block on this
+    return any(
+        len(step_terms & text_checks.significant_words(section)) >= _MIN_SHARED_TERMS_FOR_TRUST
+        for section in text_checks.split_sections(draft_text)
+    )
+
 
 def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list[StepCoverageResult], list[int | None]]:
     results = []
     section_indices: list[int | None] = []
     for step in structure.steps:
         coverage, section_index = llm_client.classify_step_coverage(draft_text, step.step, step.example)
+        # Deterministic safety net: never let the LLM credit a step whose
+        # topic has no real textual presence anywhere in the draft - only
+        # ever downgrades toward "missing", never promotes away from it.
+        if coverage != StepCoverage.MISSING and not _has_textual_evidence(step, draft_text):
+            coverage = StepCoverage.MISSING
+            section_index = None
         # Example/Suggestion text is "what's expected" explanation for a
         # gap - it must never appear on a step that's already covered, or
         # it reads as an invented issue on a correct draft (Writing

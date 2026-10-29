@@ -80,14 +80,39 @@ def test_treatment_identity_change_is_rejected():
     assert result.checked_tokens.treatment_identity == CheckStatus.CHANGED
 
 
-# Example I - timing changed
-def test_timing_change_is_rejected():
+# Example I - timing changed (Revision 15: the duration change is caught
+# via numbers_and_units, not timing specifically - timing now compares
+# which keyword is used, not the words after it, see below).
+def test_timing_duration_change_is_still_rejected():
     result = guardrails.run_guardrail(
         "Observe the pre-harvest interval within 24 hours before picking.",
         "Observe the pre-harvest interval within 48 hours before picking.",
     )
     assert result.status == GuardrailStatus.FAILED
+    assert result.checked_tokens.numbers_and_units == CheckStatus.CHANGED
+    assert result.checked_tokens.timing == CheckStatus.UNCHANGED
+
+
+# A genuine timing-keyword swap (before <-> after) is a real content
+# change and must still be caught.
+def test_timing_keyword_swap_is_rejected():
+    result = guardrails.run_guardrail(
+        "Apply the spray before flowering.",
+        "Apply the spray after flowering.",
+    )
+    assert result.status == GuardrailStatus.FAILED
     assert result.checked_tokens.timing == CheckStatus.CHANGED
+
+
+# Rewording what follows a timing keyword, without changing the keyword
+# itself, is a wording choice, not a timing change - confirmed as a real
+# false-positive source live (Writing Assistant Build Plan, Revision 15).
+def test_timing_trailing_words_rewording_passes():
+    result = guardrails.run_guardrail(
+        "Strictly observe the product-specific pre-harvest interval before harvesting the crop.",
+        "Strictly observe the product-specific pre-harvest interval before harvest.",
+    )
+    assert result.checked_tokens.timing == CheckStatus.UNCHANGED
 
 
 # Example J - condition dropped

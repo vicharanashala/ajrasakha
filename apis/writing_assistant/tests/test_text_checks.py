@@ -94,10 +94,27 @@ def test_extract_treatment_terms():
 
 def test_extract_timing_phrases():
     phrases = text_checks.extract_timing_phrases("Apply within 24 hours before flowering.")
-    assert any(p.startswith("within") for p in phrases)
-    assert any(p.startswith("before") for p in phrases)
+    assert phrases == frozenset({"within", "before"})
+
+
+def test_extract_timing_phrases_ignores_trailing_words():
+    # Revision 15: only the keyword matters, not what follows it.
+    assert text_checks.extract_timing_phrases("before harvesting the crop") == frozenset({"before"})
+    assert text_checks.extract_timing_phrases("before harvest") == frozenset({"before"})
 
 
 def test_extract_conditional_markers():
     assert "if" in text_checks.extract_conditional_markers("Apply only if infestation exceeds the threshold.")
     assert text_checks.extract_conditional_markers("Apply the treatment now.") == frozenset()
+
+
+def test_significant_words_filters_short_words_and_stopwords():
+    words = text_checks.significant_words("Test the soil before applying the recommended nutrient correction.")
+    assert "nutrient" in words
+    assert "correction" in words
+    assert "the" not in words
+    assert "soil" in words  # len 4, kept
+
+
+def test_significant_words_empty_on_no_real_content():
+    assert text_checks.significant_words("the and for") == frozenset()

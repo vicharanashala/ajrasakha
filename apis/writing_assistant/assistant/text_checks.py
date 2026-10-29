@@ -21,7 +21,7 @@ _UNIT_RE = re.compile(
 )
 
 _TIMING_PHRASE_RE = re.compile(
-    r"\b(?:before|after|during|within|every|once|twice)\s+\w+(?:\s+\w+)?",
+    r"\b(before|after|during|within|every|once|twice)\b",
     re.IGNORECASE,
 )
 
@@ -166,9 +166,40 @@ def extract_treatment_terms(sentence: str) -> frozenset[str]:
 
 
 def extract_timing_phrases(sentence: str) -> frozenset[str]:
-    units = frozenset(m.group(0).lower() for m in _TIMING_PHRASE_RE.finditer(sentence))
-    return units
+    """Returns which timing keywords (before/after/during/within/every/
+    once/twice) appear - the keyword only, not the words that follow it.
+    A rewrite rewording what comes after "before"/"within" etc. (e.g.
+    "before harvesting the crop" -> "before harvest") isn't a timing
+    change; only swapping the keyword itself (before <-> after) or
+    dropping/adding one is. Numeric duration changes inside a timing
+    phrase ("within 24 hours" -> "within 48 hours") are independently
+    caught by extract_numbers_and_units - confirmed as a real false-
+    positive source otherwise (Writing Assistant Build Plan, Revision 15)."""
+    return frozenset(m.group(1).lower() for m in _TIMING_PHRASE_RE.finditer(sentence))
 
 
 def extract_conditional_markers(sentence: str) -> frozenset[str]:
     return frozenset(w for w in _words(sentence) if w in CONDITIONAL_MARKERS)
+
+
+# Deliberately small, generic - not domain-specific. Used only to tell
+# "this text shares no real vocabulary with that topic" from "it does",
+# a coarse signal, not a stand-in for the LLM's own semantic judgment.
+_STOPWORDS = {
+    "the", "and", "for", "are", "was", "were", "has", "have", "had",
+    "will", "shall", "can", "may", "might", "must", "should", "would",
+    "could", "not", "but", "you", "our", "their", "about", "after",
+    "before", "when", "while", "where", "what", "which", "this", "that",
+    "with", "from", "into", "your", "these", "those", "than", "then",
+    "also", "such", "only", "once", "each", "both", "more", "most",
+    "some", "same", "very", "just", "being", "been", "does", "did",
+}
+
+
+def significant_words(text: str) -> frozenset[str]:
+    """Lowercase content words (length >= 4, minus a small stopword
+    list) - a coarse 'is this topic even mentioned' signal, used as a
+    deterministic safety net alongside (never instead of) the LLM's own
+    semantic step-coverage judgment (Writing Assistant Build Plan,
+    Revision 15, ISS-05)."""
+    return frozenset(w for w in _words(text) if len(w) >= 4 and w not in _STOPWORDS)
