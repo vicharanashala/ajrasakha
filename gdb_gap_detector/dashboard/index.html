@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full" :class="darkMode ? 'dark' : ''" x-data="dashboardApp()" x-init="initTheme(); fetchData()">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GDB Coverage Gap Dashboard</title>
+    <!-- Tailwind CSS v3 CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+    <!-- FontAwesome for Premium Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Alpine.js for interactive state -->
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <!-- jsPDF & jsPDF-AutoTable CDNs for client-side PDF generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.6.0/jspdf.plugin.autotable.min.js"></script>
+    <style>
+        [x-cloak] { display: none !important; }
+        .glassmorphism {
+            background: rgba(15, 23, 42, 0.45);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        .heatmap-cell {
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        .heatmap-cell:hover {
+            transform: scale(1.08);
+            z-index: 10;
+        }
+    </style>
+</head>
+<body class="h-full flex flex-col font-sans transition-colors duration-200 bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100">
+    <!-- Top Nav Bar -->
+    <header class="w-full sticky top-0 z-50 border-b transition-colors duration-200 bg-white/80 dark:bg-slate-900/45 border-slate-200 dark:border-slate-800 backdrop-blur shadow-sm dark:shadow-none">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="h-10 w-10 rounded-xl bg-gradient-to-tr from-emerald-500 to-teal-400 flex items-center justify-center shadow-lg shadow-emerald-500/20">
+                    <i class="fa-solid fa-chart-line text-slate-950 font-bold text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-bold tracking-tight bg-gradient-to-r from-emerald-500 to-teal-400 dark:from-emerald-400 dark:to-teal-300 bg-clip-text text-transparent">Ajrasakha Analytics</h1>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 font-medium">GDB Coverage Gap Detector</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3">
+                <!-- Theme Toggle Button -->
+                <button @click="toggleTheme()" class="h-9 w-9 rounded-lg flex items-center justify-center bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition border border-slate-200 dark:border-slate-700" title="Toggle Theme">
+                    <i class="fa-solid text-slate-600 dark:text-slate-300 text-xs" :class="darkMode ? 'fa-sun' : 'fa-moon'"></i>
+                </button>
+
+                <!-- Export PDF Report Button -->
+                <button @click="exportPDF()" class="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 transition text-xs font-semibold flex items-center gap-2 text-white shadow-sm shadow-emerald-500/10">
+                    <i class="fa-solid fa-file-pdf"></i> Export PDF Report
+                </button>
+
+                <!-- Refresh Button -->
+                <button @click="fetchData()" class="px-3.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 transition text-xs font-semibold flex items-center gap-2 border border-slate-200 dark:border-slate-700">
+                    <i class="fa-solid fa-rotate-right text-[10px]" :class="loading ? 'animate-spin' : ''"></i> Refresh Data
+                </button>
+                
+                <div class="text-xs text-slate-500 dark:text-slate-400 hidden sm:block">
+                    Last Generated: <span class="text-slate-800 dark:text-slate-200 font-semibold" x-text="formatDate(reportData.generated_at)">-</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col gap-8" x-cloak>
+        
+        <!-- Loading State -->
+        <div x-show="loading" class="flex-1 flex flex-col items-center justify-center py-20">
+            <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-emerald-500 mb-4"></div>
+            <p class="text-slate-400 text-sm font-medium">Loading weekly gap reports...</p>
+        </div>
+
+        <div x-show="!loading" class="contents">
+            <!-- KPI Section -->
+            <section class="grid grid-cols-1 md:grid-cols-4 gap-5">
+                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between animate-fade-in">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Disclaimers Ingested</p>
+                        <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="reportData.total_disclaimers">0</h3>
+                    </div>
+                    <div class="h-11 w-11 rounded-xl bg-rose-500/10 flex items-center justify-center text-rose-500 dark:text-rose-400">
+                        <i class="fa-solid fa-triangle-exclamation text-lg"></i>
+                    </div>
+                </div>
+                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Unique Gap Queries</p>
+                        <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="reportData.unique_queries">0</h3>
+                    </div>
+                    <div class="h-11 w-11 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500 dark:text-orange-400">
+                        <i class="fa-solid fa-magnifying-glass-chart text-lg"></i>
+                    </div>
+                </div>
+                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Gap Clusters Found</p>
+                        <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="reportData.clusters_found">0</h3>
+                    </div>
+                    <div class="h-11 w-11 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-400">
+                        <i class="fa-solid fa-network-wired text-lg"></i>
+                    </div>
+                </div>
+                <div class="p-5 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex items-center justify-between">
+                    <div>
+                        <p class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">GDB Coverage Ratio</p>
+                        <h3 class="text-2xl font-black text-slate-800 dark:text-slate-100 mt-1" x-text="coverageRatio">0%</h3>
+                    </div>
+                    <div class="h-11 w-11 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-400">
+                        <i class="fa-solid fa-shield-halved text-lg"></i>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Heatmap Visualization Panel -->
+            <section class="p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+                    <div>
+                        <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Coverage Heatmap Matrix</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Coverage percentage by State and Domain. Click a cell to filter top gaps.</p>
+                    </div>
+                    <div class="flex flex-wrap items-center gap-4 text-xs font-bold text-slate-600 dark:text-slate-400">
+                        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-emerald-500"></span> Strong (≥80%)</span>
+                        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-amber-500"></span> Partial (30-80%)</span>
+                        <span class="flex items-center gap-1.5"><span class="h-3 w-3 rounded-full bg-rose-500"></span> Critical Gap (&lt;30%)</span>
+                    </div>
+                </div>
+
+                <!-- Matrix Container -->
+                <div class="w-full overflow-x-auto pb-4">
+                    <div class="min-w-[900px] grid" :style="`grid-template-columns: 140px repeat(${heatmapDomains.length}, minmax(0, 1fr))`">
+                        <!-- Header Row -->
+                        <div class="h-28 flex items-end pb-2"></div>
+                        <template x-for="domain in heatmapDomains">
+                            <div class="h-28 flex items-end justify-start relative px-1">
+                                <span class="absolute bottom-2 left-2 -rotate-45 origin-bottom-left whitespace-nowrap text-[10px] font-extrabold text-slate-500 dark:text-slate-400 uppercase tracking-wider" x-text="domain"></span>
+                            </div>
+                        </template>
+
+                        <!-- Data Rows -->
+                        <template x-for="state in heatmapStates">
+                            <div class="contents">
+                                <!-- Row Name -->
+                                <div class="h-10 font-bold text-xs text-slate-700 dark:text-slate-300 flex items-center border-b border-slate-100 dark:border-slate-900 pr-2" x-text="state"></div>
+                                <!-- Cells -->
+                                <template x-for="domain in heatmapDomains">
+                                    <div class="h-10 flex items-center justify-center p-0.5 border-b border-slate-100 dark:border-slate-900">
+                                        <template x-data="{ cell: getHeatmapCell(state, domain) }" x-if="cell">
+                                            <div class="w-full h-full rounded flex items-center justify-center cursor-pointer heatmap-cell relative group transition-all"
+                                                 :class="getCellClass(cell) + (isFilterActive(state, domain) ? ' ring-2 ring-emerald-500 scale-105 shadow-md z-10' : '')"
+                                                 @click="toggleOutreachFilter(state, domain)">
+                                                <span class="text-[10px] font-black" x-text="Math.round(cell.coverage_score) + '%'"></span>
+                                                
+                                                <!-- Tooltip -->
+                                                <div class="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-48 p-2.5 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-800 dark:text-slate-200 text-2xs rounded-lg shadow-xl opacity-0 group-hover:opacity-100 transition duration-200 pointer-events-none z-30">
+                                                    <p class="font-bold text-slate-900 dark:text-slate-100 mb-1" x-text="state"></p>
+                                                    <p class="text-slate-400 dark:text-slate-505 uppercase tracking-wider text-[9px] mb-1.5" x-text="domain"></p>
+                                                    <div class="grid grid-cols-2 gap-1 text-[10px]">
+                                                        <span>GDB Entries:</span><span class="text-right font-semibold" x-text="cell.gdb_count"></span>
+                                                        <span>Disclaimers:</span><span class="text-right font-semibold" x-text="cell.disclaimer_count"></span>
+                                                        <span>Score:</span><span class="text-right font-bold text-emerald-600 dark:text-emerald-400" x-text="cell.coverage_score.toFixed(1) + '%'"></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </template>
+                                        <template x-if="!getHeatmapCell(state, domain)">
+                                            <div class="w-full h-full rounded bg-slate-100 dark:bg-slate-900/20 border border-dashed border-slate-200 dark:border-slate-800/60 flex items-center justify-center text-3xs text-slate-400 dark:text-slate-600 font-bold">N/A</div>
+                                        </template>
+                                    </div>
+                                </template>
+                            </div>
+                        </template>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Bottom Split: Gap Reports & Recommendations -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Left/Middle: Top 20 Gap Reports -->
+                <section class="lg:col-span-2 p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex flex-col gap-5">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div>
+                            <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Top Gap Clusters</h2>
+                            <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Top unanswered intent groups clustered by semantic similarity</p>
+                        </div>
+                        
+                        <div class="flex items-center gap-3">
+                            <!-- Search Bar -->
+                            <div class="relative">
+                                <span class="absolute inset-y-0 left-0 flex items-center pl-2.5 pointer-events-none text-slate-400">
+                                    <i class="fa-solid fa-magnifying-glass text-[10px]"></i>
+                                </span>
+                                <input type="text" x-model="searchQuery" placeholder="Filter keywords..." class="pl-7 pr-3 py-1.5 rounded-lg border text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-emerald-500 w-44">
+                            </div>
+
+                            <!-- Active Filter Indicator -->
+                            <template x-if="selectedFilter">
+                                <div class="flex items-center gap-2 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[10px] font-black uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                                    <span x-text="`${selectedFilter.state} / ${selectedFilter.domain}`"></span>
+                                    <button @click="clearFilter()" class="hover:text-rose-500 transition-colors ml-1" title="Clear Filter">
+                                        <i class="fa-solid fa-circle-xmark"></i>
+                                    </button>
+                                </div>
+                            </template>
+                        </div>
+                    </div>
+                    
+                    <div class="overflow-auto flex-1 max-h-[500px]">
+                        <table class="w-full text-left border-collapse">
+                            <thead class="sticky top-0 bg-white dark:bg-slate-900/95 backdrop-blur z-10">
+                                <tr class="border-b border-slate-200 dark:border-slate-800 text-2xs font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
+                                    <th class="py-3 px-4 w-12 text-center">Rank</th>
+                                    <th class="py-3 px-4">Cluster Theme</th>
+                                    <th class="py-3 px-4 text-center">Demand</th>
+                                    <th class="py-3 px-4 text-center">Priority</th>
+                                    <th class="py-3 px-4">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <template x-for="(gap, index) in filteredGaps()" :key="gap.cluster_id">
+                                    <tr class="border-b border-slate-100 dark:border-slate-900 hover:bg-slate-50 dark:hover:bg-slate-900/30 transition duration-150 cursor-pointer" 
+                                        @click="toggleExpand(index)">
+                                        <td class="py-4 px-4 text-center font-bold text-slate-400 dark:text-slate-500" x-text="index + 1"></td>
+                                        <td class="py-4 px-4">
+                                            <div class="font-bold text-slate-800 dark:text-slate-200" x-text="gap.sample_queries[0]"></div>
+                                            <div class="flex flex-wrap gap-1.5 mt-1.5">
+                                                <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-[10px] text-slate-600 dark:text-slate-300 font-bold" x-text="gap.states[0]"></span>
+                                                <span class="px-2 py-0.5 rounded bg-slate-100 border border-slate-200 dark:bg-slate-800 dark:border-slate-700 text-[10px] text-slate-600 dark:text-slate-300 font-bold" x-text="gap.domains[0]"></span>
+                                                <template x-for="kw in gap.keywords.slice(0, 3)">
+                                                    <span class="px-1.5 py-0.5 rounded bg-slate-200/55 dark:bg-slate-950 text-[10px] text-emerald-600 dark:text-emerald-400 font-bold" x-text="`#${kw}`"></span>
+                                                </template>
+                                            </div>
+                                            <!-- Expanded details -->
+                                            <div x-show="expandedRow === index" class="mt-4 p-4 rounded-xl bg-slate-50 dark:bg-slate-950 border border-slate-200 dark:border-slate-800 flex flex-col gap-3" @click.stop>
+                                                <div class="text-xs">
+                                                    <span class="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">Key Keywords:</span>
+                                                    <span class="text-slate-800 dark:text-slate-200 font-medium ml-1" x-text="gap.keywords.join(', ')"></span>
+                                                </div>
+                                                <div class="text-xs">
+                                                    <span class="font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block mb-1.5">Sample Query Variations:</span>
+                                                    <ul class="list-disc pl-4 space-y-1.5 text-slate-700 dark:text-slate-300 font-mono text-2xs">
+                                                        <template x-for="q in gap.sample_queries">
+                                                            <li x-text="q"></li>
+                                                        </template>
+                                                    </ul>
+                                                </div>
+                                            </div>
+                                        </td>
+                                        <td class="py-4 px-4 text-center font-bold text-slate-700 dark:text-slate-300" x-text="gap.farmer_demand"></td>
+                                        <td class="py-4 px-4 text-center">
+                                            <span class="px-2 py-1 rounded-full text-[9px] font-black tracking-wide"
+                                                  :class="getPriorityClass(gap.priority_level)"
+                                                  x-text="gap.priority_level"></span>
+                                        </td>
+                                        <td class="py-4 px-4 text-2xs font-semibold text-slate-500 dark:text-slate-400" x-text="gap.recommended_action"></td>
+                                    </tr>
+                                </template>
+                                <!-- Empty state when filtered and no results -->
+                                <template x-if="filteredGaps().length === 0">
+                                    <tr>
+                                        <td colspan="5" class="py-8 text-center text-sm font-medium text-slate-400">No unanswered gaps fit the selected Outreach Target criteria.</td>
+                                    </tr>
+                                </template>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Right: Outreach Recommendations -->
+                <section class="p-6 rounded-2xl border transition-all duration-200 bg-white dark:bg-slate-900/45 border-slate-200 dark:border-slate-800/60 shadow-sm dark:shadow-none flex flex-col gap-5">
+                    <div>
+                        <h2 class="text-lg font-black text-slate-800 dark:text-slate-100">Focus Outreach Targets</h2>
+                        <p class="text-xs text-slate-500 dark:text-slate-400 mt-0.5">Click a target card below to isolate and view its related gap questions.</p>
+                    </div>
+
+                    <div class="flex-1 flex flex-col gap-4 overflow-y-auto max-h-[500px]">
+                        <template x-for="rec in reportData.outreach_recommendations">
+                            <div class="p-4 rounded-xl border transition duration-150 flex gap-3.5 cursor-pointer"
+                                 :class="isFilterActive(rec.target_state, rec.focus_domain) 
+                                    ? 'border-emerald-500 bg-emerald-500/5 dark:bg-emerald-500/10 shadow-sm ring-1 ring-emerald-500/30' 
+                                    : 'bg-slate-50 dark:bg-slate-900/60 border-slate-100 hover:border-slate-200 dark:border-slate-800 dark:hover:border-slate-700'"
+                                 @click="toggleOutreachFilter(rec.target_state, rec.focus_domain)">
+                                <div class="h-10 w-10 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-600 dark:text-emerald-400 self-start">
+                                    <i class="fa-solid fa-map-location-dot"></i>
+                                </div>
+                                <div class="flex-1">
+                                    <div class="flex items-center justify-between gap-2">
+                                        <span class="font-bold text-sm text-slate-800 dark:text-slate-200" x-text="rec.target_state"></span>
+                                        <span class="px-2 py-0.5 rounded text-[9px] font-black tracking-wide"
+                                              :class="getPriorityClass(rec.priority)"
+                                              x-text="rec.priority"></span>
+                                    </div>
+                                    <div class="text-xs text-slate-500 dark:text-slate-400 font-bold mt-0.5" x-text="`Focus Domain: ${rec.focus_domain}`"></div>
+                                    <p class="text-xs text-slate-650 dark:text-slate-300 mt-2 font-medium leading-relaxed" x-text="rec.recommendation"></p>
+                                    <div class="text-[10px] text-rose-600 dark:text-rose-400 font-bold mt-2.5 flex items-center gap-1.5">
+                                        <i class="fa-solid fa-circle-exclamation text-[9px]"></i> <span x-text="`${rec.gap_questions} unaddressed gaps`"></span>
+                                    </div>
+                                </div>
+                            </div>
+                        </template>
+                    </div>
+                </section>
+            </div>
+        </div>
+    </main>
+
+    <script>
+        function dashboardApp() {
+            return {
+                loading: true,
+                reportData: {},
+                heatmapStates: [],
+                heatmapDomains: [],
+                expandedRow: null,
+                darkMode: true,
+                selectedFilter: null,
+                searchQuery: '',
+
+                initTheme() {
+                    this.darkMode = localStorage.getItem('theme') !== 'light';
+                },
+
+                toggleTheme() {
+                    this.darkMode = !this.darkMode;
+                    localStorage.setItem('theme', this.darkMode ? 'dark' : 'light');
+                },
+
+                toggleOutreachFilter(state, domain) {
+                    if (this.selectedFilter && this.selectedFilter.state === state && this.selectedFilter.domain === domain) {
+                        this.selectedFilter = null;
+                    } else {
+                        this.selectedFilter = { state, domain };
+                    }
+                    this.expandedRow = null;
+                },
+
+                isFilterActive(state, domain) {
+                    return this.selectedFilter && this.selectedFilter.state === state && this.selectedFilter.domain === domain;
+                },
+
+                clearFilter() {
+                    this.selectedFilter = null;
+                    this.searchQuery = '';
+                    this.expandedRow = null;
+                },
+
+                filteredGaps() {
+                    let gaps = [];
+                    if (!this.selectedFilter) {
+                        gaps = this.reportData.top_gaps || [];
+                    } else {
+                        const { state, domain } = this.selectedFilter;
+                        const allGaps = this.reportData.all_gaps || this.reportData.top_gaps || [];
+                        gaps = allGaps.filter(gap => 
+                            gap.states.includes(state) && gap.domains.includes(domain)
+                        );
+                    }
+                    if (this.searchQuery) {
+                        const q = this.searchQuery.toLowerCase();
+                        gaps = gaps.filter(gap => 
+                            gap.cluster_name.toLowerCase().includes(q) ||
+                            gap.keywords.some(kw => kw.toLowerCase().includes(q)) ||
+                            gap.sample_queries.some(sq => sq.toLowerCase().includes(q))
+                        );
+                    }
+                    return gaps;
+                },
+
+                fetchData() {
+                    this.loading = true;
+                    this.expandedRow = null;
+                    this.selectedFilter = null;
+                    fetch('/api/gdb/gap-report')
+                        .then(res => res.json())
+                        .then(data => {
+                            this.reportData = data;
+                            this.loading = false;
+                            this.processHeatmapMetadata();
+                        })
+                        .catch(err => {
+                            console.error("Error fetching report:", err);
+                            this.loading = false;
+                        });
+                },
+
+                processHeatmapMetadata() {
+                    const heatmap = this.reportData.coverage_stats?.heatmap || [];
+                    
+                    // Extract unique states and domains sorted
+                    const statesSet = new Set(heatmap.map(x => x.state));
+                    const domainsSet = new Set(heatmap.map(x => x.domain));
+                    
+                    this.heatmapStates = Array.from(statesSet).sort();
+                    this.heatmapDomains = Array.from(domainsSet).sort();
+                },
+
+                getHeatmapCell(state, domain) {
+                    const heatmap = this.reportData.coverage_stats?.heatmap || [];
+                    return heatmap.find(x => x.state === state && x.domain === domain);
+                },
+
+                getCellClass(cell) {
+                    if (!cell || cell.disclaimer_count === 0 && cell.gdb_count === 0) {
+                        return this.darkMode 
+                            ? 'bg-slate-900/10 border border-slate-800 text-slate-600'
+                            : 'bg-slate-100 border border-slate-200 text-slate-400';
+                    }
+                    if (cell.status === 'good') {
+                        return this.darkMode
+                            ? 'bg-emerald-950/40 border border-emerald-800/60 text-emerald-300'
+                            : 'bg-emerald-50 border border-emerald-200 text-emerald-700';
+                    }
+                    if (cell.status === 'partial') {
+                        return this.darkMode
+                            ? 'bg-amber-950/40 border border-emerald-800/60 text-amber-350'
+                            : 'bg-amber-50 border border-amber-200 text-amber-700';
+                    }
+                    return this.darkMode
+                        ? 'bg-rose-950/40 border border-rose-800/60 text-rose-300'
+                        : 'bg-rose-50 border border-rose-200 text-rose-700';
+                },
+
+                getPriorityClass(priority) {
+                    if (priority === 'CRITICAL') {
+                        return 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/30';
+                    }
+                    if (priority === 'HIGH') {
+                        return 'bg-orange-500/15 text-orange-600 dark:text-orange-400 border border-orange-500/30';
+                    }
+                    if (priority === 'MEDIUM') {
+                        return 'bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30';
+                    }
+                    return 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-700';
+                },
+
+                toggleExpand(index) {
+                    this.expandedRow = this.expandedRow === index ? null : index;
+                },
+
+                formatDate(isoString) {
+                    if (!isoString) return '-';
+                    const date = new Date(isoString);
+                    return date.toLocaleString();
+                },
+
+                get coverageRatio() {
+                    const stats = this.reportData.coverage_stats;
+                    if (!stats || !stats.total_combinations) return '0%';
+                    const ratio = (stats.covered / stats.total_combinations) * 100;
+                    return Math.round(ratio) + '%';
+                },
+
+                exportPDF() {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF('p', 'mm', 'a4');
+
+                    // Document Header Banner
+                    doc.setFillColor(16, 185, 129); // Emerald Banner
+                    doc.rect(0, 0, 210, 30, 'F');
+                    
+                    doc.setTextColor(255, 255, 255);
+                    doc.setFontSize(18);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text("AJRASAKHA ANALYTICS", 14, 18);
+                    
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'normal');
+                    doc.text("GDB Coverage Gap Detector Report", 14, 24);
+                    
+                    const dateStr = new Date().toLocaleString();
+                    doc.text(`Generated: ${dateStr}`, 196, 24, { align: 'right' });
+
+                    // 1. Executive Summary Statistics
+                    doc.setTextColor(20, 25, 40);
+                    doc.setFontSize(12);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text("1. Executive Summary Statistics", 14, 45);
+                    
+                    doc.setFont('helvetica', 'normal');
+                    const stats = [
+                        ["Total Unanswered Disclaimers Ingested", this.reportData.total_disclaimers],
+                        ["Unique Gap Queries (DBSCAN Clusters)", this.reportData.unique_queries],
+                        ["Identified Gap Clusters", this.reportData.clusters_found],
+                        ["Growth Database (GDB) Coverage Ratio", this.coverageRatio]
+                    ];
+                    
+                    doc.autoTable({
+                        startY: 50,
+                        head: [['Metric / Key Performance Indicator', 'Value']],
+                        body: stats,
+                        theme: 'striped',
+                        styles: { fontSize: 9.5, cellPadding: 3.5 },
+                        headStyles: { fillColor: [16, 185, 129], textColor: [255, 255, 255] }
+                    });
+
+                    // 2. Recommended Focus Outreach Targets
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text("2. Actionable Focus Outreach Targets", 14, doc.lastAutoTable.finalY + 12);
+                    
+                    const recsBody = (this.reportData.outreach_recommendations || []).map(r => [
+                        r.target_state,
+                        r.focus_domain,
+                        r.gap_questions,
+                        r.recommendation
+                    ]);
+
+                    doc.autoTable({
+                        startY: doc.lastAutoTable.finalY + 17,
+                        head: [['Target State', 'Focus Domain', 'Gap Count', 'Actionable Outreach Plan']],
+                        body: recsBody,
+                        theme: 'grid',
+                        styles: { fontSize: 9, cellPadding: 3 },
+                        columnStyles: {
+                            0: { cellWidth: 30, fontStyle: 'bold' },
+                            1: { cellWidth: 35 },
+                            2: { cellWidth: 20, halign: 'center' },
+                            3: { cellWidth: 105 }
+                        },
+                        headStyles: { fillColor: [79, 70, 229] } // Indigo theme
+                    });
+
+                    // 3. Prioritized GDB Gap Clusters (Page 2)
+                    doc.addPage();
+                    
+                    doc.setFont('helvetica', 'bold');
+                    doc.setFontSize(12);
+                    doc.text("3. Prioritized GDB Coverage Gap Clusters (Top 20)", 14, 15);
+                    
+                    const gapsBody = (this.reportData.top_gaps || []).map((g, idx) => [
+                        idx + 1,
+                        g.sample_queries[0],
+                        g.states[0],
+                        g.domains[0],
+                        g.farmer_demand,
+                        g.priority_level
+                    ]);
+
+                    doc.autoTable({
+                        startY: 21,
+                        head: [['Rank', 'Cluster Intent Query', 'State', 'Domain', 'Demand', 'Priority']],
+                        body: gapsBody,
+                        theme: 'striped',
+                        styles: { fontSize: 8.5, cellPadding: 2.5 },
+                        columnStyles: {
+                            0: { cellWidth: 12, halign: 'center' },
+                            1: { cellWidth: 85 },
+                            2: { cellWidth: 25 },
+                            3: { cellWidth: 28 },
+                            4: { cellWidth: 15, halign: 'center' },
+                            5: { cellWidth: 25 }
+                        },
+                        headStyles: { fillColor: [16, 185, 129] }
+                    });
+
+                    // Save file
+                    const fileDate = new Date().toISOString().split('T')[0];
+                    doc.save(`GDB_Gap_Report_${fileDate}.pdf`);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
