@@ -331,9 +331,49 @@ export interface IPop {
   year_of_release?: string | number | null;
   live_source_link?: string | null;
   duplicate_links?: IPopDuplicateLink[];
+  /** sha256 of this document's own file bytes, plus (merged_sha256s) any documents merged
+   *  into it — used for the upload-intake duplicate check. Confirmed with the PoP team:
+   *  a match here is NOT a reason to block (it's the normal way to file an existing
+   *  document in more places), only to warn the uploader. */
+  sha256?: string;
+  merged_sha256s?: string[];
 }
 
 export type PopRequiredField = 'year_of_release' | 'live_source_link' | 'shareable_name';
+
+/** An entry in PoP's `pop_upload_queue_items` collection (same database as pop_unique_documents) —
+ *  read-only, direct Mongo, used only for the upload-intake duplicate pre-check (see
+ *  IPopRepository.findQueuedBySha256). Not the full shape PoP's own API returns; just what we need
+ *  to tell the uploader "this file is already queued" without round-tripping through their API. */
+export interface IPopQueueItemSummary {
+  _id?: string | ObjectId;
+  sha256: string;
+  filename?: string;
+  status?: string;
+  level?: number;
+}
+
+/** A document queued on OUR OWN backend, waiting to be forwarded to PoP's POST
+ *  /dashboard/uploads. See backend/src/modules/popUploads — the file's bytes live in GridFS
+ *  (bucket `pending_pop_uploads`), referenced by gridfsFileId, not inlined here. */
+export interface IPendingPopUpload {
+  _id?: string | ObjectId;
+  status: 'received' | 'processing' | 'succeeded' | 'failed';
+  gridfsFileId: ObjectId;
+  filename: string;
+  mimetype: string;
+  sha256: string;
+  fields: Record<string, unknown>;
+  placements: Array<{state_id: string; crop_ids?: string[]; organization_ids?: string[]}>;
+  language: string;
+  uploaderId: string;
+  popUserId: string;
+  popUserRole: string;
+  attempts: number;
+  error?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /** A source entry as saved on a `updated_sources` record (Closed Answers Edit Source
  *  modal). organization/source are references — the Organization document's and the

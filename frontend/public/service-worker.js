@@ -9,7 +9,14 @@ self.addEventListener('push', (event) => {
   };
 
   event.waitUntil(
-    self.registration.showNotification(data.title, options)
+    Promise.all([
+      self.registration.showNotification(data.title, options),
+      // Tell every open tab a notification just arrived, so the bell/sidebar can refetch right
+      // away instead of waiting for a tab switch/focus or reload.
+      clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+        for (const client of clientList) client.postMessage({ type: 'new-notification' });
+      }),
+    ])
   );
 });
 

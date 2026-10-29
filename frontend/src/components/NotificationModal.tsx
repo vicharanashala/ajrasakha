@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import {
     BellIcon,
@@ -82,6 +83,7 @@ interface NotificationModalProps {
 
 export function NotificationModal({ trigger, copy = "notifications" }: NotificationModalProps) {
     const { success: toastSuccess, error: toastError} = useToast();
+    const queryClient = useQueryClient();
     const [open, setOpen] = useState(false);
     const [filter, setFilter] = useState<"all" | "unread" | "read">("all");
     const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -120,6 +122,34 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
             setNotifications(allNotifications);
         }
     }, [notificationPages]);
+
+    // service-worker.js's push handler posts this to every open tab the instant the OS-level push
+    // notification arrives — the only reliable signal THIS browser gets that a notification meant
+    // for it was just created server-side. Invalidates both ["notifications"] (the sidebar list)
+    // AND ["user"] (the bell icon's red badge count comes from user.notifications).
+    useEffect(() => {
+        if (!("serviceWorker" in navigator)) return;
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type === "new-notification") {
+                queryClient.invalidateQueries({ queryKey: ["notifications"] });
+                queryClient.invalidateQueries({ queryKey: ["user"] });
+            }
+        };
+        navigator.serviceWorker.addEventListener("message", handler);
+        return () => navigator.serviceWorker.removeEventListener("message", handler);
+    }, [queryClient]);
+
+    // Fallback only — the push's postMessage above is the primary signal, but it can land
+    // unreliably per-tab (the OS banner — a separate step in the same service-worker push handler
+    // — keeps arriving even when postMessage to this tab doesn't). 10s so the bell/sidebar never
+    // sits stale for more than a few seconds even when that happens.
+    useEffect(() => {
+        const id = setInterval(() => {
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+        }, 10000);
+        return () => clearInterval(id);
+    }, [queryClient]);
 
     const filteredNotifications = notifications.filter((n) => {
         if (filter === "unread") return !n.is_read;
