@@ -187,13 +187,18 @@ def test_sentence_merge_within_one_section_falls_back_instead_of_rejecting():
 
 # A genuine difference in section *count* (not just sentence count within
 # one section) is still too ambiguous to check at all.
-def test_section_count_mismatch_is_rejected():
+def test_section_count_mismatch_falls_back_to_whole_document_instead_of_rejecting():
+    # Revision 16 (ISS-13): confirmed live this was still blocking most
+    # rewrites even after the per-section fallback - a section-count
+    # mismatch now falls back one level further instead of an automatic
+    # reject. Nothing technical changed here, so it must pass.
     result = guardrails.run_guardrail(
         "Intro paragraph here.\n\nSecond paragraph here.",
         "Intro paragraph here and second paragraph here.",
     )
-    assert result.status == GuardrailStatus.FAILED
-    assert result.checked_tokens.sentence_alignment == CheckStatus.NOT_RUN
+    assert result.status == GuardrailStatus.PASSED
+    assert result.checked_tokens.sentence_alignment == CheckStatus.UNCHANGED
+    assert any("compared as one whole document" in d for d in result.details)
 
 
 # Example S - a required guardrail layer is unavailable -> rejected, not skipped

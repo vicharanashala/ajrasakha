@@ -126,13 +126,19 @@ def _ensure_loaded() -> None:
 
     collection = _get_collection()
     if collection is None:
-        raise ChemicalDetectorUnavailableError("CHEMICAL_DB_URL is not set or the client could not connect")
+        # Never put the env var name or connection details in the
+        # user-facing message - this reaches the public API response
+        # (Writing Assistant Build Plan, Revision 16, ISS-14, confirmed
+        # live: a real response leaked "CHEMICAL_DB_URL is not set"). The
+        # real detail is only in this log line, server-side.
+        log.error("Chemical staging DB is not configured or the client could not connect")
+        raise ChemicalDetectorUnavailableError("chemical reference data is currently unavailable")
 
     try:
         docs = list(collection.find({"type": "chemical"}, {"name": 1, "status": 1, "aliases": 1}))
     except PyMongoError as exc:
         log.error("Chemical staging DB query failed: %s", exc)
-        raise ChemicalDetectorUnavailableError(f"chemical staging DB query failed: {exc}") from exc
+        raise ChemicalDetectorUnavailableError("chemical reference data is currently unavailable") from exc
 
     candidates: dict[str, tuple[str, str]] = {}
     for doc in docs:

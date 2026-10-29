@@ -61,5 +61,9 @@ def test_unavailable_when_db_url_not_set(monkeypatch):
     from assistant import config
     monkeypatch.setattr(config, "CHEMICAL_DB_URL", None)
 
-    with pytest.raises(ChemicalDetectorUnavailableError):
+    with pytest.raises(ChemicalDetectorUnavailableError) as exc_info:
         chemical_matcher.detect_chemicals("Endrin")
+    # Revision 16 (ISS-14): confirmed live that the env var name leaked
+    # into a real public API response - the user-facing message must
+    # never name it.
+    assert "CHEMICAL_DB_URL" not in str(exc_info.value)

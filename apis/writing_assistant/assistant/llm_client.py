@@ -19,10 +19,22 @@ _POLISH_SYSTEM_PROMPT = (
     "in short agricultural advisory answers written by a human expert. "
     "You improve clarity only. You must NEVER add, remove, or change any "
     "fact, recommendation, instruction, chemical name, dosage, quantity, "
-    "unit, timing, condition, or the certainty of any claim. If you cannot "
-    "improve the wording without touching any of that, return the text "
-    "unchanged. Return only the corrected text, nothing else - no preamble, "
-    "no explanation."
+    "unit, timing, condition, or the certainty of any claim. You must also "
+    "NEVER change formatting that isn't a language error: keep every "
+    "heading's exact text, capitalization and punctuation style as-is "
+    "(do not change a heading's dash to a colon, add a question mark, or "
+    "add trailing spaces); never add markdown/markup that wasn't already "
+    "there (no asterisks, underscores, or other emphasis added around "
+    "words); never remove or add emoji, bullet/numbering style (keep "
+    "'1)' as '1)', not '1.'), or any other symbol that was already "
+    "present; never change the capitalization of a proper noun (a named "
+    "disease, pest, variety, or scheme) unless it is a genuine spelling "
+    "error. If the text has no genuine grammar/spelling/clarity issue to "
+    "fix, return it completely unchanged, character for character - do "
+    "not make a stylistic change just to produce a different output. If "
+    "you cannot improve the wording without touching any of the above, "
+    "return the text unchanged. Return only the corrected text, nothing "
+    "else - no preamble, no explanation."
 )
 
 _SEMANTIC_CHECK_SYSTEM_PROMPT = (
@@ -70,8 +82,28 @@ _SELECTION_SYSTEM_PROMPT = (
     "You classify a farmer's agricultural question against a fixed set of "
     "reference structures. You NEVER decide which reference takes "
     "precedence over another - you only report matches and ambiguity; a "
-    "separate deterministic step applies the precedence rules. Respond "
-    "only with a JSON object of this exact shape: "
+    "separate deterministic step applies the precedence rules. "
+    "Broad vs Narrow (verified directly from the real reference data's own "
+    "labeled examples - this is the actual distinction, not a generic "
+    "guess): Broad means the farmer describes a symptom or situation and "
+    "needs a diagnosis or a general starting plan - e.g. 'I am seeing "
+    "dried up central shoots in my paddy field, what pest is this and how "
+    "do I control it?', 'I want to convert my field to organic farming, "
+    "how do I start?', 'How do I get a Kisan Credit Card and what will "
+    "the interest rate be?' (even though phrased as 'how do I', this is "
+    "Broad - the farmer has no card yet and needs the general starting "
+    "picture). Narrow means the farmer already has the general situation "
+    "and asks one specific, already-scoped follow-up about it - e.g. "
+    "'Which chemical spray should I use for stem borer, and how many days "
+    "before harvest should I stop spraying?', 'Is the Swarna variety "
+    "resistant to bacterial leaf blight?', 'My cotton crop failed due to "
+    "drought, how do I file an insurance claim under PMFBY?' (a specific "
+    "procedure for an already-identified event, not a general starting "
+    "question). The test is not the question's grammatical form (both "
+    "can start with 'how do I') - it's whether the farmer still needs "
+    "general orientation (Broad) or already has it and wants one "
+    "specific next step (Narrow). Respond only with a JSON object of "
+    "this exact shape: "
     '{"domain": "<one of the listed domains, or null if none fit confidently>", '
     '"question_type": "Broad" or "Narrow" or null, '
     '"matched_direct_topic": <integer index into the Direct Topic list that '
@@ -140,7 +172,15 @@ _STEP_COVERAGE_SYSTEM_PROMPT = (
     "missing - do not give partial credit just because a different "
     "section's content is thematically related (e.g. a section about "
     "chemical control does not cover a missing decision-point step just "
-    "because both concern treatment). Respond only with a JSON object of "
+    "because both concern treatment). You are also given the specific "
+    "subject (pest/disease/crop/topic) this whole reference answer is "
+    "about - if the draft is clearly about a different subject (a "
+    "different named pest, disease, crop, or topic than the one given), "
+    "respond missing for every step regardless of how generically similar "
+    "the draft's wording sounds (e.g. generic-sounding 'use cultural "
+    "measures like spacing and drainage' does not satisfy a step if the "
+    "draft is actually about a different pest than the one this reference "
+    "is for). Respond only with a JSON object of "
     'this exact shape: {"coverage": "covered" or "partial" or "missing", '
     '"section_index": <the 1-based section number that primarily '
     "addresses THIS step specifically, or null if coverage is "
@@ -153,7 +193,11 @@ _STEP_COVERAGE_SYSTEM_PROMPT = (
 
 
 def classify_step_coverage(
-    draft_text: str, step_description: str, example: str, all_step_descriptions: list[str] | None = None
+    draft_text: str,
+    step_description: str,
+    example: str,
+    all_step_descriptions: list[str] | None = None,
+    reference_subject: str | None = None,
 ) -> tuple[StepCoverage, int | None]:
     """Returns (coverage, section_index) - section_index is the 1-based
     index (per text_checks.split_sections) of the draft section that
@@ -167,12 +211,22 @@ def classify_step_coverage(
     different step's topic" - confirmed live that a summary/conclusion-
     style step was otherwise credited just because the facts it would
     summarize already existed in other, genuinely-present sections
-    (Writing Assistant Build Plan, Revision 16, ISS-05)."""
+    (Writing Assistant Build Plan, Revision 16, ISS-05).
+
+    reference_subject (the matched reference's own topic, e.g. its
+    original question text) lets the model reject generic-sounding
+    content when the draft is actually about a different pest/disease/
+    crop than this reference is for - confirmed live that a pest
+    question's reference was credited by an unrelated disease's draft
+    almost in full, since "use cultural measures" reads as plausible
+    for any pest/disease in isolation (Revision 16, ISS-10)."""
     sections = text_checks.split_sections(draft_text)
     numbered_draft = "\n\n".join(f"[{i}] {s}" for i, s in enumerate(sections, start=1))
     payload = {"draft": numbered_draft, "expected_step": step_description, "example_of_what_satisfies_it": example}
     if all_step_descriptions:
         payload["all_expected_steps_in_order_for_context_only"] = all_step_descriptions
+    if reference_subject:
+        payload["this_reference_is_specifically_about"] = reference_subject
     user_content = json.dumps(payload)
     messages = [
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},

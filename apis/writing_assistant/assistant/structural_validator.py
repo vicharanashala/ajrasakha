@@ -55,7 +55,7 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
     all_step_names = [s.step for s in structure.steps]
     for step in structure.steps:
         coverage, section_index = llm_client.classify_step_coverage(
-            draft_text, step.step, step.example, all_step_names
+            draft_text, step.step, step.example, all_step_names, structure.question
         )
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only

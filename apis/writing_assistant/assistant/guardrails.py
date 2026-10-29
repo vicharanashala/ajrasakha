@@ -51,26 +51,22 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     details: list[str] = []
     tokens = CheckedTokens()
 
-    alignment = text_checks.align_sections_and_sentences(original_text, rewrite_text)
-    if alignment is None:
-        # A genuine difference in section *count* is itself higher risk -
-        # reject rather than attempt a best-effort check. (A single
-        # section/paragraph whose own sentence count differs no longer
-        # lands here - see the degraded_sections fallback below.)
-        tokens.sentence_alignment = CheckStatus.NOT_RUN
-        details.append(
-            "Could not align the original and rewrite into the same number "
-            "of sections (paragraph count differs) - treated as uncertain."
-        )
-        _log_rejection(original_text, rewrite_text, details)
-        # Ambiguous alignment is "could not verify", not "found a problem" -
-        # confirmed_change stays False so this reports as unavailable, not
-        # rejected, at the top level.
-        return GuardrailResult(status=GuardrailStatus.FAILED, checked_tokens=tokens, confirmed_change=False, details=details)
-
-    pairs, degraded_sections = alignment
+    pairs, degraded_sections = text_checks.align_sections_and_sentences(original_text, rewrite_text)
     tokens.sentence_alignment = CheckStatus.UNCHANGED
-    if degraded_sections:
+    if degraded_sections == ["document"]:
+        # Section count itself differs - coarsest fallback, one whole-
+        # document comparison. Still runs the deterministic checks below
+        # (at document granularity) plus the LLM second opinion - no
+        # longer an automatic reject (Writing Assistant Build Plan,
+        # Revision 16, ISS-13: confirmed live this was still blocking
+        # most rewrites, short drafts included, after the per-section
+        # fallback alone).
+        details.append(
+            "Could not align the original and rewrite into the same number of sections "
+            "(paragraph count differs) - compared as one whole document instead, which "
+            "can't detect a quantity/instruction reassociation between sections."
+        )
+    elif degraded_sections:
         details.append(
             "Section(s) " + ", ".join(str(i) for i in degraded_sections) + " could not be "
             "aligned sentence-by-sentence (sentence count differs within that section) - "

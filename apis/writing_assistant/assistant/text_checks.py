@@ -13,9 +13,16 @@ _UNIT_RE = re.compile(
     # Regex alternation picks the first matching branch, not the longest -
     # plural forms must come before their singular prefix (e.g. "litres"
     # before "litre") or they'd only ever match the shorter substring.
+    # \d already matches Devanagari digits too (confirmed: Python's \d is
+    # Unicode-aware by default) - "din"/"dino" (Hinglish for day/days) is
+    # added for transliterated Hindi, confirmed missing live against a
+    # real "10 din baad" draft (Writing Assistant Build Plan, Revision 16,
+    # ISS-16). Devanagari-script unit *words* (not digits) are still not
+    # covered - a real, acknowledged gap, not attempted here given no
+    # confirmed real example beyond the digit case.
     r"\b\d+(?:\.\d+)?\s*"
     r"(?:mls?|litres?|liters?|kgs?|grams?|mg|%|ppm|"
-    r"days?|hrs?|hours?|mins?|minutes?|weeks?|"
+    r"days?|din|dinon|hrs?|hours?|mins?|minutes?|weeks?|"
     r"acres?|hectares?|ha|cm|mm|l|g|m)\b",
     re.IGNORECASE,
 )
@@ -97,7 +104,7 @@ def split_sections(text: str) -> list[str]:
 
 def align_sections_and_sentences(
     original: str, rewrite: str
-) -> tuple[list[tuple[str, str]], list[int]] | None:
+) -> tuple[list[tuple[str, str]], list[int | str]]:
     """Section-aware alignment: pairs sections by position, then aligns
     sentences within each section pair. A section whose own sentence
     count doesn't match falls back to one whole-section pair (its index,
@@ -107,14 +114,24 @@ def align_sections_and_sentences(
     check at all (Writing Assistant Build Plan, Revision 14, ISS-02 - a
     real test report showed the old whole-document sentence-count
     requirement rejecting 16/21 real multi-section drafts for exactly
-    this reason). Returns None when section counts differ."""
+    this reason).
+
+    A section-*count* mismatch itself now falls back one level further,
+    to a single whole-document pair (reported as the literal string
+    "document" in the second return value), instead of an outright
+    reject - confirmed live (Revision 16, ISS-13) that this was still
+    blocking most rewrites, including short ones well under the length
+    that first motivated section-aware alignment. The LLM second-opinion
+    check still runs independently as the deeper safety net whenever
+    granularity is this coarse - this function itself never returns
+    None anymore."""
     orig_sections = split_sections(original)
     rew_sections = split_sections(rewrite)
     if len(orig_sections) != len(rew_sections):
-        return None
+        return [(original.strip(), rewrite.strip())], ["document"]
 
     pairs: list[tuple[str, str]] = []
-    degraded_sections: list[int] = []
+    degraded_sections: list[int | str] = []
     for i, (orig_section, rew_section) in enumerate(zip(orig_sections, rew_sections), start=1):
         section_pairs = align_sentences(orig_section, rew_section)
         if section_pairs is not None:

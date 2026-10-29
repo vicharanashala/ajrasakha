@@ -51,18 +51,28 @@ def test_align_sections_and_sentences_falls_back_within_one_section():
     assert pairs == [("Apply 2 ml per litre. Spray in the evening.", "Apply 2 ml per litre and spray in the evening.")]
 
 
-def test_align_sections_and_sentences_none_on_section_count_mismatch():
-    result = text_checks.align_sections_and_sentences(
+def test_align_sections_and_sentences_falls_back_to_whole_document_on_section_count_mismatch():
+    # Revision 16 (ISS-13): a section-count mismatch no longer gives up
+    # entirely - it falls back one level further, to one whole-document
+    # pair, instead of returning no comparison at all.
+    pairs, degraded = text_checks.align_sections_and_sentences(
         "First.\n\nSecond.",
         "First and second combined.",
     )
-    assert result is None
+    assert degraded == ["document"]
+    assert pairs == [("First.\n\nSecond.", "First and second combined.")]
 
 
 def test_extract_numbers_and_units():
     assert text_checks.extract_numbers_and_units("Apply 2 ml per litre of water.") == frozenset({"2ml"})
     assert text_checks.extract_numbers_and_units("Wait 3 days before harvest.") == frozenset({"3days"})
     assert text_checks.extract_numbers_and_units("No numbers here.") == frozenset()
+
+
+def test_extract_numbers_and_units_recognizes_hinglish_din():
+    # Revision 16 (ISS-16): confirmed missing live against a real
+    # "10 din baad" (Hinglish for "10 days later") draft.
+    assert text_checks.extract_numbers_and_units("Spray 10 din baad repeat karein.") == frozenset({"10din"})
 
 
 def test_extract_negations():
