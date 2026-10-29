@@ -39,8 +39,27 @@ interface DeleteCropModalProps {
   onClose: () => void;
 }
 
+/** Robustly converts any MongoDB ID (hex string, ObjectId, $oid, or BSON Buffer) to a 24-char hex string */
+const getCleanId = (raw: any): string => {
+  if (!raw) return "";
+  if (typeof raw === "string") return raw;
+  if (typeof raw === "object") {
+    if (raw.$oid) return String(raw.$oid);
+    if (raw.buffer && Array.isArray(raw.buffer.data)) {
+      return raw.buffer.data
+        .map((b: number) => b.toString(16).padStart(2, "0"))
+        .join("");
+    }
+    if (raw._id) return getCleanId(raw._id);
+    if (raw.toString && typeof raw.toString === "function" && raw.toString() !== "[object Object]") {
+      return raw.toString();
+    }
+  }
+  return String(raw);
+};
+
 export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) => {
-  const cropId = crop?._id;
+  const cropId = crop ? getCleanId(crop._id) : undefined;
 
   // Question search & pagination state (Server-side)
   const [questionSearch, setQuestionSearch] = useState("");
@@ -83,10 +102,10 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
   // Filter out the crop being deleted from replacement candidates
   const availableReplacementCrops = useMemo(() => {
     if (!allCropsData?.crops || !crop) return [];
-    const deletingId = typeof crop._id === "object" ? (crop._id as any)?.$oid || String(crop._id) : String(crop._id || "");
+    const deletingId = getCleanId(crop._id);
     const deletingName = crop.name.toLowerCase().trim();
     return allCropsData.crops.filter((c) => {
-      const cid = typeof c._id === "object" ? (c._id as any)?.$oid || String(c._id) : String(c._id || "");
+      const cid = getCleanId(c._id);
       const cname = c.name.toLowerCase().trim();
       return cid !== deletingId && cname !== deletingName;
     });
@@ -158,11 +177,11 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
   }, [filteredReplacementCrops, cropStartIndex, cropEndIndex]);
 
   // Question selection handlers
-  const handleToggleQuestion = (id: string) => {
+  const handleToggleQuestion = (rawId: any) => {
+    const id = getCleanId(rawId);
     if (selectAllMode) {
       // Switching from Select All to Partial selection:
-      // Start with all other current questions selected except this one
-      const newSet = new Set(questions.map((q) => q._id));
+      const newSet = new Set(questions.map((q) => getCleanId(q._id)));
       newSet.delete(id);
       setSelectedQuestionIds(newSet);
       setSelectAllMode(false);
@@ -194,7 +213,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
   const isCurrentPageAllSelected =
     questions.length > 0 &&
-    (selectAllMode || questions.every((q) => selectedQuestionIds.has(q._id)));
+    (selectAllMode || questions.every((q) => selectedQuestionIds.has(getCleanId(q._id))));
 
   const handleToggleSelectCurrentPage = () => {
     if (selectAllMode) {
@@ -207,9 +226,9 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
     setSelectedQuestionIds((prev) => {
       const next = new Set(prev);
       if (isCurrentPageAllSelected) {
-        questions.forEach((q) => next.delete(q._id));
+        questions.forEach((q) => next.delete(getCleanId(q._id)));
       } else {
-        questions.forEach((q) => next.add(q._id));
+        questions.forEach((q) => next.add(getCleanId(q._id)));
       }
       return next;
     });
@@ -227,7 +246,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
       const toastId = toast.loading(`Deleting crop "${crop.name}"...`);
       try {
         await deleteOrReassign({
-          cropId,
+          cropId: getCleanId(cropId),
           payload: {},
         });
         toast.dismiss(toastId);
@@ -261,17 +280,23 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
     const toastId = toast.loading(
       isFullMigration
-        ? `Reassigning all ${totalQuestions} questions and deleting "${crop.name}"...`
-        : `Reassigning ${selectedCount} questions to "${selectedReplacementCrop.name}"...`
+        ? `Reassigning all ${totalQuestions.toLocaleString()} questions and deleting "${crop.name}"...`
+        : `Reassigning ${selectedCount.toLocaleString()} questions to "${selectedReplacementCrop.name}"...`
     );
 
     try {
+      const cleanCropId = getCleanId(cropId);
+      const cleanReplacementCropId = getCleanId(selectedReplacementCrop._id);
+      const cleanQuestionIds = selectAllMode
+        ? undefined
+        : Array.from(selectedQuestionIds).map((id) => getCleanId(id));
+
       const res = await deleteOrReassign({
-        cropId,
+        cropId: cleanCropId,
         payload: {
-          replacementCropId: selectedReplacementCrop._id,
+          replacementCropId: cleanReplacementCropId,
           reassignAll: selectAllMode,
-          questionIds: selectAllMode ? undefined : Array.from(selectedQuestionIds),
+          questionIds: cleanQuestionIds,
         },
       });
 
@@ -286,8 +311,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
         toast.info(`Questions reassigned successfully`, {
           desc: `${res?.reassignedCount || selectedCount} questions updated to "${selectedReplacementCrop.name}". "${crop.name}" remains until all questions are migrated.`,
         });
-        // Refetch affected questions
-        refetchQuestions();
+        onClose();
       }
     } catch (err: any) {
       toast.dismiss(toastId);
@@ -442,11 +466,12 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                       </div>
                     ) : (
                       questions.map((q) => {
-                        const isSelected = selectAllMode || selectedQuestionIds.has(q._id);
+                        const qId = getCleanId(q._id);
+                        const isSelected = selectAllMode || selectedQuestionIds.has(qId);
                         return (
                           <div
-                            key={q._id}
-                            onClick={() => handleToggleQuestion(q._id)}
+                            key={qId}
+                            onClick={() => handleToggleQuestion(qId)}
                             className={`p-3 rounded-xl border text-left cursor-pointer transition-all select-none ${
                               isSelected
                                 ? "border-primary/40 bg-primary/[0.04] dark:bg-primary/[0.08]"
@@ -456,7 +481,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                             <div className="flex items-start gap-2.5">
                               <Checkbox
                                 checked={isSelected}
-                                onCheckedChange={() => handleToggleQuestion(q._id)}
+                                onCheckedChange={() => handleToggleQuestion(qId)}
                                 onClick={(e) => e.stopPropagation()}
                                 className="mt-0.5"
                               />
@@ -633,7 +658,8 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                   ) : (
                     <div className="space-y-2 py-1">
                       {paginatedCrops.map((c) => {
-                        const isSelected = selectedReplacementCrop?._id === c._id;
+                        const cleanCId = getCleanId(c._id);
+                        const isSelected = selectedReplacementCrop && getCleanId(selectedReplacementCrop._id) === cleanCId;
                         const aliasList = (c.aliases || [])
                           .map((a: any) =>
                             typeof a === "string"
@@ -644,7 +670,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
                         return (
                           <div
-                            key={c._id}
+                            key={cleanCId}
                             onClick={() => setSelectedReplacementCrop(c)}
                             className={`p-3 rounded-xl border text-left cursor-pointer transition-all select-none ${
                               isSelected

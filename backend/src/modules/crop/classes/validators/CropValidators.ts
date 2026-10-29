@@ -272,6 +272,19 @@ class DeleteCropDto {
     type: 'string',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') return value;
+    if (value && value.buffer && Array.isArray(value.buffer.data)) {
+      return Buffer.from(value.buffer.data).toString('hex');
+    }
+    if (value && typeof value === 'object') {
+      if (value.$oid) return String(value.$oid);
+      if (value.toString && typeof value.toString === 'function' && value.toString() !== '[object Object]') {
+        return value.toString();
+      }
+    }
+    return String(value || '');
+  })
   @IsMongoId()
   replacementCropId?: string;
 
@@ -281,6 +294,22 @@ class DeleteCropDto {
     type: 'array',
   })
   @IsOptional()
+  @Transform(({ value }) => {
+    if (!Array.isArray(value)) return value;
+    return value.map((v: any) => {
+      if (typeof v === 'string') return v;
+      if (v && v.buffer && Array.isArray(v.buffer.data)) {
+        return Buffer.from(v.buffer.data).toString('hex');
+      }
+      if (v && typeof v === 'object') {
+        if (v.$oid) return String(v.$oid);
+        if (v.toString && typeof v.toString === 'function' && v.toString() !== '[object Object]') {
+          return v.toString();
+        }
+      }
+      return String(v);
+    });
+  })
   @IsArray()
   @IsString({ each: true })
   questionIds?: string[];

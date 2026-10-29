@@ -26,6 +26,7 @@ export const useDeleteCrop = () => {
       queryClient.invalidateQueries({ queryKey: ["crop-entry-types"] });
       queryClient.invalidateQueries({ queryKey: ["questions"] });
       queryClient.invalidateQueries({ queryKey: ["cropAffectedQuestions"] });
+      queryClient.invalidateQueries({ queryKey: ["normalisedCropsList"] });
     },
   });
 };

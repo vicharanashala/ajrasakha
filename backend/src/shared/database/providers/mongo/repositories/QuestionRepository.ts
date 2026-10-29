@@ -10480,7 +10480,10 @@ export class QuestionRepository implements IQuestionRepository {
     ]);
 
     return {
-      questions: questions as unknown as IQuestion[],
+      questions: questions.map((q) => ({
+        ...q,
+        _id: q._id ? q._id.toString() : String(q._id),
+      })) as unknown as IQuestion[],
       total,
       page,
       limit,
