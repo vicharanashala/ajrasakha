@@ -527,6 +527,22 @@ export class NotificationService extends BaseService {
     // });
   }
 
+  // Fired once a GridFS-queued PoP upload (backend/src/modules/popUploads) actually reaches PoP's
+  // own upload queue — not at intake time, since the uploader's queue item doesn't exist yet
+  // while the file is still sitting in GridFS waiting for the background forward (see
+  // PopUploadsService.forwardOne). Unlike every other PoP notification, there's exactly one
+  // recipient (the uploader) and no acting "current user" to exclude — this fires from a
+  // background job, not an HTTP request.
+  async notifyPopUploadQueued(uploaderId: string, itemName: string) {
+    return this.saveTheNotifications(
+      `"${itemName}" is now in your PoP upload queue.`,
+      'PoP upload queued',
+      uploaderId,
+      uploaderId,
+      'pop_upload_queued',
+    );
+  }
+
   async deleteExpiredSubscriptionForUser(endpoint: string) {
     return this._withTransaction(async (session: ClientSession) => {
       return await this.notificationRepository.deleteExpiredSubscriptionForUser(endpoint, session);

@@ -7,6 +7,7 @@ import {IPopRepository} from '#root/shared/database/interfaces/IPopRepository.js
 import {IPendingPopUpload, IUser} from '#root/shared/interfaces/models.js';
 import {faqPopConfig} from '#root/config/faqPop.js';
 import {ConflictError} from '#root/shared/errors/ConflictError.js';
+import {NotificationService} from '#root/modules/notification/services/NotificationService.js';
 
 export interface PopUploadIntakeResult {
   id: string;
@@ -54,6 +55,8 @@ export class PopUploadsService {
     private readonly pendingRepo: IPendingPopUploadRepository,
     @inject(GLOBAL_TYPES.PopRepository)
     private readonly popRepo: IPopRepository,
+    @inject(GLOBAL_TYPES.NotificationService)
+    private readonly notificationService: NotificationService,
   ) {
     // Boot-time recovery: anything left `processing` belonged to an instance that died
     // mid-forward. Reset it to `received` so a fresh claim can pick it up, then kick the
@@ -199,8 +202,7 @@ export class PopUploadsService {
     const id = String(doc._id);
     const first = await this.forwardToPop(doc);
     if (first.ok) {
-      await this.pendingRepo.markSucceeded(id);
-      await this.pendingRepo.deleteFile(doc.gridfsFileId);
+      await this.markSucceededAndNotify(doc);
       return;
     }
     if (!first.retryable) {
@@ -212,18 +214,29 @@ export class PopUploadsService {
     await this.pendingRepo.incrementAttempts(id);
     const retry = await this.forwardToPop(doc);
     if (retry.ok) {
-      await this.pendingRepo.markSucceeded(id);
-      await this.pendingRepo.deleteFile(doc.gridfsFileId);
+      await this.markSucceededAndNotify(doc);
       return;
     }
     if (retry.status === 409) {
       // Attempt 1 landed at PoP even though we didn't see it succeed — treat as delivered.
-      await this.pendingRepo.markSucceeded(id);
-      await this.pendingRepo.deleteFile(doc.gridfsFileId);
+      await this.markSucceededAndNotify(doc);
       return;
     }
     await this.pendingRepo.markFailed(id, retry.error);
     await this.pendingRepo.deleteFile(doc.gridfsFileId);
+  }
+
+  // The item has now actually landed in PoP's own upload queue (at the uploader's own level) —
+  // the first point it exists anywhere the uploader can act on it. Best-effort, same as every
+  // other notify call in this codebase: never let a notification failure interfere with the
+  // forward that already succeeded.
+  private async markSucceededAndNotify(doc: IPendingPopUpload): Promise<void> {
+    const id = String(doc._id);
+    await this.pendingRepo.markSucceeded(id);
+    await this.pendingRepo.deleteFile(doc.gridfsFileId);
+    this.notificationService
+      .notifyPopUploadQueued(doc.uploaderId, doc.filename)
+      .catch(err => console.error('[PopUploadsService] Failed to notify uploader', err));
   }
 
   private async forwardToPop(doc: IPendingPopUpload): Promise<PopForwardResult> {
