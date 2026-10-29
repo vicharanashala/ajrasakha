@@ -1,10 +1,10 @@
-from assistant import chemical_detector_client, guardrails, llm_client, operations
+from assistant import chemical_matcher, guardrails, llm_client, operations
 from assistant.models import LanguagePolishingStatus, LLMUnavailableError
 
 
 def test_polish_draft_suggests_on_clean_grammar_fix(monkeypatch):
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: "The treatment is effective when farmers apply it correctly.")
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
     monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
 
     result = operations.polish_draft("The treatment are effective when farmers apply it correctly.")
@@ -16,7 +16,7 @@ def test_polish_draft_suggests_on_clean_grammar_fix(monkeypatch):
 
 def test_polish_draft_rejects_on_guardrail_failure(monkeypatch):
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: "Apply 5 ml of the specified product per litre of water.")
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
     monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
 
     result = operations.polish_draft("Apply 2 ml of the specified product per litre of water.")
@@ -25,6 +25,28 @@ def test_polish_draft_rejects_on_guardrail_failure(monkeypatch):
     assert result.suggested_text is None
     assert result.guardrail.status.value == "failed"
     assert "2 ml" not in (result.reason or "") or "dosage" not in (result.reason or "").lower()  # reason is generic but present
+    assert result.reason
+
+
+def test_polish_draft_unavailable_when_only_a_dependency_failed(monkeypatch):
+    # Grammar-only rewrite, every deterministic check passes, but the
+    # chemical-detector dependency itself failed - nothing was actually
+    # found wrong, only unverifiable, so this must be "unavailable", not
+    # "rejected" (Writing Assistant Build Plan, Revision 14, ISS-01/03).
+    monkeypatch.setattr(llm_client, "generate_polish", lambda draft: "The treatment is effective when farmers apply it correctly.")
+
+    def _raise(text):
+        raise chemical_matcher.ChemicalDetectorUnavailableError("simulated outage")
+
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", _raise)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
+
+    result = operations.polish_draft("The treatment are effective when farmers apply it correctly.")
+
+    assert result.status == LanguagePolishingStatus.UNAVAILABLE
+    assert result.suggested_text is None
+    assert result.guardrail.status.value == "failed"
+    assert result.guardrail.confirmed_change is False
     assert result.reason
 
 

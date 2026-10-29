@@ -86,6 +86,45 @@ def align_sentences(original: str, rewrite: str) -> list[tuple[str, str]] | None
     return list(zip(orig, rew))
 
 
+def split_sections(text: str) -> list[str]:
+    """Splits on blank lines - matches the real shape of every real
+    multi-section draft seen in practice (an optional heading plus its
+    paragraph, then a blank line, then the next one). A single-paragraph
+    draft is just one section."""
+    parts = re.split(r"\n\s*\n+", text.strip())
+    return [p.strip() for p in parts if p.strip()]
+
+
+def align_sections_and_sentences(
+    original: str, rewrite: str
+) -> tuple[list[tuple[str, str]], list[int]] | None:
+    """Section-aware alignment: pairs sections by position, then aligns
+    sentences within each section pair. A section whose own sentence
+    count doesn't match falls back to one whole-section pair (its index,
+    1-based, is reported in the second return value) instead of failing
+    the entire multi-section draft over one reworded paragraph - only a
+    genuine difference in section *count* is treated as too ambiguous to
+    check at all (Writing Assistant Build Plan, Revision 14, ISS-02 - a
+    real test report showed the old whole-document sentence-count
+    requirement rejecting 16/21 real multi-section drafts for exactly
+    this reason). Returns None when section counts differ."""
+    orig_sections = split_sections(original)
+    rew_sections = split_sections(rewrite)
+    if len(orig_sections) != len(rew_sections):
+        return None
+
+    pairs: list[tuple[str, str]] = []
+    degraded_sections: list[int] = []
+    for i, (orig_section, rew_section) in enumerate(zip(orig_sections, rew_sections), start=1):
+        section_pairs = align_sentences(orig_section, rew_section)
+        if section_pairs is not None:
+            pairs.extend(section_pairs)
+        else:
+            pairs.append((orig_section, rew_section))
+            degraded_sections.append(i)
+    return pairs, degraded_sections
+
+
 def _words(sentence: str) -> list[str]:
     return re.findall(r"[A-Za-z']+", sentence.lower())
 

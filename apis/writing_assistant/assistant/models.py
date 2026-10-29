@@ -88,6 +88,14 @@ class CheckedTokens(CamelModel):
         silent pass (Writing Assistant Build Plan, preservation policy)."""
         return any(v in (CheckStatus.CHANGED, CheckStatus.NOT_RUN) for v in self.model_dump().values())
 
+    def any_changed(self) -> bool:
+        """True only when a check actually ran and found a difference -
+        distinct from any_failed(), which also counts 'could not verify'
+        (NOT_RUN). Used to tell 'we found a problem' apart from 'we
+        couldn't finish checking' at the top level (Writing Assistant
+        Build Plan, Revision 14)."""
+        return any(v == CheckStatus.CHANGED for v in self.model_dump().values())
+
 
 class GuardrailStatus(str, Enum):
     PASSED = "passed"
@@ -97,6 +105,12 @@ class GuardrailStatus(str, Enum):
 class GuardrailResult(CamelModel):
     status: GuardrailStatus
     checked_tokens: CheckedTokens
+    # True only when a check actually found a difference (a real catch) -
+    # False when status is FAILED purely because something could not be
+    # verified (e.g. a dependency outage, an uncertain alignment). Lets
+    # operations.py report "unavailable" instead of "rejected" when
+    # nothing was actually found wrong, only unverifiable.
+    confirmed_change: bool = False
     details: list[str] = []
     disclaimer: str = (
         "These checks reduce the risk of an unintended technical change; "
@@ -175,6 +189,12 @@ class StructuralValidationResult(CamelModel):
     matched_reference: MatchedReference | None = None
     steps: list[StepCoverageResult] | None = None
     clarification_reason: str | None = None
+    # Populated only when a step's position in the draft can be confidently
+    # located and is out of order relative to an earlier-slNo step that was
+    # also located - never fabricated for a step scored "missing" (it has
+    # no position to compare). A separate field from `coverage`, never
+    # merged into it (Writing Assistant Build Plan, Revision 14, ISS-06).
+    order_warnings: list[str] = []
 
 
 # ---- Phase 4: the HTTP contract ----

@@ -3,4 +3,6 @@ uvicorn
 python-dotenv
 pydantic
 httpx
+pymongo
+wordfreq
 pytest

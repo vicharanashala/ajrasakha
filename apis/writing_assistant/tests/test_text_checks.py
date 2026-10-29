@@ -18,6 +18,47 @@ def test_align_sentences_ambiguous_on_merge():
     assert pairs is None
 
 
+def test_split_sections_on_blank_lines():
+    sections = text_checks.split_sections("First part.\n\nSecond part.\n\nThird part.")
+    assert sections == ["First part.", "Second part.", "Third part."]
+
+
+def test_split_sections_single_paragraph_is_one_section():
+    assert text_checks.split_sections("Just one paragraph, no blank lines at all.") == [
+        "Just one paragraph, no blank lines at all."
+    ]
+
+
+def test_align_sections_and_sentences_same_shape():
+    result = text_checks.align_sections_and_sentences(
+        "Intro here.\n\nSecond section here.",
+        "Intro here, rephrased.\n\nSecond section here, rephrased.",
+    )
+    assert result is not None
+    pairs, degraded = result
+    assert len(pairs) == 2
+    assert degraded == []
+
+
+def test_align_sections_and_sentences_falls_back_within_one_section():
+    result = text_checks.align_sections_and_sentences(
+        "Apply 2 ml per litre. Spray in the evening.",
+        "Apply 2 ml per litre and spray in the evening.",
+    )
+    assert result is not None
+    pairs, degraded = result
+    assert degraded == [1]
+    assert pairs == [("Apply 2 ml per litre. Spray in the evening.", "Apply 2 ml per litre and spray in the evening.")]
+
+
+def test_align_sections_and_sentences_none_on_section_count_mismatch():
+    result = text_checks.align_sections_and_sentences(
+        "First.\n\nSecond.",
+        "First and second combined.",
+    )
+    assert result is None
+
+
 def test_extract_numbers_and_units():
     assert text_checks.extract_numbers_and_units("Apply 2 ml per litre of water.") == frozenset({"2ml"})
     assert text_checks.extract_numbers_and_units("Wait 3 days before harvest.") == frozenset({"3days"})

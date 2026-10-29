@@ -5,8 +5,8 @@ monkeypatched throughout - no automated test makes a real network call.
 
 import pytest
 
-from assistant import chemical_detector_client, guardrails, llm_client
-from assistant.chemical_detector_client import ChemicalDetectorUnavailableError
+from assistant import chemical_matcher, guardrails, llm_client
+from assistant.chemical_matcher import ChemicalDetectorUnavailableError
 from assistant.models import CheckStatus, GuardrailStatus, LLMUnavailableError
 
 
@@ -14,7 +14,7 @@ from assistant.models import CheckStatus, GuardrailStatus, LLMUnavailableError
 def _no_real_network(monkeypatch):
     """By default: chemical-detector finds nothing, LLM second opinion says
     'no change'. Individual tests override one or the other."""
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
     monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
     yield
 
@@ -144,11 +144,28 @@ def test_certainty_same_polarity_synonym_swap_passes():
     assert result.checked_tokens.certainty_language == CheckStatus.UNCHANGED
 
 
-# Example L - ambiguous sentence alignment (rewrite merges two sentences)
-def test_ambiguous_alignment_is_rejected():
+# Example L - a sentence merge/split *within one section* now falls back to
+# a whole-section comparison instead of an automatic reject (Writing
+# Assistant Build Plan, Revision 14, ISS-02) - a real test report showed
+# the old whole-document rule rejecting 16/21 real multi-section drafts for
+# exactly this kind of formatting-only change. Nothing technical changed
+# here, so it must pass.
+def test_sentence_merge_within_one_section_falls_back_instead_of_rejecting():
     result = guardrails.run_guardrail(
         "Apply 2 ml per litre. Spray in the evening.",
         "Apply 2 ml per litre and spray in the evening.",
+    )
+    assert result.status == GuardrailStatus.PASSED
+    assert result.checked_tokens.sentence_alignment == CheckStatus.UNCHANGED
+    assert any("compared as a whole section" in d for d in result.details)
+
+
+# A genuine difference in section *count* (not just sentence count within
+# one section) is still too ambiguous to check at all.
+def test_section_count_mismatch_is_rejected():
+    result = guardrails.run_guardrail(
+        "Intro paragraph here.\n\nSecond paragraph here.",
+        "Intro paragraph here and second paragraph here.",
     )
     assert result.status == GuardrailStatus.FAILED
     assert result.checked_tokens.sentence_alignment == CheckStatus.NOT_RUN
@@ -159,7 +176,7 @@ def test_chemical_detector_unavailable_rejects(monkeypatch):
     def _raise(text):
         raise ChemicalDetectorUnavailableError("simulated outage")
 
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", _raise)
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", _raise)
 
     result = guardrails.run_guardrail(
         "The treatment is effective when farmers apply it correctly.",
@@ -198,7 +215,7 @@ def test_llm_second_opinion_flagging_a_change_rejects(monkeypatch):
 
 def test_chemical_name_drift_is_rejected(monkeypatch):
     calls = iter([{"Endrin": "Banned"}, {}])
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: next(calls))
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: next(calls))
 
     result = guardrails.run_guardrail(
         "Do not use Endrin on this crop.",

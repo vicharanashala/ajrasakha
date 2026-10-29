@@ -38,7 +38,23 @@ MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "60"))
 # tailnet isn't reachable) uses its own path instead - confirmed by a live
 # probe: /text/chatcompletion_v2, same request/response shape otherwise.
 MINIMAX_CHAT_PATH = os.getenv("MINIMAX_CHAT_PATH", "/chat/completions")
+# temperature=0.0 alone didn't fully stop the step-coverage classification
+# from flipping between runs on identical input (Writing Assistant Build
+# Plan, Revision 14, ISS-04, confirmed in a real test report) - a known
+# property of some reasoning-model serving stacks even at zero temperature.
+# Live-verified the API accepts this field without erroring; not promising
+# this makes every call bit-for-bit reproducible, only that it removes one
+# more independent source of sampling variance.
+MINIMAX_SEED = int(os.getenv("MINIMAX_SEED", "0"))
 
-# The already-deployed apis/chemical_detector service - reused for the
-# chemical-name-drift guardrail layer, never reimplemented.
-CHEMICAL_DETECTOR_URL = os.getenv("CHEMICAL_DETECTOR_URL")
+# The chemical-name-drift guardrail layer connects directly to the same
+# read-only staging cluster apis/chemical_detector uses, in-process - not
+# over HTTP to that sibling service. Same env var names/defaults as
+# apis/chemical_detector's own config, so the same connection string works
+# for both. This makes this service's guardrail immune to that sibling
+# service being removed, renamed, or rate-limited/cold-starting on its own
+# free-tier Render plan (Writing Assistant Build Plan, Revision 14, ISS-03 -
+# a real test report showed both failure modes live in production).
+CHEMICAL_DB_URL = os.getenv("CHEMICAL_DB_URL")
+CHEMICAL_DB_NAME = os.getenv("CHEMICAL_DB_NAME", "agriai")
+CHEMICAL_COLLECTION_NAME = os.getenv("CHEMICAL_COLLECTION_NAME", "crop_master")

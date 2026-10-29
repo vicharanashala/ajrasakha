@@ -6,7 +6,7 @@ Build Plan, "Technical-content preservation policy").
 
 import logging
 
-from . import chemical_detector_client, llm_client, text_checks
+from . import chemical_matcher, llm_client, text_checks
 from .models import CheckedTokens, CheckStatus, GuardrailResult, GuardrailStatus, LLMUnavailableError
 
 log = logging.getLogger("writing_assistant.guardrails")
@@ -51,19 +51,32 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     details: list[str] = []
     tokens = CheckedTokens()
 
-    pairs = text_checks.align_sentences(original_text, rewrite_text)
-    if pairs is None:
-        # Ambiguous alignment (the rewrite merged/split sentences) is itself
-        # higher risk - reject rather than attempt a best-effort check.
+    alignment = text_checks.align_sections_and_sentences(original_text, rewrite_text)
+    if alignment is None:
+        # A genuine difference in section *count* is itself higher risk -
+        # reject rather than attempt a best-effort check. (A single
+        # section/paragraph whose own sentence count differs no longer
+        # lands here - see the degraded_sections fallback below.)
         tokens.sentence_alignment = CheckStatus.NOT_RUN
         details.append(
-            "Could not align original and rewritten sentences 1:1 "
-            "(sentence count differs) - treated as uncertain."
+            "Could not align the original and rewrite into the same number "
+            "of sections (paragraph count differs) - treated as uncertain."
         )
         _log_rejection(original_text, rewrite_text, details)
-        return GuardrailResult(status=GuardrailStatus.FAILED, checked_tokens=tokens, details=details)
+        # Ambiguous alignment is "could not verify", not "found a problem" -
+        # confirmed_change stays False so this reports as unavailable, not
+        # rejected, at the top level.
+        return GuardrailResult(status=GuardrailStatus.FAILED, checked_tokens=tokens, confirmed_change=False, details=details)
 
+    pairs, degraded_sections = alignment
     tokens.sentence_alignment = CheckStatus.UNCHANGED
+    if degraded_sections:
+        details.append(
+            "Section(s) " + ", ".join(str(i) for i in degraded_sections) + " could not be "
+            "aligned sentence-by-sentence (sentence count differs within that section) - "
+            "compared as a whole section instead, which can't detect a quantity/instruction "
+            "reassociation within it specifically."
+        )
 
     tokens.numbers_and_units = _diff_check(pairs, text_checks.extract_numbers_and_units)
     if tokens.numbers_and_units == CheckStatus.CHANGED:
@@ -93,11 +106,12 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
     if tokens.conditions == CheckStatus.CHANGED:
         details.append("A conditional marker (if/when/unless/only ...) was added or removed.")
 
-    # Scoped chemical-detector reuse - whole-text, not per-sentence, since
-    # that's the deployed service's own contract.
+    # Standalone chemical matching - whole-text, not per-sentence. In-process,
+    # no network call to any sibling service (Writing Assistant Build Plan,
+    # Revision 14, ISS-03).
     try:
-        orig_chem = chemical_detector_client.detect_chemicals(original_text)
-        rew_chem = chemical_detector_client.detect_chemicals(rewrite_text)
+        orig_chem = chemical_matcher.detect_chemicals(original_text)
+        rew_chem = chemical_matcher.detect_chemicals(rewrite_text)
         if orig_chem or rew_chem:
             tokens.chemical_names = (
                 CheckStatus.UNCHANGED if orig_chem == rew_chem else CheckStatus.CHANGED
@@ -106,9 +120,9 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
                 details.append("The set of detected banned/restricted chemicals differs between the original and the rewrite.")
         else:
             tokens.chemical_names = CheckStatus.NA
-    except chemical_detector_client.ChemicalDetectorUnavailableError as exc:
+    except chemical_matcher.ChemicalDetectorUnavailableError as exc:
         tokens.chemical_names = CheckStatus.NOT_RUN
-        details.append(f"Chemical-detector check could not run: {exc}")
+        details.append(f"Chemical check could not run: {exc}")
 
     # LLM second-opinion - adds coverage for what the deterministic checks
     # above can't name (e.g. a subtler recommendation change), is not proof.
@@ -127,11 +141,15 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
 
     overall_failed = tokens.any_failed() or llm_flagged_change or llm_not_run
     status = GuardrailStatus.FAILED if overall_failed else GuardrailStatus.PASSED
+    # A real catch (something actually CHANGED, deterministically or per the
+    # LLM second opinion) vs. merely "could not verify" (a NOT_RUN channel,
+    # or the LLM call itself failing) - see GuardrailResult.confirmed_change.
+    confirmed_change = tokens.any_changed() or llm_flagged_change
 
     if overall_failed:
         _log_rejection(original_text, rewrite_text, details)
 
-    return GuardrailResult(status=status, checked_tokens=tokens, details=details)
+    return GuardrailResult(status=status, checked_tokens=tokens, confirmed_change=confirmed_change, details=details)
 
 
 def _log_rejection(original_text: str, rewrite_text: str, details: list[str]) -> None:

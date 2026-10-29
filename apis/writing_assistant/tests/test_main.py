@@ -4,7 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 import main
-from assistant import chemical_detector_client, config, llm_client, reference_data
+from assistant import chemical_matcher, config, llm_client, reference_data
 from assistant.models import SelectionClassification, StepCoverage
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"
@@ -47,13 +47,13 @@ def test_polish_draft_endpoint_end_to_end(monkeypatch):
     monkeypatch.setattr(config, "REFERENCE_DATA_DIR", str(FIXTURES_DIR))
 
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: "The treatment is effective when farmers apply it correctly.")
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
     monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
     monkeypatch.setattr(
         llm_client, "classify_and_select",
         lambda **kw: SelectionClassification(domain="Soil Health (Fixture)", question_type=None),
     )
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: StepCoverage.COVERED)
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example: (StepCoverage.COVERED, 1))
 
     response = client.post(
         "/polish-draft",
@@ -71,7 +71,7 @@ def test_polish_draft_endpoint_end_to_end(monkeypatch):
 def test_polish_draft_endpoint_reports_unavailable_reference_data(monkeypatch):
     monkeypatch.setattr(config, "REFERENCE_DATA_SOURCE", None)
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: draft)
-    monkeypatch.setattr(chemical_detector_client, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
     monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
 
     response = client.post("/polish-draft", json={"question": "q", "draft": "d"})

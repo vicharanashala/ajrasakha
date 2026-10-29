@@ -11,7 +11,7 @@ import json
 
 import httpx
 
-from . import config
+from . import config, text_checks
 from .models import LLMUnavailableError, QuestionType, SelectionClassification, StepCoverage
 
 _POLISH_SYSTEM_PROMPT = (
@@ -120,19 +120,34 @@ def classify_and_select(
 
 _STEP_COVERAGE_SYSTEM_PROMPT = (
     "You check whether a farmer-facing draft answer covers one specific "
-    "expected step from a reference answer structure. Recognize equivalent "
-    "wording - do not require exact keyword matches. Respond only with a "
-    'JSON object of this exact shape: {"coverage": "covered" or "partial" '
-    'or "missing"}. "covered" means the draft clearly addresses this step '
-    '(even in different words). "partial" means the draft touches on it '
-    'but leaves out part of what the step/example describes. "missing" '
-    "means the draft does not address this step at all."
+    "expected step from a reference answer structure. The draft is given "
+    "as a numbered list of sections. Recognize equivalent wording - do "
+    "not require exact keyword matches. If the draft has no sentence or "
+    "heading about this step's topic at all, respond missing - do not "
+    "give partial credit just because a different section's content is "
+    "thematically related (e.g. a section about chemical control does "
+    "not cover a missing decision-point step just because both concern "
+    "treatment). Respond only with a JSON object of this exact shape: "
+    '{"coverage": "covered" or "partial" or "missing", "section_index": '
+    "<the 1-based section number that primarily addresses this step, or "
+    'null if coverage is "missing">}. "covered" means the draft clearly '
+    'addresses this step (even in different words). "partial" means the '
+    "draft touches on it but leaves out part of what the step/example "
+    'describes. "missing" means the draft does not address this step\'s '
+    "topic at all."
 )
 
 
-def classify_step_coverage(draft_text: str, step_description: str, example: str) -> StepCoverage:
+def classify_step_coverage(draft_text: str, step_description: str, example: str) -> tuple[StepCoverage, int | None]:
+    """Returns (coverage, section_index) - section_index is the 1-based
+    index (per text_checks.split_sections) of the draft section that
+    primarily addresses this step, or None when coverage is missing.
+    Used by structural_validator to flag out-of-order sections (Writing
+    Assistant Build Plan, Revision 14, ISS-06)."""
+    sections = text_checks.split_sections(draft_text)
+    numbered_draft = "\n\n".join(f"[{i}] {s}" for i, s in enumerate(sections, start=1))
     user_content = json.dumps(
-        {"draft": draft_text, "expected_step": step_description, "example_of_what_satisfies_it": example}
+        {"draft": numbered_draft, "expected_step": step_description, "example_of_what_satisfies_it": example}
     )
     messages = [
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},
@@ -141,7 +156,9 @@ def classify_step_coverage(draft_text: str, step_description: str, example: str)
     content = _chat_completion(messages, temperature=0.0)
     try:
         parsed = json.loads(content)
-        return StepCoverage(parsed["coverage"])
+        coverage = StepCoverage(parsed["coverage"])
+        section_index = parsed.get("section_index")
+        return coverage, int(section_index) if section_index is not None else None
     except (json.JSONDecodeError, KeyError, TypeError, ValueError) as exc:
         raise LLMUnavailableError(f"Could not parse step-coverage response: {exc}") from exc
 
@@ -155,7 +172,7 @@ def _chat_completion(messages: list[dict], **kwargs) -> str:
     if config.MINIMAX_API_KEY:
         headers["Authorization"] = f"Bearer {config.MINIMAX_API_KEY}"
 
-    payload = {"model": config.MINIMAX_MODEL, "messages": messages, **kwargs}
+    payload = {"model": config.MINIMAX_MODEL, "messages": messages, "seed": config.MINIMAX_SEED, **kwargs}
 
     try:
         response = httpx.post(url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS)

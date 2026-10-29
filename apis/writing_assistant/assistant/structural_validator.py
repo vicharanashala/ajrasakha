@@ -19,21 +19,28 @@ from .models import (
 )
 
 
-def score_coverage(draft_text: str, structure: ReferenceStructure) -> list[StepCoverageResult]:
+def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list[StepCoverageResult], list[int | None]]:
     results = []
+    section_indices: list[int | None] = []
     for step in structure.steps:
-        coverage = llm_client.classify_step_coverage(draft_text, step.step, step.example)
+        coverage, section_index = llm_client.classify_step_coverage(draft_text, step.step, step.example)
+        # Example/Suggestion text is "what's expected" explanation for a
+        # gap - it must never appear on a step that's already covered, or
+        # it reads as an invented issue on a correct draft (Writing
+        # Assistant Build Plan, Revision 14, ISS-08).
+        is_covered = coverage == StepCoverage.COVERED
         results.append(
             StepCoverageResult(
                 sl_no=step.sl_no,
                 step=step.step,
                 coverage=coverage,
                 example=step.example,
-                suggestion_1=step.suggestion_1,
-                suggestion_2=step.suggestion_2,
+                suggestion_1=None if is_covered else step.suggestion_1,
+                suggestion_2=None if is_covered else step.suggestion_2,
             )
         )
-    return results
+        section_indices.append(section_index)
+    return results, section_indices
 
 
 def _summarize(steps: list[StepCoverageResult]) -> StructuralValidationStatus:
@@ -42,6 +49,28 @@ def _summarize(steps: list[StepCoverageResult]) -> StructuralValidationStatus:
     if any(s.coverage == StepCoverage.MISSING for s in steps):
         return StructuralValidationStatus.INCOMPLETE
     return StructuralValidationStatus.PARTIAL
+
+
+def _order_warnings(steps: list[StepCoverageResult], section_indices: list[int | None]) -> list[str]:
+    """Flags a step whose located section comes *before* an earlier-slNo
+    step's located section - only for steps whose position could be
+    confidently located (never fabricated for a step with no position at
+    all, e.g. one scored "missing")."""
+    warnings: list[str] = []
+    max_so_far: int | None = None
+    step_at_max: StepCoverageResult | None = None
+    for step, section_index in zip(steps, section_indices):
+        if section_index is None:
+            continue
+        if max_so_far is not None and section_index < max_so_far:
+            warnings.append(
+                f"Step {step.sl_no} ({step.step}) appears before step "
+                f"{step_at_max.sl_no} ({step_at_max.step}) in the draft."
+            )
+        else:
+            max_so_far = section_index
+            step_at_max = step
+    return warnings
 
 
 def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset | None) -> StructuralValidationResult:
@@ -58,7 +87,7 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
 
     structure = outcome.structure
     try:
-        steps = score_coverage(draft_text, structure)
+        steps, section_indices = score_coverage(draft_text, structure)
     except LLMUnavailableError as exc:
         return StructuralValidationResult(
             status=StructuralValidationStatus.NEEDS_CLARIFICATION,
@@ -76,4 +105,5 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
         status=_summarize(steps),
         matched_reference=matched_reference,
         steps=steps,
+        order_warnings=_order_warnings(steps, section_indices),
     )
