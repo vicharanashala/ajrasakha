@@ -575,9 +575,13 @@ export class NotificationService extends BaseService {
     // push notification hit. `%221%22` is `encodeURIComponent('"1"')`, the same form the in-app
     // navigate() produces, which JSON.parses back to the STRING "1".
     const popQueueUrl = '/home?popQueue=%221%22';
+    // De-duped here (not just trusted to each caller below) because it's the one place that
+    // actually decides who gets pushed to — e.g. admin_added's uploaderId and approverId collapse
+    // to the same person when an approver approves their own upload, and relying on every call
+    // site to catch that itself is how this doubled up before.
     const notifyAll = (userIds: string[], title: string, message: string, type: string) =>
       Promise.all(
-        userIds
+        [...new Set(userIds)]
           .filter(id => id && id !== actorId)
           .map(userId => this.saveTheNotifications(message, title, actorId, userId, type, undefined, popQueueUrl)),
       );
