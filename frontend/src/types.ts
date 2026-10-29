@@ -641,6 +641,7 @@ export interface IQuestionFullData {
   passingRemark?: string;
   isHidden?: boolean;
   isOnHold?: boolean;
+  previousStatus?: QuestionStatus | null;
   isTesting?: boolean;
   holdAt?: string;
   accumulatedHoldMs?: number;
@@ -808,6 +809,7 @@ export interface IDetailedQuestion {
   closedAt?: string;
   holdAt?: string;
   isOnHold?: boolean;
+  previousStatus?: QuestionStatus | null;
   accumulatedHoldMs?: number;
   isHidden?: boolean;
   paassingRemark?: string;

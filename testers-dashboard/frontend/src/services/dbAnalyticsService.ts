@@ -21,6 +21,8 @@ export interface IDbAnalyticsEntriesQuery {
     dateRange?: string;
     customStart?: string;
     customEnd?: string;
+    customStartTime?: string;
+    customEndTime?: string;
     type?: string;
     category?: string;
     build?: string;
@@ -51,7 +53,7 @@ export interface IDbAnalyticsEntriesResponse {
 }
 
 const QUERY_KEYS: (keyof IDbAnalyticsEntriesQuery)[] = [
-    "dateRange", "customStart", "customEnd", "type", "category", "build", "channel", "language",
+    "dateRange", "customStart", "customEnd", "customStartTime", "customEndTime", "type", "category", "build", "channel", "language",
     "tester", "status", "severity", "dynamicSubTypes", "typeBranch", "staticSubTypes",
 ];
 

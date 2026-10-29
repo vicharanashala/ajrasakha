@@ -2,6 +2,7 @@ import './questionStatus.js';
 import './notificationDelete.js'
 import './backupDB.js'
 import './dailyReport.js'
+import './dailyActivityReport.js'
 // import './absentCron.js'//previously commented
 import './reAllocateCron.js'
 import './timeBoundReAllocateCron.js'

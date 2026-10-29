@@ -114,7 +114,7 @@ read as a fallback; this directory's `.env` takes priority.
 | Variable | Required | Description |
 |---|---|---|
 | `ANTHROPIC_API_KEY` | yes | Anthropic API key |
-| `CLAUDE_MODEL` | no | Model name (default `claude-sonnet-4-5`) |
+| `CLAUDE_MODEL` | no | Model name (default `claude-sonnet-4-6`) |
 | `MONGO_URI` | tests only | Used by the live tests to read sample questions |
 | `MONGO_DB` | tests only | Database name (default `agriai`) |
 
@@ -146,7 +146,7 @@ Use `KEY=value` (an `=`, not `-`) on every line.
    ANTHROPIC_API_KEY=sk-ant-...
    ```
 
-   `CLAUDE_MODEL` is optional - it defaults to `claude-sonnet-4-5` (read from
+   `CLAUDE_MODEL` is optional - it defaults to `claude-sonnet-4-6` (read from
    `ai/ajrasakha/ffv/scripts/generate_ffvs.py`).
 
 3. Start the server:

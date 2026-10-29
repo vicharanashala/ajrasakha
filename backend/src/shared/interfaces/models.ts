@@ -184,6 +184,9 @@ export interface IQuestion {
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
+  /** Status the question had immediately before being put on hold, used to restore
+   *  its original status (e.g. 'dynamic', 'in-review', 'open') when unheld. */
+  previousStatus?: QuestionStatus | null;
   isTesting?: boolean;
   messageId?: string;
   threadId?: string;
@@ -855,9 +858,29 @@ export interface ICropAlias {
   native_representation: string; // native script e.g. "వరి"
   source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
   page_number?: string; // page number reference e.g. "45"
+  agri_expert?: string; // expert who verified this term
+  remark?: string; // free-text note about this term
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
+
+export const CROP_LIST_SORTS = ['newest', 'oldest', 'name_asc', 'name_desc', 'updated_desc', 'updated_asc'] as const;
+export type CropListSort = (typeof CROP_LIST_SORTS)[number];
+
+/** Optional filters for the AgriTech list; an absent field means no filter. */
+export interface CropListFilters {
+  aliases?: 'with' | 'without';
+  image?: 'with' | 'without';
+  status?: string;
+  /** Matches entries with at least one alias in this language (and region, when both are given). */
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
 
 /** Crop-side entry types that share the crop structure (title-casing, alias merge,
  *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
@@ -974,6 +997,15 @@ export type GdbCleaningStatus =
   | 'fixed'
   | 'dismissed';
 
+/** A reviewer's change to one check: "not a problem" (PASS) or "this is a problem" (FAIL).
+ *  The check's own `result` stays as the system found it. */
+export interface IGdbCheckOverride {
+  result: 'PASS' | 'FAIL';
+  comment: string;
+  by: string;
+  at: Date;
+}
+
 export interface IGdbCleaningCheck {
   parameter: string;
   category: string;
@@ -981,12 +1013,32 @@ export interface IGdbCleaningCheck {
   reason: string;
   /** exact words in the answer to highlight, for a check that found something */
   highlight?: string[];
+  override?: IGdbCheckOverride;
 }
 
 export interface IGdbCleaningSource {
   sourceName: string;
   source: string;
   page: string;
+  /** central, state, district, hyper_local or other: the same types the reviewer app uses */
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
+}
+
+export type GdbCleaningAction =
+  | 'accepted'
+  | 'dismissed'
+  | 'flag_changed'
+  | 'sources_edited'
+  | 'correction_saved'
+  | 'pushed';
+
+/** One thing a reviewer did on an answer. It is kept on the answer's own row, so the page's
+ *  database user needs no other collection. */
+export interface IGdbCleaningHistoryEntry {
+  userId: ObjectId;
+  action: GdbCleaningAction;
+  at: Date;
+  details?: Record<string, unknown>;
 }
 
 /** One answer in the `gdb_cleaning` collection: the answer, the result of each
@@ -1001,6 +1053,15 @@ export interface IGdbCleaning {
   crop: string;
   domain: string;
   sources: IGdbCleaningSource[];
+  /** the sources as the pipeline saved them, kept the first time a reviewer edits them */
+  originalSources?: IGdbCleaningSource[];
+  sourcesEditedBy?: ObjectId | null;
+  sourcesEditedAt?: Date | null;
+  /** everything reviewers did on this answer, oldest first */
+  history?: IGdbCleaningHistoryEntry[];
+  /** set when the accepted correction was pushed to the golden answer */
+  pushedAt?: Date | null;
+  pushedBy?: ObjectId | null;
   status: GdbCleaningStatus;
   checks: IGdbCleaningCheck[];
   flags: string[];

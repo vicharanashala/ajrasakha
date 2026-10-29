@@ -101,6 +101,7 @@ export class CreateTesterLogDto {
     @IsString() @IsOptional() translationQuality?: string;
     @IsString() @IsOptional() translationErrorType?: string;
     @IsString() @IsOptional() tagging?: string;
+    @IsString() @IsOptional() metaDataCorrectlyFetched?: string;
     @IsString() @IsOptional() retrievalAccuracy?: string;
 
     @IsString() @IsOptional() allocatedToReviewer?: string;
@@ -211,6 +212,14 @@ export class GetTesterLogQuery {
     @IsString()
     @IsOptional()
     endDate?: string;
+
+    @IsString()
+    @IsOptional()
+    startTime?: string;
+
+    @IsString()
+    @IsOptional()
+    endTime?: string;
 
     @IsString()
     @IsOptional()

@@ -459,7 +459,11 @@ function _buildListParams(page: number, filters: Record<string, string[]>, sort 
   });
   for (const [key, values] of Object.entries(filters || {})) {
     const clean = (values || []).filter((v) => v !== "" && v != null);
-    if (clean.length > 0) params.set(`filter[${key}]`, clean.join(","));
+    if (clean.length > 0) {
+      // domain is "has ANY of these", joined by "|" (whole names, which may themselves contain
+      // commas, e.g. "Credit, Loan and Insurance") — every other filter key keeps the "," OR-join.
+      params.set(`filter[${key}]`, clean.join(key === "domain" ? "|" : ","));
+    }
   }
   if (sort) params.set("sort", sort);
   return params;
@@ -595,14 +599,44 @@ export async function addDocumentPlacement(
   return _handleResponse(res);
 }
 
-// Absorbs the documents in `absorb` (ANNAM_ ids or ObjectId hex) into `id`. The absorbed
-// documents are deleted; their placements are repointed (never deleted) and their copies join
-// the survivor's duplicate_links. The survivor's anchor does not move.
-export async function mergeUniqueDocuments(id: string, absorb: string[]) {
+// Absorbs the documents in `absorb` (ANNAM_ ids or ObjectId hex) into `id`. Per placement: if the
+// survivor is already filed in that state+folder the absorbed row is dropped, otherwise it moves
+// to the survivor keeping its own POP id. All of the absorbed documents' files stay in WorkDrive
+// and join the survivor's duplicate_links; translation/review move to the survivor only if it had
+// neither (otherwise those files go to WorkDrive trash — see `not_trashed` on the response). The
+// absorbed documents are deleted. 409s if the survivor or any absorbed id has a translation job
+// queued/running (detail names the busy ANNAM id).
+export async function mergeUniqueDocuments(id: string, absorb: string[], mergedBy?: string) {
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/merge`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ absorb }),
+    body: JSON.stringify({ absorb, merged_by: mergedBy }),
+  });
+  return _handleResponse(res);
+}
+
+// Trashes one physical copy from WorkDrive and removes its duplicate_links entry. 400 on the
+// anchor (zoho_file_id === representative_file_id) — hide the delete icon there, don't rely on
+// this. 502 means WorkDrive refused and nothing was removed (retryable). Returns the updated
+// document (same shape as getDashboardUniqueDocument).
+export async function deleteDuplicateLink(id: string, zohoFileId: string) {
+  const res = await popFetch(
+    `${POP_API}/dashboard/unique-documents/${id}/duplicate-links/${zohoFileId}`,
+    { method: "DELETE" },
+  );
+  return _handleResponse(res);
+}
+
+// Splits a merged-in group (identified by its duplicate_links `merged_document` value) back out
+// into its own new document — new ANNAM id, first link becomes its anchor, copies this document's
+// metadata, no placements, not translated. Nothing in WorkDrive moves; placements/translation stay
+// on `id`. 201 returns the new document. 404 = no such group (already unlinked). 409 = unlinked by
+// someone else at the same moment.
+export async function unlinkMergedGroup(id: string, mergedDocument: string) {
+  const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/unlink`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ merged_document: mergedDocument }),
   });
   return _handleResponse(res);
 }
@@ -739,6 +773,13 @@ export async function getDashboardLanguages() {
   return _handleResponse(res);
 }
 
+// The 19 allowed domain names — the only valid source for the Domain multi-select, don't hardcode
+// a list client-side (fields.ts's DOMAIN_OPTIONS_FALLBACK is only a brief pre-fetch placeholder).
+export async function getDashboardDomains(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/domains`);
+  return (await _handleResponse(res)) || [];
+}
+
 // Backs the Uploaded By / Translated By / Reviewed By column filter dropdowns
 // (UniqueDocumentsTable.tsx's filterType: "users" columns) — distinct, non-empty values actually
 // present on documents, sorted A-Z ignoring case. NOT the reviewer-system's user list (that was
@@ -775,7 +816,7 @@ export async function getDashboardApprovedByAdminOptions(): Promise<string[]> {
 // passed via `fields` as plain `district_id`/`kvk_id` form fields instead, same as `language`.
 export async function uploadDashboardDocument(
   file: File,
-  fields: Record<string, string>,
+  fields: Record<string, unknown>,
   placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
@@ -783,8 +824,15 @@ export async function uploadDashboardDocument(
   fd.append("file", file);
   fd.append("placements_json", JSON.stringify(placements));
   fd.append("language", language);
-  for (const [key, value] of Object.entries(fields || {})) {
-    if (value !== "" && value != null) fd.append(key, value);
+  // domain is sent separately as "domain_json", a JSON-encoded array string — plain "domain" would
+  // break on names that themselves contain commas (e.g. "Credit, Loan and Insurance"). Omitted
+  // entirely when empty, same as every other blank field below.
+  const { domain, ...rest } = fields || {};
+  if (Array.isArray(domain) && domain.length > 0) {
+    fd.append("domain_json", JSON.stringify(domain));
+  }
+  for (const [key, value] of Object.entries(rest)) {
+    if (value !== "" && value != null) fd.append(key, value as string);
   }
   const res = await popFetch(`${POP_API}/dashboard/uploads`, {
     method: "POST",
@@ -798,6 +846,15 @@ export async function uploadDashboardDocument(
 // panel has no other data source and nothing suggests this list endpoint went away.
 export async function getDashboardUploads() {
   const res = await popFetch(`${POP_API}/dashboard/uploads`);
+  return _handleResponse(res);
+}
+
+// Read-only, newest first — finished uploads (moved server-side to pop_upload_trail once an
+// add/new resolves), same UploadQueueItemOut shape as getDashboardUploads but with `actions`
+// always empty and created_document_id/created_row_ids filled in. Who sees what is decided
+// server-side (uploader, upload approver, or admin who acted on it) — no client-side filtering.
+export async function getDashboardUploadsHistory() {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/history`);
   return _handleResponse(res);
 }
 
@@ -1007,30 +1064,36 @@ export async function deleteDashboardTranslationJob(jobId: string) {
   return _handleResponse(res);
 }
 
+// Translate mode: "normal" (default, page-by-page) | "flex" (page-by-page, slower per page) |
+// "batch" (handed to Google as one batch job, can take up to 24h). Omitting mode means "normal".
+export type TranslateMode = "normal" | "flex" | "batch";
+
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
 // translation_status: "done". `translatedBy` (the signed-in user's display name, sent by the
 // caller — see TranslateReviewCell.tsx) is optional and unverified: /api/pop has no auth, so the
 // backend just stores whatever name it's given (docs/first_render_frontend.md, "Who translated /
 // reviewed, and when").
-export async function translateDashboardDocument(placementId: string, translatedBy?: string) {
+export async function translateDashboardDocument(
+  placementId: string,
+  translatedBy?: string,
+  mode?: TranslateMode,
+) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string, translatedBy?: string) {
+export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }

@@ -120,6 +120,10 @@ export interface FilterBarProps {
   setCustomStart: (value: string) => void;
   customEnd: string;
   setCustomEnd: (value: string) => void;
+  customStartTime?: string;
+  setCustomStartTime?: (value: string) => void;
+  customEndTime?: string;
+  setCustomEndTime?: (value: string) => void;
   typeBranchState: ITypeBranchState;
   // Optional per-field options with counts (Database Logs Analytics). A field
   // listed here renders these instead of its plain filterOptions values.
@@ -143,6 +147,10 @@ export function FilterBar({
   setCustomStart,
   customEnd,
   setCustomEnd,
+  customStartTime,
+  setCustomStartTime,
+  customEndTime,
+  setCustomEndTime,
   typeBranchState,
   optionDetails,
   typeTree = DEFAULT_TYPE_TREE,
@@ -361,9 +369,9 @@ export function FilterBar({
       ))}
 
       {filters.dateRange === "custom" && (
-        <div className="basis-full flex gap-3">
-          <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
-            <label className="text-xs font-medium text-muted-foreground uppercase">Start</label>
+        <div className="basis-full flex flex-wrap gap-3 items-end">
+          <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+            <label className="text-xs font-medium text-muted-foreground uppercase">Start Date</label>
             <input
               type="date"
               className="h-8 w-full text-sm border rounded-md px-2"
@@ -371,8 +379,20 @@ export function FilterBar({
               onChange={(e) => setCustomStart(e.target.value)}
             />
           </div>
-          <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
-            <label className="text-xs font-medium text-muted-foreground uppercase">End</label>
+          {setCustomStartTime && (
+            <div className="space-y-1 flex-1 min-w-[120px] max-w-[180px]">
+              <label className="text-xs font-medium text-muted-foreground uppercase">Start Time</label>
+              <input
+                type="time"
+                step="1"
+                className="h-8 w-full text-sm border rounded-md px-2"
+                value={customStartTime || ""}
+                onChange={(e) => setCustomStartTime(e.target.value)}
+              />
+            </div>
+          )}
+          <div className="space-y-1 flex-1 min-w-[140px] max-w-[200px]">
+            <label className="text-xs font-medium text-muted-foreground uppercase">End Date</label>
             <input
               type="date"
               className="h-8 w-full text-sm border rounded-md px-2"
@@ -380,6 +400,18 @@ export function FilterBar({
               onChange={(e) => setCustomEnd(e.target.value)}
             />
           </div>
+          {setCustomEndTime && (
+            <div className="space-y-1 flex-1 min-w-[120px] max-w-[180px]">
+              <label className="text-xs font-medium text-muted-foreground uppercase">End Time</label>
+              <input
+                type="time"
+                step="1"
+                className="h-8 w-full text-sm border rounded-md px-2"
+                value={customEndTime || ""}
+                onChange={(e) => setCustomEndTime(e.target.value)}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>

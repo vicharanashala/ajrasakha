@@ -30,6 +30,7 @@ export interface ITesterLogEntry {
     translationQuality?: string;
     translationErrorType?: string;
     tagging?: string;
+    metaDataCorrectlyFetched?: string;
     retrievalAccuracy?: string;
 
     allocatedToReviewer?: string;
@@ -151,6 +152,8 @@ export interface ITesterLogAdminFilters {
     testerId?: string;
     startDate?: string;
     endDate?: string;
+    startTime?: string;
+    endTime?: string;
     dateField?: string;
     typeOfQuestion?: string;
     channelTested?: string;
@@ -181,6 +184,9 @@ export interface IChannelCountSummary {
     target: number;
     actual: number;
     achievementPct: number;
+    onHold?: number;
+    uncategorized?: number;
+    totalLogged?: number;
 }
 
 export interface IQuestionTypeCountRow {
@@ -235,6 +241,8 @@ export interface ITesterQuestionTypeSummary {
     /** Entries in range whose question type is none of the 6 categories
      * (e.g. a historical bare "Dynamic") - not counted anywhere. */
     uncategorizedCount: number;
+    onHoldCount?: number;
+    totalLogged?: number;
     byTester?: ITesterQuestionTypeRow[];
 }
 
@@ -244,6 +252,8 @@ export interface ITesterQuestionTypeSummaryFilters {
     testerId?: string;
     startDate?: string;
     endDate?: string;
+    startTime?: string;
+    endTime?: string;
 }
 
 export interface ITesterLogSummaryResponse {
@@ -351,18 +361,48 @@ export function isDynamicQuestionType(type?: string): boolean {
 /**
  * Returns true if tagging indicates a dynamic question.
  * The logic to exclude Section 4 reviewer workflow moves from Question Type to Tagging.
+ * Note: Questions wrongly tagged as dynamic or static dynamic are not treated as dynamic,
+ * so the reviewer workflow section remains included.
  */
 export function isDynamicTagging(tagging?: string): boolean {
     if (!tagging) return false;
-    return tagging.toLowerCase().includes('dynamic');
+    const lower = tagging.trim().toLowerCase();
+    if (
+        lower === 'wrongly tagged as dynamic' ||
+        lower === 'wrongly tagged as static dynamic' ||
+        lower.startsWith('wrongly tagged')
+    ) {
+        return false;
+    }
+    return lower.includes('dynamic');
 }
 
 /**
  * Returns true if tagging indicates a duplicate question.
+ * Note: Questions wrongly tagged as duplicate are not treated as duplicate,
+ * so the reviewer workflow section remains included.
  */
 export function isDuplicateTagging(tagging?: string): boolean {
     if (!tagging) return false;
-    return tagging.toLowerCase().includes('duplicate');
+    const lower = tagging.trim().toLowerCase();
+    if (
+        lower === 'wrongly tagged as duplicate' ||
+        lower.startsWith('wrongly tagged')
+    ) {
+        return false;
+    }
+    return lower.includes('duplicate');
+}
+
+/**
+ * Returns true if Section 4 (Reviewer Workflow) should be excluded based on tagging.
+ * Section 4 is excluded for dynamic or duplicate questions, except when the user
+ * selects 'Wrongly tagged as duplicate', 'Wrongly tagged as dynamic', or
+ * 'Wrongly tagged as Static Dynamic' (where Reviewer Workflow must be included).
+ */
+export function shouldExcludeReviewerWorkflow(tagging?: string): boolean {
+    if (!tagging) return false;
+    return isDynamicTagging(tagging) || isDuplicateTagging(tagging);
 }
 
 export function isCrossPlatform(channel?: string): boolean {
@@ -507,6 +547,13 @@ export function getTranslationErrorOptions(quality?: string): string[] {
 
 export const DEFECT_SEVERITY_OPTIONS = ['Critical', 'High', 'Medium', 'Low', 'NA'];
 
+export const SEVERITY_TO_TESTER_REMARKS_MAP: Record<string, string> = {
+    Critical: 'Needs Review',
+    High: 'Major Modification',
+    Medium: 'Minor Modification',
+    Low: 'Minor Modification',
+};
+
 export const VOICE_ISSUE_OPTIONS = [
     'Speech Not Recognized',
     'Incorrect Transcription',
@@ -580,11 +627,25 @@ export const TAGGING_OPTIONS = [
     'Static Dynamic but not tagged',
 ];
 
+export const META_DATA_FETCHED_OPTIONS = [
+    'Correctly fetched State',
+    'Wrongly fetched State',
+    'Correctly fetched Crop',
+    'Wrongly fetched Crop',
+    'Correctly fetched Domain',
+    'Wrongly fetched Domain',
+    'Correctly fetched District',
+    'Wrongly fetched District',
+    'Correctly fetched Season',
+    'Wrongly fetched Season',
+];
+
 export const RETRIEVAL_ACCURACY_OPTIONS = [
     'Correct Retrieval',
     'Incorrect Retrieval',
     'Partial Retrieval',
     'No Retrieval',
+    'NA',
 ];
 
 export const TEXT_FIELD_LIMITS = {

@@ -403,6 +403,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_dynamic === true) {
+      params.append("is_dynamic", "true");
+    }
+
     if (filter.is_testing === true) {
       params.append("is_testing", "true");
     }
@@ -1405,6 +1409,10 @@ export class QuestionService {
       params.append("is_non_agri", "true");
     }
 
+    if (filter.is_dynamic === true) {
+      params.append("is_dynamic", "true");
+    }
+
     if (filter.is_testing === true) {
       params.append("is_testing", "true");
     }
@@ -1517,41 +1525,29 @@ export class QuestionService {
     return res?.data ?? null;
   }
 
-  async generateAIInitialAnswer(questionId: string, currentUserId?: string): Promise<{ aiInitialAnswer: string } | null> {
+  async generateAIInitialAnswer(
+    questionId: string,
+    currentUserId?: string
+  ): Promise<{ aiInitialAnswer: string } | null> {
     const params = new URLSearchParams();
     if (currentUserId) {
       params.append("userId", currentUserId);
     }
-    const response = await fetch(
+    return apiFetch<{ aiInitialAnswer: string }>(
       `${this._baseUrl}/${questionId}/generate-answer?${params.toString()}`,
-      { method: "GET", }
+      { method: "GET" }
     );
-    const data = await response.json();
-    if (!response.ok) {
-      throw new Error(data?.message || "Failed to approve AI answer");
-    }
-    return data; 
   }
 
   async approveAIInitialAnswer(questionId: string, answer: string) {
-  const response = await fetch(
-    `${this._baseUrl}/${questionId}/approve-initial-answer`,
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ answer }),
-    }
-  );
-  const data = await response.json();
-
-  if (!response.ok) {
-    throw new Error(data?.message || "Failed to approve AI answer");
+    return apiFetch<{ success: boolean }>(
+      `${this._baseUrl}/${questionId}/approve-initial-answer`,
+      {
+        method: "POST",
+        body: JSON.stringify({ answer }),
+      }
+    );
   }
-
-  return data;
-}
 
   async getReallocationPreview(type: string): Promise<any> {
     return apiFetch<any>(`${this._baseUrl}/reallocation-preview?type=${type}`);
