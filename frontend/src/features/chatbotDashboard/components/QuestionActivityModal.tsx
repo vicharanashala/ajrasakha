@@ -787,7 +787,7 @@ export function QuestionActivityModal({
                               info: messageCounts && (
                                 <div className="min-w-[160px] space-y-1.5">
                                   <div className="flex items-center justify-between gap-4 text-sm">
-                                    <span>Total raw:</span>
+                                    <span>Total messages:</span>
                                     <span className="font-medium">
                                       {messageCounts.raw}
                                     </span>
