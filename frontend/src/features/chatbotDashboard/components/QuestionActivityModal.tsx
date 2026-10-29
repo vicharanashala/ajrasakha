@@ -566,7 +566,7 @@ const VIEW_TYPE_LABELS: Record<QuestionActivityViewType, string> = {
 };
 
 const VIEW_TYPE_STAT_LABELS: Record<QuestionActivityViewType, string> = {
-  messages: "Total Messages",
+  messages: "Total Queries",
   questions: "Total Agri Queries",
   non_agri: "Total Non Agri Queries",
 };
