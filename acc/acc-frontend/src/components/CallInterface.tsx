@@ -2620,12 +2620,12 @@ export const CallInterface = () => {
           {/* Weather Widget with Hierarchical Location (Taluk -> District -> State) from Farmer Profile & Manual Dropdowns */}
           <WeatherWidget
             farmerLocation={{
-              state: farmerProfile?.state || editableState || extractedState || "Karnataka",
-              district: farmerProfile?.district || editableDistrict || "",
+              state: farmerProfile?.state || editableState || extractedState || "Punjab",
+              district: farmerProfile?.district || editableDistrict || "Ropar",
               taluk: farmerProfile?.blockName || editableBlock || "",
               village: farmerProfile?.villageName || editableVillage || "",
             }}
-            defaultState={farmerProfile?.state || editableState || extractedState || "Karnataka"}
+            defaultState={farmerProfile?.state || editableState || extractedState || "Punjab"}
           />
 
           {/* Live Questions & AI Specialist Answers List */}
