@@ -234,9 +234,9 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden sm:rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111]">
+      <DialogContent className={`${!isQuestionsLoading && totalQuestions === 0 ? "sm:max-w-lg" : "sm:max-w-[1200px]"} max-w-[95vw] max-h-[92vh] flex flex-col p-0 gap-0 overflow-hidden sm:rounded-2xl border-gray-200 dark:border-gray-800 bg-white dark:bg-[#111] transition-[max-width] duration-150`}>
         {/* Header */}
-        <div className="flex-shrink-0 p-5 border-b border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-white/[0.02]">
+        <div className="flex-shrink-0 p-5 sm:px-6 border-b border-gray-100 dark:border-gray-800/80 bg-gray-50/50 dark:bg-white/[0.02]">
           <div className="flex items-start gap-3.5">
             <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20 shrink-0">
               <Trash2 className="h-5 w-5" />
@@ -307,7 +307,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
             /* ── Questions exist: Dual-panel layout ── */
             <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800">
               {/* Left Column: Affected Questions */}
-              <div className="flex flex-col min-h-0 p-4">
+              <div className="flex flex-col min-h-0 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
@@ -408,7 +408,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               </div>
 
               {/* Right Column: Replacement Crop Selector (Requirement 6, 7, 8) */}
-              <div className="flex flex-col min-h-0 p-4">
+              <div className="flex flex-col min-h-0 p-4 sm:p-5">
                 <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
                   <div className="flex items-center gap-2">
                     <Leaf className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
@@ -530,7 +530,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
         {/* Informative Migration Banner when questions exist */}
         {totalQuestions > 0 && (
-          <div className="flex-shrink-0 px-5 py-2.5 bg-gray-50/80 dark:bg-white/[0.02] border-t border-gray-100 dark:border-gray-800 text-xs">
+          <div className="flex-shrink-0 px-5 sm:px-6 py-2.5 bg-gray-50/80 dark:bg-white/[0.02] border-t border-gray-100 dark:border-gray-800 text-xs">
             {isFullMigration ? (
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
@@ -562,7 +562,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
         )}
 
         {/* Modal Footer */}
-        <div className="flex-shrink-0 px-5 py-3.5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 bg-white dark:bg-[#111]">
+        <div className="flex-shrink-0 px-5 sm:px-6 py-3.5 border-t border-gray-100 dark:border-gray-800 flex items-center justify-between gap-3 bg-white dark:bg-[#111]">
           <Button
             type="button"
             variant="outline"
