@@ -80,3 +80,24 @@ def test_state_synonyms_andaman_and_nicobar():
     assert "andaman and nicobar islands" in _STATE_SYNONYMS["andaman and nicobar"]
     assert "andaman and nicobar" in _STATE_SYNONYMS["andaman & nicobar"]
 
+
+
+def test_commodity_word_key_ignores_order_and_punctuation():
+    from ajrasakha.tools.daily_price.daily_market_price import _commodity_word_key
+
+    assert _commodity_word_key("dry ginger") == _commodity_word_key("Ginger(Dry)")
+    assert _commodity_word_key("ginger (dry)") == _commodity_word_key("ginger(dry)")
+    assert _commodity_word_key("ginger") != _commodity_word_key("ginger(dry)")
+    assert _commodity_word_key(None) == frozenset()
+
+
+def test_filter_mc_prefers_same_words_in_different_order():
+    alias_id = ObjectId()
+    resolved = {"dry ginger": [{"_id": alias_id, "canonical_name": "ginger"}]}
+    mc = [
+        {"commodity_alias_lookup_id": alias_id, "commodity_name": "ginger"},
+        {"commodity_alias_lookup_id": alias_id, "commodity_name": "ginger(dry)"},
+        {"commodity_alias_lookup_id": alias_id, "commodity_name": "ginger(green)"},
+    ]
+    out = _filter_mc_by_commodity_preference(mc, ["dry ginger"], resolved)
+    assert [d["commodity_name"] for d in out] == ["ginger(dry)"]

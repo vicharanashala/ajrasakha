@@ -155,6 +155,13 @@ def _clean_commodity_token(value: Optional[str]) -> str:
     return re.sub(r"[^a-z0-9]", "", value.strip().lower())
 
 
+def _commodity_word_key(value: Optional[str]) -> frozenset:
+    """Order- and punctuation-insensitive key: "dry ginger" == "ginger(dry)" == "Ginger (Dry)"."""
+    if not isinstance(value, str):
+        return frozenset()
+    return frozenset(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
+
+
 def _norm_commodity_name(
     value: Optional[Union[str, list[str]]],
 ) -> Optional[Union[str, list[str]]]:
@@ -210,10 +217,12 @@ def _filter_mc_by_commodity_preference(
 
         # 1. Exact match with user's requested commodity name(s) (verbatim or alphanumeric match)
         clean_targets = {_clean_commodity_token(t) for t in targets}
+        word_targets = {_commodity_word_key(t) for t in targets} - {frozenset()}
         exact = [
             d for d in docs
             if _norm(d.get("commodity_name")) in targets
             or _clean_commodity_token(d.get("commodity_name")) in clean_targets
+            or _commodity_word_key(d.get("commodity_name")) in word_targets
         ]
         if exact:
             kept.extend(exact)
@@ -592,6 +601,13 @@ def mandi_price_tool(
             clean_user = _clean_commodity_token(user_norm)
             if clean_user and clean_user in {_clean_commodity_token(a) for a in doc_aliases}:
                 return True
+            # 2b. Same words in a different order / punctuation ("dry ginger" vs "ginger (dry)")
+            user_words = _commodity_word_key(user_norm)
+            if user_words and (
+                user_words == _commodity_word_key(canonical_norm)
+                or user_words in {_commodity_word_key(a) for a in doc_aliases}
+            ):
+                return True
             # 3. Guard: canonical is a strict sub-phrase of user's input but user has
             #    qualifier words not present in canonical (e.g. "sweet" in "sweet potato"
             #    but not in "potato").  Treat as incompatible (different commodity).
@@ -636,6 +652,28 @@ def mandi_price_tool(
                     max_time_ms=MONGO_MAX_TIME_MS,
                 )
                 docs = list(cursor)
+            if not docs:
+                # Word-order fallback: every word of the request must appear in the name,
+                # and the name must have no other words ("dry ginger" -> "ginger (dry)").
+                words = sorted(_commodity_word_key(norm))
+                if len(words) > 1:
+                    lookahead = "".join(f"(?=.*\\b{re.escape(w)}\\b)" for w in words)
+                    cursor = coll.find(
+                        {
+                            "active": True,
+                            "$or": [
+                                {"canonical_name": {"$regex": f"^{lookahead}", "$options": "i"}},
+                                {"aliases": {"$regex": f"^{lookahead}", "$options": "i"}},
+                            ],
+                        },
+                        max_time_ms=MONGO_MAX_TIME_MS,
+                    )
+                    want = _commodity_word_key(norm)
+                    docs = [
+                        d for d in cursor
+                        if want == _commodity_word_key(d.get("canonical_name"))
+                        or want in {_commodity_word_key(a) for a in (d.get("aliases") or [])}
+                    ]
 
             # Filter out alias docs that are semantically incompatible with the user's
             # requested commodity (e.g. reject "potato" canonical for "sweet potato" query).
@@ -1158,6 +1196,8 @@ def mandi_price_tool(
                     clean_rec = _clean_commodity_token(norm_rec)
                     for req in requested_names:
                         clean_req = _clean_commodity_token(req)
+                        if _commodity_word_key(norm_rec) == _commodity_word_key(req):
+                            return True
                         if norm_rec == req or (clean_req and clean_rec == clean_req):
                             return True
                         # Prefix: "bajra(..." or "bajra ..." → matches "bajra"
