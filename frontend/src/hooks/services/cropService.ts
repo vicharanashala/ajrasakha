@@ -263,8 +263,17 @@ export class CropService {
     return apiFetch<IGetAllCropsResponse>(`${this._baseUrl}?${params.toString()}`);
   }
 
-  async getAffectedQuestions(cropId: string): Promise<IGetAffectedQuestionsResponse | null> {
-    return apiFetch<IGetAffectedQuestionsResponse>(`${this._baseUrl}/${cropId}/affected-questions`);
+  async getAffectedQuestions(
+    cropId: string,
+    params?: IGetAffectedQuestionsParams,
+  ): Promise<IGetAffectedQuestionsResponse | null> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.search && params.search.trim()) searchParams.set("search", params.search.trim());
+    const qs = searchParams.toString();
+    const url = qs ? `${this._baseUrl}/${cropId}/affected-questions?${qs}` : `${this._baseUrl}/${cropId}/affected-questions`;
+    return apiFetch<IGetAffectedQuestionsResponse>(url);
   }
 
   async deleteOrReassignCrop(cropId: string, payload: IDeleteCropPayload): Promise<IDeleteCropResponse | null> {
@@ -292,14 +301,26 @@ export interface IAffectedQuestion {
   };
 }
 
+export interface IGetAffectedQuestionsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
 export interface IGetAffectedQuestionsResponse {
   count: number;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  cropName: string;
   questions: IAffectedQuestion[];
 }
 
 export interface IDeleteCropPayload {
   replacementCropId?: string;
   questionIds?: string[];
+  reassignAll?: boolean;
 }
 
 export interface IDeleteCropResponse {

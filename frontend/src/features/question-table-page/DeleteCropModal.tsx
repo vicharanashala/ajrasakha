@@ -2,7 +2,6 @@ import { useState, useMemo, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
   DialogTitle,
   DialogDescription,
 } from "@/components/atoms/dialog";
@@ -23,12 +22,16 @@ import {
   Info,
   CheckCircle2,
   HelpCircle,
+  ChevronLeft,
+  ChevronRight,
+  ChevronsLeft,
+  ChevronsRight,
 } from "lucide-react";
 import { toast } from "@/shared/components/toast";
 import { useGetCropAffectedQuestions } from "@/hooks/api/crop/useGetCropAffectedQuestions";
 import { useGetNormalisedCrops } from "@/hooks/api/crop/useGetNormalisedCrops";
 import { useDeleteCrop } from "@/hooks/api/crop/useDeleteCrop";
-import type { ICropResponse, ICropAlias } from "@/hooks/services/cropService";
+import type { ICropResponse } from "@/hooks/services/cropService";
 
 interface DeleteCropModalProps {
   crop: ICropResponse | null;
@@ -39,15 +42,40 @@ interface DeleteCropModalProps {
 export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) => {
   const cropId = crop?._id;
 
-  // 1. Fetch questions affected by this crop
+  // Question search & pagination state (Server-side)
+  const [questionSearch, setQuestionSearch] = useState("");
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [questionPage, setQuestionPage] = useState(1);
+  const [questionLimit, setQuestionLimit] = useState(10);
+
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(questionSearch);
+      setQuestionPage(1);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [questionSearch]);
+
+  // 1. Fetch questions affected by this crop with server-side pagination & search
   const {
     data: affectedData,
     isLoading: isQuestionsLoading,
+    isFetching: isQuestionsFetching,
     refetch: refetchQuestions,
-  } = useGetCropAffectedQuestions(cropId, open);
+  } = useGetCropAffectedQuestions(
+    cropId,
+    {
+      page: questionPage,
+      limit: questionLimit,
+      search: debouncedSearch,
+    },
+    open,
+  );
 
   const questions = affectedData?.questions ?? [];
-  const totalQuestions = questions.length;
+  const totalQuestions = affectedData?.total ?? 0;
+  const totalQuestionPages = Math.max(1, affectedData?.totalPages ?? 1);
 
   // 2. Fetch all normalized crops directly from crop_master
   const { data: allCropsData, isLoading: isCropsLoading } = useGetNormalisedCrops(open);
@@ -67,36 +95,39 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
   // Mutation
   const { mutateAsync: deleteOrReassign, isPending: isMutating } = useDeleteCrop();
 
-  // Local state
+  // Selection state:
+  // selectAllMode = true -> Reassigns ALL questions across entire database (atomic on MongoDB) and deletes crop
+  // selectAllMode = false -> Reassigns only questions explicitly in selectedQuestionIds
+  const [selectAllMode, setSelectAllMode] = useState(true);
   const [selectedQuestionIds, setSelectedQuestionIds] = useState<Set<string>>(new Set());
   const [selectedReplacementCrop, setSelectedReplacementCrop] = useState<ICropResponse | null>(null);
-  const [questionSearch, setQuestionSearch] = useState("");
-  const [cropSearch, setCropSearch] = useState("");
 
-  // Initialize all questions as selected when questions load
+  // Replacement crop search & pagination state (Client-side over cached crop master list)
+  const [cropSearch, setCropSearch] = useState("");
+  const [cropPage, setCropPage] = useState(1);
+  const [cropLimit, setCropLimit] = useState(10);
+
+  // Reset modal state when crop target changes or modal opens
   useEffect(() => {
-    if (questions.length > 0) {
-      setSelectedQuestionIds(new Set(questions.map((q) => q._id)));
-    } else {
-      setSelectedQuestionIds(new Set());
-    }
+    setSelectAllMode(true);
+    setSelectedQuestionIds(new Set());
     setSelectedReplacementCrop(null);
     setQuestionSearch("");
+    setDebouncedSearch("");
+    setQuestionPage(1);
     setCropSearch("");
-  }, [cropId, questions.length]);
+    setCropPage(1);
+  }, [cropId, open]);
 
-  // Filtered questions
-  const filteredQuestions = useMemo(() => {
-    if (!questionSearch.trim()) return questions;
-    const q = questionSearch.toLowerCase();
-    return questions.filter(
-      (item) =>
-        item.question?.toLowerCase().includes(q) ||
-        item.details?.state?.toLowerCase().includes(q) ||
-        item.details?.district?.toLowerCase().includes(q) ||
-        item._id.toLowerCase().includes(q)
-    );
-  }, [questions, questionSearch]);
+  // When questionLimit changes, reset page to 1
+  useEffect(() => {
+    setQuestionPage(1);
+  }, [questionLimit]);
+
+  // When cropSearch or cropLimit changes, reset cropPage to 1
+  useEffect(() => {
+    setCropPage(1);
+  }, [cropSearch, cropLimit]);
 
   // Filtered replacement crops
   const filteredReplacementCrops = useMemo(() => {
@@ -117,8 +148,27 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
     });
   }, [availableReplacementCrops, cropSearch]);
 
-  // Selection handlers
+  // Paginated replacement crops
+  const totalCropPages = Math.max(1, Math.ceil(filteredReplacementCrops.length / cropLimit));
+  const validCropPage = Math.min(Math.max(1, cropPage), totalCropPages);
+  const cropStartIndex = (validCropPage - 1) * cropLimit;
+  const cropEndIndex = Math.min(cropStartIndex + cropLimit, filteredReplacementCrops.length);
+  const paginatedCrops = useMemo(() => {
+    return filteredReplacementCrops.slice(cropStartIndex, cropEndIndex);
+  }, [filteredReplacementCrops, cropStartIndex, cropEndIndex]);
+
+  // Question selection handlers
   const handleToggleQuestion = (id: string) => {
+    if (selectAllMode) {
+      // Switching from Select All to Partial selection:
+      // Start with all other current questions selected except this one
+      const newSet = new Set(questions.map((q) => q._id));
+      newSet.delete(id);
+      setSelectedQuestionIds(newSet);
+      setSelectAllMode(false);
+      return;
+    }
+
     setSelectedQuestionIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) {
@@ -130,29 +180,43 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
     });
   };
 
-  const isAllSelected =
-    filteredQuestions.length > 0 &&
-    filteredQuestions.every((q) => selectedQuestionIds.has(q._id));
-
-  const isSomeSelected =
-    filteredQuestions.some((q) => selectedQuestionIds.has(q._id)) && !isAllSelected;
-
   const handleToggleSelectAll = () => {
+    if (selectAllMode) {
+      // Deselect all
+      setSelectAllMode(false);
+      setSelectedQuestionIds(new Set());
+    } else {
+      // Select all across all pages
+      setSelectAllMode(true);
+      setSelectedQuestionIds(new Set());
+    }
+  };
+
+  const isCurrentPageAllSelected =
+    questions.length > 0 &&
+    (selectAllMode || questions.every((q) => selectedQuestionIds.has(q._id)));
+
+  const handleToggleSelectCurrentPage = () => {
+    if (selectAllMode) {
+      // Deselect current page items
+      setSelectAllMode(false);
+      setSelectedQuestionIds(new Set());
+      return;
+    }
+
     setSelectedQuestionIds((prev) => {
       const next = new Set(prev);
-      if (isAllSelected) {
-        // Unselect filtered questions
-        filteredQuestions.forEach((q) => next.delete(q._id));
+      if (isCurrentPageAllSelected) {
+        questions.forEach((q) => next.delete(q._id));
       } else {
-        // Select all filtered questions
-        filteredQuestions.forEach((q) => next.add(q._id));
+        questions.forEach((q) => next.add(q._id));
       }
       return next;
     });
   };
 
-  const selectedCount = selectedQuestionIds.size;
-  const isFullMigration = selectedCount >= totalQuestions && totalQuestions > 0;
+  const selectedCount = selectAllMode ? totalQuestions : selectedQuestionIds.size;
+  const isFullMigration = selectAllMode || (selectedCount >= totalQuestions && totalQuestions > 0);
 
   // Submission handler
   const handleSubmit = async () => {
@@ -162,7 +226,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
     if (totalQuestions === 0) {
       const toastId = toast.loading(`Deleting crop "${crop.name}"...`);
       try {
-        const res = await deleteOrReassign({
+        await deleteOrReassign({
           cropId,
           payload: {},
         });
@@ -188,7 +252,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
       return;
     }
 
-    if (selectedCount === 0) {
+    if (!selectAllMode && selectedCount === 0) {
       toast.warning("No questions selected", {
         desc: "Please select at least one question to reassign, or select all to delete the crop.",
       });
@@ -197,7 +261,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
     const toastId = toast.loading(
       isFullMigration
-        ? `Reassigning questions and deleting "${crop.name}"...`
+        ? `Reassigning all ${totalQuestions} questions and deleting "${crop.name}"...`
         : `Reassigning ${selectedCount} questions to "${selectedReplacementCrop.name}"...`
     );
 
@@ -206,7 +270,8 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
         cropId,
         payload: {
           replacementCropId: selectedReplacementCrop._id,
-          questionIds: Array.from(selectedQuestionIds),
+          reassignAll: selectAllMode,
+          questionIds: selectAllMode ? undefined : Array.from(selectedQuestionIds),
         },
       });
 
@@ -214,14 +279,14 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
 
       if (res?.cropDeleted || isFullMigration) {
         toast.success(`Crop "${crop.name}" deleted successfully`, {
-          desc: `All ${selectedCount} questions reassigned to "${selectedReplacementCrop.name}".`,
+          desc: `All questions reassigned to "${selectedReplacementCrop.name}".`,
         });
         onClose();
       } else {
         toast.info(`Questions reassigned successfully`, {
           desc: `${res?.reassignedCount || selectedCount} questions updated to "${selectedReplacementCrop.name}". "${crop.name}" remains until all questions are migrated.`,
         });
-        // Refetch affected questions so the modal shows the updated remaining list
+        // Refetch affected questions
         refetchQuestions();
       }
     } catch (err: any) {
@@ -231,6 +296,9 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
       });
     }
   };
+
+  const questionRangeStart = (questionPage - 1) * questionLimit + 1;
+  const questionRangeEnd = Math.min(questionPage * questionLimit, totalQuestions);
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
@@ -254,13 +322,13 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               </div>
               <DialogDescription className="text-xs text-muted-foreground mt-0.5">
                 {isQuestionsLoading ? (
-                  "Checking questions using this crop..."
+                  "Scanning database for questions using this crop..."
                 ) : totalQuestions === 0 ? (
                   "This crop has no associated questions. It can be safely deleted directly."
                 ) : (
                   <>
                     This crop is currently referenced by{" "}
-                    <span className="font-semibold text-foreground">{totalQuestions}</span> questions.
+                    <span className="font-semibold text-foreground">{totalQuestions.toLocaleString()}</span> questions.
                     Select questions to migrate and choose a new normalized crop.
                   </>
                 )}
@@ -274,7 +342,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
           {isQuestionsLoading ? (
             <div className="flex-1 flex flex-col items-center justify-center p-12 gap-3 text-muted-foreground">
               <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              <p className="text-sm">Scanning questions with normalized crop "{crop?.name}"...</p>
+              <p className="text-sm">Scanning database for normalized crop "{crop?.name}"...</p>
             </div>
           ) : totalQuestions === 0 ? (
             /* ── Zero questions case: direct deletion confirmation ── */
@@ -304,28 +372,34 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               </div>
             </div>
           ) : (
-            /* ── Questions exist: Dual-panel layout ── */
+            /* ── Questions exist: Dual-panel layout with server-side pagination ── */
             <div className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 dark:divide-gray-800">
               {/* Left Column: Affected Questions */}
               <div className="flex flex-col min-h-0 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
                   <div className="flex items-center gap-2">
                     <Layers className="h-4 w-4 text-primary" />
                     <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
                       Affected Questions
                     </span>
                     <Badge variant="secondary" className="text-[11px] font-mono px-2 py-0">
-                      {selectedCount} of {totalQuestions}
+                      {selectedCount.toLocaleString()} of {totalQuestions.toLocaleString()}
                     </Badge>
                   </div>
+                  {isQuestionsFetching && !isQuestionsLoading && (
+                    <div className="flex items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                      <span>Updating...</span>
+                    </div>
+                  )}
                 </div>
 
-                {/* Question Search & Select All */}
-                <div className="pt-3 pb-2 space-y-2">
+                {/* Question Search & Select Controls */}
+                <div className="pt-3 pb-2 space-y-2 shrink-0">
                   <div className="relative">
                     <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
-                      placeholder="Search questions by text or ID..."
+                      placeholder="Search questions by text, crop or location..."
                       value={questionSearch}
                       onChange={(e) => setQuestionSearch(e.target.value)}
                       className="h-8 pl-8 text-xs rounded-lg"
@@ -335,28 +409,40 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                   <div className="flex items-center justify-between px-1 text-xs">
                     <label className="flex items-center gap-2 cursor-pointer select-none font-medium text-gray-700 dark:text-gray-300">
                       <Checkbox
-                        checked={isAllSelected ? true : isSomeSelected ? "indeterminate" : false}
+                        checked={selectAllMode ? true : isCurrentPageAllSelected ? "indeterminate" : false}
                         onCheckedChange={handleToggleSelectAll}
                         id="select-all-questions"
                       />
-                      <span>Select All Questions</span>
+                      <span>Select All Questions ({totalQuestions.toLocaleString()})</span>
                     </label>
-                    <span className="text-[11px] text-muted-foreground">
-                      {filteredQuestions.length} shown
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                      {!selectAllMode && (
+                        <button
+                          type="button"
+                          onClick={handleToggleSelectCurrentPage}
+                          className="text-[11px] text-primary hover:underline font-medium cursor-pointer"
+                        >
+                          {isCurrentPageAllSelected ? "Deselect Page" : "Select Page"}
+                        </button>
+                      )}
+                      <span className="text-[11px] text-muted-foreground">
+                        {selectedCount.toLocaleString()} selected
+                      </span>
+                    </div>
                   </div>
                 </div>
 
                 {/* Questions Scrollable List */}
-                <ScrollArea className="flex-1 -mx-2 px-2">
+                <ScrollArea className="flex-1 -mx-2 px-2 min-h-0">
                   <div className="space-y-2 py-1">
-                    {filteredQuestions.length === 0 ? (
+                    {questions.length === 0 ? (
                       <div className="text-center py-8 text-xs text-muted-foreground">
-                        No questions match "{questionSearch}"
+                        {debouncedSearch ? `No questions match "${debouncedSearch}"` : "No questions found"}
                       </div>
                     ) : (
-                      filteredQuestions.map((q) => {
-                        const isSelected = selectedQuestionIds.has(q._id);
+                      questions.map((q) => {
+                        const isSelected = selectAllMode || selectedQuestionIds.has(q._id);
                         return (
                           <div
                             key={q._id}
@@ -405,11 +491,88 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                     )}
                   </div>
                 </ScrollArea>
+
+                {/* Questions Pagination Footer (Backend-driven) */}
+                {totalQuestions > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 mt-2 border-t border-gray-100 dark:border-gray-800 text-xs text-muted-foreground select-none shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px]">
+                        {questionRangeStart}–{questionRangeEnd} of {totalQuestions.toLocaleString()}
+                      </span>
+                      <div className="flex items-center gap-1.5 ml-1">
+                        <span className="text-[11px] text-muted-foreground/70">Per page:</span>
+                        <select
+                          value={questionLimit}
+                          onChange={(e) => setQuestionLimit(Number(e.target.value))}
+                          disabled={isQuestionsFetching}
+                          className="h-6 px-1.5 text-[11px] rounded bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-gray-800 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={questionPage <= 1 || isQuestionsFetching}
+                        onClick={() => setQuestionPage(1)}
+                        title="First Page"
+                      >
+                        <ChevronsLeft className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={questionPage <= 1 || isQuestionsFetching}
+                        onClick={() => setQuestionPage((p) => Math.max(1, p - 1))}
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                      </Button>
+
+                      <span className="px-1.5 text-[11px] font-medium text-foreground">
+                        {questionPage} / {totalQuestionPages}
+                      </span>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={questionPage >= totalQuestionPages || isQuestionsFetching}
+                        onClick={() => setQuestionPage((p) => Math.min(totalQuestionPages, p + 1))}
+                        title="Next Page"
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={questionPage >= totalQuestionPages || isQuestionsFetching}
+                        onClick={() => setQuestionPage(totalQuestionPages)}
+                        title="Last Page"
+                      >
+                        <ChevronsRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Right Column: Replacement Crop Selector (Requirement 6, 7, 8) */}
               <div className="flex flex-col min-h-0 p-4 sm:p-5">
-                <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800">
+                <div className="flex items-center justify-between gap-2 pb-3 border-b border-gray-100 dark:border-gray-800 shrink-0">
                   <div className="flex items-center gap-2">
                     <Leaf className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
                     <span className="text-xs font-bold text-gray-900 dark:text-white uppercase tracking-wider">
@@ -421,8 +584,8 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                   </div>
                 </div>
 
-                {/* Replacement Crop Search */}
-                <div className="pt-3 pb-2">
+                {/* Replacement Crop Search & Active Selection */}
+                <div className="pt-3 pb-2 space-y-2 shrink-0">
                   <div className="relative">
                     <Search className="h-3.5 w-3.5 absolute left-2.5 top-1/2 -translate-y-1/2 text-muted-foreground" />
                     <Input
@@ -432,10 +595,29 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                       className="h-8 pl-8 text-xs rounded-lg"
                     />
                   </div>
+
+                  {selectedReplacementCrop && (
+                    <div className="flex items-center justify-between px-2.5 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-500/30 text-xs">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400 shrink-0" />
+                        <span className="text-[11px] text-muted-foreground">Selected:</span>
+                        <span className="font-semibold text-emerald-700 dark:text-emerald-300 truncate">
+                          {selectedReplacementCrop.name}
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedReplacementCrop(null)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground ml-2 font-medium cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {/* Replacement Crops Scrollable List */}
-                <ScrollArea className="flex-1 -mx-2 px-2">
+                <ScrollArea className="flex-1 -mx-2 px-2 min-h-0">
                   {isCropsLoading ? (
                     <div className="py-8 flex justify-center text-muted-foreground">
                       <Loader2 className="h-6 w-6 animate-spin text-primary" />
@@ -450,7 +632,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                     </div>
                   ) : (
                     <div className="space-y-2 py-1">
-                      {filteredReplacementCrops.map((c) => {
+                      {paginatedCrops.map((c) => {
                         const isSelected = selectedReplacementCrop?._id === c._id;
                         const aliasList = (c.aliases || [])
                           .map((a: any) =>
@@ -523,6 +705,82 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                     </div>
                   )}
                 </ScrollArea>
+
+                {/* Replacement Crops Pagination Footer */}
+                {filteredReplacementCrops.length > 0 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pt-2.5 mt-2 border-t border-gray-100 dark:border-gray-800 text-xs text-muted-foreground select-none shrink-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[11px]">
+                        {cropStartIndex + 1}–{cropEndIndex} of {filteredReplacementCrops.length}
+                      </span>
+                      <div className="flex items-center gap-1.5 ml-1">
+                        <span className="text-[11px] text-muted-foreground/70">Per page:</span>
+                        <select
+                          value={cropLimit}
+                          onChange={(e) => setCropLimit(Number(e.target.value))}
+                          className="h-6 px-1.5 text-[11px] rounded bg-gray-50 dark:bg-white/[0.04] border border-gray-200 dark:border-gray-800 text-foreground cursor-pointer focus:outline-none focus:ring-1 focus:ring-primary"
+                        >
+                          <option value={10}>10</option>
+                          <option value={20}>20</option>
+                          <option value={50}>50</option>
+                          <option value={100}>100</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={validCropPage <= 1}
+                        onClick={() => setCropPage(1)}
+                        title="First Page"
+                      >
+                        <ChevronsLeft className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={validCropPage <= 1}
+                        onClick={() => setCropPage((p) => Math.max(1, p - 1))}
+                        title="Previous Page"
+                      >
+                        <ChevronLeft className="h-3 w-3" />
+                      </Button>
+
+                      <span className="px-1.5 text-[11px] font-medium text-foreground">
+                        {validCropPage} / {totalCropPages}
+                      </span>
+
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={validCropPage >= totalCropPages}
+                        onClick={() => setCropPage((p) => Math.min(totalCropPages, p + 1))}
+                        title="Next Page"
+                      >
+                        <ChevronRight className="h-3 w-3" />
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="icon"
+                        className="h-6 w-6 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                        disabled={validCropPage >= totalCropPages}
+                        onClick={() => setCropPage(totalCropPages)}
+                        title="Last Page"
+                      >
+                        <ChevronsRight className="h-3 w-3" />
+                      </Button>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
@@ -535,7 +793,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               <div className="flex items-center gap-2 text-rose-700 dark:text-rose-400">
                 <AlertTriangle className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Full Migration & Deletion:</strong> All {totalQuestions} questions will be
+                  <strong>Full Migration & Deletion:</strong> All {totalQuestions.toLocaleString()} questions will be
                   reassigned to{" "}
                   <strong>{selectedReplacementCrop?.name || "(select a crop)"}</strong> and{" "}
                   <strong>"{crop?.name}"</strong> will be permanently deleted from crop master.
@@ -545,7 +803,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
                 <Info className="h-4 w-4 shrink-0" />
                 <span>
-                  <strong>Partial Migration:</strong> {selectedCount} of {totalQuestions} questions will
+                  <strong>Partial Migration:</strong> {selectedCount.toLocaleString()} of {totalQuestions.toLocaleString()} questions will
                   be reassigned to{" "}
                   <strong>{selectedReplacementCrop?.name || "(select a crop)"}</strong>.{" "}
                   "{crop?.name}" will <strong>remain in crop master</strong> until all questions are
@@ -594,12 +852,12 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
                 variant="destructive"
                 size="sm"
                 onClick={handleSubmit}
-                disabled={isMutating || !selectedReplacementCrop || selectedCount === 0}
+                disabled={isMutating || !selectedReplacementCrop}
                 className="text-xs h-9 bg-rose-600 hover:bg-rose-700 text-white gap-1.5"
               >
                 {isMutating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 <Trash2 className="h-3.5 w-3.5" />
-                Reassign All & Delete Crop
+                Reassign All ({totalQuestions.toLocaleString()}) & Delete Crop
               </Button>
             ) : (
               <Button
@@ -611,7 +869,7 @@ export const DeleteCropModal = ({ crop, open, onClose }: DeleteCropModalProps) =
               >
                 {isMutating && <Loader2 className="h-3.5 w-3.5 animate-spin" />}
                 <ArrowRight className="h-3.5 w-3.5" />
-                Reassign Selected ({selectedCount}) Questions
+                Reassign Selected ({selectedCount.toLocaleString()}) Questions
               </Button>
             )}
           </div>
