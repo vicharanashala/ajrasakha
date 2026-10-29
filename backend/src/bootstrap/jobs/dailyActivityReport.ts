@@ -17,7 +17,7 @@ import { appConfig } from '#root/config/app.js';
  */
 // const ENABLE_INPROCESS_CRON = appConfig.enableDailyActivityReportCron;
 
-if (!appConfig.isDevelopment) {
+if (!appConfig.isDevelopment&& false) {
   cron.schedule(
     '0 0 * * *',
     async () => {
