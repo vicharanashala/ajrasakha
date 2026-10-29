@@ -23,8 +23,7 @@ states_name_list = [
     "Jammu And Kashmir",
     "Jharkhand",
     "Karnataka",
-    "Kerala",
-    "Keralam",  # New official name (updated from Kerala)
+    "Keralam",  # Updated from Kerala
     "Ladakh",
     "Madhya Pradesh",
     "Maharashtra",
