@@ -175,8 +175,13 @@ export default function DocumentManagementPanel({
               resolveNewDocNotification(pending);
             }
             next.delete(id);
-          } else if (item.status !== "awaiting_review") {
-            // Failed (or any other terminal, non-awaiting status) — nothing was created.
+          } else if (item.status === "failed") {
+            // Confirmed with the PoP team: "new" claims the item with status "uploading" the
+            // MOMENT the POST is accepted (before the Zoho upload even starts), and stays
+            // "uploading" the whole time it's in flight — it's never "awaiting_review" again once
+            // this starts. Only "failed" is a real terminal failure; anything else (status still
+            // "uploading") just means it's still running, so keep waiting rather than treating the
+            // very next poll as a failure and dropping the notification before it ever resolves.
             pendingNewDocNotifications.current.delete(id);
             next.delete(id);
           }
@@ -475,7 +480,13 @@ export default function DocumentManagementPanel({
   // the caller genuinely has nothing better.
   function notifyAdminAdded(item, annamId) {
     const uploaderId = item.expert;
-    const approverId = item.approved_by_approver_id || undefined;
+    // An approver who approves their own upload up to admin stage IS the approver on their own
+    // item (confirmed with the PoP team) — `approved_by_approver_id` then equals `expert`, not a
+    // second person. Drop it in that case so that one person doesn't get this notification twice.
+    const approverId =
+      item.approved_by_approver_id && item.approved_by_approver_id !== uploaderId
+        ? item.approved_by_approver_id
+        : undefined;
     if (!uploaderId && !approverId) return;
     notificationService
       .notifyPopEvent({
@@ -508,9 +519,11 @@ export default function DocumentManagementPanel({
     }
   }
 
-  // Async — the item stays in the queue at status=awaiting_review while the real Zoho upload
-  // happens server-side; mark it "processing" and let the fast follow-up poll above discover
-  // when it's actually resolved rather than assuming this call alone finished the job.
+  // Async — the item moves to status "uploading" the moment this POST is accepted (confirmed
+  // with the PoP team: before the real Zoho upload even starts) and stays "uploading" while it
+  // runs server-side; mark it "processing" and let the fast follow-up poll above discover when
+  // it's actually resolved (gone = succeeded, status "failed" = failed) rather than assuming this
+  // call alone finished the job.
   async function handleNewUpload(item) {
     setBusyUploadId(item.id);
     try {

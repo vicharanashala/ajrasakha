@@ -146,6 +146,20 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         return () => navigator.serviceWorker.removeEventListener("message", handler);
     }, [queryClient]);
 
+    // Fallback only — same reasoning as the PoP upload queue's own SSE+poll pairing (see
+    // DocumentManagementPanel.tsx's setInterval(refetchAll, 60000)): the push's postMessage above
+    // is the primary signal, but a push notification can still land (OS banner shows) without its
+    // postMessage reaching this tab, e.g. when the service worker was idle-terminated and the
+    // browser re-wakes a fresh instance for just the push event. Without this, the bell/sidebar can
+    // silently miss an update even though the push itself clearly arrived.
+    useEffect(() => {
+        const id = setInterval(() => {
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+        }, 60000);
+        return () => clearInterval(id);
+    }, [queryClient]);
+
     const filteredNotifications = notifications.filter((n) => {
         if (filter === "unread") return !n.is_read;
         if (filter === "read") return n.is_read;
