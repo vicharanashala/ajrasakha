@@ -6,7 +6,9 @@ Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
 "Separate responsibilities").
 """
 
-from . import llm_client, reference_selector, text_checks
+import functools
+
+from . import llm_client, reference_data, reference_selector, text_checks
 from .models import (
     LLMUnavailableError,
     MatchedReference,
@@ -31,8 +33,20 @@ from .models import (
 # neighboring section (Writing Assistant Build Plan, Revision 15, ISS-05).
 _MIN_SHARED_TERMS_FOR_TRUST = 2
 
+# A section's overlap with this step only counts if no *other* step's own
+# example overlaps with that same section by more than this multiple -
+# otherwise the section is that other step's content, just restating a
+# fact this step also cares about, not genuine evidence for this step.
+# Confirmed necessary live: a draft's Introduction restating "major,
+# recurring disease" (step 1's own territory) kept crediting a removed
+# "is this major or minor" step (step 2) just because those same two
+# words are also in step 2's example - the Introduction section's
+# overlap with step 1 is far larger, so step 2's claim on it is spurious
+# (Writing Assistant Build Plan, Revision 17, ISS-05).
+_DOMINANCE_MARGIN = 1.5
 
-def _has_textual_evidence(step: ReferenceStep, draft_text: str) -> bool:
+
+def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[ReferenceStep]) -> bool:
     # The example's own text, not the step name - a step name like
     # "Cultural control"/"Chemical control" shares the generic word
     # "control" with several other steps in the same "X control"
@@ -43,10 +57,22 @@ def _has_textual_evidence(step: ReferenceStep, draft_text: str) -> bool:
     step_terms = text_checks.significant_words(step.example)
     if not step_terms:
         return True  # nothing meaningful to check against - don't block on this
-    return any(
-        len(step_terms & text_checks.significant_words(section)) >= _MIN_SHARED_TERMS_FOR_TRUST
-        for section in text_checks.split_sections(draft_text)
-    )
+
+    other_terms_list = [
+        text_checks.significant_words(s.example) for s in all_steps if s is not step
+    ]
+    for section in text_checks.split_sections(draft_text):
+        section_terms = text_checks.significant_words(section)
+        overlap = len(step_terms & section_terms)
+        if overlap < _MIN_SHARED_TERMS_FOR_TRUST:
+            continue
+        dominated_by_another_step = any(
+            len(other_terms & section_terms) > overlap * _DOMINANCE_MARGIN
+            for other_terms in other_terms_list
+        )
+        if not dominated_by_another_step:
+            return True
+    return False
 
 
 def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list[StepCoverageResult], list[int | None]]:
@@ -60,7 +86,7 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only
         # ever downgrades toward "missing", never promotes away from it.
-        if coverage != StepCoverage.MISSING and not _has_textual_evidence(step, draft_text):
+        if coverage != StepCoverage.MISSING and not _has_textual_evidence(step, draft_text, structure.steps):
             coverage = StepCoverage.MISSING
             section_index = None
         # Example/Suggestion text is "what's expected" explanation for a
@@ -146,3 +172,22 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
         steps=steps,
         order_warnings=_order_warnings(steps, section_indices),
     )
+
+
+@functools.lru_cache(maxsize=512)
+def validate_structure_cached(question: str, draft_text: str) -> StructuralValidationResult:
+    """Deterministic entry point for the HTTP endpoint: the exact same
+    (question, draft) pair always returns the exact same result within
+    this process - closes the "identical input gives a different result
+    on repeated calls" gap (Writing Assistant Build Plan, Revision 17,
+    ISS-04/ISS-11) for the literal repeated-request case the real test
+    report exercised (RL-01/02/03, QT-01 vs AS-01 vs AG-02 with the same
+    text). Not a staleness risk - (question, draft) is the cache key, so
+    a changed draft is a cache miss by construction; a reference-data
+    reload still requires a process restart regardless (unaffected -
+    see 'Production release consistency'). Does not and cannot make the
+    model's judgment on two *different*-but-similar drafts consistent
+    with each other. Tests must clear this between cases - see
+    conftest.py."""
+    dataset = reference_data.get_cached_dataset()
+    return validate_structure(question, draft_text, dataset)

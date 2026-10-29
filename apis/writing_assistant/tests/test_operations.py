@@ -62,3 +62,19 @@ def test_polish_draft_unavailable_when_llm_cannot_generate(monkeypatch):
     assert result.suggested_text is None
     assert result.guardrail is None
     assert result.reason
+
+
+# Revision 17 (ISS-04/11): the same exact draft submitted twice must
+# return the exact same result, even if the underlying model would have
+# judged it differently on a second real call.
+def test_polish_draft_cached_is_deterministic_on_repeated_identical_input(monkeypatch):
+    rewrites = iter(["The treatment is effective.", "The treatment works well."])
+    monkeypatch.setattr(llm_client, "generate_polish", lambda draft: next(rewrites))
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
+
+    first = operations.polish_draft_cached("The treatment are effective.")
+    second = operations.polish_draft_cached("The treatment are effective.")
+
+    assert first is second
+    assert first.suggested_text == "The treatment is effective."

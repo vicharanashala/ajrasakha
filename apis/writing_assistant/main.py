@@ -21,13 +21,13 @@ app = FastAPI(title="Writing Assistant")
 def polish_draft_endpoint(request: PolishDraftRequest) -> PolishDraftResponse:
     warnings: list[str] = []
 
-    language_result = operations.polish_draft(request.draft)
+    language_result = operations.polish_draft_cached(request.draft)
 
     dataset = reference_data.get_cached_dataset()
     if dataset is None:
         warnings.append("Reference dataset is not loaded - structural validation is unavailable.")
 
-    structural_result = structural_validator.validate_structure(request.question, request.draft, dataset)
+    structural_result = structural_validator.validate_structure_cached(request.question, request.draft)
 
     return PolishDraftResponse(
         request_id=str(uuid.uuid4()),

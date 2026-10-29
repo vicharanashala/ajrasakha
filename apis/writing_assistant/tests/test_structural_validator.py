@@ -206,3 +206,23 @@ def test_classify_step_coverage_receives_the_full_step_list(monkeypatch, dataset
     assert len(seen_calls) == 2
     assert seen_calls[0] == ["Introduction", "Correction"]
     assert seen_calls[1] == ["Introduction", "Correction"]
+
+
+# Revision 17 (ISS-04/11): the same exact (question, draft) submitted
+# twice must return the exact same result, even if the underlying model
+# would have judged it differently on a second real call.
+def test_validate_structure_cached_is_deterministic_on_repeated_identical_input(monkeypatch, dataset):
+    from assistant import reference_data
+
+    monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
+    coverages = iter([StepCoverage.COVERED, StepCoverage.PARTIAL])
+    monkeypatch.setattr(
+        llm_client, "classify_step_coverage",
+        lambda draft, step, example, all_steps=None, subject=None: (next(coverages), 1),
+    )
+
+    first = structural_validator.validate_structure_cached("q", _REALISTIC_DRAFT)
+    second = structural_validator.validate_structure_cached("q", _REALISTIC_DRAFT)
+
+    assert first is second
+    assert first.steps[0].coverage == StepCoverage.COVERED

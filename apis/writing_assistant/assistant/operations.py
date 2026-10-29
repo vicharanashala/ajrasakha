@@ -5,8 +5,26 @@ this service - only the author's own explicit acceptance (outside this
 service, in the backend) changes it.
 """
 
+import functools
+
 from . import guardrails, llm_client
 from .models import LanguagePolishingResult, LanguagePolishingStatus, LLMUnavailableError
+
+
+@functools.lru_cache(maxsize=512)
+def polish_draft_cached(draft_text: str) -> LanguagePolishingResult:
+    """Deterministic entry point for the HTTP endpoint: the exact same
+    draft always returns the exact same result within this process -
+    closes the "identical input gives a different result on repeated
+    calls" gap (Writing Assistant Build Plan, Revision 17, ISS-04/
+    ISS-11) for the literal repeated-request case the real test report
+    exercised. Not a staleness risk - the draft text itself is the
+    cache key, so a changed draft is a cache miss by construction. Does
+    not and cannot make the underlying model's judgment on two
+    *different*-but-similar drafts consistent with each other - that
+    remains an inherent property of the model, not something caching
+    fixes. Tests must clear this between cases - see conftest.py."""
+    return polish_draft(draft_text)
 
 
 def polish_draft(draft_text: str) -> LanguagePolishingResult:

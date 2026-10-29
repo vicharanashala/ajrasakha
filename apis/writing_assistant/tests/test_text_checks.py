@@ -80,6 +80,17 @@ def test_extract_negations():
     assert text_checks.extract_negations("Apply before flowering.") == frozenset()
 
 
+def test_extract_negations_recognizes_hindi():
+    # Revision 17 (ISS-16): confirmed live that Hindi-script negation was
+    # invisible to every word-based check (the word regex didn't match
+    # Devanagari characters at all, not just a missing word).
+    assert "नहीं" in text_checks.extract_negations("यह दवा नहीं डालें।")
+
+
+def test_extract_crop_names_recognizes_hindi():
+    assert "धान" in text_checks.extract_crop_names("धान की फसल अच्छी है।")
+
+
 def test_extract_certainty_markers_hedge_vs_absolute():
     assert "may" in text_checks.extract_certainty_markers("This may help reduce the spread.")
     assert "will" in text_checks.extract_certainty_markers("This will completely eliminate the disease.")

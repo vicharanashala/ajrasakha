@@ -35,6 +35,11 @@ _TIMING_PHRASE_RE = re.compile(
 NEGATION_WORDS = {
     "not", "never", "no", "none", "cannot", "can't", "don't", "doesn't",
     "didn't", "shouldn't", "won't", "wouldn't", "without", "avoid",
+    # Hindi (Devanagari script) - deliberately small and high-confidence
+    # only (common, unambiguous words), not a general Hindi NLP effort.
+    # "नहीं" (nahiṃ, "not/no"), "मत" (mat, "don't"),
+    # "बिना" (bina, "without") (Revision 17, ISS-16).
+    "नहीं", "मत", "बिना",
 }
 
 HEDGE_WORDS = {
@@ -65,6 +70,10 @@ CROP_NAMES = {
     "okra", "bhindi", "cucumber", "watermelon", "papaya", "coconut",
     "coffee", "tea", "jute", "sunflower", "sesame", "turmeric", "ginger",
     "garlic", "cumin", "coriander",
+    # Hindi (Devanagari script) - the two most common crop names for this
+    # dataset's own domain only, high-confidence. "धान" (dhān,
+    # "paddy/rice"), "गेहूं" (gehūṃ, "wheat") (Revision 17, ISS-16).
+    "धान", "गेहूं",
 }
 
 TREATMENT_TERMS = {
@@ -143,7 +152,12 @@ def align_sections_and_sentences(
 
 
 def _words(sentence: str) -> list[str]:
-    return re.findall(r"[A-Za-z']+", sentence.lower())
+    # ऀ-ॿ is the Devanagari Unicode block (Hindi script) - without
+    # it, every word-based check (negation, crop names, conditionals,
+    # significant_words) silently matched nothing at all on Hindi text,
+    # confirmed live against a real Hindi draft (Writing Assistant Build
+    # Plan, Revision 17, ISS-16).
+    return re.findall(r"[A-Za-z'ऀ-ॿ]+", sentence.lower())
 
 
 def extract_numbers_and_units(sentence: str) -> frozenset[str]:
