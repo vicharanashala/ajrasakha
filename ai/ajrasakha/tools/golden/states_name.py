@@ -24,6 +24,7 @@ states_name_list = [
     "Jharkhand",
     "Karnataka",
     "Kerala",
+    "Keralam",  # New official name (updated from Kerala)
     "Ladakh",
     "Madhya Pradesh",
     "Maharashtra",
@@ -70,6 +71,12 @@ def resolve_state_name(raw: str, *, min_score: float = STATE_FUZZY_MIN_SCORE) ->
         return "all"
 
     lower = normalized.lower()
+
+    # SPECIAL CASE: Handle "Keralam" explicitly before fuzzy matching
+    # to preserve it as-is (not convert to "Kerala")
+    if lower == "keralam":
+        return "Keralam"
+
     for canonical in states_name_list:
         if canonical.lower() == lower:
             return canonical
