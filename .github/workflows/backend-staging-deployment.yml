@@ -107,7 +107,13 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
 
-      - name: Deploy to Cloud Run (Staging)
+      # Cloud Run pulls unqualified Docker Hub images through Google's mirror.gcr.io
+      # pull-through cache, which can lag a few minutes behind a fresh push and fail with
+      # "Image ... not found" even though the image is already on Docker Hub. Retried below
+      # (3 attempts, 30s/60s backoff) purely to absorb that lag — same deploy config each time.
+      - name: Deploy to Cloud Run (Staging) — attempt 1
+        id: deploy_attempt_1
+        continue-on-error: true
         uses: google-github-actions/deploy-cloudrun@v2
         with:
           service: ${{ env.GCP_SERVICE }}
@@ -188,4 +194,98 @@ jobs:
           #   DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
           #   DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
 
+          flags: --allow-unauthenticated
+
+      - name: Wait before retry 1 (mirror.gcr.io lag)
+        if: steps.deploy_attempt_1.outcome == 'failure'
+        run: |
+          echo "Deploy attempt 1 failed — likely mirror.gcr.io hasn't caught up with the fresh push yet. Retrying in 30s."
+          sleep 30
+
+      # Same config as attempt 1 — see the comment above attempt 1 for why this retries at all.
+      - name: Deploy to Cloud Run (Staging) — attempt 2
+        id: deploy_attempt_2
+        if: steps.deploy_attempt_1.outcome == 'failure'
+        continue-on-error: true
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ github.run_id }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          secrets: |
+            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+          env_vars: |
+            NODE_ENV=staging
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            TAILSCALE_HOSTNAME=gcp-staging
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
+            DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
+            REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+            POP_DB_URL=${{ secrets.POP_DB_URL }}
+            POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            MINIMAX_API=${{ secrets.MINIMAX_API }}
+            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
+            TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
+            TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
+            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
+            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
+            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
+            ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
+            ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
+            ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
+            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
+            GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
+            ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
+            FFV_PORT=${{ secrets.FFV_PORT}}
+          env_vars_update_strategy: merge
+          flags: --allow-unauthenticated
+
+      - name: Wait before retry 2 (mirror.gcr.io lag)
+        if: steps.deploy_attempt_1.outcome == 'failure' && steps.deploy_attempt_2.outcome == 'failure'
+        run: |
+          echo "Deploy attempt 2 also failed. Retrying in 60s — final attempt."
+          sleep 60
+
+      # Final attempt — no continue-on-error, so if this fails too the job fails exactly as it
+      # did before this retry logic was added.
+      - name: Deploy to Cloud Run (Staging) — attempt 3
+        id: deploy_attempt_3
+        if: steps.deploy_attempt_1.outcome == 'failure' && steps.deploy_attempt_2.outcome == 'failure'
+        uses: google-github-actions/deploy-cloudrun@v2
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:staging-${{ github.run_id }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+          secrets: |
+            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+          env_vars: |
+            NODE_ENV=staging
+            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
+            TAILSCALE_HOSTNAME=gcp-staging
+            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
+            DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
+            REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+            POP_DB_URL=${{ secrets.POP_DB_URL }}
+            POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            MINIMAX_API=${{ secrets.MINIMAX_API }}
+            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
+            TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
+            TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
+            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
+            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
+            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
+            ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
+            ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
+            ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
+            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
+            GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
+            ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
+            FFV_PORT=${{ secrets.FFV_PORT}}
+          env_vars_update_strategy: merge
           flags: --allow-unauthenticated
