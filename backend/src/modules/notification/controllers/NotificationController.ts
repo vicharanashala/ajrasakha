@@ -18,7 +18,7 @@ import {inject} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {BadRequestErrorResponse} from '#shared/middleware/errorHandler.js';
 import {IUser} from '#root/shared/interfaces/models.js';
-import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse } from '#root/modules/notification/validators/NotificationValidators.js';
+import { AddNotificationBody, AddPushSubscriptionBody, DeleteNotificationParams, MessageBody, NotificationResponse, PopNotificationEventBody } from '#root/modules/notification/validators/NotificationValidators.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import {COORDINATOR_ROLES} from '#root/shared/constants/roles.js';
 import {
@@ -286,5 +286,16 @@ export class NotificationController {
     const {message} = body;
     const userId = user._id.toString();
     return this.notificationService.sendNotifications(userId,message)
+  }
+
+  @OpenAPI({
+    summary: 'Notify on a PoP upload-queue transition',
+    description: 'Called by the frontend right after a PoP upload/approve/decline/add-to-db action succeeds against the external PoP service, to notify the relevant uploader/approvers/admins.',
+  })
+  @Post('/pop-events')
+  @HttpCode(201)
+  @Authorized()
+  async notifyPopEvent(@Body() body: PopNotificationEventBody, @CurrentUser() user: IUser) {
+    return this.notificationService.notifyPopEvent(body, user);
   }
 }
