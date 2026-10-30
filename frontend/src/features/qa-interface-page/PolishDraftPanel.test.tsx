@@ -44,7 +44,9 @@ describe("PolishDraftPanel", () => {
         onDismiss={vi.fn()}
       />,
     );
-    expect(screen.getByText("Polish draft").closest("button")).toBeDisabled();
+    expect(
+      (screen.getByText("Polish draft").closest("button") as HTMLButtonElement | null)?.disabled,
+    ).toBe(true);
   });
 
   it("calls onPolish when clicked with a non-empty draft", () => {
