@@ -168,18 +168,6 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         };
     }, [queryClient]);
 
-    // True last resort, independent of both cues above — covers a recipient who is neither on the
-    // PoP dashboard page (no SSE cue) nor getting push delivered to this tab (no postMessage cue).
-    // Deliberately much slower than the burst: the two instant cues above now handle the common
-    // case, so this only needs to bound the worst case, not chase instant delivery on its own.
-    useEffect(() => {
-        const id = setInterval(() => {
-            queryClient.invalidateQueries({ queryKey: ["notifications"] });
-            queryClient.invalidateQueries({ queryKey: ["user"] });
-        }, 60000);
-        return () => clearInterval(id);
-    }, [queryClient]);
-
     const filteredNotifications = notifications.filter((n) => {
         if (filter === "unread") return !n.is_read;
         if (filter === "read") return n.is_read;
