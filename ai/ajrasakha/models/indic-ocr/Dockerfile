@@ -51,10 +51,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Install Python and runtime dependencies
+# Install Python 3.11 from deadsnakes PPA (includes libpython3.11)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
         python3.11 python3.11-dev python3.11-distutils \
-        libpython3.11 libgomp1 \
+        python3.11-venv libpython3.11 libgomp1 \
         curl git git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
