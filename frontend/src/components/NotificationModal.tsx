@@ -134,30 +134,30 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
     // ["user"] (the bell icon's red badge count comes from user.notifications, a completely
     // separate query — see PlaygroundHeader.tsx) — same pairing useMarkAsReadNotification already
     // uses to keep the two in sync.
+    // Fallback for the push's postMessage above — it can land unreliably per-tab (the OS banner,
+    // a separate step in the same service-worker push handler, keeps arriving even when
+    // postMessage to this tab doesn't, a known service-worker reliability gap rather than
+    // anything specific to a notification type). Each push re-arms three catch-up invalidations
+    // 10s apart instead of polling nonstop forever — there's nothing to catch up on between pop
+    // actions (approve/decline/add-new/GridFS->queue), so there's nothing to poll for either.
     useEffect(() => {
         if (!("serviceWorker" in navigator)) return;
-        const handler = (event: MessageEvent) => {
-            if (event.data?.type === "new-notification") {
-                queryClient.invalidateQueries({ queryKey: ["notifications"] });
-                queryClient.invalidateQueries({ queryKey: ["user"] });
-            }
-        };
-        navigator.serviceWorker.addEventListener("message", handler);
-        return () => navigator.serviceWorker.removeEventListener("message", handler);
-    }, [queryClient]);
-
-    // Fallback only — the push's postMessage above is the primary signal, but it can land
-    // unreliably per-tab (the OS banner — a separate step in the same service-worker push handler
-    // — keeps arriving even when postMessage to this tab doesn't, a known service-worker
-    // reliability gap rather than anything specific to a notification type). 10s, not 60s: every
-    // one of these notifications is tied to a live PoP upload-queue action someone is actively
-    // waiting on, so a stale bell/sidebar for up to a minute reads as broken, not just late.
-    useEffect(() => {
-        const id = setInterval(() => {
+        const invalidate = () => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             queryClient.invalidateQueries({ queryKey: ["user"] });
-        }, 10000);
-        return () => clearInterval(id);
+        };
+        let timers: ReturnType<typeof setTimeout>[] = [];
+        const handler = (event: MessageEvent) => {
+            if (event.data?.type !== "new-notification") return;
+            invalidate();
+            timers.forEach(clearTimeout);
+            timers = [10000, 20000, 30000].map((delay) => setTimeout(invalidate, delay));
+        };
+        navigator.serviceWorker.addEventListener("message", handler);
+        return () => {
+            navigator.serviceWorker.removeEventListener("message", handler);
+            timers.forEach(clearTimeout);
+        };
     }, [queryClient]);
 
     const filteredNotifications = notifications.filter((n) => {
