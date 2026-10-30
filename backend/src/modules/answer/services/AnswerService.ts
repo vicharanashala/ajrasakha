@@ -371,6 +371,17 @@ export class AnswerService extends BaseService implements IAnswerService {
     return result;
   }
 
+  async polishDraft(payload: { question: string; draft: string }): Promise<any> {
+    if (!payload?.question || !payload?.draft) {
+      throw new BadRequestError('Question and draft are required for polishing.');
+    }
+    const result = await this.aiService.polishDraft(payload);
+    if (!result) {
+      throw new InternalServerError('Writing assistant service is temporarily unavailable.');
+    }
+    return result;
+  }
+
   async submitAnswerCheck(body: any): Promise<{ job_id: string; status: string }> {
     if (!body?.question || !body?.answer) {
       throw new BadRequestError('Question and answer are required for answer quality check.');
