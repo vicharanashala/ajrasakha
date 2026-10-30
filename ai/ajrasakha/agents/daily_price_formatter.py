@@ -284,7 +284,12 @@ def _notice_lines(payload: dict, *, market_name: str | None) -> list[str]:
     for n in res.get("latest_price_notices") or []:
         if n and str(n).strip() not in lines:
             lines.append(str(n).strip())
-    if res.get("fallback"):
+    if res.get("market_match_notice"):
+        lines.append(str(res["market_match_notice"]).strip())
+    if res.get("market_fallback_notice"):
+        # Already says which mandi could not answer and what is shown instead.
+        lines.append(str(res["market_fallback_notice"]).strip())
+    elif res.get("fallback"):
         if market_name or res.get("requested_market_name") or res.get("district_resolved_from"):
             lines.append(
                 "The requested commodity price is not available in the specified market for the given date "
@@ -611,9 +616,16 @@ def _render_composite(payload: dict, *, crop: str | None, market_name: str | Non
         if recs:
             dates = _distinct([r.get("date") for r in recs])
             on = f" on {dates[0]}" if len(dates) == 1 else ""
-            notice = _resolution(nearby).get("latest_price_notice")
+            nearby_res = _resolution(nearby)
+            notice = nearby_res.get("latest_price_notice")
+            if nearby_res.get("nearby_reference") == "user_location":
+                radius = _num(nearby_res.get("nearby_radius_km"))
+                within = f" within {radius} km" if radius else ""
+                heading = f"Prices in mandis{within} of your location{on}:"
+            else:
+                heading = f"Prices in nearby markets{on}:"
             lines = ([str(notice).strip()] if notice and not blocks else []) + _price_block(
-                recs, action="nearby_markets_price", heading=f"Prices in nearby markets{on}:",
+                recs, action="nearby_markets_price", heading=heading,
             )
             blocks.append(lines)
             sec.has_data = True

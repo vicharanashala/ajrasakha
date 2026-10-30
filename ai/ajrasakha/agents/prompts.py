@@ -1200,10 +1200,12 @@ Server Actions and Parameters:
 
 Rules:
 - search_by_apmc: boolean.
-  * Set to true if the farmer explicitly mentions "apmc", "mandi", "mand", "market", "hat", "haat", "bazar", or "sabzi mandi" (e.g. "Cuddalore APMC", "Chengannur Market", "Ludhiana mandi", "Sonarpur hat").
+  * Set to true if the farmer names a place together with a market word, before or after it: "apmc", "mandi", "mand", "market", "hat", "haat", "bazar", "bazaar", "sabzi mandi", "sandhai", "santhe", or the same word in any Indian language (मंडी, बाजार, हाट, বাজার, হাট, ਮੰਡੀ, બજાર, ମଣ୍ଡି, சந்தை, మార్కెట్, ಮಾರುಕಟ್ಟೆ, ചന്ത) (e.g. "Cuddalore APMC", "APMC Bilasipara", "Chengannur Market", "Ludhiana mandi", "Sonarpur hat", "आज़ादपुर मंडी").
   * Set to false if the farmer asks for a place/city/district without those keywords (e.g. "in Cuddalore, Tamil Nadu", "in Ludhiana", "in Cuddalore district", "Banana price in Cuddalore", "price of onion in Rupnagar, Punjab").
+  * "market price", "mandi rate", "mandi bhav", "बाजार भाव" alone describe the price and do not name a market.
 - market_name: string or null.
   * ALWAYS extract the place, city, district, or mandi name mentioned in the query into market_name (e.g. "Cuddalore", "Ludhiana", "Chengannur", "Azadpur", "Rupnagar").
+  * Write market_name in English (Latin) letters, transliterating a name written in another script, the way it appears in official APMC lists (e.g. "आज़ादपुर मंडी" -> "Azadpur", "বিলাসীপাড়া বাজার" -> "Bilasipara"). Keep every word of the mandi name (e.g. "Kurnool Rythu Bazar", "Pamohi Garchuk").
   * Do NOT set market_name to null just because it is a district or city without the word "mandi" or "apmc"! Instead, put the place name in market_name and set search_by_apmc=false. The server uses search_by_apmc=false to search across all APMCs in that district, falling back to coordinates if needed.
   * Strip trailing "district" from market_name (e.g. "Alappuzha district" -> "Alappuzha").
   * Only set market_name to null if no specific place, city, district, or mandi was mentioned at all (e.g. "tomato price near me").
@@ -1262,6 +1264,9 @@ Query: tomato rate in Ludhiana
 
 Query: onion price in Rupnagar mandi
 {"action":"get_price_with_nearby","commodity_name":"Onion","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Rupnagar","search_by_apmc":true,"state":null,"sort_order":null}
+
+Query: tomato price in APMC Bilasipara
+{"action":"get_price_with_nearby","commodity_name":"Tomato","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Bilasipara","search_by_apmc":true,"state":null,"sort_order":null}
 
 Query: What is the minimum and maximum price of coconut at Chengannur Market today
 {"action":"get_price_with_nearby","commodity_name":"Coconut","nearest_market":false,"radius_km":null,"lookback_days":null,"from_date":"10-Sep-2026","to_date":"10-Sep-2026","market_name":"Chengannur","search_by_apmc":true,"state":null,"sort_order":null}

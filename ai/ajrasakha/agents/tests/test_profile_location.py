@@ -177,7 +177,7 @@ async def test_ensure_location_never_rewrites_the_plan_location():
     assert await ensure_location_node(state, RunnableConfig()) == {}
 
 
-def test_mandi_ignores_a_market_or_state_named_in_the_query():
+def test_mandi_ignores_a_state_named_in_the_query_but_passes_a_named_mandi():
     intent = {
         "action": "get_price_with_nearby",
         "actions": ["get_price_with_nearby"],
@@ -187,10 +187,26 @@ def test_mandi_ignores_a_market_or_state_named_in_the_query():
         "state": "Punjab",
     }
     args = _build_tool_args(intent, lat=17.7, lon=83.3, crop="Tomato", state="Andhra Pradesh")
+    # State and coordinates stay the profile's; the mandi is looked up in that state and,
+    # if it is not there, the tool falls back to the mandis nearest the profile location.
     assert args["state"] == "Andhra Pradesh"
+    assert (args["lat"], args["long"]) == (17.7, 83.3)
+    assert args["market_name"] == "Ludhiana" and args["search_by_apmc"] is True
+    assert args["action"] == "get_price_with_nearby"
+
+
+def test_mandi_ignores_a_district_or_city_named_in_the_query():
+    intent = {
+        "action": "get_today_price",
+        "actions": ["get_today_price"],
+        "commodity_name": "Tomato",
+        "market_name": "Ludhiana",
+        "search_by_apmc": False,
+        "state": "Punjab",
+    }
+    args = _build_tool_args(intent, lat=17.7, lon=83.3, crop="Tomato", state="Andhra Pradesh")
     assert "market_name" not in args and args["search_by_apmc"] is False
     assert args["action"] == "get_today_price"
-    assert (args["lat"], args["long"]) == (17.7, 83.3)
 
 
 # --- prefix on catalog replies ------------------------------------------------

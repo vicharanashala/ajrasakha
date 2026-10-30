@@ -298,3 +298,35 @@ def test_summary_guard_rejects_markdown_tables_and_long_text():
 def test_every_supported_action_is_listed_in_the_intent_prompt():
     for action in SUPPORTED_ACTIONS:
         assert f'"{action}"' in DAILY_PRICE_INTENT_PROMPT
+
+
+# ── named mandi fallbacks ───────────────────────────────────────────────
+
+def test_named_mandi_fallback_notice_replaces_generic_fallback_line():
+    notice = (
+        "No mandi named 'Xyz' was found in Assam. "
+        "Showing prices from the nearest mandis within 50 km of your location."
+    )
+    payload = {
+        "action": "get_today_price",
+        "price_records": [_rec(market="pamohi(garchuk) apmc")],
+        "resolution": {"market_fallback_notice": notice, "requested_market_name": "xyz", "fallback": "x"},
+    }
+    text = _text(payload)
+    assert notice in text
+    assert "The requested commodity price is not available in the specified market" not in text
+
+
+def test_nearby_block_near_user_location_has_its_own_heading():
+    payload = {
+        "action": "get_price_with_nearby",
+        "named_market": {"error": "Mandi price data is not available for Potato in Bilasipara APMC."},
+        "nearby_markets": {
+            "action": "nearby_markets_price",
+            "price_records": [_rec(commodity="Potato", market="pamohi(garchuk) apmc")],
+            "resolution": {"nearby_reference": "user_location", "nearby_radius_km": 50.0},
+        },
+    }
+    text = _text(payload, crop="Potato")
+    assert "Mandi price data is not available for Potato in Bilasipara APMC." in text
+    assert "Prices in mandis within 50 km of your location on 2026-10-03:" in text

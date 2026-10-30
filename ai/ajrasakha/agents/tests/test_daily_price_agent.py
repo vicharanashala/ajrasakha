@@ -964,3 +964,117 @@ async def test_daily_price_asks_for_state_when_tool_requires_it():
     data = json.loads(out)
     assert data["status"] == "clarify"
     assert data["reason"] == "missing_location"
+
+# ── named mandi: detection, extraction, tool args ──────────────────────────
+
+@pytest.mark.parametrize("query, expected", [
+    ("tomato price in apmc bilasipara", "apmc bilasipara"),
+    ("tomato price at Bilasipara APMC", "Bilasipara APMC"),
+    ("Bilasipara mandi tomato price today", "Bilasipara mandi"),
+    ("what is the onion rate in Azadpur mandi", "Azadpur mandi"),
+    ("potato price in Kurnool rythu bazar", "Kurnool rythu bazar"),
+    ("price of rice in Sonarpur haat", "Sonarpur haat"),
+    ("onion price at mandi Azadpur today", "mandi Azadpur"),
+    ("What is the minimum and maximum price of coconut at Chengannur Market today", "Chengannur Market"),
+])
+def test_extract_market_name_named_mandi(query, expected):
+    from ajrasakha.agents.daily_price_agent import _extract_market_name_from_query
+
+    assert _extract_market_name_from_query(query) == expected
+
+
+@pytest.mark.parametrize("query", [
+    "What is the market price of onion in Guwahati",
+    "onion mandi rate in Guwahati",
+    "onion mandi bhav",
+    "rice market price",
+    "what is the price of onion in the market today",
+    "tomato price in Ludhiana",
+    "tomato price in Dhubri district",
+])
+def test_extract_market_name_ignores_generic_market_words(query):
+    from ajrasakha.agents.daily_price_agent import _extract_market_name_from_query
+
+    assert _extract_market_name_from_query(query) is None
+
+
+@pytest.mark.parametrize("query, market_name, expected", [
+    ("tomato price in Cuddalore APMC", "Cuddalore", True),
+    ("tomato price in APMC Cuddalore", "Cuddalore", True),
+    ("tomato price in Cuddalore", "Cuddalore", False),
+    ("tomato price in Cuddalore district", "Cuddalore", False),
+    ("tomato price at Bilasipara APMC in Dhubri district", "Bilasipara", True),
+    ("onion mandi rate in Guwahati", "Guwahati", False),
+    # Indian-script market words; the LLM transliterated the name.
+    ("आज़ादपुर मंडी में प्याज का भाव", "Azadpur", True),
+    ("বিলাসীপাড়া বাজারে টমেটোর দাম", "Bilasipara", True),
+    ("गुवाहाटी में प्याज का भाव", "Guwahati", False),
+    ("आज़ादपुर मंडी में प्याज का भाव", "आज़ादपुर मंडी", True),
+])
+def test_detect_search_by_apmc(query, market_name, expected):
+    from ajrasakha.agents.daily_price_agent import _detect_search_by_apmc
+
+    assert _detect_search_by_apmc(query, market_name) is expected
+
+
+def test_normalize_intent_overrides_llm_search_by_apmc_from_the_query():
+    plain = _normalize_intent(
+        {"action": "get_price_with_nearby", "market_name": "Cuddalore", "search_by_apmc": True},
+        "banana price in Cuddalore", llm_succeeded=True,
+    )
+    assert plain["search_by_apmc"] is False
+    assert plain["action"] == "get_today_price"
+
+    named = _normalize_intent(
+        {"action": "get_today_price", "market_name": "Bilasipara", "search_by_apmc": False},
+        "tomato price in APMC Bilasipara", llm_succeeded=True,
+    )
+    assert named["search_by_apmc"] is True
+    assert named["action"] == "get_price_with_nearby"
+
+
+def _intent(**over):
+    base = {
+        "action": "get_price_with_nearby", "actions": ["get_price_with_nearby"], "commodity_name": "Tomato",
+        "nearest_market": False, "radius_km": None, "lookback_days": None, "from_date": None, "to_date": None,
+        "market_name": "Bilasipara", "search_by_apmc": True, "state": None, "sort_order": None,
+    }
+    return {**base, **over}
+
+
+def test_build_tool_args_passes_named_mandi():
+    args = _build_tool_args(_intent(), lat=26.2, lon=90.2, crop="Tomato", state="Assam")
+    assert args["action"] == "get_price_with_nearby"
+    assert args["market_name"] == "Bilasipara"
+    assert args["search_by_apmc"] is True
+    assert args["state"] == "Assam"
+    assert (args["lat"], args["long"]) == (26.2, 90.2)
+
+
+def test_build_tool_args_sends_profile_district_only_with_a_named_mandi():
+    named = _build_tool_args(_intent(), lat=26.2, lon=90.2, crop="Tomato", state="Assam", district="Dhubri")
+    assert named["district"] == "Dhubri"
+
+    unnamed = _build_tool_args(
+        _intent(action="get_today_price", actions=["get_today_price"], search_by_apmc=False),
+        lat=26.2, lon=90.2, crop="Tomato", state="Assam", district="Dhubri",
+    )
+    assert "district" not in unnamed
+
+    placeholder = _build_tool_args(_intent(), lat=26.2, lon=90.2, crop="Tomato", state="Assam", district="unknown")
+    assert "district" not in placeholder
+
+
+def test_build_tool_args_drops_place_without_market_word():
+    args = _build_tool_args(
+        _intent(action="get_today_price", actions=["get_today_price"], search_by_apmc=False),
+        lat=26.2, lon=90.2, crop="Tomato", state="Assam",
+    )
+    assert "market_name" not in args
+    assert args["search_by_apmc"] is False
+
+
+def test_build_tool_args_drops_crop_named_as_market():
+    args = _build_tool_args(_intent(market_name="tomato market"), lat=26.2, lon=90.2, crop="Tomato", state="Assam")
+    assert "market_name" not in args
+    assert args["action"] == "get_today_price"
