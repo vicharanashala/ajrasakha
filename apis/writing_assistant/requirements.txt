@@ -2,7 +2,7 @@ fastapi
 uvicorn
 python-dotenv
 pydantic
-httpx
+httpx[socks]
 pymongo
 wordfreq
 pytest

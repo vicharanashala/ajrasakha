@@ -8,11 +8,29 @@ so no automated test ever makes a real network call.
 """
 
 import json
+import re
+from urllib.parse import urlparse
 
 import httpx
 
 from . import config, text_checks
 from .models import LLMUnavailableError, QuestionType, SelectionClassification, StepCoverage
+
+# Tailscale's userspace-networking mode (see scripts/start.sh) creates no
+# network interface, so a 100.x address is only reachable through the
+# local SOCKS5 proxy tailscaled exposes. Mirrors
+# backend/src/bootstrap/tailnetProxy.ts's isTailnetHost exactly, so both
+# services agree on what needs the proxy - everything else (the public
+# MiniMax API) keeps its normal direct route.
+_TAILNET_SOCKS_PROXY = "socks5h://localhost:1055"
+_TAILNET_HOST_RE = re.compile(r"^100\.(\d+)\.")
+
+
+def _is_tailnet_host(hostname: str) -> bool:
+    if hostname.endswith(".ts.net"):
+        return True
+    m = _TAILNET_HOST_RE.match(hostname)
+    return bool(m) and 64 <= int(m.group(1)) <= 127
 
 _POLISH_SYSTEM_PROMPT = (
     "You correct grammar, spelling, punctuation, and sentence construction "
@@ -261,9 +279,12 @@ def _chat_completion(messages: list[dict], **kwargs) -> str:
         headers["Authorization"] = f"Bearer {config.MINIMAX_API_KEY}"
 
     payload = {"model": config.MINIMAX_MODEL, "messages": messages, "seed": config.MINIMAX_SEED, **kwargs}
+    proxy = _TAILNET_SOCKS_PROXY if _is_tailnet_host(urlparse(config.MINIMAX_BASE_URL).hostname or "") else None
 
     try:
-        response = httpx.post(url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS)
+        response = httpx.post(
+            url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
+        )
         response.raise_for_status()
         data = response.json()
         # MiniMax's own official API reports some failures via base_resp

@@ -194,9 +194,30 @@ Copy `.env.example` to `.env` and fill in:
 |---|---|---|
 | `REFERENCE_DATA_SOURCE` | — | `local` (dev) or `gcs` (prod, not implemented yet). No default - must be set explicitly. |
 | `REFERENCE_DATA_DIR` | — | Only for `local`. Local path to the four Golden Database CSVs. Never commit the real files or this path. |
-| `MINIMAX_BASE_URL` / `MINIMAX_CHAT_PATH` / `MINIMAX_API_KEY` / `MINIMAX_MODEL` | — | Same names used elsewhere in this repo. See `.env.example` for the production (tailnet) vs. public-API-fallback values. |
+| `MINIMAX_BASE_URL` / `MINIMAX_CHAT_PATH` / `MINIMAX_API_KEY` / `MINIMAX_MODEL` | — | Same names used elsewhere in this repo. See `.env.example` for the self-hosted-model (tailnet) vs. public-API values. |
 | `MINIMAX_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. |
+| `TAILSCALE_AUTHKEY` / `TAILSCALE_HOSTNAME` | — / `writing-assistant` | Only needed when `MINIMAX_BASE_URL` is the self-hosted tailnet model. Leave unset to use the public MiniMax API instead - the container boots fine either way (see Deployment below). |
 | `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. |
+
+## Deployment
+
+The container respects `$PORT` (defaults to `8004` if unset) - required for
+Cloud Run, which injects its own `$PORT` and expects the container to listen
+on it.
+
+Tailscale is optional, set up the same way as `backend/scripts/start.sh`:
+if `TAILSCALE_AUTHKEY` is set, `scripts/start.sh` joins the tailnet before
+starting the server, so `MINIMAX_BASE_URL` can point at the real self-hosted
+model; if it's unset, or `tailscale up` fails or can't reach the control
+plane, it logs that and starts the server anyway (never blocks boot
+indefinitely - bounded to ~60s worst case). Without Tailscale,
+`MINIMAX_BASE_URL` must point at a directly-reachable host (e.g. the public
+MiniMax API).
+
+`REFERENCE_DATA_SOURCE=gcs` is not implemented yet (see `.env.example`) -
+production should use `REFERENCE_DATA_SOURCE=local` with the four Golden
+Database CSVs mounted into the container (e.g. a Secret Manager volume
+mount on Cloud Run) and `REFERENCE_DATA_DIR` pointed at that mount path.
 
 ## Running it locally
 
