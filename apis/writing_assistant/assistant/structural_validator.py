@@ -6,6 +6,8 @@ Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
 "Separate responsibilities").
 """
 
+from collections import Counter
+
 from . import llm_client, reference_data, reference_selector, text_checks
 from .result_cache import ResultCache
 from .models import (
@@ -57,6 +59,40 @@ _DOMINANCE_MARGIN = 1.5
 # ISS-05 regression).
 _MIN_SECTIONS_FOR_DOMINANCE_CHECK = 3
 
+# The underlying reasoning model is not fully reproducible even at
+# temperature=0 with a fixed seed - a known serving-stack property
+# (batch-size-dependent floating point reductions, MoE routing), not a
+# bug in this code (confirmed real-world recurrence: ISS-04/ISS-11, the
+# RL-01/02/03 flapping case). Majority-voting the one call that most
+# visibly flips a user-facing verdict (per-step coverage) trades 3x the
+# latency on that call for stability on borderline cases - it cannot fix
+# the model's own instability, only reduce how often it changes the
+# answer we show.
+_COVERAGE_VOTES = 3
+
+# Tie-break for a genuine 3-way split (one vote each) - pick the most
+# cautious answer rather than an arbitrary one, consistent with this
+# service's fail-closed philosophy elsewhere.
+_CAUTION_ORDER = {StepCoverage.MISSING: 0, StepCoverage.PARTIAL: 1, StepCoverage.COVERED: 2}
+
+
+def _vote_step_coverage(
+    draft_text: str,
+    step: ReferenceStep,
+    all_step_names: list[str],
+    reference_subject: str,
+) -> tuple[StepCoverage, int | None]:
+    votes = [
+        llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, reference_subject)
+        for _ in range(_COVERAGE_VOTES)
+    ]
+    counts = Counter(coverage for coverage, _ in votes)
+    top_count = max(counts.values())
+    winners = [coverage for coverage, n in counts.items() if n == top_count]
+    winning_coverage = winners[0] if len(winners) == 1 else min(winners, key=lambda c: _CAUTION_ORDER[c])
+    section_index = next(idx for coverage, idx in votes if coverage == winning_coverage)
+    return winning_coverage, section_index
+
 
 def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[ReferenceStep]) -> bool:
     # The example's own text, not the step name - a step name like
@@ -96,9 +132,7 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
     section_indices: list[int | None] = []
     all_step_names = [s.step for s in structure.steps]
     for step in structure.steps:
-        coverage, section_index = llm_client.classify_step_coverage(
-            draft_text, step.step, step.example, all_step_names, structure.question
-        )
+        coverage, section_index = _vote_step_coverage(draft_text, step, all_step_names, structure.question)
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only
         # ever downgrades toward "missing", never promotes away from it.

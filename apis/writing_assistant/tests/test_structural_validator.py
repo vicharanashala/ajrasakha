@@ -11,6 +11,7 @@ from assistant import llm_client, reference_selector, structural_validator
 from assistant.models import (
     LLMUnavailableError,
     QuestionType,
+    ReferenceStep,
     SelectionClassification,
     StepCoverage,
     StructuralValidationStatus,
@@ -46,8 +47,12 @@ def _select_the_soil_health_broad_structure(monkeypatch):
 
 # Example D - missing structural steps, reported not invented
 def test_missing_steps_reported_not_invented(monkeypatch, dataset):
-    coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.MISSING, None)])
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: next(coverages))
+    # Keyed by step name, not call order - score_coverage now votes 3x
+    # per step (majority vote, ISS-04/11 mitigation), so each step must
+    # answer consistently across all 3 of its own calls, independent of
+    # how many other steps' calls happened first.
+    coverages = {"Introduction": (StepCoverage.COVERED, 1), "Correction": (StepCoverage.MISSING, None)}
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: coverages[step])
 
     result = structural_validator.validate_structure(
         "My fixture soil looks poor what should I do?",
@@ -72,8 +77,8 @@ def test_all_steps_covered_is_complete(monkeypatch, dataset):
 
 
 def test_partial_coverage_with_no_missing_step_is_partial(monkeypatch, dataset):
-    coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.PARTIAL, 2)])
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: next(coverages))
+    coverages = {"Introduction": (StepCoverage.COVERED, 1), "Correction": (StepCoverage.PARTIAL, 2)}
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: coverages[step])
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.PARTIAL
 
@@ -126,8 +131,8 @@ def test_partial_step_keeps_its_suggestion_text(monkeypatch, dataset):
 def test_out_of_order_step_is_flagged(monkeypatch, dataset):
     # Step 1 (Introduction) located in section 2, step 2 (Correction)
     # located in section 1 - Correction appears before Introduction.
-    coverages = iter([(StepCoverage.COVERED, 2), (StepCoverage.COVERED, 1)])
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: next(coverages))
+    coverages = {"Introduction": (StepCoverage.COVERED, 2), "Correction": (StepCoverage.COVERED, 1)}
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: coverages[step])
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert len(result.order_warnings) == 1
     assert "Correction" in result.order_warnings[0]
@@ -135,16 +140,16 @@ def test_out_of_order_step_is_flagged(monkeypatch, dataset):
 
 
 def test_in_order_steps_have_no_warnings(monkeypatch, dataset):
-    coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.COVERED, 2)])
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: next(coverages))
+    coverages = {"Introduction": (StepCoverage.COVERED, 1), "Correction": (StepCoverage.COVERED, 2)}
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: coverages[step])
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.order_warnings == []
 
 
 def test_missing_step_never_gets_an_order_warning(monkeypatch, dataset):
     # A missing step has no position at all - must never be fabricated.
-    coverages = iter([(StepCoverage.COVERED, 1), (StepCoverage.MISSING, None)])
-    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: next(coverages))
+    coverages = {"Introduction": (StepCoverage.COVERED, 1), "Correction": (StepCoverage.MISSING, None)}
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda draft, step, example, all_steps=None, subject=None: coverages[step])
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.order_warnings == []
 
@@ -203,9 +208,11 @@ def test_classify_step_coverage_receives_the_full_step_list(monkeypatch, dataset
     monkeypatch.setattr(llm_client, "classify_step_coverage", _record)
     structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
 
-    assert len(seen_calls) == 2
-    assert seen_calls[0] == ["Introduction", "Correction"]
-    assert seen_calls[1] == ["Introduction", "Correction"]
+    # Each step is voted on 3x (majority vote, ISS-04/11 mitigation) -
+    # 2 steps x 3 votes = 6 calls, every one of them carrying the full
+    # step list regardless of which vote it is.
+    assert len(seen_calls) == 2 * structural_validator._COVERAGE_VOTES
+    assert all(call == ["Introduction", "Correction"] for call in seen_calls)
 
 
 # Revision 17 (ISS-04/11): the same exact (question, draft) submitted
@@ -215,10 +222,12 @@ def test_validate_structure_cached_is_deterministic_on_repeated_identical_input(
     from assistant import reference_data
 
     monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
-    coverages = iter([StepCoverage.COVERED, StepCoverage.PARTIAL])
+    # Keyed by step name so every one of a step's 3 votes agrees -
+    # score_coverage now majority-votes each step (ISS-04/11 mitigation).
+    coverages = {"Introduction": StepCoverage.COVERED, "Correction": StepCoverage.PARTIAL}
     monkeypatch.setattr(
         llm_client, "classify_step_coverage",
-        lambda draft, step, example, all_steps=None, subject=None: (next(coverages), 1),
+        lambda draft, step, example, all_steps=None, subject=None: (coverages[step], 1),
     )
 
     first = structural_validator.validate_structure_cached("q", _REALISTIC_DRAFT)
@@ -250,3 +259,40 @@ def test_validate_structure_cached_does_not_cache_needs_clarification(monkeypatc
     assert first.status == StructuralValidationStatus.NEEDS_CLARIFICATION
     assert second.status == StructuralValidationStatus.COMPLETE
     assert calls["count"] > 1  # the failed first attempt was retried, not cached
+
+
+# ISS-04/11 mitigation: the underlying model is not fully reproducible
+# even at temperature=0 - majority-vote the one call most visibly prone
+# to flipping (per-step coverage) instead of trusting a single call.
+_VOTE_STEP = ReferenceStep(sl_no=1, step="Introduction", example="Test the soil.")
+
+
+def test_vote_step_coverage_unanimous_passes_through(monkeypatch):
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda *a, **kw: (StepCoverage.COVERED, 3))
+    result = structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    assert result == (StepCoverage.COVERED, 3)
+
+
+def test_vote_step_coverage_majority_wins_over_minority(monkeypatch):
+    votes = iter([(StepCoverage.PARTIAL, 2), (StepCoverage.COVERED, 1), (StepCoverage.COVERED, 1)])
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda *a, **kw: next(votes))
+    result = structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    assert result == (StepCoverage.COVERED, 1)
+
+
+def test_vote_step_coverage_three_way_split_takes_the_most_cautious(monkeypatch):
+    votes = iter([(StepCoverage.COVERED, 1), (StepCoverage.PARTIAL, 2), (StepCoverage.MISSING, None)])
+    monkeypatch.setattr(llm_client, "classify_step_coverage", lambda *a, **kw: next(votes))
+    result = structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    assert result == (StepCoverage.MISSING, None)
+
+
+def test_vote_step_coverage_single_dependency_failure_propagates(monkeypatch):
+    # No retrying-around a real outage here - one failed vote fails the
+    # whole step immediately, same as the pre-voting single-call behavior.
+    def _raise(*a, **kw):
+        raise LLMUnavailableError("simulated outage")
+
+    monkeypatch.setattr(llm_client, "classify_step_coverage", _raise)
+    with pytest.raises(LLMUnavailableError):
+        structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
