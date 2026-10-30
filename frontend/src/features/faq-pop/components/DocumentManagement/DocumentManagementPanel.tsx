@@ -297,7 +297,7 @@ export default function DocumentManagementPanel({
       refetchTranslationJobs(),
       refetchTerminalJobs(),
       ...(finishedFilter ? [refetchFinishedJobs()] : []),
-      ...(showHistoryRef.current ? [refetchHistory()] : []),
+      ...(viewRef.current === "history" ? [refetchHistory()] : []),
     ]);
   }
 
