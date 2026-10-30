@@ -940,6 +940,20 @@ export interface IChatbotRepository {
     endDate?: string,
   ): Promise<any>;
 
+  getUserAllQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source?: string,
+    userType?: string,
+    page?: number,
+    limit?: number,
+    startDate?: string,
+    endDate?: string,
+  ): Promise<any>;
+
   getUserMessageMetricDetails(
     userId: string,
     metric: string,

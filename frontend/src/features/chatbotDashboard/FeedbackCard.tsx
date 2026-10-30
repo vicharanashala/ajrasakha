@@ -25,6 +25,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { LazySectionSkeleton } from "./AnnamDashboard_dev";
 import { motion, AnimatePresence } from "framer-motion";
 import CountUp from "react-countup";
+import { formatCount } from "./utils/dashboardHelpers";
 import { FeedbackUsersModal } from "./FeedbackUsersModal";
 
 function FeedbackCard({
@@ -320,8 +321,11 @@ function FeedbackCard({
 
                   {/* Center */}
                   <div className="absolute inset-0 flex flex-col items-center justify-center">
-                    <p className="text-4xl font-bold tracking-tight text-foreground tabular-nums">
-                      <CountUp end={total} duration={1.5} preserveValue />
+                    <p
+                      className="text-4xl font-bold tracking-tight text-foreground tabular-nums"
+                      title={total >= 10000 ? total.toLocaleString() : undefined}
+                    >
+                      <CountUp end={total} duration={1.5} preserveValue formattingFn={formatCount} />
                     </p>
                     <p className="text-[10px] uppercase tracking-widest text-muted-foreground mt-1">
                       Feedbacks

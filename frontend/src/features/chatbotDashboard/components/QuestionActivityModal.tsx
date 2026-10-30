@@ -10,6 +10,7 @@ import {
   Clock,
   History,
   Inbox,
+  Info,
   Mail,
   MapPin,
   MessageSquareText,
@@ -40,6 +41,7 @@ import {
   TooltipTrigger,
 } from "@/components/atoms/tooltip";
 
+import { StatsCarousel } from "./StatsCarousel";
 import { TranslatableText } from "./TranslatableText";
 
 export type QuestionActivityViewType = "messages" | "questions" | "non_agri";
@@ -57,6 +59,14 @@ export interface QuestionActivityItem {
   mcpToolCalls?: any[];
   toolCalls?: any[];
   content?: any[];
+}
+
+interface StatCard {
+  label: string;
+  value: ReactNode;
+  icon: ComponentType<{ className?: string }>;
+  accent: string;
+  info?: ReactNode;
 }
 
 export interface QuestionDetailItem {
@@ -110,6 +120,8 @@ interface QuestionActivityModalProps {
   isLoading?: boolean;
   totalCount?: number | string;
   totalLabel?: ReactNode;
+  unpushedCount?: number;
+  messageCounts?: { raw: number; unique: number };
   totalPages?: number;
   currentPage?: number;
   onPageChange?: (page: number) => void;
@@ -254,7 +266,10 @@ function ActivityCard({
   viewType: QuestionActivityViewType;
   onTimelineClick?: (dates: string[]) => void;
 }) {
-  const isQuestionView = viewType === "questions" || viewType === "non_agri";
+  const isQuestionView =
+    viewType === "questions" ||
+    viewType === "non_agri" ||
+    viewType === "messages";
   const text = isQuestionView ? item.question : item.message;
   const displayText =
     text?.trim() ||
@@ -563,7 +578,7 @@ const VIEW_TYPE_LABELS: Record<QuestionActivityViewType, string> = {
 };
 
 const VIEW_TYPE_STAT_LABELS: Record<QuestionActivityViewType, string> = {
-  messages: "Total Messages",
+  messages: "Total Queries",
   questions: "Total Agri Queries",
   non_agri: "Total Non Agri Queries",
 };
@@ -598,6 +613,8 @@ export function QuestionActivityModal({
   isLoading = false,
   totalCount = 0,
   totalLabel,
+  unpushedCount,
+  messageCounts,
   totalPages = 1,
   currentPage = 1,
   onPageChange,
@@ -740,8 +757,8 @@ export function QuestionActivityModal({
                   </div>
                 </AccordionTrigger>
                 <AccordionContent className="pb-3">
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {[
+                  <StatsCarousel visibleCount={4}>
+                    {([
                       { label: "Name", value: user.name, icon: User, accent: "text-primary bg-primary/10" },
                       { label: "Email", value: user.email, icon: Mail, accent: "text-primary bg-primary/10" },
                       {
@@ -759,7 +776,34 @@ export function QuestionActivityModal({
                             ? "text-amber-600 bg-amber-500/10 dark:text-amber-400"
                             : "text-primary bg-primary/10",
                       },
-                    ].map(({ label, value, icon: Icon, accent }) => (
+                      ...(unpushedCount !== undefined
+                        ? [
+                            {
+                              label: "Unpushed Messages",
+                              value: unpushedCount,
+                              icon: Inbox,
+                              accent:
+                                "text-amber-600 bg-amber-500/10 dark:text-amber-400",
+                              info: messageCounts && (
+                                <div className="min-w-[160px] space-y-1.5">
+                                  <div className="flex items-center justify-between gap-4 text-sm">
+                                    <span>Total messages:</span>
+                                    <span className="font-medium">
+                                      {messageCounts.raw}
+                                    </span>
+                                  </div>
+                                  <div className="flex items-center justify-between gap-4 text-sm">
+                                    <span>Total unique:</span>
+                                    <span className="font-medium">
+                                      {messageCounts.unique}
+                                    </span>
+                                  </div>
+                                </div>
+                              ),
+                            },
+                          ]
+                        : []),
+                    ] as StatCard[]).map(({ label, value, icon: Icon, accent, info }) => (
                       <div
                         key={label}
                         className="rounded-lg border bg-muted/40 px-3 py-3 transition-colors hover:bg-muted/60"
@@ -769,8 +813,26 @@ export function QuestionActivityModal({
                             <Icon className="h-4 w-4" />
                           </div>
                           <div className="min-w-0 flex-1">
-                            <p className="mb-0.5 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
+                            <p className="mb-0.5 flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide text-muted-foreground">
                               {label}
+                              {info && (
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <button
+                                        type="button"
+                                        aria-label={`${label} details`}
+                                        className="text-muted-foreground transition-colors hover:text-foreground"
+                                      >
+                                        <Info className="h-3 w-3" />
+                                      </button>
+                                    </TooltipTrigger>
+                                    <TooltipContent side="bottom" className="p-3">
+                                      {info}
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              )}
                             </p>
                             <p className="truncate text-sm font-medium text-foreground">
                               {value}
@@ -779,7 +841,7 @@ export function QuestionActivityModal({
                         </div>
                       </div>
                     ))}
-                  </div>
+                  </StatsCarousel>
                 </AccordionContent>
               </AccordionItem>
             </Accordion>
