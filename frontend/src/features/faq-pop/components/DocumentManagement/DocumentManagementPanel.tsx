@@ -375,6 +375,13 @@ export default function DocumentManagementPanel({
           clearTimeout(historyRefetchTimerRef.current);
           historyRefetchTimerRef.current = setTimeout(refetchHistory, 300);
         }
+        // This one SSE event already covers every pop-queue level change (approve, decline,
+        // add/new, and a GridFS item landing in the queue — they all funnel through PoP's one
+        // `upload` event), and it's firing live right now, proven by the queue list itself
+        // updating instantly above. NotificationModal listens for this to burst-refresh the
+        // bell/sidebar off the SAME cue, instead of only off the push notification's postMessage
+        // (which doesn't reliably reach every recipient's tab — see service-worker.js).
+        window.dispatchEvent(new CustomEvent("pop-queue-changed"));
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
