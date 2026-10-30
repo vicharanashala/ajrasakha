@@ -23,9 +23,11 @@ export { SARVAM_LANGUAGES };
 export interface FarmerDetailsRef {
   getProfile: () => FarmerProfile | null;
   reset: () => void;
+  fetchDetails: (phone?: string | null) => Promise<void>;
 }
 
 interface FarmerDetailsProps {
+  callUuid?: string | null;
   phoneNo: string;
   className?: string;
   defaultOpen?: boolean;
@@ -35,6 +37,7 @@ interface FarmerDetailsProps {
 }
 
 export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
+  callUuid,
   phoneNo,
   className,
   disabled = false,
@@ -48,11 +51,30 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
     reset: () => {
       setFarmer(null);
       lastFetchedPhoneRef.current = null;
+      lastFetchedCallUuidRef.current = null;
     },
-  }), [farmer]);
+      fetchDetails: async (phone?: string | null) => {
+        const p = (phone || phoneNo || "").trim();
+        const isValid = Boolean(
+          p &&
+          p !== "Unknown" &&
+          p !== "Unknown Caller" &&
+          !p.startsWith("sip:") &&
+          p !== "+919999999999"
+        );
+        if (isValid) {
+          lastFetchedPhoneRef.current = p;
+          if (callUuid) {
+            lastFetchedCallUuidRef.current = callUuid;
+          }
+          await fetchFarmerDetails(p);
+        }
+      },
+  }), [farmer, phoneNo, callUuid]);
   const [loading, setLoading] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const lastFetchedPhoneRef = useRef<string | null>(null);
+  const lastFetchedCallUuidRef = useRef<string | null>(null);
   const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalizeProfile = (raw: any, activePhone?: string): FarmerProfile => {
@@ -158,7 +180,7 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
       console.error(`Failed to save farmer profile for ${phoneKey}:`, err);
       setSaveStatus("error");
     }
-  }, [phoneNo]);
+  }, [phoneNo, callUuid]);
 
   const scheduleAutoSave = useCallback((updatedProfile: FarmerProfile) => {
     if (disabled) {
@@ -212,17 +234,28 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
       cleanPhone &&
       cleanPhone !== "Unknown" &&
       cleanPhone !== "Unknown Caller" &&
-      !cleanPhone.startsWith("sip:")
+      !cleanPhone.startsWith("sip:") &&
+      cleanPhone !== "+919999999999"
     );
 
     if (isValidPhone) {
-      if (cleanPhone !== lastFetchedPhoneRef.current) {
+      const isNewCallSession = Boolean(
+        callUuid &&
+        callUuid !== lastFetchedCallUuidRef.current &&
+        !callUuid.startsWith("testing_")
+      );
+      const isNewPhone = cleanPhone !== lastFetchedPhoneRef.current;
+      const isProfileMissing = !farmer;
+
+      if (isNewCallSession || isNewPhone || isProfileMissing) {
         lastFetchedPhoneRef.current = cleanPhone;
-        setFarmer(null);
+        if (callUuid) {
+          lastFetchedCallUuidRef.current = callUuid;
+        }
         fetchFarmerDetails(cleanPhone);
       }
     }
-  }, [phoneNo]);
+  }, [phoneNo, callUuid]);
 
   useEffect(() => {
     if (extractedProfile && Object.keys(extractedProfile).length > 0) {
@@ -251,7 +284,7 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
 
   const fetchFarmerDetails = async (targetPhone?: string) => {
     const queryPhone = (targetPhone || phoneNo || "").trim();
-    if (!queryPhone || queryPhone === "Unknown" || queryPhone === "Unknown Caller" || queryPhone.startsWith("sip:")) {
+    if (!queryPhone || queryPhone === "Unknown" || queryPhone === "Unknown Caller" || queryPhone.startsWith("sip:") || queryPhone === "+919999999999") {
       return;
     }
     setLoading(true);
@@ -259,27 +292,28 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
       const data = await plivoService.getFarmerByPhoneNo(queryPhone);
       const normalizedDb = normalizeProfile(data?.profile || {}, queryPhone);
       setFarmer((prev) => {
-        if (!data?.profile && prev) {
+        const prevForSamePhone = (prev && prev.phoneNo === queryPhone) ? prev : null;
+        if (!data?.profile && prevForSamePhone) {
           return prev;
         }
         // The DB data is the source of truth
         const merged: FarmerProfile = { ...normalizedDb };
         // Only if a field was completely undefined in DB and prev has a non-empty value:
-        if (prev) {
-          for (const [k, v] of Object.entries(prev)) {
-            if (v !== undefined && v !== null && v !== "") {
-              const dbVal = (merged as any)[k];
-              if (dbVal === undefined) {
-                (merged as any)[k] = v;
+        if (prevForSamePhone) {
+            for (const [k, v] of Object.entries(prevForSamePhone)) {
+              if (v !== undefined && v !== null && v !== "") {
+                const dbVal = (merged as any)[k];
+                if (dbVal === undefined) {
+                  (merged as any)[k] = v;
+                }
               }
             }
           }
-        }
-        if (onProfileUpdated && Object.keys(merged).length > 0) {
-          onProfileUpdated(merged);
-        }
-        return Object.keys(merged).length > 0 ? merged : null;
-      });
+          if (onProfileUpdated && Object.keys(merged).length > 0) {
+            onProfileUpdated(merged);
+          }
+          return Object.keys(merged).length > 0 ? merged : null;
+        });
     } catch (error) {
       console.error(`Failed to fetch farmer details for ${queryPhone}:`, error);
     } finally {

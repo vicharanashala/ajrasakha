@@ -1779,6 +1779,7 @@ export const CallInterface = () => {
                   setCallPhoneNumber(newPhone);
                   setLastCallPhoneNumber(newPhone);
                   lastCallPhoneNumberRef.current = newPhone;
+                  farmerDetailsRef.current?.fetchDetails?.(newPhone);
                 } else {
                   setCallPhoneNumber(null);
                   callPhoneNumberRef.current = null;
@@ -1808,6 +1809,7 @@ export const CallInterface = () => {
               lastCallPhoneNumberRef.current = phone;
               setCallPhoneNumber(phone);
               setLastCallPhoneNumber(phone);
+              farmerDetailsRef.current?.fetchDetails?.(phone);
             } else if (!phone) {
               // Call ended: keep lastCallPhoneNumber and lastCallPhoneNumberRef.current intact
               // so the agent can review the ended call's farmer details without loss!
@@ -1824,6 +1826,7 @@ export const CallInterface = () => {
         {/* Left Column: Farmer Information Form */}
         <div className="w-full flex flex-col space-y-4 min-w-0">
           <FarmerDetails
+            callUuid={callUuid || lastCallUuid || lastCallUuidRef.current || null}
             ref={farmerDetailsRef}
             phoneNo={callPhoneNumber || lastCallPhoneNumber || lastCallPhoneNumberRef.current || ""}
             extractedProfile={extractedFarmerProfile}
