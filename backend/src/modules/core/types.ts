@@ -31,6 +31,7 @@ export const CORE_TYPES = {
   TestersDbAnalyticsService: Symbol.for('TestersDbAnalyticsService'),
   OrganizationService: Symbol.for('OrganizationService'),
   PopService: Symbol.for('PopService'),
+  PopUploadsService: Symbol.for('PopUploadsService'),
   NewSourceService: Symbol.for('NewSourceService'),
 
   // Repositories
@@ -48,6 +49,7 @@ export const CORE_TYPES = {
   OrganizationRepository: Symbol.for('OrganizationRepository'),
   PopRepository: Symbol.for('PopRepository'),
   NewSourceRepository: Symbol.for('NewSourceRepository'),
+  PendingPopUploadRepository: Symbol.for('PendingPopUploadRepository'),
   CheckOverlapsService: Symbol.for('CheckOverlapsService'),
 
 };

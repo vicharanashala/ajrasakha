@@ -22,6 +22,7 @@ import {
   getUserManagementList,
   getDashboardUniqueDocuments,
   getDashboardUploadsHistory,
+  getPendingUploads,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import { NotificationService } from "@/hooks/services/notificationService";
@@ -296,7 +297,7 @@ export default function DocumentManagementPanel({
       refetchTranslationJobs(),
       refetchTerminalJobs(),
       ...(finishedFilter ? [refetchFinishedJobs()] : []),
-      ...(showHistoryRef.current ? [refetchHistory()] : []),
+      ...(viewRef.current === "history" ? [refetchHistory()] : []),
     ]);
   }
 
@@ -326,15 +327,20 @@ export default function DocumentManagementPanel({
   const uploadRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
 
-  // Upload History — a toggle inside UploadQueuePanel itself that swaps the queue's own list for
-  // a read-only view of finished uploads (GET /dashboard/uploads/history), rather than a separate
-  // modal. showHistoryRef mirrors showHistory for the mount-only SSE effect below, same reason
-  // refetchUploadsRef exists.
-  const [showHistory, setShowHistory] = useState(false);
+  // Upload Queue has three views, toggled inside UploadQueuePanel itself rather than separate
+  // modals: the live queue (default), History (read-only finished uploads, GET
+  // /dashboard/uploads/history), and Pending (this caller's own not-yet-forwarded uploads, GET
+  // /pop-uploads — see backend/src/modules/popUploads). Pending behaves exactly like History:
+  // fetched on demand when opened, not polled or pushed — the live queue is the only one with a
+  // push/SSE update path (see the dashboardEvents subscription below). viewRef mirrors view for
+  // the mount-only SSE effect below, same reason refetchUploadsRef exists.
+  const [view, setView] = useState("queue"); // "queue" | "pending" | "history"
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const showHistoryRef = useRef(false);
-  showHistoryRef.current = showHistory;
+  const [pendingItems, setPendingItems] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const viewRef = useRef("queue");
+  viewRef.current = view;
   const historyRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(historyRefetchTimerRef.current), []);
 
@@ -347,12 +353,25 @@ export default function DocumentManagementPanel({
     }
   }
 
+  async function refetchPending() {
+    try {
+      const items = (await getPendingUploads()) || [];
+      setPendingItems(items);
+    } catch {
+      // ignore transient errors, next toggle/manual refresh will retry
+    }
+  }
+
   useEffect(() => {
-    if (!showHistory) return;
-    setHistoryLoading(true);
-    refetchHistory().finally(() => setHistoryLoading(false));
+    if (view === "history") {
+      setHistoryLoading(true);
+      refetchHistory().finally(() => setHistoryLoading(false));
+    } else if (view === "pending") {
+      setPendingLoading(true);
+      refetchPending().finally(() => setPendingLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showHistory]);
+  }, [view]);
 
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
@@ -371,7 +390,7 @@ export default function DocumentManagementPanel({
         uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
         // An item leaving the queue (deleted:true) is exactly when it lands in history — refetch
         // the history view too, same debounce, but only while it's actually showing.
-        if (showHistoryRef.current) {
+        if (viewRef.current === "history") {
           clearTimeout(historyRefetchTimerRef.current);
           historyRefetchTimerRef.current = setTimeout(refetchHistory, 300);
         }
@@ -746,10 +765,12 @@ export default function DocumentManagementPanel({
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
-                  showHistory={showHistory}
-                  onToggleHistory={() => setShowHistory((v) => !v)}
+                  view={view}
+                  onSetView={setView}
                   historyItems={historyItems}
                   historyLoading={historyLoading}
+                  pendingItems={pendingItems}
+                  pendingLoading={pendingLoading}
                 />
               }
               bottom={
