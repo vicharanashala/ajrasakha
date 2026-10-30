@@ -30,6 +30,7 @@ import { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCount } from "./utils/dashboardHelpers";
 
 type ClosedInLastTwoHoursCardProps = {
   source?: string;
@@ -207,7 +208,16 @@ export function ClosedInLastTwoHoursCard({
                       </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      {safeCount} of {safeTotalClosed} closed cases
+                      {safeCount >= 10000 || safeTotalClosed >= 10000 ? (
+                        <span
+                          className="cursor-help"
+                          title={`${safeCount.toLocaleString()} of ${safeTotalClosed.toLocaleString()} closed cases`}
+                        >
+                          {formatCount(safeCount)} of {formatCount(safeTotalClosed)} closed cases
+                        </span>
+                      ) : (
+                        `${safeCount.toLocaleString()} of ${safeTotalClosed.toLocaleString()} closed cases`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -534,6 +544,9 @@ function StatTile({
   setSlaBreachedQs?: (val: string) => void;
 }) {
   const a = ACCENT[accent];
+  const isLargeCount = count >= 10000;
+  const isLargeOf = of !== undefined && of >= 10000;
+  const isLarge = isLargeCount || isLargeOf;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -558,18 +571,25 @@ function StatTile({
             </span>
           </div>
           <div className="flex flex-wrap items-baseline gap-x-1 gap-y-0.5">
-            <span className="text-lg font-bold leading-none tracking-tight tabular-nums text-foreground">
+            <span
+              className="text-lg font-bold leading-none tracking-tight tabular-nums text-foreground"
+              title={isLargeCount ? count.toLocaleString() : undefined}
+            >
               <CountUp
                 end={count}
                 duration={1.2}
                 preserveValue
                 decimals={decimals}
                 suffix={suffix}
+                formattingFn={formatCount}
               />
             </span>
             {of !== undefined && (
-              <span className="text-[10px] leading-none text-muted-foreground whitespace-nowrap">
-                / {of}
+              <span
+                className="text-[10px] leading-none text-muted-foreground whitespace-nowrap"
+                title={isLargeOf ? of.toLocaleString() : undefined}
+              >
+                / {formatCount(of)}
               </span>
             )}
           </div>
@@ -581,6 +601,14 @@ function StatTile({
       >
         {showInfo && infoData ? (
           <div className="space-y-1.5 text-xs">
+            {isLarge && (
+              <div className="flex justify-between pb-1 mb-1 border-b border-border/50 font-semibold">
+                <span className="text-muted-foreground">Exact</span>
+                <span className="tabular-nums font-bold text-foreground">
+                  {count.toLocaleString()} {of !== undefined ? `/ ${of.toLocaleString()}` : ""}
+                </span>
+              </div>
+            )}
             {infoData.map((item) => (
               <div
                 key={item.label}
@@ -593,14 +621,23 @@ function StatTile({
                 }}
               >
                 <span className="text-muted-foreground">{item.label}</span>
-                <span className="font-medium tabular-nums">
-                  {item.count} / {item.of}
+                <span className="font-medium tabular-nums" title={`${item.count.toLocaleString()} / ${item.of.toLocaleString()}`}>
+                  {formatCount(item.count)} / {formatCount(item.of)}
                 </span>
               </div>
             ))}
           </div>
         ) : (
-          <p className="text-xs">{tooltip}</p>
+          <div className="space-y-0.5 max-w-[260px]">
+            {isLarge && (
+              <div className="font-bold tabular-nums text-xs">
+                {count.toLocaleString()} {of !== undefined ? `/ ${of.toLocaleString()}` : ""}
+              </div>
+            )}
+            <p className={cn("text-xs", isLarge && "text-[11px] text-muted-foreground")}>
+              {tooltip}
+            </p>
+          </div>
         )}
       </TooltipContent>
     </Tooltip>

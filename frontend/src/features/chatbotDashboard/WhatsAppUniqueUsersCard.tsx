@@ -4,7 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { motion } from "framer-motion";
 import { RefreshCw, Users } from "lucide-react";
 import { useState } from "react";
+import { cn } from "@/lib/utils";
 import CountUp from "react-countup";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
+import { formatCount } from "./utils/dashboardHelpers";
 
 type WhatsAppUniqueUsersCardProps = {
   totalUsers: number;
@@ -63,21 +66,37 @@ export function WhatsAppUniqueUsersCard({
                 <Users className="h-6 w-6 text-primary" />
               </div>
 
-              <motion.span
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <motion.span
                 key={totalUsers}
                 initial={{ opacity: 0, scale: 0.8 }}
                 animate={{ opacity: 1, scale: 1 }}
                 transition={{ duration: 0.35, ease: "easeOut" }}
-                className="text-3xl font-bold tracking-tight leading-none"
+                    className={cn(
+                      "text-3xl font-bold tracking-tight leading-none",
+                      totalUsers >= 10000 && "cursor-help",
+                    )}
+                    title={totalUsers >= 10000 ? totalUsers.toLocaleString() : undefined}
               >
-                {/* {totalUsers} */}
+
                 <CountUp
                   end={totalUsers}
                   duration={1.5}
                   decimals={0}
                   preserveValue
+                  formattingFn={formatCount}
                 />
-              </motion.span>
+                  </motion.span>
+                </TooltipTrigger>
+                {totalUsers >= 10000 && (
+                  <TooltipContent side="top" className="z-[9999]">
+                    <span className="font-semibold tabular-nums text-xs">
+                      {totalUsers.toLocaleString()}
+                    </span>
+                  </TooltipContent>
+                )}
+              </Tooltip>
             </div>
 
             <span className="mt-8 text-[11px] text-muted-foreground leading-tight">
