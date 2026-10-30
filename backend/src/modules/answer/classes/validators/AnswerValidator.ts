@@ -31,6 +31,22 @@ class SourceItem {
   })
   @IsOptional()
   page?: string | number;
+
+  @JSONSchema({
+    description: 'Name/title of the source document',
+    example: 'Package of Practices Wheat Punjab',
+  })
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
+
+  @JSONSchema({
+    description: 'Type of source: hyper_local, state, central, district, or other',
+    example: 'state',
+  })
+  @IsOptional()
+  @IsIn(['hyper_local', 'state', 'central', 'district', 'other'])
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
 }
 class AddAnswerBody {
   @JSONSchema({

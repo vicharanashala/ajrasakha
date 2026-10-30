@@ -49,18 +49,18 @@ def get_translation_model(
         timeout: Request timeout in seconds (default: 30)
     
     Returns:
-        Configured ChatAnthropic instance
+        Configured ChatAnthropic instance with temperature bound
     """
     effective_model = model or DEFAULT_MODEL
     effective_api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
     effective_timeout = timeout or float(os.getenv("ANTHROPIC_TIMEOUT_S", "30"))
     
+    # Create base LLM for translation
     return ChatAnthropic(
         model=effective_model,
         api_key=effective_api_key,
         timeout=effective_timeout,
         max_tokens=4096,
-        temperature=0.3,  # Low temperature for consistent translations
     )
 
 
@@ -265,12 +265,12 @@ def translate_to_english_sync(
     effective_api_key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
     effective_timeout = float(os.getenv("ANTHROPIC_TIMEOUT_S", "30"))
     
+    # Create base LLM for translation
     llm = ChatAnthropic(
         model=effective_model,
         api_key=effective_api_key,
         timeout=effective_timeout,
         max_tokens=4096,
-        temperature=0.3,
     )
     
     # Build the human message with optional language hint
