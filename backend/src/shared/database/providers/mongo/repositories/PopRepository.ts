@@ -1,5 +1,5 @@
 import {IPopRepository} from '#root/shared/database/interfaces/IPopRepository.js';
-import {IPop} from '#root/shared/interfaces/models.js';
+import {IPop, IPopQueueItemSummary} from '#root/shared/interfaces/models.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {isValidObjectId} from '#root/utils/isValidObjectId.js';
 import {inject, injectable} from 'inversify';
@@ -10,6 +10,7 @@ import {MongoDatabase} from '../MongoDatabase.js';
 @injectable()
 export class PopRepository implements IPopRepository {
   private PopCollection: Collection<IPop>;
+  private PopQueueCollection: Collection<IPopQueueItemSummary>;
 
   constructor(
     @inject(GLOBAL_TYPES.popDatabase)
@@ -18,6 +19,7 @@ export class PopRepository implements IPopRepository {
 
   private async init() {
     this.PopCollection = await this.db.getCollection<IPop>('pop_unique_documents');
+    this.PopQueueCollection = await this.db.getCollection<IPopQueueItemSummary>('pop_upload_queue_items');
   }
 
   async findByShareableLink(shareableLink: string): Promise<IPop | null> {
@@ -53,5 +55,17 @@ export class PopRepository implements IPopRepository {
       {returnDocument: 'after'},
     );
     return result ?? null;
+  }
+
+  async findQueuedBySha256(sha256: string): Promise<IPopQueueItemSummary | null> {
+    await this.init();
+    return this.PopQueueCollection.findOne({sha256});
+  }
+
+  async findCatalogueBySha256(sha256: string): Promise<IPop | null> {
+    await this.init();
+    return this.PopCollection.findOne({
+      $or: [{sha256}, {merged_sha256s: sha256}],
+    });
   }
 }
