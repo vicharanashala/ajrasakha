@@ -127,45 +127,56 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
         }
     }, [notificationPages]);
 
-    // service-worker.js's push handler posts this to every open tab the instant the OS-level push
-    // notification arrives — the only reliable signal THIS browser gets that a notification meant
-    // for it was just created server-side (it already proved reliable: the push itself arrives
-    // live with no refresh needed). Invalidates both ["notifications"] (the sidebar list) AND
-    // ["user"] (the bell icon's red badge count comes from user.notifications, a completely
-    // separate query — see PlaygroundHeader.tsx) — same pairing useMarkAsReadNotification already
-    // uses to keep the two in sync. Also re-arms two more catch-up invalidations 10s/20s after a
-    // push lands, since one invalidate can race the backend write it's reacting to.
+    // Two independent, genuinely reliable local cues that a pop-queue notification was probably
+    // just created, each re-arming the same 3x10s burst below instead of polling nonstop:
+    //   1. service-worker.js's push handler posts this to every open tab the instant the OS-level
+    //      push notification arrives. Reliable for SOME transitions, but confirmed NOT for others
+    //      (e.g. admin decline -> approver never gets this postMessage) — that's why this can't be
+    //      the only trigger.
+    //   2. "pop-queue-changed", dispatched by DocumentManagementPanel.tsx's SSE `upload` handler —
+    //      the exact same event that makes the queue list itself update instantly on screen, for
+    //      every queue-level change (approve/decline/add-new/GridFS arrival). Unrelated to push,
+    //      so it's unaffected by push's reliability gap, but only fires while that panel is
+    //      mounted (i.e. the recipient is on the PoP dashboard page right now).
+    // Burst, not a single invalidate, because one invalidate can race the backend write it's
+    // reacting to — 3 tries 10s apart gives it room to catch up either way.
     useEffect(() => {
-        if (!("serviceWorker" in navigator)) return;
         const invalidate = () => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             queryClient.invalidateQueries({ queryKey: ["user"] });
         };
         let timers: ReturnType<typeof setTimeout>[] = [];
-        const handler = (event: MessageEvent) => {
-            if (event.data?.type !== "new-notification") return;
+        const burst = () => {
             invalidate();
             timers.forEach(clearTimeout);
             timers = [10000, 20000].map((delay) => setTimeout(invalidate, delay));
         };
-        navigator.serviceWorker.addEventListener("message", handler);
+        const swHandler = (event: MessageEvent) => {
+            if (event.data?.type === "new-notification") burst();
+        };
+        const queueHandler = () => burst();
+        if ("serviceWorker" in navigator) {
+            navigator.serviceWorker.addEventListener("message", swHandler);
+        }
+        window.addEventListener("pop-queue-changed", queueHandler);
         return () => {
-            navigator.serviceWorker.removeEventListener("message", handler);
+            if ("serviceWorker" in navigator) {
+                navigator.serviceWorker.removeEventListener("message", swHandler);
+            }
+            window.removeEventListener("pop-queue-changed", queueHandler);
             timers.forEach(clearTimeout);
         };
     }, [queryClient]);
 
-    // Unconditional fallback, independent of the push listener above — for some pop-queue
-    // transitions (confirmed: admin decline -> approver) the push's postMessage to this tab
-    // doesn't reliably arrive at all, not just late, so a fallback that only re-arms when a push
-    // IS received leaves those transitions with no catch-up whatsoever. 10s: every one of these
-    // notifications is tied to a live PoP upload-queue action someone is actively waiting on, so a
-    // stale bell/sidebar reads as broken, not just late.
+    // True last resort, independent of both cues above — covers a recipient who is neither on the
+    // PoP dashboard page (no SSE cue) nor getting push delivered to this tab (no postMessage cue).
+    // Deliberately much slower than the burst: the two instant cues above now handle the common
+    // case, so this only needs to bound the worst case, not chase instant delivery on its own.
     useEffect(() => {
         const id = setInterval(() => {
             queryClient.invalidateQueries({ queryKey: ["notifications"] });
             queryClient.invalidateQueries({ queryKey: ["user"] });
-        }, 10000);
+        }, 60000);
         return () => clearInterval(id);
     }, [queryClient]);
 
