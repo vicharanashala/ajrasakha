@@ -294,6 +294,10 @@ export default function AddDocumentForm({ onUploadQueued }) {
     setSubmitting(true);
     try {
       const result = await uploadDashboardDocument(file, fields, placements, language);
+      // No notification here any more — a fresh upload now lands at the creator's own stage (PoP
+      // no longer auto-advances it a level on creation), so nobody downstream has anything to act
+      // on yet. The "upload_created" notify now fires from handleApproveUpload instead, the moment
+      // the creator actually approves it forward to the approvers.
       toast.success("Upload queued");
       setValues(emptyValues());
       setFile(null);
