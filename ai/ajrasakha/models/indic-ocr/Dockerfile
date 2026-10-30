@@ -23,8 +23,8 @@ RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.
 # Set HF token env var
 ENV HF_TOKEN=${HF_TOKEN}
 
-# Clone and install the model package
-RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
+# Clone and install the model package (use token in URL for authentication)
+RUN git clone https://user:$HF_TOKEN@huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
     cd /tmp/indic-ocr && \
     chmod +x install.sh && \
     ./install.sh --extras all-ocr
