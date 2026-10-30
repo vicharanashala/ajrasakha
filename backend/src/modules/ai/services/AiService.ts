@@ -33,6 +33,10 @@ export class AiService {
   private _ffvServerUrl =
     'http://' + aiConfig.serverIP + ':' + aiConfig.ffvPort;
 
+  private _writingAssistantServerUrl =
+    aiConfig.writingAssistantUrl ||
+    ('http://' + aiConfig.serverIP + ':' + aiConfig.writingAssistantPort);
+
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
@@ -728,6 +732,58 @@ export class AiService {
     }
   }
 
+  /**
+   * Calls the Writing Assistant service to polish draft and perform structural validation.
+   */
+  async polishDraft(payload: { question: string; draft: string }): Promise<any> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for multi-step LLM pipeline
+
+    try {
+      const url = `${this._writingAssistantServerUrl}/polish-draft`;
+      console.log(`[polishDraft] Calling writing assistant: ${url}`);
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          question: payload.question,
+          draft: payload.draft,
+        }),
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!response.ok) {
+        const text = await response.text().catch(() => '');
+        console.error(`[polishDraft] Failed: ${response.status} ${response.statusText}`, text);
+        let errorMsg = `Writing assistant service error (${response.status})`;
+        try {
+          const json = JSON.parse(text);
+          if (json?.detail) {
+            errorMsg = typeof json.detail === 'string' ? json.detail : JSON.stringify(json.detail);
+          } else if (json?.message) {
+            errorMsg = json.message;
+          }
+        } catch {
+          if (text && text.length < 200) errorMsg = text;
+        }
+        throw new InternalServerError(errorMsg);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error: any) {
+      clearTimeout(timeoutId);
+      console.error('[polishDraft] Error:', error);
+      if (error?.name === 'AbortError') {
+        throw new InternalServerError('Writing assistant service timed out. Please try again.');
+      }
+      if (error instanceof InternalServerError) {
+        throw error;
+      }
+      throw new InternalServerError(error?.message || 'Writing assistant service is temporarily unavailable.');
+    }
+  }
 }
 
 export interface ChemicalMatch {

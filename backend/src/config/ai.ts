@@ -36,4 +36,7 @@ export const aiConfig = {
   answerCheckPort: Number(env('ANSWER_CHECK_PORT')?.trim()) || 8012,
   // FFV (Farmer-Friendly Versions) API Configuration
   ffvPort: Number(env('FFV_PORT')?.trim()) || 8003,
+  // Writing Assistant Service Configuration
+  writingAssistantPort: Number(env('WRITING_ASSISTANT_PORT')?.trim()) || 8004,
+  writingAssistantUrl: env('WRITING_ASSISTANT_URL') || (env('WRITING_ASSISTANT_PORT') ? undefined : 'https://ajrasakha-writing-assistant.onrender.com'),
 };
