@@ -133,13 +133,8 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
     // live with no refresh needed). Invalidates both ["notifications"] (the sidebar list) AND
     // ["user"] (the bell icon's red badge count comes from user.notifications, a completely
     // separate query — see PlaygroundHeader.tsx) — same pairing useMarkAsReadNotification already
-    // uses to keep the two in sync.
-    // Fallback for the push's postMessage above — it can land unreliably per-tab (the OS banner,
-    // a separate step in the same service-worker push handler, keeps arriving even when
-    // postMessage to this tab doesn't, a known service-worker reliability gap rather than
-    // anything specific to a notification type). Each push re-arms three catch-up invalidations
-    // 10s apart instead of polling nonstop forever — there's nothing to catch up on between pop
-    // actions (approve/decline/add-new/GridFS->queue), so there's nothing to poll for either.
+    // uses to keep the two in sync. Also re-arms two more catch-up invalidations 10s/20s after a
+    // push lands, since one invalidate can race the backend write it's reacting to.
     useEffect(() => {
         if (!("serviceWorker" in navigator)) return;
         const invalidate = () => {
@@ -151,13 +146,27 @@ export function NotificationModal({ trigger, copy = "notifications" }: Notificat
             if (event.data?.type !== "new-notification") return;
             invalidate();
             timers.forEach(clearTimeout);
-            timers = [10000, 20000, 30000].map((delay) => setTimeout(invalidate, delay));
+            timers = [10000, 20000].map((delay) => setTimeout(invalidate, delay));
         };
         navigator.serviceWorker.addEventListener("message", handler);
         return () => {
             navigator.serviceWorker.removeEventListener("message", handler);
             timers.forEach(clearTimeout);
         };
+    }, [queryClient]);
+
+    // Unconditional fallback, independent of the push listener above — for some pop-queue
+    // transitions (confirmed: admin decline -> approver) the push's postMessage to this tab
+    // doesn't reliably arrive at all, not just late, so a fallback that only re-arms when a push
+    // IS received leaves those transitions with no catch-up whatsoever. 10s: every one of these
+    // notifications is tied to a live PoP upload-queue action someone is actively waiting on, so a
+    // stale bell/sidebar reads as broken, not just late.
+    useEffect(() => {
+        const id = setInterval(() => {
+            queryClient.invalidateQueries({ queryKey: ["notifications"] });
+            queryClient.invalidateQueries({ queryKey: ["user"] });
+        }, 10000);
+        return () => clearInterval(id);
     }, [queryClient]);
 
     const filteredNotifications = notifications.filter((n) => {
