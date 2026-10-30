@@ -13,7 +13,7 @@ const MAX_TOTAL_CHARS = 30000;
 @injectable()
 export class ContextService extends BaseService {
   private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
-  private readonly translateApiUrl = 'http://100.100.108.43:8110/v1/translate/to-english';
+  private readonly translateApiUrl = aiConfig.accTranslateApiUrl || 'http://100.100.108.44:8110/v1/translate/to-english';
   private readonly TIMEOUT = aiConfig.accAgentTimeout || 15000;
 
   constructor(
