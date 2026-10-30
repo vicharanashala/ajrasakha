@@ -26,12 +26,14 @@ REFERENCE_RELEASE_ID = os.getenv("REFERENCE_RELEASE_ID")
 MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL")
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
-# 60s, not 30s: generate_polish() asks for a full rewrite (hundreds of words)
-# from a reasoning model, which is slower than the short JSON-only calls
-# (classify_and_select, classify_step_coverage) that comfortably finish
-# inside 30s. Verified against a real production timeout at 30s on a
-# realistic draft (Writing Assistant Build Plan, Revision 11).
-MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "60"))
+# 90s, not 60s: a real re-test report hit 8 real "read operation timed
+# out" failures at the 60s budget under normal production load (not a
+# synthetic worst case) - 60s was itself an evidence-based bump from 30s
+# (Revision 11) that's no longer enough. Each /polish-draft request makes
+# several sequential calls (one per expected step, plus selection, the
+# rewrite, and the second opinion), so this is a per-call budget, not the
+# whole request's latency (Writing Assistant Build Plan, Revision 18).
+MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "90"))
 # The self-hosted production model (per ai/ajrasakha/agents/config.py's
 # get_minimax_chat_model) speaks the standard OpenAI-compatible path. The
 # official public MiniMax API (used as a fallback for testing when the

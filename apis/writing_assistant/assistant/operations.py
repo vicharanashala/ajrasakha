@@ -5,13 +5,13 @@ this service - only the author's own explicit acceptance (outside this
 service, in the backend) changes it.
 """
 
-import functools
-
 from . import guardrails, llm_client
 from .models import LanguagePolishingResult, LanguagePolishingStatus, LLMUnavailableError
+from .result_cache import ResultCache
+
+_cache = ResultCache()
 
 
-@functools.lru_cache(maxsize=512)
 def polish_draft_cached(draft_text: str) -> LanguagePolishingResult:
     """Deterministic entry point for the HTTP endpoint: the exact same
     draft always returns the exact same result within this process -
@@ -23,8 +23,21 @@ def polish_draft_cached(draft_text: str) -> LanguagePolishingResult:
     not and cannot make the underlying model's judgment on two
     *different*-but-similar drafts consistent with each other - that
     remains an inherent property of the model, not something caching
-    fixes. Tests must clear this between cases - see conftest.py."""
-    return polish_draft(draft_text)
+    fixes.
+
+    Only "suggested"/"rejected" are cached - "unavailable" means a check
+    couldn't be completed (often a transient LLM timeout), and caching
+    that would permanently stick one bad answer to this draft until the
+    next restart (Revision 18). Tests must clear this between cases -
+    see conftest.py."""
+    return _cache.get_or_compute(
+        draft_text,
+        lambda: polish_draft(draft_text),
+        lambda r: r.status != LanguagePolishingStatus.UNAVAILABLE,
+    )
+
+
+polish_draft_cached.cache_clear = _cache.cache_clear
 
 
 def polish_draft(draft_text: str) -> LanguagePolishingResult:

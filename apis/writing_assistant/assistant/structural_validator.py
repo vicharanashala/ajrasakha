@@ -6,9 +6,8 @@ Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
 "Separate responsibilities").
 """
 
-import functools
-
 from . import llm_client, reference_data, reference_selector, text_checks
+from .result_cache import ResultCache
 from .models import (
     LLMUnavailableError,
     MatchedReference,
@@ -45,6 +44,19 @@ _MIN_SHARED_TERMS_FOR_TRUST = 2
 # (Writing Assistant Build Plan, Revision 17, ISS-05).
 _DOMINANCE_MARGIN = 1.5
 
+# "Exclusive ownership" of a section only makes sense when there are
+# enough sections for different steps to plausibly each have their own -
+# with only one or two sections, every step's content is legitimately
+# mixed together in the same block, and "step X's example overlaps that
+# block more than step Y's" is not evidence step Y is missing. Confirmed
+# live by an independent re-test report: a heading-stripped draft with
+# every step's content genuinely present as one block had 4 of 10
+# correctly-covered steps wrongly downgraded to missing, because each
+# one's content shared that single block with another step whose example
+# happened to overlap it more (Writing Assistant Build Plan, Revision 18,
+# ISS-05 regression).
+_MIN_SECTIONS_FOR_DOMINANCE_CHECK = 3
+
 
 def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[ReferenceStep]) -> bool:
     # The example's own text, not the step name - a step name like
@@ -58,15 +70,19 @@ def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[
     if not step_terms:
         return True  # nothing meaningful to check against - don't block on this
 
-    other_terms_list = [
-        text_checks.significant_words(s.example) for s in all_steps if s is not step
-    ]
-    for section in text_checks.split_sections(draft_text):
+    sections = text_checks.split_sections(draft_text)
+    check_dominance = len(sections) >= _MIN_SECTIONS_FOR_DOMINANCE_CHECK
+    other_terms_list = (
+        [text_checks.significant_words(s.example) for s in all_steps if s is not step]
+        if check_dominance
+        else []
+    )
+    for section in sections:
         section_terms = text_checks.significant_words(section)
         overlap = len(step_terms & section_terms)
         if overlap < _MIN_SHARED_TERMS_FOR_TRUST:
             continue
-        dominated_by_another_step = any(
+        dominated_by_another_step = check_dominance and any(
             len(other_terms & section_terms) > overlap * _DOMINANCE_MARGIN
             for other_terms in other_terms_list
         )
@@ -174,7 +190,9 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
     )
 
 
-@functools.lru_cache(maxsize=512)
+_cache = ResultCache()
+
+
 def validate_structure_cached(question: str, draft_text: str) -> StructuralValidationResult:
     """Deterministic entry point for the HTTP endpoint: the exact same
     (question, draft) pair always returns the exact same result within
@@ -187,7 +205,24 @@ def validate_structure_cached(question: str, draft_text: str) -> StructuralValid
     reload still requires a process restart regardless (unaffected -
     see 'Production release consistency'). Does not and cannot make the
     model's judgment on two *different*-but-similar drafts consistent
-    with each other. Tests must clear this between cases - see
+    with each other.
+
+    Only complete/partial/incomplete are cached - needs_clarification and
+    reference_data_unavailable can both stem from a transient failure
+    (an LLM call erroring, not a genuine "no match"), and caching that
+    would permanently stick a bad answer to this input until the next
+    restart (Revision 18). Tests must clear this between cases - see
     conftest.py."""
-    dataset = reference_data.get_cached_dataset()
-    return validate_structure(question, draft_text, dataset)
+    def _compute():
+        dataset = reference_data.get_cached_dataset()
+        return validate_structure(question, draft_text, dataset)
+
+    return _cache.get_or_compute(
+        (question, draft_text),
+        _compute,
+        lambda r: r.status
+        not in (StructuralValidationStatus.NEEDS_CLARIFICATION, StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE),
+    )
+
+
+validate_structure_cached.cache_clear = _cache.cache_clear

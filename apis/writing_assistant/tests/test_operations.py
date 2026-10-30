@@ -78,3 +78,28 @@ def test_polish_draft_cached_is_deterministic_on_repeated_identical_input(monkey
 
     assert first is second
     assert first.suggested_text == "The treatment is effective."
+
+
+# Revision 18: a transient "unavailable" must never be cached - a real
+# re-test report hit genuine upstream timeouts after the first caching
+# pass shipped, which would otherwise have stuck that bad answer to the
+# draft permanently until the next restart.
+def test_polish_draft_cached_does_not_cache_unavailable(monkeypatch):
+    calls = {"count": 0}
+
+    def _generate_polish(draft):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise LLMUnavailableError("simulated transient timeout")
+        return "The treatment is effective."
+
+    monkeypatch.setattr(llm_client, "generate_polish", _generate_polish)
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
+
+    first = operations.polish_draft_cached("Some draft text.")
+    second = operations.polish_draft_cached("Some draft text.")
+
+    assert first.status == LanguagePolishingStatus.UNAVAILABLE
+    assert second.status == LanguagePolishingStatus.SUGGESTED
+    assert calls["count"] == 2  # the failed first attempt was retried, not cached

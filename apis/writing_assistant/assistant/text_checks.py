@@ -165,7 +165,18 @@ def extract_numbers_and_units(sentence: str) -> frozenset[str]:
 
 
 def extract_negations(sentence: str) -> frozenset[str]:
-    return frozenset(w for w in _words(sentence) if w in NEGATION_WORDS)
+    found = {w for w in _words(sentence) if w in NEGATION_WORDS}
+    # "X rather than Y" is a safe, common paraphrase of "X and not Y" -
+    # confirmed as a real false-positive live: "a major disease and not
+    # an occasional issue" -> "a major disease rather than an occasional
+    # issue" was rejected for "negation added or removed", even though
+    # the LLM second opinion itself found no meaning change (Writing
+    # Assistant Build Plan, Revision 18). Not a single word, so the
+    # NEGATION_WORDS set/presence check above can't catch it - treated
+    # as its own negation-equivalent marker instead.
+    if "rather than" in sentence.lower():
+        found.add("rather than")
+    return frozenset(found)
 
 
 def extract_certainty_markers(sentence: str) -> frozenset[str]:

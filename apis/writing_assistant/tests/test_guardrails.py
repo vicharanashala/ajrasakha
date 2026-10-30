@@ -161,6 +161,18 @@ def test_negation_synonym_swap_passes():
     assert result.checked_tokens.negation == CheckStatus.UNCHANGED
 
 
+# Revision 18: confirmed live from a real rejection - "and not an
+# occasional issue" -> "rather than an occasional issue" was rejected
+# despite being a safe paraphrase the LLM second opinion itself didn't
+# flag.
+def test_negation_rather_than_paraphrase_passes():
+    result = guardrails.run_guardrail(
+        "It is a major, yield-significant disease and not an occasional issue.",
+        "It is a major, yield-significant disease rather than an occasional issue.",
+    )
+    assert result.checked_tokens.negation == CheckStatus.UNCHANGED
+
+
 def test_certainty_same_polarity_synonym_swap_passes():
     result = guardrails.run_guardrail(
         "This may help reduce the spread of the disease.",

@@ -226,3 +226,27 @@ def test_validate_structure_cached_is_deterministic_on_repeated_identical_input(
 
     assert first is second
     assert first.steps[0].coverage == StepCoverage.COVERED
+
+
+# Revision 18: needs_clarification from a transient failure must never
+# be cached - same reasoning as the language-polishing cache.
+def test_validate_structure_cached_does_not_cache_needs_clarification(monkeypatch, dataset):
+    from assistant import reference_data
+
+    monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
+    calls = {"count": 0}
+
+    def _classify_step_coverage(draft, step, example, all_steps=None, subject=None):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise LLMUnavailableError("simulated transient timeout")
+        return (StepCoverage.COVERED, 1)
+
+    monkeypatch.setattr(llm_client, "classify_step_coverage", _classify_step_coverage)
+
+    first = structural_validator.validate_structure_cached("q2", _REALISTIC_DRAFT)
+    second = structural_validator.validate_structure_cached("q2", _REALISTIC_DRAFT)
+
+    assert first.status == StructuralValidationStatus.NEEDS_CLARIFICATION
+    assert second.status == StructuralValidationStatus.COMPLETE
+    assert calls["count"] > 1  # the failed first attempt was retried, not cached
