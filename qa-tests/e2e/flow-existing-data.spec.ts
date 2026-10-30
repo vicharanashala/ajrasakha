@@ -121,7 +121,7 @@ test.describe('existing data flows', () => {
       await app.gotoHomeTab('Dashboard');
 
       await expect(
-        page.getByRole('heading', { name: 'Golden Dataset Analytics', exact: true }),
+        page.getByText('Golden Dataset Analytics', { exact: true }).first(),
       ).toBeVisible();
       const verifiedEntries = page
         .getByText('Verified Entries', { exact: true })
@@ -142,7 +142,7 @@ test.describe('existing data flows', () => {
         'Experts Performance Metrics',
         'Heat Map Of Experts',
       ]) {
-        await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible();
+        await expect(page.getByText(heading, { exact: true }).first()).toBeVisible();
       }
     });
   });

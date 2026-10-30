@@ -110,4 +110,11 @@ The workflow uploads `reviewer-e2e-service-logs` and `reviewer-e2e-playwright-ar
   From `backend` after building, run `node build/jobs/time-bound-reallocate/run.js`.
 - The moderator home page can be slow to load, especially on the Vite development server.
 
+## Known behaviours
+
+- The create-question test leaves a new `e2e-pest-<number>` question allocated to the expert on
+  every run.
+- The expert answer test consumes one allocated question.
+- The empty-queue test skips itself when the expert has an allocated question.
+
 See the [BUGS.md](./BUGS.md) report for known findings.

@@ -34,6 +34,8 @@ Findings from writing Playwright E2E tests for the Reviewer System (moderator an
 | B-16 | First-run data gaps (states, districts) and install pitfalls | Low | Confirmed |
 | B-17 | Backend development-mode email-verification bypass is unreachable from the UI | Low | Code-read |
 | B-18 | "No questions found" is rendered twice | Low | Confirmed |
+| B-19 | Page and card titles are not semantic headings | Low | Confirmed |
+| B-20 | My Queue may open on rerouted questions instead of allocated questions | Low | Code-read |
 
 ## Details
 
@@ -125,6 +127,15 @@ Observed in screenshots on different days. Each one needs a re-check before bein
 
 ### B-18 "No questions found" is rendered twice
 - A strict-mode locator for the empty-state text matched two elements: a table cell (`<td colspan="11">`) and a `<p>`. I did not check whether one is hidden. If both are visible, the text appears twice.
+
+### B-19 Page and card titles are not semantic headings
+- **Actual:** "Welcome Back", "Golden Dataset Analytics", and "Question Status Overview" are `CardTitle` components rendered as `div` elements rather than headings. Heading navigation skips these titles.
+- **Source:** `frontend/src/features/auth/components/AuthCardHeader.tsx`, `frontend/src/components/dashboard/golden-dataset.tsx`, and `frontend/src/components/dashboard/question-status.tsx`.
+- **Confidence:** Confirmed.
+
+### B-20 My Queue may open on rerouted questions instead of allocated questions
+- **Code-read:** the expert's My Queue opens on "ReRouted Questions" and only switches to "Allocated Questions" if the rerouted list is empty. An expert with any rerouted item may not see newly allocated questions.
+- **Source:** `frontend/src/features/qa-interface-page/QA-interface.tsx` and `frontend/src/features/qa-interface-page/QuestionList.tsx`.
 
 ## Not confirmed (noted for follow-up)
 - A blank page appeared once at `localhost:5173` while the console showed `net::ERR_BLOCKED_BY_CLIENT` on an `...ics.js` file, probably an ad blocker stopping Firebase Analytics. An automated reload later rendered the login page. Not reproduced.

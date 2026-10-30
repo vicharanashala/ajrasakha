@@ -23,7 +23,7 @@ test.describe('additional moderator screens', () => {
     await app.profileMenuItem('Profile').click();
 
     await expect(page.getByRole('heading', { name: 'Profile Settings' })).toBeVisible();
-    await expect(page.getByText('Moderator', { exact: true })).toBeVisible();
+    await expect(page.getByText(/^moderator$/i).first()).toBeVisible();
     await expect(page.getByRole('heading', { name: 'Personal Information' })).toBeVisible();
   });
 

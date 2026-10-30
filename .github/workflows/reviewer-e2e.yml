@@ -37,6 +37,41 @@ jobs:
       - name: Generate VAPID keys
         run: npx --yes web-push generate-vapid-keys --json > "$RUNNER_TEMP/vapid-keys.json"
 
+      - name: Check DB_URL_STAGING shape
+        env:
+          DB_URL_STAGING: ${{ secrets.DB_URL_STAGING }}
+        run: |
+          length=${#DB_URL_STAGING}
+          starts_with_mongodb_srv=false
+          starts_with_mongodb=false
+          contains_double_quote=false
+          contains_single_quote=false
+          starts_with_NAME_equals=false
+          contains_whitespace=false
+
+          [[ "$DB_URL_STAGING" == mongodb+srv://* ]] && starts_with_mongodb_srv=true
+          [[ "$DB_URL_STAGING" == mongodb://* ]] && starts_with_mongodb=true
+          [[ "$DB_URL_STAGING" == \"* ]] && contains_double_quote=true
+          [[ "$DB_URL_STAGING" == *\"* ]] && contains_double_quote=true
+          [[ "$DB_URL_STAGING" == \'* ]] && contains_single_quote=true
+          [[ "$DB_URL_STAGING" == *\'* ]] && contains_single_quote=true
+          [[ "$DB_URL_STAGING" =~ ^[A-Za-z_]+= ]] && starts_with_NAME_equals=true
+          [[ "$DB_URL_STAGING" =~ [[:space:]] ]] && contains_whitespace=true
+
+          printf '%s\n' \
+            "length=$length" \
+            "starts_with_mongodb_srv=$starts_with_mongodb_srv" \
+            "starts_with_mongodb=$starts_with_mongodb" \
+            "contains_double_quote=$contains_double_quote" \
+            "contains_single_quote=$contains_single_quote" \
+            "starts_with_NAME_equals=$starts_with_NAME_equals" \
+            "contains_whitespace=$contains_whitespace"
+
+          if [[ "$DB_URL_STAGING" != mongodb://* && "$DB_URL_STAGING" != mongodb+srv://* ]]; then
+            echo "::error::DB_URL_STAGING must start with mongodb:// or mongodb+srv://."
+            exit 1
+          fi
+
       - name: Write backend environment
         env:
           DB_URL_STAGING: ${{ secrets.DB_URL_STAGING }}
@@ -46,6 +81,21 @@ jobs:
           FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY_STAGING }}
           FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
         run: |
+          db_url="$DB_URL_STAGING"
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          if [[ "$db_url" == \"*\" && "$db_url" == *\" ]]; then
+            db_url="${db_url:1:${#db_url}-2}"
+          elif [[ "$db_url" == \'*\' && "$db_url" == *\' ]]; then
+            db_url="${db_url:1:${#db_url}-2}"
+          fi
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          db_url="${db_url#DB_URL=}"
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          export DB_URL_STAGING="$db_url"
+
           printf '%s\n' \
             'NODE_ENV=development' \
             'PORT=8080' \
@@ -57,12 +107,7 @@ jobs:
           const fs = require('node:fs');
           const path = require('node:path');
 
-          const baseUrl = new URL(process.env.DB_URL_STAGING);
-          const databaseUrl = (database) => {
-            const url = new URL(baseUrl);
-            url.pathname = `/${database}`;
-            return url.toString();
-          };
+          const databaseUrl = process.env.DB_URL_STAGING;
           const vapidKeys = JSON.parse(
             fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'vapid-keys.json'), 'utf8'),
           );
@@ -70,11 +115,11 @@ jobs:
           const values = {
             DB_URL: process.env.DB_URL_STAGING,
             DB_NAME: process.env.DB_NAME_STAGING,
-            ANNAM_URL_ANALYTICS: databaseUrl('annam_analytics'),
+            ANNAM_URL_ANALYTICS: databaseUrl,
             ANNAM_DB_ANALYTICS: 'annam_analytics',
-            DB_URL_ANALYTICS: databaseUrl('analytics'),
+            DB_URL_ANALYTICS: databaseUrl,
             DB_NAME_ANALYTICS: 'analytics',
-            DATASET_APP_DB_URL: databaseUrl('dataset_app'),
+            DATASET_APP_DB_URL: databaseUrl,
             DATASET_APP_DB_NAME: 'dataset_app',
             FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
             FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
@@ -85,6 +130,8 @@ jobs:
             VAPID_EMAIL: 'mailto:ci@example.com',
             INTERNAL_API_KEY: require('node:crypto').randomBytes(32).toString('hex'),
             REVIEW_SYSTEM_AUTH_KEY: require('node:crypto').randomBytes(32).toString('hex'),
+            PLIVO_AUTH_ID: 'dummy-plivo-auth-id',
+            PLIVO_AUTH_TOKEN: 'dummy-plivo-auth-token',
           };
 
           fs.appendFileSync(
@@ -132,6 +179,10 @@ jobs:
           echo "Backend did not become healthy within 2 minutes."
           exit 1
 
+      - name: Show backend log on failure
+        if: failure()
+        run: tail -n 60 backend.log || true
+
       - name: Install and build frontend
         working-directory: frontend
         run: |
@@ -177,10 +228,6 @@ jobs:
       - name: Run Playwright tests
         working-directory: qa-tests
         run: npx playwright test --workers=1
-
-      - name: Show backend log on failure
-        if: failure()
-        run: tail -n 60 backend.log || true
 
       - name: Upload service logs
         if: always()
