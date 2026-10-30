@@ -26,7 +26,7 @@ import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {IAnswer, IUser} from '#root/shared/interfaces/models.js';
 import { InternalApiAuth } from '#root/shared/index.js';
 import { AnswerService } from '../services/AnswerService.js';
-import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, DetectChemicalsBody, FetchAiInitialAnswerBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
+import { AddAnswerBody, AnswerIdParam, DeleteAnswerParams, DetectChemicalsBody, FetchAiInitialAnswerBody, PolishDraftBody, ReviewAnswerBody, SubmissionResponse, UpdateAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerService } from '../interfaces/IAnswerService.js';
 import { ClosedAnswerFilters } from '#root/shared/database/interfaces/IAnswerRepository.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -657,6 +657,47 @@ export class AnswerController {
     @Body() body: DetectChemicalsBody,
   ) {
     return await this.answerService.detectChemicals(body.text);
+  }
+
+  @OpenAPI({ summary: 'Polish draft and perform structural validation via writing assistant' })
+  @Post('/polish-draft')
+  @HttpCode(200)
+  @Authorized()
+  async polishDraft(
+    @Body() body: PolishDraftBody,
+  ) {
+    return await this.answerService.polishDraft(body);
+  }
+
+  @OpenAPI({ summary: 'Submit answer quality check to GDB cleaning pipeline' })
+  @Post('/check-quality')
+  @HttpCode(200)
+  @Authorized()
+  async submitAnswerCheck(
+    @Body() body: any,
+  ) {
+    return await this.answerService.submitAnswerCheck(body);
+  }
+
+  @OpenAPI({ summary: 'Get answer quality check status / report by job ID' })
+  @Get('/check-quality/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  async getAnswerCheck(
+    @Param('jobId') jobId: string,
+  ) {
+    return await this.answerService.getAnswerCheck(jobId);
+  }
+
+  @OpenAPI({ summary: 'Generate Farmer-Friendly Versions (FFV) for an answer' })
+  @Post('/ffv')
+  @HttpCode(200)
+  @Authorized()
+  async generateFfv(
+    @Body() body: { question: string; answer: string; domains?: string[] },
+  ) {
+    console.log("body ",body)
+    return await this.answerService.generateFfv(body);
   }
 }
 

@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
+import type { PolishDraftPayload, PolishDraftResponse } from "./writingAssistantService";
 import { env } from "@/config/env";
 export interface IFetchAnswerPayload {
   query: string;
@@ -239,6 +240,91 @@ export class AnswerService {
       throw error;
     }
   }
+
+  async polishDraft(payload: PolishDraftPayload): Promise<PolishDraftResponse | null> {
+    try {
+      return await apiFetch<PolishDraftResponse>(`${this._baseUrl}/polish-draft`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        timeoutMs: 120000,
+      } as any);
+    } catch (error) {
+      console.error(`Error in polishDraft:`, error);
+      throw error;
+    }
+  }
+
+  async submitAnswerCheck(payload: AnswerCheckPayload): Promise<{ job_id: string; status: string } | null> {
+    try {
+      return await apiFetch<{ job_id: string; status: string }>(`${this._baseUrl}/check-quality`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error(`Error in submitAnswerCheck:`, error);
+      throw error;
+    }
+  }
+
+  async getAnswerCheck(jobId: string): Promise<AnswerCheckReport | null> {
+    try {
+      return await apiFetch<AnswerCheckReport>(`${this._baseUrl}/check-quality/${jobId}`, {
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(`Error in getAnswerCheck:`, error);
+      throw error;
+    }
+  }
+
+  async generateFfv(payload: {
+    question: string;
+    answer: string;
+    domains?: string[];
+  }): Promise<{
+    results: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions: number;
+  } | null> {
+    try {
+      // Normalize the answer: trim whitespace and normalize multiple
+      // newlines/spaces to a single space to ensure clean JSON serialization.
+      const normalizedAnswer = payload.answer
+        .trim()
+        .replace(/\r\n/g, "\n")
+        .replace(/\s+/g, " ");
+
+      const normalizedQuestion = payload.question.trim();
+
+      return await apiFetch<{
+        results: Array<{
+          domain: string;
+          versions: Array<{
+            angle: string;
+            question: string;
+            answer: string;
+          }>;
+        }>;
+        total_versions: number;
+      }>(`${this._baseUrl}/ffv`, {
+        method: "POST",
+        body: JSON.stringify({
+          question: normalizedQuestion,
+          answer: normalizedAnswer,
+          domains: payload.domains ?? [],
+        }),
+      });
+    } catch (error) {
+      console.error(`Error in generateFfv:`, error);
+      throw error;
+    }
+  }
 }
 
 export interface ChemicalMatch {
@@ -248,5 +334,37 @@ export interface ChemicalMatch {
 
 export interface ChemicalDetectionResponse {
   matches: ChemicalMatch[];
+}
+
+export interface AnswerCheckPayload {
+  question: string;
+  answer: string;
+  crop?: string;
+  state?: string;
+  sources?: SourceItem[];
+  answerId?: string;
+  version?: string;
+}
+
+export interface AnswerCheckItem {
+  parameter: string;
+  category: "chemical" | "source" | "answer_quality" | "terminology" | string;
+  status: "PASS" | "FLAG" | "NOT_EVALUATED";
+  reason: string;
+  highlight?: string[];
+}
+
+export interface AnswerCheckReport {
+  jobId: string;
+  status: "processing" | "completed" | "failed" | "not_found";
+  answerId?: string;
+  version?: string;
+  passed: number;
+  flagged: number;
+  notEvaluated: number;
+  checks: AnswerCheckItem[];
+  checkedAt?: string;
+  pipelineVersion?: string;
+  error?: string;
 }
 
