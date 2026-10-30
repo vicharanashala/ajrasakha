@@ -191,15 +191,27 @@ jobs:
 
       - name: Serve frontend and wait for readiness
         run: |
-          nohup pnpm --dir frontend run serve -- --host localhost --port 5173 --strictPort > frontend.log 2>&1 < /dev/null &
+          ls -la frontend/dist
+          if [[ ! -f frontend/dist/index.html ]]; then
+            echo "::error::Frontend build output is missing frontend/dist/index.html."
+            exit 1
+          fi
+          nohup pnpm --dir frontend exec vite preview --host localhost --port 5173 --strictPort > frontend.log 2>&1 < /dev/null &
           for attempt in $(seq 1 120); do
-            if curl --fail --silent http://localhost:5173/ > /dev/null; then
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/ || true)
+            if [[ "$status" == "200" ]]; then
               exit 0
             fi
             sleep 1
           done
           echo "Frontend did not become ready within 2 minutes."
           exit 1
+
+      - name: Show frontend diagnostics on failure
+        if: failure()
+        run: |
+          tail -n 60 frontend.log || true
+          ss -ltn | grep -E '4173|5173' || true
 
       - name: Write Playwright test environment
         env:
