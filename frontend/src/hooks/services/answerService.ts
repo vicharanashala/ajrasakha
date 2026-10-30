@@ -7,6 +7,7 @@ import type {
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
+import type { PolishDraftPayload, PolishDraftResponse } from "./writingAssistantService";
 import { env } from "@/config/env";
 export interface IFetchAnswerPayload {
   query: string;
@@ -236,6 +237,19 @@ export class AnswerService {
       });
     } catch (error) {
       console.error(`Error in detectChemicals:`, error);
+      throw error;
+    }
+  }
+
+  async polishDraft(payload: PolishDraftPayload): Promise<PolishDraftResponse | null> {
+    try {
+      return await apiFetch<PolishDraftResponse>(`${this._baseUrl}/polish-draft`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+        timeoutMs: 120000,
+      } as any);
+    } catch (error) {
+      console.error(`Error in polishDraft:`, error);
       throw error;
     }
   }
