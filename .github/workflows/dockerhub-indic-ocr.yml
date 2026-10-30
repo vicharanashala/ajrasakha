@@ -32,6 +32,15 @@ jobs:
           # Remove any existing Docker images to free space
           docker rmi $(docker images -q) || true
 
+      - name: Check HF_TOKEN secret
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set (or not available to this run). It needs read access to bodhan-ai/indic-ocr."
+            exit 1
+          fi
+
       - name: Checkout
         uses: actions/checkout@v4
 
@@ -54,8 +63,9 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          build-args: |
-            HF_TOKEN=${{ secrets.HF_TOKEN }}
+          # Passed as a BuildKit secret (not a build-arg) so it never lands in a layer or the GHA cache
+          secrets: |
+            hf_token=${{ secrets.HF_TOKEN }}
           # Enable cache to speed up rebuilds
           cache-from: type=gha
           cache-to: type=gha,mode=max
