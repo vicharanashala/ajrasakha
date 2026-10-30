@@ -26,18 +26,93 @@ import uvicorn
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
 
-# Ensure the cloned repo is on the path so `from bodhan_genai.ocr` works
-_REPO_PATH = os.environ.get("INDIC_OCR_REPO_PATH", "/tmp/indic-ocr")
-if _REPO_PATH not in sys.path:
-    sys.path.insert(0, _REPO_PATH)
+# =============================================================================
+# Bodhan GenAI Package Setup
+# =============================================================================
+# The bodhan_genai package may be installed in different locations depending on
+# the Docker build. Try multiple paths to find it.
 
-from bodhan_genai.ocr import IndicOCR  # noqa: E402
+_REPO_PATH = os.environ.get("INDIC_OCR_REPO_PATH", "/tmp/indic-ocr")
+
+# Common locations where bodhan_genai might be installed
+_potential_paths = [
+    _REPO_PATH,
+    _REPO_PATH + "/src",  # src-layout packages
+    os.path.join(_REPO_PATH, "src", "bodhan_genai"),  # explicit path
+    "/opt/venv/lib/python3.11/site-packages",  # venv site-packages
+    "/opt/venv/lib/python3.12/site-packages",  # venv site-packages (py3.12)
+]
+
+for _p in _potential_paths:
+    _parent = os.path.dirname(_p)
+    if _parent not in sys.path and os.path.exists(_parent):
+        sys.path.insert(0, _parent)
+
+# Debug: Log paths for troubleshooting
+import pprint
+print(f"[DEBUG] sys.path entries: {pprint.pformat(sys.path)}")
+print(f"[DEBUG] _REPO_PATH={_REPO_PATH}")
+if os.path.exists(_REPO_PATH):
+    print(f"[DEBUG] Repo contents: {os.listdir(_REPO_PATH)}")
+
+# Try to import bodhan_genai.ocr.IndicOCR
+# The package structure might be:
+#   - bodhan_genai/ocr/__init__.py (flat)
+#   - src/bodhan_genai/ocr/__init__.py (src-layout)
+
+IndicOCR = None
+_import_error = None
+
+# Try different import paths
+_import_strategies = [
+    ("bodhan_genai.ocr", "IndicOCR"),
+    ("bodhan_genai", None),  # Try importing the module itself
+]
+
+for _module_name, _class_name in _import_strategies:
+    try:
+        _module = __import__(_module_name, fromlist=[_class_name] if _class_name else [''])
+        if _class_name:
+            IndicOCR = getattr(_module, _class_name)
+        else:
+            # Try common class names
+            for _name in ["IndicOCR", "OCR", "Parser"]:
+                if hasattr(_module, _name):
+                    IndicOCR = getattr(_module, _name)
+                    break
+        if IndicOCR is not None:
+            print(f"[DEBUG] Successfully imported {IndicOCR} from {_module_name}")
+            break
+    except (ImportError, AttributeError) as e:
+        _import_error = e
+        continue
+
+if IndicOCR is None:
+    # List what's available for debugging
+    import pkgutil
+    _bodhan_pkgs = [_n for _, _n, _ in pkgutil.iter_modules() if 'bodhan' in _n.lower() or 'genai' in _n.lower()]
+    print(f"[DEBUG] Packages with 'bodhan' or 'genai': {_bodhan_pkgs}")
+    
+    if _import_error:
+        raise ImportError(
+            f"Failed to import IndicOCR. Tried paths: {_potential_paths}\n"
+            f"Last error: {_import_error}"
+        ) from _import_error
+    else:
+        raise ImportError(
+            f"Could not find IndicOCR class in bodhan_genai package.\n"
+            f"Available related packages: {_bodhan_pkgs}"
+        )
+
+# =============================================================================
+# FastAPI Application Setup
+# =============================================================================
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
 # Global parser instance (shared across requests)
-_parser: IndicOCR | None = None
+_parser = None
 
 
 def get_parser() -> IndicOCR:

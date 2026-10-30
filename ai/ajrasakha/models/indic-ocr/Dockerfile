@@ -92,4 +92,7 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["python", "/app/server.py"]
+# Debug: verify bodhan_genai package location
+RUN /opt/venv/bin/python -c "import bodhan_genai; print(f'bodhan_genai location: {bodhan_genai.__file__}')"
+
+CMD ["/opt/venv/bin/python", "/app/server.py"]
