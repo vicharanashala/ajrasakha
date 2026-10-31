@@ -24,7 +24,8 @@ WORKDIR /tmp/indic-ocr
 # Run install.sh (creates venv at /opt/venv with all packages)
 RUN chmod +x install.sh && bash install.sh --extras all-ocr
 
-# The venv is at /opt/venv with bodhan_genai installed
+# Debug: list what's in /opt/venv/bin
+RUN ls -la /opt/venv/bin/ | grep python || echo "No python in venv"
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
