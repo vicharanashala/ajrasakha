@@ -33,11 +33,11 @@ RUN /root/.local/bin/uv pip install --no-cache \
     --extra-index-url https://download.pytorch.org/whl/cpu \
     huggingface_hub torch torchvision transformers accelerate pillow
 
-# Download model weights to cache
+# Download model weights to cache (huggingface_hub already installed)
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/pip install huggingface_hub && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')" || \
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
