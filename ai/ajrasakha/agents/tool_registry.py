@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 logger = logging.getLogger(__name__)
 
 from langchain_mcp_adapters.client import MultiServerMCPClient
@@ -10,13 +11,19 @@ from langgraph.prebuilt import ToolNode
 
 from ajrasakha.agents.chemical_checker_agent import chemical_checker
 from ajrasakha.agents.config import MCP_URLS
-from ajrasakha.agents.daily_price_agent import daily_price
+from ajrasakha.agents.daily_price_agent import daily_price as daily_price_v1
+from ajrasakha.agents.daily_price_v2_agent import daily_price as daily_price_v2
 from ajrasakha.agents.gdb_agent import gdb
 from ajrasakha.agents.schemes_agent import schemes
 from ajrasakha.agents.soil_agent import soil
 from ajrasakha.agents.new_weather_agent import new_weather  as weather
 
 logger = logging.getLogger(__name__)
+
+# Which mandi price agent serves "daily_price": v1 (default) or v2 (approved name links, PriceV2).
+DAILY_PRICE_AGENT_VERSION = os.getenv("DAILY_PRICE_AGENT_VERSION", "v1").strip().lower()
+daily_price = daily_price_v2 if DAILY_PRICE_AGENT_VERSION == "v2" else daily_price_v1
+logger.info("daily_price agent version: %s", "v2" if daily_price is daily_price_v2 else "v1")
 
 _location_tool = None
 _reviewer_tool = None
