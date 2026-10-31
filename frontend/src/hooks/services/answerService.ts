@@ -7,7 +7,12 @@ import type {
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
-import type { PolishDraftPayload, PolishDraftResponse } from "./writingAssistantService";
+import type {
+  PolishDraftPayload,
+  PolishDraftResponse,
+  PolishDraftSubmitResponse,
+  PolishDraftJobResponse,
+} from "./writingAssistantService";
 import { env } from "@/config/env";
 export interface IFetchAnswerPayload {
   query: string;
@@ -241,15 +246,25 @@ export class AnswerService {
     }
   }
 
-  async polishDraft(payload: PolishDraftPayload): Promise<PolishDraftResponse | null> {
+  async submitPolishDraft(payload: PolishDraftPayload): Promise<PolishDraftSubmitResponse | null> {
     try {
-      return await apiFetch<PolishDraftResponse>(`${this._baseUrl}/polish-draft`, {
+      return await apiFetch<PolishDraftSubmitResponse>(`${this._baseUrl}/polish-draft`, {
         method: "POST",
         body: JSON.stringify(payload),
-        timeoutMs: 120000,
-      } as any);
+      });
     } catch (error) {
-      console.error(`Error in polishDraft:`, error);
+      console.error(`Error in submitPolishDraft:`, error);
+      throw error;
+    }
+  }
+
+  async getPolishDraftJob(jobId: string): Promise<PolishDraftJobResponse | null> {
+    try {
+      return await apiFetch<PolishDraftJobResponse>(`${this._baseUrl}/polish-draft/${jobId}`, {
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(`Error in getPolishDraftJob(${jobId}):`, error);
       throw error;
     }
   }

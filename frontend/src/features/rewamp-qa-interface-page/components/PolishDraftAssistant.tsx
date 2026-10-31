@@ -42,7 +42,7 @@ export const PolishDraftAssistant: React.FC<PolishDraftAssistantProps> = ({
   onApplySuggestedText,
   isEnlarged = false,
 }) => {
-  const { polishDraft, isPolishing, result, error, reset } = usePolishDraft();
+  const { polishDraft, isPolishing, result, error, reset, activeJobId } = usePolishDraft();
 
   // Diff view toggle for suggested text: "text" | "diff"
   const [viewMode, setViewMode] = useState<"text" | "diff">("text");
@@ -186,6 +186,11 @@ export const PolishDraftAssistant: React.FC<PolishDraftAssistantProps> = ({
                 Running sequential language safety checks and structural reference validation.
                 Because this performs multi-step evaluations, it may take 15–90 seconds.
               </p>
+              {activeJobId && (
+                <p className="text-[10px] text-purple-600 dark:text-purple-400 font-mono pt-1">
+                  Tracking Job ID: {activeJobId}
+                </p>
+              )}
             </div>
           </CardContent>
         </Card>
