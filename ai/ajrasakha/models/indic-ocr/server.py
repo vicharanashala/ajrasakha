@@ -34,11 +34,10 @@ from fastapi.responses import JSONResponse
 
 _REPO_PATH = os.environ.get("INDIC_OCR_REPO_PATH", "/tmp/indic-ocr")
 
-# Common locations where bodhan_genai might be installed
+# Common locations where indic_ocr might be installed
 _potential_paths = [
     _REPO_PATH,
     _REPO_PATH + "/src",  # src-layout packages
-    os.path.join(_REPO_PATH, "src", "bodhan_genai"),  # explicit path
     "/opt/venv/lib/python3.11/site-packages",  # venv site-packages
     "/opt/venv/lib/python3.12/site-packages",  # venv site-packages (py3.12)
 ]
@@ -55,18 +54,16 @@ print(f"[DEBUG] _REPO_PATH={_REPO_PATH}")
 if os.path.exists(_REPO_PATH):
     print(f"[DEBUG] Repo contents: {os.listdir(_REPO_PATH)}")
 
-# Try to import bodhan_genai.ocr.IndicOCR
-# The package structure might be:
-#   - bodhan_genai/ocr/__init__.py (flat)
-#   - src/bodhan_genai/ocr/__init__.py (src-layout)
+# Try to import indic_ocr.IndicOCR
+# The repo structure has indic_ocr.py directly
 
 IndicOCR = None
 _import_error = None
 
 # Try different import paths
 _import_strategies = [
-    ("bodhan_genai.ocr", "IndicOCR"),
-    ("bodhan_genai", None),  # Try importing the module itself
+    ("indic_ocr", "IndicOCR"),  # Main module with class
+    ("indic_ocr.ocr", "IndicOCR"),  # Submodule
 ]
 
 for _module_name, _class_name in _import_strategies:
@@ -90,8 +87,8 @@ for _module_name, _class_name in _import_strategies:
 if IndicOCR is None:
     # List what's available for debugging
     import pkgutil
-    _bodhan_pkgs = [_n for _, _n, _ in pkgutil.iter_modules() if 'bodhan' in _n.lower() or 'genai' in _n.lower()]
-    print(f"[DEBUG] Packages with 'bodhan' or 'genai': {_bodhan_pkgs}")
+    _ocr_pkgs = [_n for _, _n, _ in pkgutil.iter_modules() if 'ocr' in _n.lower() or 'indic' in _n.lower()]
+    print(f"[DEBUG] Packages with 'ocr' or 'indic': {_ocr_pkgs}")
     
     if _import_error:
         raise ImportError(
@@ -100,8 +97,8 @@ if IndicOCR is None:
         ) from _import_error
     else:
         raise ImportError(
-            f"Could not find IndicOCR class in bodhan_genai package.\n"
-            f"Available related packages: {_bodhan_pkgs}"
+            f"Could not find IndicOCR class in indic_ocr module.\n"
+            f"Available related packages: {_ocr_pkgs}"
         )
 
 # =============================================================================

@@ -54,14 +54,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Install the same packages in runtime
-RUN --mount=type=secret,id=hf_token \
-    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    python -m venv /opt/venv && \
+# Install packages in venv
+RUN python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir huggingface_hub && \
     /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    /opt/venv/bin/pip install --no-cache-dir uvicorn fastapi python-multipart Pillow && \
-    /opt/venv/bin/pip install --no-cache-dir -e . || true
+    /opt/venv/bin/pip install --no-cache-dir uvicorn fastapi python-multipart Pillow
 
 # Copy model repo
 COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
