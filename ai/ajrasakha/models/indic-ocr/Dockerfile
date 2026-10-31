@@ -58,8 +58,8 @@ COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
 # Install packages in runtime (same as builder)
-RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN pip install --no-cache-dir transformers accelerate pillow huggingface_hub
+RUN python3.11 -m pip install --no-cache torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN python3.11 -m pip install --no-cache transformers accelerate pillow huggingface_hub
 
 # Copy server
 COPY server.py /app/server.py
