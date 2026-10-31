@@ -1,5 +1,6 @@
 # ============================================================
 # IndicOCR — Dockerfile
+# install.sh installs to SYSTEM Python, not a venv
 # ============================================================
 
 # ---- Build stage ----
@@ -21,35 +22,28 @@ RUN --mount=type=secret,id=hf_token \
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh (creates venv at /app/.venv or similar)
+# Run install.sh - it installs to SYSTEM Python
 RUN chmod +x install.sh && bash install.sh --extras all-ocr
 
-# Debug: find where venv was created by install.sh
-RUN find /app -name "python*" -type f 2>/dev/null || find /root -name "python*" -type f 2>/dev/null || echo "Looking for venv..."
-
-# Move/Copy install.sh's venv to /opt/venv
-RUN if [ -d "/app/.venv" ]; then cp -r /app/.venv /opt/venv; fi || \
-    if [ -d "/root/.venv" ]; then cp -r /root/.venv /opt/venv; fi || \
-    echo "Venv not found at common locations"
-
-# Download model weights
+# Download model weights to cache
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')" || \
-    /opt/venv/bin/python3 -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+
+ARG HF_TOKEN
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     CUDA_VISIBLE_DEVICES=0 \
     HF_HOME=/root/.cache/huggingface \
-    PYTHONPATH=/tmp/indic-ocr:/tmp/indic-ocr/bodhan_genai
+    PYTHONPATH=/tmp/indic-ocr
 
 WORKDIR /app
 
-# Install Python 3.11 from deadsnakes PPA
+# Install Python 3.11 from deadsnakes PPA + all packages install.sh needs
 RUN apt-get update && apt-get install -y --no-install-recommends \
         software-properties-common \
     && add-apt-repository -y ppa:deadsnakes/ppa \
@@ -60,10 +54,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Copy venv from builder
-COPY --from=builder /opt/venv /opt/venv
-
-ENV PATH="/opt/venv/bin:${PATH}"
+# Install the same packages in runtime
+RUN --mount=type=secret,id=hf_token \
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    python -m venv /opt/venv && \
+    /opt/venv/bin/pip install --no-cache-dir huggingface_hub && \
+    /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    /opt/venv/bin/pip install --no-cache-dir -e . || true
 
 # Copy model repo
 COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
