@@ -659,7 +659,7 @@ export class AnswerController {
     return await this.answerService.detectChemicals(body.text);
   }
 
-  @OpenAPI({ summary: 'Polish draft and perform structural validation via writing assistant' })
+  @OpenAPI({ summary: 'Submit draft polishing job to writing assistant' })
   @Post('/polish-draft')
   @HttpCode(200)
   @Authorized()
@@ -667,6 +667,16 @@ export class AnswerController {
     @Body() body: PolishDraftBody,
   ) {
     return await this.answerService.polishDraft(body);
+  }
+
+  @OpenAPI({ summary: 'Get draft polishing job status and result by jobId' })
+  @Get('/polish-draft/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  async getPolishDraftJob(
+    @Param('jobId') jobId: string,
+  ) {
+    return await this.answerService.getPolishDraftJob(jobId);
   }
 
   @OpenAPI({ summary: 'Submit answer quality check to GDB cleaning pipeline' })

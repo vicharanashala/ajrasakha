@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { randomUUID } from 'crypto';
 import { inject, injectable } from 'inversify';
 import { ClientSession } from 'mongodb';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
@@ -371,15 +372,143 @@ export class AnswerService extends BaseService implements IAnswerService {
     return result;
   }
 
-  async polishDraft(payload: { question: string; draft: string }): Promise<any> {
+  async polishDraft(payload: { question: string; draft: string }): Promise<{ jobId: string; status: string }> {
     if (!payload?.question || !payload?.draft) {
       throw new BadRequestError('Question and draft are required for polishing.');
     }
-    const result = await this.aiService.polishDraft(payload);
-    if (!result) {
-      throw new InternalServerError('Writing assistant service is temporarily unavailable.');
+
+    const jobId = `job_${randomUUID()}`;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5-minute timeout
+
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    await collection.insertOne({
+      jobId,
+      status: 'processing',
+      question: payload.question,
+      draft: payload.draft,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    });
+
+    // Cleanup old completed or expired jobs in the background
+    this.cleanupOldPolishJobs().catch((err) => {
+      console.error('[cleanupOldPolishJobs] Failed:', err);
+    });
+
+    // Fire-and-forget background processing so the client gets an immediate jobId
+    this.executePolishDraftJob(jobId, payload).catch((err) => {
+      console.error(`[executePolishDraftJob] Unhandled error for job ${jobId}:`, err);
+    });
+
+    return { jobId, status: 'processing' };
+  }
+
+  private async executePolishDraftJob(
+    jobId: string,
+    payload: { question: string; draft: string }
+  ): Promise<void> {
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    try {
+      console.log(`[executePolishDraftJob] Starting AI polish for job ${jobId}`);
+      const result = await this.aiService.polishDraft({
+        question: payload.question,
+        draft: payload.draft,
+      });
+
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'completed',
+            result,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      console.log(`[executePolishDraftJob] Completed job ${jobId}`);
+    } catch (error: any) {
+      const now = new Date();
+      const errorMsg = error?.message || 'Writing assistant service failed';
+      console.error(`[executePolishDraftJob] Failed job ${jobId}:`, errorMsg);
+
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: errorMsg,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
     }
-    return result;
+  }
+
+  async getPolishDraftJob(jobId: string): Promise<any> {
+    if (!jobId) {
+      throw new BadRequestError('Job ID is required.');
+    }
+
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    const job = await collection.findOne({ jobId });
+
+    if (!job) {
+      throw new NotFoundError(`Polish job "${jobId}" not found`);
+    }
+
+    // Check for 5-minute timeout on jobs that are still processing
+    if (job.status === 'processing' && job.expiresAt && new Date() > new Date(job.expiresAt)) {
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: 'Draft analysis timed out after 5 minutes.',
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      return {
+        jobId,
+        status: 'failed',
+        error: 'Draft analysis timed out after 5 minutes.',
+        createdAt: job.createdAt,
+        completedAt: now,
+      };
+    }
+
+    return {
+      jobId: job.jobId,
+      status: job.status,
+      result: job.result,
+      error: job.error,
+      createdAt: job.createdAt,
+      completedAt: job.completedAt,
+    };
+  }
+
+  private async cleanupOldPolishJobs(): Promise<void> {
+    try {
+      const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      await collection.deleteMany({
+        $or: [
+          { status: { $in: ['completed', 'failed'] }, updatedAt: { $lt: twelveHoursAgo } },
+          { expiresAt: { $lt: oneHourAgo } },
+        ],
+      });
+    } catch (err) {
+      console.error('[cleanupOldPolishJobs] Error during cleanup:', err);
+    }
   }
 
   async submitAnswerCheck(body: any): Promise<{ job_id: string; status: string }> {
