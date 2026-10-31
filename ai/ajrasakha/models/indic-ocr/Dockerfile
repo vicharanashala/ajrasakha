@@ -1,6 +1,5 @@
 # ============================================================
 # IndicOCR — Dockerfile
-# Uses BuildKit secrets for HF_TOKEN (not stored in layers)
 # ============================================================
 
 # ---- Build stage ----
@@ -14,29 +13,26 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs install
 
-# Create venv and install packages
+# Create venv
 RUN python -m venv /opt/venv
 
-# Read HF_TOKEN from BuildKit secret
-RUN --mount=type=secret,id=hf_token \
-    HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    export HF_TOKEN && \
-    /opt/venv/bin/pip install --no-cache-dir huggingface_hub
+# Install packages (no auth needed yet)
+RUN /opt/venv/bin/pip install --no-cache-dir huggingface_hub
 
-# Download the repo using Python API
+# Download repo using BuildKit secret
 RUN --mount=type=secret,id=hf_token \
-    HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr', force_download=True)"
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh with venv python
+# Run install.sh
 RUN chmod +x install.sh && \
     /opt/venv/bin/python install.sh --extras all-ocr
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
-    HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
     /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
