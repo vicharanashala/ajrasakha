@@ -20,9 +20,10 @@ RUN --mount=type=secret,id=hf_token \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
 # Install all packages directly to system Python (simpler!)
+# Use extra-index-url so PyTorch comes from PyTorch index, rest from PyPI
 RUN pip install --no-cache-dir \
-    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
-    transformers accelerate pillow
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision transformers accelerate pillow
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
@@ -58,8 +59,8 @@ COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
 # Install packages in runtime (same as builder)
 RUN pip install --no-cache-dir \
-    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
-    transformers accelerate pillow
+    --extra-index-url https://download.pytorch.org/whl/cpu \
+    torch torchvision transformers accelerate pillow
 
 # Copy server
 COPY server.py /app/server.py
