@@ -29,7 +29,7 @@ RUN chmod +x install.sh && bash install.sh --extras all-ocr
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+    /opt/venv/bin/python3 -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
@@ -73,4 +73,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["/opt/venv/bin/python", "/app/server.py"]
+CMD ["/opt/venv/bin/python3", "/app/server.py"]
