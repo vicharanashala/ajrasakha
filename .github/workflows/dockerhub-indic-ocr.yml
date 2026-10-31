@@ -66,6 +66,6 @@ jobs:
           # Passed as a BuildKit secret (not a build-arg) so it never lands in a layer or the GHA cache
           secrets: |
             hf_token=${{ secrets.HF_TOKEN }}
-          # Enable cache to speed up rebuilds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Disable cache to force fresh build (important after Dockerfile changes)
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
