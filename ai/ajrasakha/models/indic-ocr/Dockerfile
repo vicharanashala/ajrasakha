@@ -27,9 +27,10 @@ ENV PATH="/root/.local/bin:${PATH}"
 RUN /root/.local/bin/uv venv /opt/venv --python 3.11
 
 # Install all packages in venv using uv pip
+# Use extra-index-url so PyTorch comes from PyTorch index, rest from PyPI
 RUN /root/.local/bin/uv pip install --no-cache \
     --python /opt/venv \
-    --index-url https://download.pytorch.org/whl/cpu \
+    --extra-index-url https://download.pytorch.org/whl/cpu \
     huggingface_hub torch torchvision transformers accelerate pillow
 
 # Download model weights to cache
