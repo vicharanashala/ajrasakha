@@ -60,6 +60,7 @@ RUN --mount=type=secret,id=hf_token \
     python -m venv /opt/venv && \
     /opt/venv/bin/pip install --no-cache-dir huggingface_hub && \
     /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
+    /opt/venv/bin/pip install --no-cache-dir uvicorn fastapi python-multipart Pillow && \
     /opt/venv/bin/pip install --no-cache-dir -e . || true
 
 # Copy model repo
