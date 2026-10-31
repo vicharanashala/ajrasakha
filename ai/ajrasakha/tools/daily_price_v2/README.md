@@ -21,7 +21,7 @@ A crop name that is still **pending** review returns `COMMODITY_NOT_AVAILABLE` r
 ```bash
 cp ../daily_price/.env .env   # then set MARKET_MONGO_DB_NAME=Price and MARKET_V2_COLLECTION_PREFIX=v2_
                               # (or MARKET_MONGO_DB_NAME=PriceV2 if v2 has its own database)
-docker compose up --build -d                      # MCP on port 8112
+docker compose up --build -d                      # MCP on port 8114
 ```
 
 The agent uses it when `DAILY_PRICE_AGENT_VERSION=v2` is set for the main app (default is v1).

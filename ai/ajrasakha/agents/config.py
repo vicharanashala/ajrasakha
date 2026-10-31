@@ -154,6 +154,6 @@ MCP_URLS = {
     "chemical_checker": f"http://{REMOTE_IP}:9101/mcp",
     "daily_price": f"http://{REMOTE_IP}:8111/mcp",
     # v2 data model (tools/daily_price_v2); used when DAILY_PRICE_AGENT_VERSION=v2
-    "daily_price_v2": os.getenv("DAILY_PRICE_V2_MCP_URL", f"http://{REMOTE_IP}:8112/mcp"),
+    "daily_price_v2": os.getenv("DAILY_PRICE_V2_MCP_URL", f"http://{REMOTE_IP}:8114/mcp"),
 
 }

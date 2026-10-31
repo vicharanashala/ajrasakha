@@ -1,5 +1,5 @@
 # Daily market price MCP service — v2 data model (approved name links).
-# Runs next to the v1 service (port 8111) on port 8112.
+# Runs next to the v1 service (port 8111) on port 8114.
 #
 # Run from this directory:
 #   docker compose up --build -d
@@ -18,7 +18,7 @@ services:
       dockerfile: ajrasakha/tools/daily_price_v2/Dockerfile
     container_name: daily-price-v2-mcp
     ports:
-      - "8112:8006"
+      - "8114:8006"
     env_file:
       - .env
     environment:
