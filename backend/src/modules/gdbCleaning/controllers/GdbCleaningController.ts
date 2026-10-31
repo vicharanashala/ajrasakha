@@ -123,16 +123,13 @@ export class GdbCleaningController {
   @OpenAPI({
     summary: 'Draft a suggested answer from the library',
     description:
-      'Searches the library for the question and drafts an answer with citations to the document and page. Nothing is saved; the reviewer keeps what they want. Only the reviewer who holds the answer can draft.',
+      'Searches the library for the question and drafts an answer with citations to the document and page. Nothing is saved; the reviewer keeps what they want.',
   })
   @Post('/:answerId/draft')
   @HttpCode(200)
   @Authorized(ROLES)
-  async draft(
-    @Params() params: GdbCleaningAnswerParam,
-    @CurrentUser() user: IUser,
-  ) {
-    return this.service.draft(params.answerId, user._id.toString());
+  async draft(@Params() params: GdbCleaningAnswerParam) {
+    return this.service.draft(params.answerId);
   }
 
   @OpenAPI({

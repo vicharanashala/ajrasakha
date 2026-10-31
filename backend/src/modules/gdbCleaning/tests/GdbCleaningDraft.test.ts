@@ -20,9 +20,6 @@ vi.mock('../services/GdbLibraryDraft.js', async importOriginal => ({
   fetchLibraryPdf: vi.fn(),
 }));
 
-const reviewerId = new ObjectId().toString();
-const otherReviewerId = new ObjectId().toString();
-
 const draftResult = {
   answer: 'Malathion 50 EC at 2 ml per litre controls aphids. [P1]',
   citations: [
@@ -56,7 +53,6 @@ const makeDoc = (overrides: Partial<IGdbCleaning> = {}): IGdbCleaning => ({
   model: null,
   reviewedBy: null,
   reviewedAt: null,
-  assignedTo: new ObjectId(reviewerId),
   ...overrides,
 });
 
@@ -66,13 +62,12 @@ const repoWith = (doc: IGdbCleaning | null) =>
     getByAnswerId: async () => doc,
   }) as unknown as IGdbCleaningRepository;
 
-// the holder check looks up the holder's name, so the user repository answers with no one
 const serviceWith = (repo: IGdbCleaningRepository) =>
   new GdbCleaningService(
     repo,
     {} as IAnswerRepository,
     {} as IAnswerApprovalService,
-    {getUsersByIds: async () => []} as unknown as IUserRepository,
+    {} as IUserRepository,
   );
 
 describe('GdbCleaningService draft', () => {
@@ -81,27 +76,16 @@ describe('GdbCleaningService draft', () => {
     vi.mocked(draftFromLibrary).mockResolvedValue(draftResult);
   });
 
-  it('drafts from the question of the answer for the reviewer who holds it', async () => {
+  it('drafts from the question and the crop of the answer', async () => {
     const doc = makeDoc();
-    const result = await serviceWith(repoWith(doc)).draft(
-      doc.answerId.toString(),
-      reviewerId,
-    );
+    const result = await serviceWith(repoWith(doc)).draft(doc.answerId.toString());
     expect(draftFromLibrary).toHaveBeenCalledWith(doc.question, doc.crop);
     expect(result).toEqual(draftResult);
   });
 
-  it('refuses a reviewer who does not hold the answer, and drafts nothing', async () => {
-    const doc = makeDoc();
-    await expect(
-      serviceWith(repoWith(doc)).draft(doc.answerId.toString(), otherReviewerId),
-    ).rejects.toMatchObject({httpCode: 403});
-    expect(draftFromLibrary).not.toHaveBeenCalled();
-  });
-
   it('returns not found for an unknown answer', async () => {
     await expect(
-      serviceWith(repoWith(null)).draft(new ObjectId().toString(), reviewerId),
+      serviceWith(repoWith(null)).draft(new ObjectId().toString()),
     ).rejects.toMatchObject({httpCode: 404});
     expect(draftFromLibrary).not.toHaveBeenCalled();
   });

@@ -106,7 +106,7 @@ export interface IGdbCleaningService {
   ): Promise<GdbCleaningItem>;
 
   /** Drafts a suggested answer and its citations from the library. Saves nothing. */
-  draft(answerId: string, reviewerId: string): Promise<GdbDraft>;
+  draft(answerId: string): Promise<GdbDraft>;
 
   /** The PDF of a library document that a draft citation points to. */
   libraryPdf(documentId: string): Promise<Buffer>;

@@ -236,10 +236,9 @@ export class GdbCleaningService implements IGdbCleaningService {
   }
 
   // Drafts a suggested answer from the library. Nothing is saved: the reviewer decides what to keep.
-  async draft(answerId: string, reviewerId: string): Promise<GdbDraft> {
+  async draft(answerId: string): Promise<GdbDraft> {
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    await this.assertHolder(current, reviewerId);
     return draftFromLibrary(current.question, current.crop);
   }
 
