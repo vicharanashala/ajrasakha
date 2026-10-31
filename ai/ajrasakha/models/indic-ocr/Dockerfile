@@ -18,18 +18,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Set HF token
 ENV HF_TOKEN=${HF_TOKEN}
 
-# Clone the repo using huggingface_hub
-RUN pip install huggingface_hub && \
-    huggingface-cli download bodhan-ai/indic-ocr --local-dir /tmp/indic-ocr --local-dir-use-symlinks False
+# Create venv first
+RUN python -m venv /opt/venv
 
-# Copy install.sh and run it with venv python
-COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
+# Clone the repo using huggingface_hub
+RUN /opt/venv/bin/pip install huggingface_hub && \
+    /opt/venv/bin/huggingface-cli download bodhan-ai/indic-ocr --local-dir /tmp/indic-ocr --local-dir-use-symlinks False
+
 WORKDIR /tmp/indic-ocr
 
-# Create venv and install into it
-RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir --upgrade pip && \
-    chmod +x install.sh && \
+# Run install.sh with venv python
+RUN chmod +x install.sh && \
     /opt/venv/bin/python install.sh --extras all-ocr
 
 # Download model weights into venv
