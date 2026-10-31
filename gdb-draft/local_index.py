@@ -176,6 +176,8 @@ class Index:
             return []
         total = len(self.chunks)
         allowed = self.crops_for(question, crop)
+        if crop and crop.strip() and not allowed:
+            return []  # the record's crop has no documents: say so, rather than answer from another crop
         scored: list[tuple[float, int]] = []
         for index, counts in enumerate(self._frequencies):
             if allowed and self.documents[self.chunks[index]["documentId"]]["crop"] not in allowed:

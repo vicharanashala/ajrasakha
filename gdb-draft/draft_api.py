@@ -82,7 +82,7 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
     _check_token(x_draft_token)
     try:
         passages = search_library(request.question, request.crop)
-        return draft_answer(request.question, passages)
+        return draft_answer(request.question, passages, request.crop)
     except Exception as error:
         logger.exception("library draft failed")
         raise HTTPException(status_code=502, detail=f"Library draft failed: {error}") from error
