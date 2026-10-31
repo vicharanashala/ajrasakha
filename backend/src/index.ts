@@ -35,6 +35,13 @@ import { installTailnetProxy, tailnetAgentFor } from './bootstrap/tailnetProxy.j
 if (aiConfig.useTailnetProxy) installTailnetProxy();
 
 const app = express();
+// Express generates a weak ETag for every JSON response by default and will reply 304 Not
+// Modified whenever a client's If-None-Match happens to match it — fine for static/cacheable
+// content, wrong here: every route in this API serves live, frequently-changing data (notably
+// GET /notifications), and fetch() resolves a 304 by transparently returning the browser's
+// stale cached body, with no way for calling code to tell. Disabling it makes every response
+// always reflect current state, which is what an API like this actually needs.
+app.disable('etag');
 
 
 app.get(`${appConfig.routePrefix}/health`, (_req, res) => {
@@ -128,6 +135,16 @@ const proxyOnError = (label: string) => (err: Error, _req: any, res: any) => {
 // its own SOCKS agent, or it dials an unroutable address and the request hangs forever.
 // The timeouts turn a dead upstream into a prompt 502 instead of an endless spinner.
 const PROXY_TIMEOUT_MS = 30_000;
+// POP alone gets a longer timeout: large dashboard-document uploads (multipart, several MB) ride
+// this same proxy, and the POP server itself answers in well under a second (confirmed directly
+// against it) — the 503s on those uploads traced back to this 30s timeout tripping before the
+// upload finished crossing the Tailscale link (often DERP-relayed from Cloud Run, so throughput
+// can drop to a few hundred KB/s-low MB/s, turning a 6-30MB upload into >30s). Every other POP
+// route is cheap JSON, so this only matters for uploads, but there's no reason to special-case
+// the route when a single shared, generous timeout costs nothing for the fast calls.
+// Kept a little under Cloud Run's own 300s default request timeout for this service, so our
+// proxy's clean 502 fires first instead of Cloud Run cutting the connection out from under it.
+const POP_PROXY_TIMEOUT_MS = 280_000;
 
 if (faqPopConfig.faqApiUrl) {
   app.use('/api/faq', createProxyMiddleware({
@@ -146,8 +163,8 @@ if (faqPopConfig.popApiUrl) {
     changeOrigin: true,
     pathRewrite: { '^/api/pop': '' },
     agent: tailnetAgentFor(faqPopConfig.popApiUrl),
-    timeout: PROXY_TIMEOUT_MS,
-    proxyTimeout: PROXY_TIMEOUT_MS,
+    timeout: POP_PROXY_TIMEOUT_MS,
+    proxyTimeout: POP_PROXY_TIMEOUT_MS,
     on: { error: proxyOnError('pop') },
   }));
 }

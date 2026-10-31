@@ -66,9 +66,25 @@ export default function TranslateReviewCell({
   canTranslate = false,
   onChanged,
   onTranslationStarted,
+  // The doc's own most recent failed/cancelled job (looked up by the caller from an always-on
+  // doc-id-keyed map — see DocumentManagementPanel's terminalJobsByDocId), if any. Seeds this
+  // button's mode dropdown so it doesn't silently diverge from the Translation Queue panel's own
+  // "Translate again" dropdown for the same document (both resume the same job either way).
+  lastTerminalJob,
 }) {
   const cfg = KIND_CONFIG[kind];
   const [busy, setBusy] = useState(false);
+  const [translateMode, setTranslateMode] = useState(() => lastTerminalJob?.mode || "normal");
+  // Re-seed on doc change (this component can be reused across different documents without
+  // remounting — e.g. Document Detail navigating to another document) but NOT on every re-render
+  // of the same document, so a late job update doesn't clobber a selection the user is mid-pick on.
+  const seededDocIdRef = useRef(doc.id);
+  useEffect(() => {
+    if (seededDocIdRef.current === doc.id) return;
+    seededDocIdRef.current = doc.id;
+    setTranslateMode(lastTerminalJob?.mode || "normal");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [doc.id]);
   const fileInputRef = useRef(null);
   // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified
   // (docs/first_render_frontend.md, "Who translated / reviewed, and when") — per the user's
@@ -112,8 +128,8 @@ export default function TranslateReviewCell({
   async function handleTranslate() {
     setBusy(true);
     try {
-      if (scope === "placement") await translateDashboardDocument(doc.id, currentUserName);
-      else await translateUniqueDocument(doc.id, currentUserName);
+      if (scope === "placement") await translateDashboardDocument(doc.id, currentUserName, translateMode);
+      else await translateUniqueDocument(doc.id, currentUserName, translateMode);
       toast.success("Translation queued");
       onChanged?.({ ...doc, [cfg.statusKey]: "in_progress" });
       // Translations also show up in the separate Translation Queue panel (backed by
@@ -314,6 +330,21 @@ export default function TranslateReviewCell({
   if (kind === "translation") {
     return (
       <div className="flex items-center gap-1.5">
+        <select
+          className="text-[10px] rounded border border-border bg-background px-1 py-0.5 text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
+          value={translateMode}
+          onChange={(e) => setTranslateMode(e.target.value)}
+          disabled={busy || !translationAvailable || !canTranslate}
+          title="Translation mode"
+        >
+          <option value="normal">Normal</option>
+          <option value="flex" title="Sometimes refused by Google under high demand (503) — retry with normal or batch if it fails">
+            Flex
+          </option>
+          <option value="batch" title="Can take 10-45+ minutes, even for a few pages">
+            Batch
+          </option>
+        </select>
         <button
           className="flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-foreground hover:bg-accent transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
           onClick={handleTranslate}
@@ -326,7 +357,7 @@ export default function TranslateReviewCell({
                 : undefined
           }
         >
-          Translate
+          Translate ({translateMode})
         </button>
         {translationUploadControl}
       </div>

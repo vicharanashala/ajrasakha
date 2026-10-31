@@ -25,9 +25,13 @@ type TabId = (typeof ALL_TABS)[number]["id"] | "user-management";
 export function DataProcessingDashboard({
   userRole,
   userId,
+  openUploadQueue = false,
 }: {
   userRole?: string | null;
   userId?: string | null;
+  // Set when arriving here from a PoP upload-queue notification click — jumps straight to
+  // POP-Management's upload queue instead of whatever tab/mode was last open.
+  openUploadQueue?: boolean;
 }) {
   // Every POP_API request needs X-User-Id/X-User-Role — keep the module-level identity in api.ts
   // in sync with whoever is signed in, before any dashboard panel below fires its first request.
@@ -56,6 +60,9 @@ export function DataProcessingDashboard({
   }, [userRole, me]);
 
   const [activeTab, setActiveTab] = useState<TabId>("faq-cluster");
+  useEffect(() => {
+    if (openUploadQueue) setActiveTab("document-management");
+  }, [openUploadQueue]);
   const effectiveTab = TABS.some((t) => t.id === activeTab) ? activeTab : TABS[0]?.id;
 
   return (
@@ -87,6 +94,7 @@ export function DataProcessingDashboard({
             canTranslate={Boolean(me?.can_translate)}
             canApproveUploads={Boolean(me?.can_approve_uploads)}
             isAdmin={Boolean(me?.is_admin)}
+            initialMode={openUploadQueue ? "add-document" : undefined}
           />
         )}
         {effectiveTab === "user-management" && <UserManagementPanel />}

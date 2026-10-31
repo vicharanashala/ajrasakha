@@ -1,8 +1,18 @@
 import { apiFetch } from "@/hooks/api/api-fetch";
 import { urlBase64ToUint8Array } from "@/utils/vapid";
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
-export const initializeNotifications = async () => {
+// `userId` scopes the "already synced" check below — the browser's push subscription endpoint
+// is tied to this DEVICE/BROWSER PROFILE, not to whichever backend account is currently logged
+// in. Several accounts tested in the same browser (common in staging) all share one endpoint, so
+// a single global "push_endpoint" key meant only the FIRST account to ever call this actually got
+// its subscription saved server-side — every other account that later logged in in the same
+// browser saw the endpoint already match that stale key and skipped saving entirely, leaving the
+// backend's subscription record pointing at someone else's userId (so notifyUser found nothing
+// to push to for them, even though their in-app/sidebar notifications still worked fine). Keying
+// by userId makes each account re-associate the (shared) endpoint with itself on first login.
+export const initializeNotifications = async (userId?: string) => {
   if (!("serviceWorker" in navigator) || !("PushManager" in window)) return;
+  if (!userId) return;
 
   try {
     const registration =
@@ -12,6 +22,7 @@ export const initializeNotifications = async () => {
     const existingSubscription =
       await registration.pushManager.getSubscription();
     const newKey = urlBase64ToUint8Array(import.meta.env.VITE_VAPID_PUBLIC_KEY);
+    const syncedKey = `push_endpoint_${userId}`;
 
     // ✅ If subscription exists, check if the keys match
     if (existingSubscription) {
@@ -32,7 +43,7 @@ export const initializeNotifications = async () => {
         );
         await existingSubscription.unsubscribe();
       } else {
-        const lastSyncedEndpoint = localStorage.getItem("push_endpoint");
+        const lastSyncedEndpoint = localStorage.getItem(syncedKey);
 
         if (lastSyncedEndpoint === existingSubscription.endpoint) {
           console.log("Subscription already synced");
@@ -41,7 +52,7 @@ export const initializeNotifications = async () => {
 
         await saveSubscription(existingSubscription);
 
-        localStorage.setItem("push_endpoint", existingSubscription.endpoint);
+        localStorage.setItem(syncedKey, existingSubscription.endpoint);
 
         return;
       }
@@ -53,8 +64,8 @@ export const initializeNotifications = async () => {
       applicationServerKey: newKey,
     });
 
-    const receivedNotification = await saveSubscription(subscription);
-    localStorage.setItem("push_endpoint", subscription.endpoint);
+    await saveSubscription(subscription);
+    localStorage.setItem(syncedKey, subscription.endpoint);
   } catch (err) {
     console.error("Error initializing notifications:", err);
   }

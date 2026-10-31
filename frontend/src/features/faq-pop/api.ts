@@ -1,7 +1,9 @@
 import { env } from "@/config/env";
+import { apiFetch } from "@/hooks/api/api-fetch";
 
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
+const API_BASE_URL = env.apiBaseUrl().replace(/\/$/, "");
 
 // Set once (and kept in sync) from the signed-in user — see DataProcessingDashboard.tsx, which
 // calls this from a useEffect on useGetCurrentUser(). Every POP_API request (reads included) needs
@@ -459,7 +461,11 @@ function _buildListParams(page: number, filters: Record<string, string[]>, sort 
   });
   for (const [key, values] of Object.entries(filters || {})) {
     const clean = (values || []).filter((v) => v !== "" && v != null);
-    if (clean.length > 0) params.set(`filter[${key}]`, clean.join(","));
+    if (clean.length > 0) {
+      // domain is "has ANY of these", joined by "|" (whole names, which may themselves contain
+      // commas, e.g. "Credit, Loan and Insurance") — every other filter key keeps the "," OR-join.
+      params.set(`filter[${key}]`, clean.join(key === "domain" ? "|" : ","));
+    }
   }
   if (sort) params.set("sort", sort);
   return params;
@@ -769,6 +775,13 @@ export async function getDashboardLanguages() {
   return _handleResponse(res);
 }
 
+// The 19 allowed domain names — the only valid source for the Domain multi-select, don't hardcode
+// a list client-side (fields.ts's DOMAIN_OPTIONS_FALLBACK is only a brief pre-fetch placeholder).
+export async function getDashboardDomains(): Promise<string[]> {
+  const res = await popFetch(`${POP_API}/dashboard/domains`);
+  return (await _handleResponse(res)) || [];
+}
+
 // Backs the Uploaded By / Translated By / Reviewed By column filter dropdowns
 // (UniqueDocumentsTable.tsx's filterType: "users" columns) — distinct, non-empty values actually
 // present on documents, sorted A-Z ignoring case. NOT the reviewer-system's user list (that was
@@ -805,7 +818,7 @@ export async function getDashboardApprovedByAdminOptions(): Promise<string[]> {
 // passed via `fields` as plain `district_id`/`kvk_id` form fields instead, same as `language`.
 export async function uploadDashboardDocument(
   file: File,
-  fields: Record<string, string>,
+  fields: Record<string, unknown>,
   placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
   language: string,
 ) {
@@ -813,8 +826,15 @@ export async function uploadDashboardDocument(
   fd.append("file", file);
   fd.append("placements_json", JSON.stringify(placements));
   fd.append("language", language);
-  for (const [key, value] of Object.entries(fields || {})) {
-    if (value !== "" && value != null) fd.append(key, value);
+  // domain is sent separately as "domain_json", a JSON-encoded array string — plain "domain" would
+  // break on names that themselves contain commas (e.g. "Credit, Loan and Insurance"). Omitted
+  // entirely when empty, same as every other blank field below.
+  const { domain, ...rest } = fields || {};
+  if (Array.isArray(domain) && domain.length > 0) {
+    fd.append("domain_json", JSON.stringify(domain));
+  }
+  for (const [key, value] of Object.entries(rest)) {
+    if (value !== "" && value != null) fd.append(key, value as string);
   }
   const res = await popFetch(`${POP_API}/dashboard/uploads`, {
     method: "POST",
@@ -823,11 +843,63 @@ export async function uploadDashboardDocument(
   return _handleResponse(res);
 }
 
+// Queues the upload on OUR OWN backend instead of posting straight to PoP — the browser's
+// connection only has to survive "upload bytes to our Cloud Run instance, write to Mongo
+// GridFS" (fast, same infra, no Tailscale hop), not the full forward through PoP's slow/flaky
+// tailnet link, which is what caused the earlier 503s on large files. Our backend forwards it to
+// PoP in the background (see backend/src/modules/popUploads) and retries once on failure.
+// Throws (via apiFetch, err.message only — no err.status, unlike the popFetch helpers below)
+// when a synchronous duplicate check (our own pending queue, or PoP's live queue) finds a match
+// and refuses the upload outright.
+export async function submitPendingUpload(
+  file: File,
+  fields: Record<string, unknown>,
+  placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
+  language: string,
+): Promise<{ id: string; status: "received"; warning?: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("fields_json", JSON.stringify(fields || {}));
+  fd.append("placements_json", JSON.stringify(placements));
+  fd.append("language", language);
+  const res = await apiFetch<{ id: string; status: "received"; warning?: string }>(
+    `${API_BASE_URL}/pop-uploads`,
+    { method: "POST", body: fd },
+  );
+  return res as { id: string; status: "received"; warning?: string };
+}
+
+export interface PendingPopUpload {
+  id: string;
+  filename: string;
+  status: "received" | "processing" | "succeeded" | "failed";
+  error?: string | null;
+  createdAt: string;
+}
+
+// This caller's own not-yet-forwarded uploads — fetched on demand (Pending tab opened, or a
+// manual refresh), same as the History tab, not polled/pushed. Once an item reaches `succeeded`
+// it stops showing up here at all (our backend deletes the pending doc's GridFS bytes and it
+// becomes a real item in PoP's own queue instead) — refresh the main Queue to see it there.
+export async function getPendingUploads(): Promise<PendingPopUpload[]> {
+  const res = await apiFetch<PendingPopUpload[]>(`${API_BASE_URL}/pop-uploads`);
+  return res || [];
+}
+
 // Not explicitly re-documented in docs/first_render_frontend.md (only `GET /uploads/{id}`
 // polling is shown there) — kept as a carried-over assumption since the multi-item Upload Queue
 // panel has no other data source and nothing suggests this list endpoint went away.
 export async function getDashboardUploads() {
   const res = await popFetch(`${POP_API}/dashboard/uploads`);
+  return _handleResponse(res);
+}
+
+// Read-only, newest first — finished uploads (moved server-side to pop_upload_trail once an
+// add/new resolves), same UploadQueueItemOut shape as getDashboardUploads but with `actions`
+// always empty and created_document_id/created_row_ids filled in. Who sees what is decided
+// server-side (uploader, upload approver, or admin who acted on it) — no client-side filtering.
+export async function getDashboardUploadsHistory() {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/history`);
   return _handleResponse(res);
 }
 
@@ -1037,30 +1109,36 @@ export async function deleteDashboardTranslationJob(jobId: string) {
   return _handleResponse(res);
 }
 
+// Translate mode: "normal" (default, page-by-page) | "flex" (page-by-page, slower per page) |
+// "batch" (handed to Google as one batch job, can take up to 24h). Omitting mode means "normal".
+export type TranslateMode = "normal" | "flex" | "batch";
+
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
 // translation_status: "done". `translatedBy` (the signed-in user's display name, sent by the
 // caller — see TranslateReviewCell.tsx) is optional and unverified: /api/pop has no auth, so the
 // backend just stores whatever name it's given (docs/first_render_frontend.md, "Who translated /
 // reviewed, and when").
-export async function translateDashboardDocument(placementId: string, translatedBy?: string) {
+export async function translateDashboardDocument(
+  placementId: string,
+  translatedBy?: string,
+  mode?: TranslateMode,
+) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string, translatedBy?: string) {
+export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode) {
+  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
-    ...(translatedBy
-      ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify({ translated_by: translatedBy }) }
-      : {}),
+    ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
   });
   return _handleResponse(res);
 }

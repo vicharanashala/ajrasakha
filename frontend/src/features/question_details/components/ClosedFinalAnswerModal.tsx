@@ -72,6 +72,15 @@ export const ClosedFinalAnswerModal = ({
       toast.error("Answer cannot be empty.");
       return;
     }
+
+    // Validate source names are present for any sources with sourceType
+    for (const source of editedSources) {
+      if (source.sourceType && !source.sourceName?.trim()) {
+        toast.error("Source name is required for all sources. Please fill in the source name for each source.");
+        return;
+      }
+    }
+
     setShowConfirm(true);
   };
 

@@ -6,9 +6,10 @@ import {
   getDashboardStates,
   getDashboardFolders,
   getDashboardLanguages,
+  getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
-  uploadDashboardDocument,
+  submitPendingUpload,
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
@@ -21,7 +22,7 @@ const labelClass = "text-xs font-medium text-foreground/70";
 
 function emptyValues() {
   const v = {};
-  for (const f of DOCUMENT_METADATA_FIELDS) v[f.key] = "";
+  for (const f of DOCUMENT_METADATA_FIELDS) v[f.key] = f.type === "multiselect" ? [] : "";
   return v;
 }
 
@@ -123,6 +124,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
 
   const [stateOptions, setStateOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
+  const [domainOptions, setDomainOptions] = useState([]);
   const [folderOptions, setFolderOptions] = useState([]);
   // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified — per the
   // user's decision (same as translated_by/reviewed_by, see TranslateReviewCell.tsx), uploaded_by
@@ -136,6 +138,9 @@ export default function AddDocumentForm({ onUploadQueued }) {
       .catch(() => {});
     getDashboardLanguages()
       .then((d) => setLanguageOptions(d || []))
+      .catch(() => {});
+    getDashboardDomains()
+      .then((d) => setDomainOptions(d || []))
       .catch(() => {});
   }, []);
 
@@ -283,13 +288,18 @@ export default function AddDocumentForm({ onUploadQueued }) {
     }
     if (currentUserName) fields.uploaded_by = currentUserName;
     // District/KVK are form fields of the upload itself now (2026-10-06), not of a placement
-    // group — sent alongside language/placements_json (see uploadDashboardDocument in api.ts).
+    // group — sent alongside language/placements_json (see submitPendingUpload in api.ts).
     if (districtId) fields.district_id = districtId;
     if (kvkId) fields.kvk_id = kvkId;
     setSubmitting(true);
     try {
-      const result = await uploadDashboardDocument(file, fields, placements, language);
+      const result = await submitPendingUpload(file, fields, placements, language);
+      // No notification here any more — a fresh upload now lands at the creator's own stage (PoP
+      // no longer auto-advances it a level on creation), so nobody downstream has anything to act
+      // on yet. The "upload_created" notify now fires from handleApproveUpload instead, the moment
+      // the creator actually approves it forward to the approvers.
       toast.success("Upload queued");
+      if (result?.warning) toast.warning(result.warning);
       setValues(emptyValues());
       setFile(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -323,6 +333,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
               value={values[f.key]}
               onChange={(v) => setValue(f.key, v)}
               className={inputClass}
+              options={f.key === "domain" ? domainOptions : undefined}
             />
           </div>
         ))}

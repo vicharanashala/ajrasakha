@@ -53,6 +53,8 @@ const TYPES = {
   CropRepository: Symbol.for('CropRepository'),
   ChemicalRepository: Symbol.for('ChemicalRepository'),
   GdbCleaningRepository: Symbol.for('GdbCleaningRepository'),
+  PendingPopUploadRepository: Symbol.for('PendingPopUploadRepository'),
+  PopRepository: Symbol.for('PopRepository'),
   MongoDatabase: Symbol.for('MongoDatabase'),
   CropService: Symbol.for('CropService'),
   ChemicalService: Symbol.for('ChemicalService'),

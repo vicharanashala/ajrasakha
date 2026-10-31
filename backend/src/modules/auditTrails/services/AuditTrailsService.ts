@@ -1,6 +1,6 @@
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {inject, injectable} from 'inversify';
-import {ModeratorAuditTrail} from '../interfaces/IAuditTrails.js';
+import {CropManagementAuditFilters, ModeratorAuditTrail} from '../interfaces/IAuditTrails.js';
 import {IAuditTrailsService} from '../interfaces/IAuditTrailsService.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {AUDIT_TRAILS_TYPES} from '../types.js';
@@ -24,6 +24,20 @@ export class AuditTrailsService
   async createAuditTrail(paload: ModeratorAuditTrail): Promise<string> {
     return await this.auditTrailsRepository.createAuditTrail(
       this.normalizeAuditToObjectId(paload),
+    );
+  }
+
+  // Lists AgriTech Management audit entries for its audit view.
+  async getCropManagementAuditTrails(
+    filters: CropManagementAuditFilters,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}> {
+    return this.auditTrailsRepository.getCropManagementAuditTrails(filters);
+  }
+
+  // Writes a batch of audit entries (e.g. one per entry of a bulk import) in one call.
+  async createAuditTrails(payloads: ModeratorAuditTrail[]): Promise<number> {
+    return await this.auditTrailsRepository.createAuditTrails(
+      payloads.map(payload => this.normalizeAuditToObjectId(payload)),
     );
   }
 

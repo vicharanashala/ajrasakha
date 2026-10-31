@@ -16,10 +16,14 @@ import {inject, injectable} from 'inversify';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {
+  EditGdbFlagDto,
   GdbCleaningAnswerParam,
   GdbDecisionDto,
   GetGdbCleaningListQuery,
+  GetGdbCleaningSummaryQuery,
+  GetGdbHistoryQuery,
   SaveGdbCorrectionDto,
+  SaveGdbSourcesDto,
 } from '../classes/validators/GdbCleaningValidators.js';
 import {IGdbCleaningService} from '../interfaces/IGdbCleaningService.js';
 
@@ -51,12 +55,31 @@ export class GdbCleaningController {
     return this.service.list(query);
   }
 
-  @OpenAPI({summary: 'Number of answers in each status'})
+  @OpenAPI({
+    summary: 'Number of answers in each status',
+    description:
+      'With from and to, fixed, dismissed and pushed count only those in that period.',
+  })
   @Get('/summary')
   @HttpCode(200)
   @Authorized(ROLES)
-  async summary() {
-    return this.service.summary();
+  async summary(@QueryParams() query: GetGdbCleaningSummaryQuery) {
+    return this.service.summary(query);
+  }
+
+  @OpenAPI({
+    summary: 'History of what reviewers did, newest first',
+    description:
+      'Your own actions by default; scope=all shows everyone\'s. from and to are ISO dates.',
+  })
+  @Get('/history')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async history(
+    @QueryParams() query: GetGdbHistoryQuery,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.history(query, user._id.toString());
   }
 
   @OpenAPI({summary: 'States, crops and flags available as filters'})
@@ -85,8 +108,66 @@ export class GdbCleaningController {
   async saveCorrection(
     @Params() params: GdbCleaningAnswerParam,
     @Body() body: SaveGdbCorrectionDto,
+    @CurrentUser() user: IUser,
   ) {
-    return this.service.saveCorrection(params.answerId, body.correctedAnswer);
+    return this.service.saveCorrection(
+      params.answerId,
+      body.questionId,
+      body.correctedAnswer,
+      user._id.toString(),
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Change one flag: not a problem (PASS) or a problem (FAIL)',
+    description:
+      'A comment is required. The check keeps the result the system found, and the change is saved next to it with who made it and when. Only an answer that is still to do can change.',
+  })
+  @Put('/:answerId/flags')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async editFlag(
+    @Params() params: GdbCleaningAnswerParam,
+    @Body() body: EditGdbFlagDto,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.editFlag(params.answerId, body, user._id.toString());
+  }
+
+  @OpenAPI({
+    summary: 'Correct the sources of the answer',
+    description:
+      'Replaces the whole list of sources on this row, matched by answer and question. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
+  })
+  @Put('/:answerId/sources')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async editSources(
+    @Params() params: GdbCleaningAnswerParam,
+    @Body() body: SaveGdbSourcesDto,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.editSources(
+      params.answerId,
+      body.questionId,
+      body.sources,
+      user._id.toString(),
+    );
+  }
+
+  @OpenAPI({
+    summary: 'Push the accepted correction to the golden answer',
+    description:
+      'Replaces the golden answer with the accepted correction, through the same flow the app uses to edit a final answer (embeddings included). Only a fixed answer, once.',
+  })
+  @Post('/:answerId/push')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async push(
+    @Params() params: GdbCleaningAnswerParam,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.pushToGdb(params.answerId, user._id.toString());
   }
 
   @OpenAPI({

@@ -1164,9 +1164,10 @@ export class AllocationService extends BaseService {
             );
           }
           questionUpdates.isOnHold = false;
-          questionUpdates.status = 'open';
+          questionUpdates.status = question.previousStatus || 'open';
           questionUpdates.accumulatedHoldMs = prevAccum + segmentMs;
           questionUpdates.holdAt = null;
+          questionUpdates.previousStatus = null;
         }
 
         // Update question's userId (author) and append to authors_history
@@ -1482,9 +1483,10 @@ export class AllocationService extends BaseService {
           questionId,
           {
             isOnHold: false,
-            status: 'open',
+            status: question.previousStatus || 'open',
             accumulatedHoldMs: prevAccum + segmentMs,
             holdAt: null,
+            previousStatus: null,
           },
           session,
         );
@@ -2127,9 +2129,10 @@ export class AllocationService extends BaseService {
               question._id.toString(),
               {
                 isOnHold: false,
-                status: 'open',
+                status: question.previousStatus || 'open',
                 accumulatedHoldMs: prevAccum + segmentMs,
                 holdAt: null,
+                previousStatus: null,
               },
               session,
             );
@@ -2421,9 +2424,10 @@ export class AllocationService extends BaseService {
             question._id.toString(),
             {
               isOnHold: false,
-              status: 'open',
+              status: question.previousStatus || 'open',
               accumulatedHoldMs: prevAccum + segmentMs,
               holdAt: null,
+              previousStatus: null,
             },
             session,
           );

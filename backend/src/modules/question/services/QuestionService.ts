@@ -1049,7 +1049,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
           if (isStaticAndDynamic) {
             await this.questionRepo.updateQuestion(questionId, {
-              status: 'open',
+              status: 'dynamic',
               tag: 'static_dynamic',
               isAutoAllocate: true,
             });
@@ -2436,13 +2436,15 @@ export class QuestionService extends BaseService implements IQuestionService {
             Date.now() - new Date(question.holdAt).getTime(),
           );
         }
+        const restoredStatus = question.previousStatus || 'open';
         await this.questionRepo.updateQuestion(
           questionId,
           {
             isOnHold: false,
-            status: 'open',
+            status: restoredStatus,
             accumulatedHoldMs: prevAccum + segmentMs,
             holdAt: null,
+            previousStatus: null,
           },
           session,
         );
@@ -2461,6 +2463,9 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (question.status === 'closed') {
         throw new BadRequestError('Question is already closed');
       }
+      if (question.isOnHold) {
+        throw new BadRequestError('Question is already on hold');
+      }
       const submission = await this.questionSubmissionRepo.getByQuestionId(
         questionId,
         session,
@@ -2474,6 +2479,7 @@ export class QuestionService extends BaseService implements IQuestionService {
         {
           isOnHold: true,
           isAutoAllocate: false,
+          previousStatus: question.status,
           status: 'hold',
           holdAt: new Date(),
         },

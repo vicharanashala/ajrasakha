@@ -11,8 +11,11 @@ from result_state import FAIL, PASS, check_result
 
 
 OFFICER_NAME_PATTERN = re.compile(
-    r"\b(?:Dr|Mr|Mrs|Ms|Sh|Shri)\.\s+"
-    r"[A-Z][A-Za-z'-]*(?:\s+[A-Z][A-Za-z'-]*){0,2}\b"
+    # the full stop after the title is optional: "Dr. Singh" and "Dr Singh" are both names.
+    # "Sri" is left out on purpose: it is also part of place names (Sri Muktsar Sahib).
+    r"\b(?:Dr|Mr|Mrs|Ms|Sh|Shri|Smt|Prof)\b\.?\s+"
+    # initials may come first (Dr M. S. Randhawa), then one to three capitalised name words
+    r"(?:[A-Z]\.?\s+)*[A-Z][A-Za-z'-]+(?:\s+(?:[A-Z]\.?\s+)*[A-Z][A-Za-z'-]+){0,2}\b"
 )
 
 

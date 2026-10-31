@@ -33,6 +33,8 @@ export function DbAnalyticsSection({
     filterState.dynamicSubTypes,
     filterState.typeBranch,
     filterState.staticSubTypes,
+    filterState.customStartTime,
+    filterState.customEndTime,
   );
 
   const viewState = useAnalyticsViewState(summaryQuery.data?.diagnostics);

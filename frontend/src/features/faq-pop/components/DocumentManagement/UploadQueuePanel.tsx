@@ -1,9 +1,11 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
-import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send } from "lucide-react";
+import { toast } from "sonner";
+import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send, History, Copy, Clock } from "lucide-react";
 import { getDashboardUploadFileBlob } from "../../api";
-import { DOCUMENT_METADATA_FIELDS } from "./fields";
+import { DOCUMENT_METADATA_FIELDS, formatDomainValue } from "./fields";
 import UploadEditForm from "./UploadEditForm";
+import { formatDate } from "@/utils/formatDate";
 
 const STATUS_LABELS = {
   queued: "Queued",
@@ -26,6 +28,15 @@ async function viewUploadFile(uploadId) {
   const url = URL.createObjectURL(blob);
   window.open(url, "_blank", "noopener,noreferrer");
   setTimeout(() => URL.revokeObjectURL(url), 60_000);
+}
+
+async function copyDocumentId(id) {
+  try {
+    await navigator.clipboard.writeText(id);
+    toast.success(`Copied ${id}`);
+  } catch {
+    toast.error("Couldn't copy to clipboard");
+  }
 }
 
 // Upload Queue panel — top half of the right-side split in Add Document mode. Present by default
@@ -66,6 +77,12 @@ export default function UploadQueuePanel({
   onOpenDetail,
   busyId,
   processingIds,
+  view,
+  onSetView,
+  historyItems,
+  historyLoading,
+  pendingItems,
+  pendingLoading,
 }) {
   const [selected, setSelected] = useState({});
   const [expanded, setExpanded] = useState(() => new Set());
@@ -105,9 +122,126 @@ export default function UploadQueuePanel({
   return (
     <div className="flex flex-col h-full bg-card">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
-        <h3 className="text-xs font-semibold text-foreground">Upload Queue</h3>
-        <span className="text-[10px] text-muted-foreground">{items.length}</span>
+        <h3 className="text-xs font-semibold text-foreground">
+          {view === "pending" ? "Pending Uploads" : view === "history" ? "Upload History" : "Upload Queue"}
+        </h3>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] text-muted-foreground">
+            {view === "pending" ? pendingItems.length : view === "history" ? historyItems.length : items.length}
+          </span>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            onClick={() => onSetView(view === "pending" ? "queue" : "pending")}
+            title={
+              view === "pending"
+                ? "Back to the live queue"
+                : "Uploads submitted here, not yet forwarded to PoP"
+            }
+          >
+            <Clock size={11} /> {view === "pending" ? "Queue" : "Pending"}
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            onClick={() => onSetView(view === "history" ? "queue" : "history")}
+            title={view === "history" ? "Back to the live queue" : "View finished uploads"}
+          >
+            <History size={11} /> {view === "history" ? "Queue" : "History"}
+          </button>
+        </div>
       </div>
+      {view === "pending" ? (
+        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          {pendingLoading ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              Loading…
+            </div>
+          ) : pendingItems.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              Nothing pending — every upload you've submitted has been forwarded to PoP.
+            </div>
+          ) : (
+            pendingItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-0.5 rounded-md border border-border/50 bg-muted/10 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-foreground truncate" title={item.filename}>
+                    {item.filename}
+                  </span>
+                  {item.createdAt && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatDate(item.createdAt)}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={
+                    item.status === "failed"
+                      ? "text-[11px] text-destructive"
+                      : "text-[11px] text-muted-foreground"
+                  }
+                >
+                  {item.status === "failed"
+                    ? item.error || "Failed to forward to PoP"
+                    : item.status === "processing"
+                      ? "Forwarding to PoP…"
+                      : item.status === "succeeded"
+                        ? "Forwarded — check the main queue"
+                        : "Queued, waiting to be forwarded…"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      ) : view === "history" ? (
+        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          {historyLoading ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              Loading…
+            </div>
+          ) : historyItems.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              No finished uploads yet.
+            </div>
+          ) : (
+            historyItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-0.5 rounded-md border border-border/50 bg-muted/10 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-foreground truncate" title={item.filename}>
+                    {item.filename}
+                  </span>
+                  {item.updated_at && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatDate(item.updated_at)}
+                    </span>
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[11px] text-muted-foreground">
+                  {item.uploaded_by && <span>Uploaded by: {item.uploaded_by}</span>}
+                  {item.approved_by_approver && <span>Approved by: {item.approved_by_approver}</span>}
+                  {item.approved_by_admin && <span>Approved by (admin): {item.approved_by_admin}</span>}
+                </div>
+                {item.created_document_id && (
+                  <button
+                    type="button"
+                    className="self-start flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+                    onClick={() => copyDocumentId(item.created_document_id)}
+                    title="Click to copy"
+                  >
+                    <Copy size={10} /> {item.created_document_id}
+                  </button>
+                )}
+              </div>
+            ))
+          )}
+        </div>
+      ) : (
       <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
         {items.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
@@ -284,9 +418,11 @@ export default function UploadQueuePanel({
                           {metadata.district_id && <span>District: {metadata.district_id}</span>}
                           {metadata.kvk_id && <span>KVK: {metadata.kvk_id}</span>}
                           {placementsSummary && <span className="col-span-full">Placements: {placementsSummary}</span>}
-                          {DOCUMENT_METADATA_FIELDS.filter((f) => metadata[f.key]).map((f) => (
+                          {DOCUMENT_METADATA_FIELDS.filter((f) =>
+                            f.key === "domain" ? (metadata.domain || []).length > 0 : metadata[f.key],
+                          ).map((f) => (
                             <span key={f.key}>
-                              {f.label}: {metadata[f.key]}
+                              {f.label}: {f.key === "domain" ? formatDomainValue(metadata.domain) : metadata[f.key]}
                             </span>
                           ))}
                         </div>
@@ -456,6 +592,7 @@ export default function UploadQueuePanel({
           })
         )}
       </div>
+      )}
     </div>
   );
 }

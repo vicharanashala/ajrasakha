@@ -2,10 +2,15 @@ import { useState } from "react";
 import { useGdbSummary } from "@/hooks/api/gdbCleaning/useGdbCleaning";
 import { GdbDetailPage } from "./components/GdbDetailPage";
 import { GdbListView } from "./components/GdbListView";
+import { GdbDateRange } from "./components/GdbDateRange";
+import { GdbHistoryView } from "./components/GdbHistoryView";
+import { PRESETS, toQueryRange, type IDayRange } from "./dateRange";
 
 export const GdbCleaningPage = () => {
   const [openId, setOpenId] = useState<string | null>(null);
-  const { data: summary } = useGdbSummary();
+  const [tab, setTab] = useState<"answers" | "history">("answers");
+  const [range, setRange] = useState<IDayRange>(PRESETS[3].range());
+  const { data: summary } = useGdbSummary(toQueryRange(range));
 
   const cards: [string, number | undefined][] = [
     ["Total answers", summary?.total],
@@ -13,6 +18,7 @@ export const GdbCleaningPage = () => {
     ["To do", summary?.todo],
     ["Fixed", summary?.fixed],
     ["Dismissed", summary?.dismissed],
+    ["Pushed to GDB", summary?.pushed],
     ["No flags", summary?.clean],
   ];
 
@@ -27,9 +33,34 @@ export const GdbCleaningPage = () => {
 
       {openId && <GdbDetailPage id={openId} onBack={() => setOpenId(null)} />}
 
+      {!openId && (
+        <div className="flex gap-2 text-sm">
+          {([["answers", "Answers"], ["history", "History"]] as const).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              onClick={() => setTab(value)}
+              className={`rounded-md border px-3 py-1 ${
+                tab === value ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {!openId && tab === "history" && <GdbHistoryView onOpen={setOpenId} />}
+
       {/* stays mounted while an answer is open, so the filters and the page are still there on return */}
-      <div className={openId ? "hidden" : "space-y-5"}>
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+      <div className={openId || tab === "history" ? "hidden" : "space-y-5"}>
+        <div className="space-y-1">
+          <GdbDateRange value={range} onChange={setRange} />
+          <p className="text-xs text-muted-foreground">
+            Fixed, Dismissed and Pushed follow these dates. The other cards show how things are now.
+          </p>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-7 gap-3">
           {cards.map(([label, value]) => (
             <div key={label} className="rounded-lg border bg-background p-4">
               <p className="text-xs text-muted-foreground">{label}</p>

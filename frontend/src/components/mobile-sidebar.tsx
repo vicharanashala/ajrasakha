@@ -241,7 +241,6 @@ export const MobileSidebar = ({
               icon={item.icon}
               onClick={() => handleClick(item.id)}
               isActive={item.id === activeTab}
-              isNew={item.id === "closed_answers"}
             />
           ))}
         </nav>

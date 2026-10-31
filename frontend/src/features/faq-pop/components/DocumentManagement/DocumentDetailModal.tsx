@@ -27,6 +27,7 @@ import {
   DISPLAY_ONLY_FIELDS,
   folderDisplayLabel,
   filterFoldersByAdvisoryScope,
+  formatDomainValue,
 } from "./fields";
 import FileActionIcons from "./FileActionIcons";
 import TranslateReviewCell from "./TranslateReviewCell";
@@ -72,6 +73,7 @@ export default function DocumentDetailModal({
   canEdit = true,
   currentUserName,
   translationJobs = [],
+  terminalJobsByDocId = {},
 }) {
   const [doc, setDoc] = useState(null);
   const [loading, setLoading] = useState(false);
@@ -383,6 +385,7 @@ export default function DocumentDetailModal({
                     }}
                     onChanged={(fresh) => setDoc((prev) => ({ ...prev, ...fresh }))}
                     onTranslationStarted={onTranslationStarted}
+                    lastTerminalJob={terminalJobsByDocId[doc.id]}
                   />
                   <span className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide ml-2">
                     Review
@@ -404,7 +407,9 @@ export default function DocumentDetailModal({
                       {f.label}
                     </span>
                     <span className="text-xs text-foreground break-words rounded border border-border/50 bg-muted/20 px-2 py-1">
-                      {doc[f.key] ? (
+                      {f.key === "domain" ? (
+                        formatDomainValue(doc.domain) || <span className="text-muted-foreground/40">—</span>
+                      ) : doc[f.key] ? (
                         f.formatDate ? (
                           formatDate(new Date(doc[f.key]))
                         ) : (

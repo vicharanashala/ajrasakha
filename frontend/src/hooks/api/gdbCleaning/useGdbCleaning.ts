@@ -3,9 +3,12 @@ import { toast } from "sonner";
 import {
   gdbCleaningService,
   type IGdbDecisionRequest,
+  type IGdbFlagEdit,
+  type IGdbHistoryParams,
   type IGdbListParams,
+  type IGdbRange,
 } from "@/hooks/services/gdbCleaningService";
-import type { IGdbCleaningItem } from "@/features/gdb-cleaning/types";
+import type { IGdbCleaningItem, IGdbSource } from "@/features/gdb-cleaning/types";
 
 const KEY = "gdb-cleaning";
 
@@ -16,10 +19,18 @@ export const useGdbList = (params: IGdbListParams) =>
     placeholderData: keepPreviousData,
   });
 
-export const useGdbSummary = () =>
+export const useGdbSummary = (range: IGdbRange = {}) =>
   useQuery({
-    queryKey: [KEY, "summary"],
-    queryFn: () => gdbCleaningService.summary(),
+    queryKey: [KEY, "summary", range],
+    queryFn: () => gdbCleaningService.summary(range),
+    placeholderData: keepPreviousData,
+  });
+
+export const useGdbHistory = (params: IGdbHistoryParams) =>
+  useQuery({
+    queryKey: [KEY, "history", params],
+    queryFn: () => gdbCleaningService.history(params),
+    placeholderData: keepPreviousData,
   });
 
 export const useGdbFilterOptions = () =>
@@ -46,19 +57,57 @@ const useRefreshAfterChange = () => {
     queryClient.setQueryData([KEY, "item", saved.id], saved);
     queryClient.invalidateQueries({ queryKey: [KEY, "list"] });
     queryClient.invalidateQueries({ queryKey: [KEY, "summary"] });
+    queryClient.invalidateQueries({ queryKey: [KEY, "history"] });
     queryClient.invalidateQueries({ queryKey: [KEY, "filters"] });
   };
 };
 
 export const useSaveGdbCorrection = (answerId: string) => {
   const refresh = useRefreshAfterChange();
-  return useMutation<IGdbCleaningItem, Error, string>({
-    mutationFn: (correctedAnswer) => gdbCleaningService.saveCorrection(answerId, correctedAnswer),
+  return useMutation<IGdbCleaningItem, Error, { questionId: string; correctedAnswer: string }>({
+    mutationFn: ({ questionId, correctedAnswer }) =>
+      gdbCleaningService.saveCorrection(answerId, questionId, correctedAnswer),
     onSuccess: (saved) => {
       refresh(saved);
       toast.success("Correction saved");
     },
     onError: (error) => toast.error(errorMessage(error, "Failed to save the correction")),
+  });
+};
+
+export const useEditGdbFlag = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, IGdbFlagEdit>({
+    mutationFn: (edit) => gdbCleaningService.editFlag(answerId, edit),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Flag updated");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to update the flag")),
+  });
+};
+
+export const useEditGdbSources = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, { questionId: string; sources: IGdbSource[] }>({
+    mutationFn: ({ questionId, sources }) => gdbCleaningService.editSources(answerId, questionId, sources),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Sources saved");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to save the sources")),
+  });
+};
+
+export const usePushToGdb = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, void>({
+    mutationFn: () => gdbCleaningService.pushToGdb(answerId),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Pushed to the golden database");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to push to the golden database")),
   });
 };
 

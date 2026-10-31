@@ -37,6 +37,8 @@ import { TrendGranularity } from '#root/shared/database/providers/mongo/reposito
 import { IRoleAssigneeService } from '#root/modules/question/interfaces/IRoleAssigneeService.js';
 import { IModeratorQueueService } from '#root/modules/question/interfaces/IModeratorQueueService.js';
 import { buildUserActivityPdfReport, UserSessionLog } from '#root/utils/buildUserActivityPdfReport.js';
+import { emailConfig } from '#root/config/mail.js';
+import { annamLogoInlineAttachment } from '#root/utils/emailAssets.js';
 
 
 @injectable()
@@ -934,9 +936,12 @@ export class UserService extends BaseService {
           session,
         );
 
+        const question = await this.questionRepo.getById(questionId, session);
+
         await this.questionRepo.updateQuestion(
           questionId,
           {
+            previousStatus: question?.status,
             status: 'hold',
             isOnHold: true,
             holdAt: new Date(),
@@ -947,7 +952,6 @@ export class UserService extends BaseService {
 
         // Send notification to the expert that they have been removed from allocation
         try {
-          const question = await this.questionRepo.getById(questionId, session);
           const truncatedQuestionText = question?.question
             ? question.question.length > 50
               ? question.question.substring(0, 50) + '...'
@@ -1759,43 +1763,182 @@ export class UserService extends BaseService {
 
     // If sendToEmail flag is set, send the report via email
     if (query.sendToEmail) {
-      const emails = appConfig.individualReportEmails;
-      if (!emails) {
-        throw new BadRequestError('INDIVIDUAL_REPORT_EMAILS environment variable is not configured');
+      if (user.role === 'pae_expert') {
+        throw new BadRequestError('Sending activity reports to PAE users is not allowed');
       }
 
-      const emailList = emails.split(',').map((e) => e.trim()).filter(Boolean);
-      if (emailList.length === 0) {
-        throw new BadRequestError('No valid emails configured in INDIVIDUAL_REPORT_EMAILS');
+      // Primary recipient is the concern person whose report is being viewed/generated
+      const recipient = user.email?.trim();
+      const fallbackEmails = (appConfig.individualReportEmails || '')
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean);
+
+      const targetTo = recipient || fallbackEmails[0];
+      if (!targetTo) {
+        throw new BadRequestError(
+          `User ${userName} does not have a configured email address, and no fallback email was found`,
+        );
       }
+
+      // CC list: multiple CC recipients configured via ACTIVITY_REPORT_CC / INDIVIDUAL_REPORT_CC / individualReportEmails
+      const ccConfig = emailConfig.ACTIVITY_REPORT_CC || appConfig.activityReportCc || '';
+      const ccList = ccConfig
+        .split(',')
+        .map((e) => e.trim())
+        .filter(Boolean)
+        .filter((e) => e.toLowerCase() !== targetTo.toLowerCase());
 
       const cleanName = userName.replace(/[^a-zA-Z0-9_-]/g, '_');
-      const startStr = query.startDate ? query.startDate.replace(/[^a-zA-Z0-9]/g, '_') : 'start';
-      const endStr = query.endDate ? query.endDate.replace(/[^a-zA-Z0-9]/g, '_') : 'end';
-      const filename = `${cleanName}_Activity_Report_${startStr}_to_${endStr}.pdf`;
+      const startTag = startDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const endTag = endDate.toLocaleDateString('en-CA', { timeZone: 'Asia/Kolkata' });
+      const filename = `${cleanName}_Activity_Report_${startTag}_to_${endTag}.pdf`;
+
+      const formatDateIST = (d: Date) =>
+        d.toLocaleDateString('en-IN', {
+          timeZone: 'Asia/Kolkata',
+          day: '2-digit',
+          month: 'short',
+          year: 'numeric',
+        });
+
+      const dateLabel =
+        startTag === endTag
+          ? formatDateIST(startDate)
+          : `${formatDateIST(startDate)} to ${formatDateIST(endDate)}`;
 
       const html = `
-        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-          <h2 style="color: #16a34a;">Activity Report Generated</h2>
-          <p>Hello,</p>
-          <p>Please find attached the user activity report for <strong>${userName}</strong>.</p>
-          <p>This report was generated on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST).</p>
-          <p>Best regards,<br/>Review System Team</p>
+        <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; color: #171717;">
+          <div style="background-color: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 18px 24px; margin-bottom: 20px;">
+            <h2 style="color: #166534; margin: 0 0 8px 0; font-size: 18px;">AjraSakha Review System - Activity Report</h2>
+            <p style="margin: 0; color: #15803d; font-size: 14px;"><strong>Performance & Activity Summary (${dateLabel})</strong></p>
+          </div>
+          <p>Hello <strong>${userName}</strong>,</p>
+          <p>Please find attached your individual activity report for <strong>${dateLabel}</strong>.</p>
+          <p>This report includes your total hours in review cycles, check-in / check-out session logs, and performance metrics across authoring, reviewing, moderation, auditing, and gatekeeping.</p>
+          <p style="font-size: 12px; color: #6b7280; margin-top: 24px;">Generated on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} (IST).</p>
+          <div style="margin-top: 24px; border-top: 1px solid #e5e7eb; padding-top: 12px; font-size: 13px; color: #374151;">
+            <p style="margin: 0;">Regards,</p>
+            <p style="margin: 4px 0 0 0; font-weight: bold; color: #166534;">AjraSakha Review Operations Team</p>
+          </div>
         </div>
       `;
 
       await sendEmailWithAttachment(
-        emailList,
-        `User Activity Report - ${userName}`,
+        targetTo,
+        `User Activity Report - ${userName} (${dateLabel})`,
         html,
         pdfBuffer,
         filename,
         'application/pdf',
+        [annamLogoInlineAttachment()],
+        ccList.length ? ccList : undefined,
       );
 
-      return { success: true, message: 'Report email sent successfully' };
+      return {
+        success: true,
+        message: `Report email sent to ${targetTo}${ccList.length ? ` (CC: ${ccList.join(', ')})` : ''}`,
+      };
     }
 
     return pdfBuffer;
+  }
+
+  /**
+   * Daily 12:00 AM IST batch job:
+   * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST Activity Report
+   * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
+   * Primary 'To' is the user's email (the concern person), and 'CC' contains configured CC recipients.
+   */
+  async sendDailyUserActivityReports(targetDateStr?: string): Promise<{
+    date: string;
+    total: number;
+    sent: number;
+    skipped: number;
+    failed: number;
+    errors: { userId: string; name?: string; email?: string; error: string }[];
+  }> {
+    // 1. Calculate target date (yesterday in IST if not explicitly provided)
+    let dateStr: string;
+    if (targetDateStr && /^\d{4}-\d{2}-\d{2}$/.test(targetDateStr)) {
+      dateStr = targetDateStr;
+    } else {
+      const now = new Date();
+      // IST is UTC+5.5 hours
+      const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+      istNow.setUTCDate(istNow.getUTCDate() - 1);
+      const yyyy = istNow.getUTCFullYear();
+      const mm = String(istNow.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(istNow.getUTCDate()).padStart(2, '0');
+      dateStr = `${yyyy}-${mm}-${dd}`;
+    }
+
+    const startDateStr = `${dateStr}T00:00:00.000+05:30`;
+    const endDateStr = `${dateStr}T23:59:59.999+05:30`;
+
+    console.log(
+      `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
+    );
+
+    // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
+    const staff = await this.userRepo.getActiveReviewStaff([
+      'expert',
+      'moderator',
+      'gate_keeper',
+      'auditor',
+    ]);
+
+    console.log(`[sendDailyUserActivityReports] Found ${staff.length} active review staff to process.`);
+
+    let sent = 0;
+    let skipped = 0;
+    let failed = 0;
+    const errors: { userId: string; name?: string; email?: string; error: string }[] = [];
+
+    for (const user of staff) {
+      const userId = user._id ? user._id.toString() : '';
+      if (!userId) continue;
+
+      const userName =
+        `${user.firstName || ''} ${user.lastName || ''}`.trim() ||
+        (user as any).userName ||
+        user.email ||
+        'User';
+
+      if (!user.email || !user.email.includes('@')) {
+        console.warn(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): No valid email address.`,
+        );
+        skipped++;
+        continue;
+      }
+
+      try {
+        await this.exportUserActivityReport(userId, {
+          startDate: startDateStr,
+          endDate: endDateStr,
+          sendToEmail: true,
+        });
+        sent++;
+        console.log(`[sendDailyUserActivityReports] Successfully sent report to ${userName} (${user.email})`);
+      } catch (err: any) {
+        failed++;
+        const errorMsg = err?.message || String(err);
+        console.error(
+          `[sendDailyUserActivityReports] Failed to send report to ${userName} (${user.email}):`,
+          errorMsg,
+        );
+        errors.push({ userId, name: userName, email: user.email, error: errorMsg });
+      }
+    }
+
+    return {
+      date: dateStr,
+      total: staff.length,
+      sent,
+      skipped,
+      failed,
+      errors,
+    };
   }
 }

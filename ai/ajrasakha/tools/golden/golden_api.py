@@ -168,8 +168,9 @@ async def health():
         "**Pipeline:**\n"
         "1. **Strict exact** on `rephrased_query` (+ crop/state filters) → if hit, return `exact_match` only.\n"
         "2. Else **vector RAG** on `rephrased_query`.\n"
-        "3. If both return no hits and crop is not `all`, retry steps 1–2 with `crop=all`.\n"
-        "4. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
+        "3. If both return no hits and crop is not `all`, retry steps 1–2 filtering on `details.crop` instead of `details.normalised_crop`.\n"
+        "4. If still no hits, retry steps 1–2 with `crop=all`.\n"
+        "5. **Gemma** relevance + classify + select one answer using the same `rephrased_query`."
     ),
 )
 async def search_gdb(body: GDBSearchRequest):

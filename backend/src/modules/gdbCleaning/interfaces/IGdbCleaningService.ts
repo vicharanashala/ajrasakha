@@ -1,4 +1,5 @@
 import {
+  GdbCleaningAction,
   GdbCleaningStatus,
   IGdbCleaningCheck,
   IGdbCleaningSource,
@@ -20,10 +21,42 @@ export interface GdbCleaningItem extends GdbCleaningListItem {
   answer: string;
   sources: IGdbCleaningSource[];
   checks: IGdbCleaningCheck[];
+  /** true when a reviewer changed the sources; the pipeline's own are kept in originalSources */
+  sourcesEdited: boolean;
+  originalSources: IGdbCleaningSource[];
+  pushedAt: string | null;
   correctedAnswer: string | null;
   comment: string | null;
   checkedAt: string | null;
   reviewedAt: string | null;
+}
+
+export interface GdbHistoryQuery {
+  from?: string;
+  to?: string;
+  scope?: 'mine' | 'all';
+  page?: number;
+  limit?: number;
+}
+
+export interface GdbHistoryEntry {
+  answerId: string;
+  question: string;
+  action: GdbCleaningAction;
+  at: string;
+  userId: string;
+  userName: string | null;
+  details: Record<string, unknown> | null;
+}
+
+export interface GdbHistoryResponse {
+  entries: GdbHistoryEntry[];
+  totalCount: number;
+  totalPages: number;
+  page: number;
+  limit: number;
+  /** how many different answers the entries are about */
+  answersHandled: number;
 }
 
 export interface GdbCleaningListQuery {
@@ -45,9 +78,16 @@ export interface IGdbCleaningService {
     limit: number;
   }>;
 
-  summary(): Promise<
-    Record<GdbCleaningStatus, number> & {total: number}
+  /** Counts by status. With two dates, fixed, dismissed and pushed count only those in that period; the rest is as of now. */
+  summary(range?: {from?: string; to?: string}): Promise<
+    Record<GdbCleaningStatus, number> & {total: number; pushed: number; ranged: boolean}
   >;
+
+  /** What reviewers did, newest first. Only the caller's own actions unless scope is "all". */
+  history(
+    query: GdbHistoryQuery,
+    userId: string,
+  ): Promise<GdbHistoryResponse>;
 
   filterOptions(): Promise<{
     states: string[];
@@ -59,7 +99,27 @@ export interface IGdbCleaningService {
 
   saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
+    reviewerId?: string,
+  ): Promise<GdbCleaningItem>;
+
+  /** A reviewer says a check is not a problem (PASS) or is one (FAIL). A comment is required. */
+  editFlag(
+    answerId: string,
+    edit: {parameter: string; result: 'PASS' | 'FAIL'; comment: string},
+    reviewerId: string,
+  ): Promise<GdbCleaningItem>;
+
+  /** An admin pushes the accepted correction to the golden answer, through the app's own edit flow. */
+  pushToGdb(answerId: string, reviewerId: string): Promise<GdbCleaningItem>;
+
+  /** A reviewer corrects the sources of the answer. The pipeline's own are kept. */
+  editSources(
+    answerId: string,
+    questionId: string,
+    sources: IGdbCleaningSource[],
+    reviewerId: string,
   ): Promise<GdbCleaningItem>;
 
   decide(
