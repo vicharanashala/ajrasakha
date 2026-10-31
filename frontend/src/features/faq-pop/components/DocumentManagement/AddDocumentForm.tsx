@@ -112,7 +112,7 @@ export function PlacementGroupRow({
 // since crops can no longer be created, state-scoping the picker would make a real master crop
 // nobody has filed in that state yet permanently unreachable from this form. So there is one
 // shared `folderOptions` fetch below, keyed only on values.advisory_type, passed to every group.
-export default function AddDocumentForm({ onUploadQueued }) {
+export default function AddDocumentForm({ onUploadQueued, disabled }) {
   const [values, setValues] = useState(emptyValues);
   const [file, setFile] = useState(null);
   const fileInputRef = useRef(null);
@@ -451,7 +451,7 @@ export default function AddDocumentForm({ onUploadQueued }) {
         className="mt-1 w-full py-2 rounded-md bg-primary text-primary-foreground text-sm font-medium
           hover:bg-primary/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
         onClick={handleSubmit}
-        disabled={submitting}
+        disabled={submitting || disabled}
       >
         {submitting ? "Uploading…" : "Upload"}
       </button>

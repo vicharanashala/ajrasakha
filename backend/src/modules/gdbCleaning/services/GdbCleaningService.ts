@@ -25,6 +25,12 @@ import {
   GdbHistoryResponse,
   IGdbCleaningService,
 } from '../interfaces/IGdbCleaningService.js';
+import {
+  draftFromLibrary,
+  fetchLibraryPdf,
+  GdbDraft,
+  GdbLibraryDocumentNotFound,
+} from './GdbLibraryDraft.js';
 
 const DEFAULT_LIMIT = 25;
 
@@ -227,6 +233,25 @@ export class GdbCleaningService implements IGdbCleaningService {
     const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'correction_saved');
     return item;
+  }
+
+  // Drafts a suggested answer from the library. Nothing is saved: the reviewer decides what to keep.
+  async draft(answerId: string): Promise<GdbDraft> {
+    const current = await this.repository.getByAnswerId(answerId);
+    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    return draftFromLibrary(current.question, current.crop);
+  }
+
+  // The PDF a citation points to, so a reviewer can open the cited page.
+  async libraryPdf(documentId: string): Promise<Buffer> {
+    try {
+      return await fetchLibraryPdf(documentId);
+    } catch (error) {
+      if (error instanceof GdbLibraryDocumentNotFound) {
+        throw new NotFoundError(`Library document "${documentId}" not found`);
+      }
+      throw error;
+    }
   }
 
   async editFlag(

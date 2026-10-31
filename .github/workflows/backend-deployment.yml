@@ -109,4 +109,6 @@ jobs:
             ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
             GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
             FFV_PORT=${{ secrets.FFV_PORT}}
+            GDB_DRAFT_URL=${{ secrets.GDB_DRAFT_URL }}
+            GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
           flags: --allow-unauthenticated
