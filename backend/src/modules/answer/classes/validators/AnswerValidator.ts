@@ -108,24 +108,6 @@ class FetchAiInitialAnswerBody {
   @IsString()
   state: string;
 }
-
-class PolishDraftBody {
-  @JSONSchema({
-    description: 'The question this draft answer is responding to',
-    example: 'How should I apply magnesium sulphate for paddy?',
-  })
-  @IsNotEmpty()
-  @IsString()
-  question: string;
-
-  @JSONSchema({
-    description: "The author's current draft answer to polish and structurally check",
-    example: 'Apply 2 ml of the product per litre of water for severe infestation.',
-  })
-  @IsNotEmpty()
-  @IsString()
-  draft: string;
-}
 // class AddAnswerBody {
 //   @JSONSchema({
 //     description: 'ID of the question being answered',
@@ -597,7 +579,6 @@ export const ANSWER_VALIDATORS = [
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
   DetectChemicalsBody,
-  PolishDraftBody,
 ];
 
 export {
@@ -610,5 +591,4 @@ export {
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
   DetectChemicalsBody,
-  PolishDraftBody,
 };
