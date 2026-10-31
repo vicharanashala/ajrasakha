@@ -1,12 +1,11 @@
 # ============================================================
 # IndicOCR — Dockerfile
-# install.sh installs to SYSTEM Python, not a venv
 # ============================================================
 
 # ---- Build stage ----
 FROM python:3.11-slim AS builder
 
-WORKDIR /app
+WORKDIR /tmp/indic-ocr
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -20,20 +19,27 @@ RUN --mount=type=secret,id=hf_token \
     pip install huggingface_hub && \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
-WORKDIR /tmp/indic-ocr
+# Install uv for fast venv creation
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh
+ENV PATH="/root/.local/bin:${PATH}"
 
-# Run install.sh - it installs to SYSTEM Python
-RUN chmod +x install.sh && bash install.sh --extras all-ocr
+# Create venv with uv (same as install.sh does)
+RUN /root/.local/bin/uv venv /opt/venv --python 3.11
+
+# Install all packages in venv (including transformers!)
+RUN /opt/venv/bin/pip install --no-cache \
+    huggingface_hub \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    transformers accelerate pillow
 
 # Download model weights to cache
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+    /opt/venv/bin/pip install huggingface_hub && \
+    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
-
-ARG HF_TOKEN
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
@@ -43,28 +49,13 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Install Python 3.11 from deadsnakes PPA + all packages install.sh needs
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        software-properties-common \
-    && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-dev python3.11-distutils \
-        python3.11-venv libpython3.11 libgomp1 \
-        curl git git-lfs \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python
-
-# Install packages in venv
-RUN python -m venv /opt/venv && \
-    /opt/venv/bin/pip install --no-cache-dir huggingface_hub && \
-    /opt/venv/bin/pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu && \
-    /opt/venv/bin/pip install --no-cache-dir transformers accelerate pillow && \
-    /opt/venv/bin/pip install --no-cache-dir uvicorn fastapi python-multipart
+# Copy entire venv from builder (has ALL packages)
+COPY --from=builder /opt/venv /opt/venv
 
 # Copy model repo
 COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 
-# Pre-downloaded model weights
+# Copy pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
 # Copy server
