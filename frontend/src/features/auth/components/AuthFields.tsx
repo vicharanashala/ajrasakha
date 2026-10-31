@@ -69,7 +69,9 @@ export const AuthFields = ({
                 <button
                   type="button"
                   onClick={passwordCtrl!.toggle} // Toggle password visibility
-                  className="absolute inset-y-0 right-0 pr-3"
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+                  aria-label={passwordCtrl!.visible ? "Hide password" : "Show password"}
+                  title={passwordCtrl!.visible ? "Hide password" : "Show password"}
                 >
                   {passwordCtrl!.visible ? (
                     <EyeOff className="w-4 h-4" />
