@@ -21,15 +21,21 @@ RUN --mount=type=secret,id=hf_token \
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh (creates venv at /opt/venv with all packages)
+# Run install.sh (creates venv at /app/.venv or similar)
 RUN chmod +x install.sh && bash install.sh --extras all-ocr
 
-# Debug: list what's in /opt/venv/bin
-RUN ls -la /opt/venv/bin/ | grep python || echo "No python in venv"
+# Debug: find where venv was created by install.sh
+RUN find /app -name "python*" -type f 2>/dev/null || find /root -name "python*" -type f 2>/dev/null || echo "Looking for venv..."
+
+# Move/Copy install.sh's venv to /opt/venv
+RUN if [ -d "/app/.venv" ]; then cp -r /app/.venv /opt/venv; fi || \
+    if [ -d "/root/.venv" ]; then cp -r /root/.venv /opt/venv; fi || \
+    echo "Venv not found at common locations"
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')" || \
     /opt/venv/bin/python3 -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
@@ -54,7 +60,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Copy venv from builder (this has bodhan_genai installed)
+# Copy venv from builder
 COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
@@ -74,4 +80,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["/opt/venv/bin/python3", "/app/server.py"]
+CMD ["/opt/venv/bin/python", "/app/server.py"]
