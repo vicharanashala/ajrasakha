@@ -178,6 +178,7 @@ def evaluate_answer_with_deepeval(
             metric.measure(test_case)
 
             #collect the evaluation output.
+            
             results[metric_name] = {
                 "score": metric.score,
                 "passed": _metric_passed(metric),
