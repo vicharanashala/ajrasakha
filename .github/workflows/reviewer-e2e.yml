@@ -237,6 +237,75 @@ jobs:
         working-directory: qa-tests
         run: npx playwright install --with-deps chromium
 
+      - name: Check Firebase login for test accounts
+        continue-on-error: true
+        env:
+          VITE_FIREBASE_API_KEY_STAGING: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+          MODERATOR_EMAIL: ${{ secrets.MODERATOR_EMAIL }}
+          MODERATOR_PASSWORD: ${{ secrets.MODERATOR_PASSWORD }}
+          EXPERT_EMAIL: ${{ secrets.EXPERT_EMAIL }}
+          EXPERT_PASSWORD: ${{ secrets.EXPERT_PASSWORD }}
+        run: |
+          print_secret_facts() {
+            local label="$1"
+            local value="$2"
+            local is_email="$3"
+            local length=${#2}
+            local has_whitespace_at_ends=false
+            local contains_newline=false
+
+            if [[ "$value" =~ ^[[:space:]]|[[:space:]]$ ]]; then
+              has_whitespace_at_ends=true
+            fi
+            if [[ "$value" == *$'\n'* ]]; then
+              contains_newline=true
+            fi
+
+            if [[ "$is_email" == true ]]; then
+              local contains_at=false
+              if [[ "$value" == *'@'* ]]; then
+                contains_at=true
+              fi
+              printf '%s length=%s has_whitespace_at_ends=%s contains_newline=%s contains_at=%s\n' \
+                "$label" "$length" "$has_whitespace_at_ends" "$contains_newline" "$contains_at"
+            else
+              printf '%s length=%s has_whitespace_at_ends=%s contains_newline=%s\n' \
+                "$label" "$length" "$has_whitespace_at_ends" "$contains_newline"
+            fi
+          }
+
+          check_firebase_login() {
+            local label="$1"
+            local email="$2"
+            local password="$3"
+            local payload
+            local response
+            local status
+            local body
+            local error_message
+
+            payload=$(jq -n --arg email "$email" --arg password "$password" \
+              '{email:$email,password:$password,returnSecureToken:true}')
+            response=$(curl --silent --write-out $'\n%{http_code}' \
+              --header 'Content-Type: application/json' \
+              --data "$payload" \
+              "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$VITE_FIREBASE_API_KEY_STAGING" \
+              2>/dev/null || true)
+            status="${response##*$'\n'}"
+            body="${response%$'\n'*}"
+            error_message=$(printf '%s' "$body" | jq -r '.error.message // "OK"' 2>/dev/null) || error_message=OK
+            printf '%s status=%s %s\n' "$label" "$status" "$error_message"
+          }
+
+          print_secret_facts MODERATOR_EMAIL "$MODERATOR_EMAIL" true
+          print_secret_facts MODERATOR_PASSWORD "$MODERATOR_PASSWORD" false
+          print_secret_facts EXPERT_EMAIL "$EXPERT_EMAIL" true
+          print_secret_facts EXPERT_PASSWORD "$EXPERT_PASSWORD" false
+          print_secret_facts VITE_FIREBASE_API_KEY_STAGING "$VITE_FIREBASE_API_KEY_STAGING" false
+
+          check_firebase_login moderator "$MODERATOR_EMAIL" "$MODERATOR_PASSWORD"
+          check_firebase_login expert "$EXPERT_EMAIL" "$EXPERT_PASSWORD"
+
       - name: Run Playwright tests
         working-directory: qa-tests
         run: npx playwright test --workers=1
