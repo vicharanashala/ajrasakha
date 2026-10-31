@@ -26,11 +26,11 @@ ENV PATH="/root/.local/bin:${PATH}"
 # Create venv with uv (same as install.sh does)
 RUN /root/.local/bin/uv venv /opt/venv --python 3.11
 
-# Install all packages in venv (including transformers!)
-RUN /opt/venv/bin/pip install --no-cache \
-    huggingface_hub \
-    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
-    transformers accelerate pillow
+# Install all packages in venv using uv pip
+RUN /root/.local/bin/uv pip install --no-cache \
+    --python /opt/venv \
+    --index-url https://download.pytorch.org/whl/cpu \
+    huggingface_hub torch torchvision transformers accelerate pillow
 
 # Download model weights to cache
 RUN --mount=type=secret,id=hf_token \
