@@ -23,8 +23,8 @@ RUN --mount=type=secret,id=hf_token \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.local/bin:${PATH}"
 
-# Create venv with uv (same as install.sh does)
-RUN /root/.local/bin/uv venv /opt/venv --python 3.11
+# Create venv with uv --link-mode=copy for cross-image compatibility
+RUN /root/.local/bin/uv venv /opt/venv --python 3.11 --link-mode=copy
 
 # Install all packages in venv using uv pip
 # Use extra-index-url so PyTorch comes from PyTorch index, rest from PyPI
