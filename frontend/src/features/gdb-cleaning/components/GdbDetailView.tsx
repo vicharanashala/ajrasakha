@@ -7,10 +7,11 @@ import { diffWords } from "@/utils/wordDifference";
 import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
 import { effectiveResult } from "../types";
 import { SOURCE_TYPE_LABELS } from "../types";
-import type { GdbSourceType, IGdbCleaningItem, IGdbSource } from "../types";
+import type { GdbSourceType, IGdbCleaningItem, IGdbDraft, IGdbDraftCitation, IGdbSource } from "../types";
 import { GdbFlagsPanel } from "./GdbFlagsPanel";
 import { HighlightedText } from "./HighlightedText";
 import { StatusBadge } from "./GdbListView";
+import { libraryDocumentIdOf, libraryDocumentUrl } from "../libraryDocument";
 
 const REMOVED = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 const ADDED = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
@@ -31,6 +32,11 @@ interface GdbDetailViewProps {
   // the AI draft in the predefined structure; null when it could not be made
   onDraftWithAi: () => Promise<string | null>;
   drafting?: boolean;
+  // the draft from the library with its citations; null when there is nothing to show
+  onDraftFromLibrary: () => Promise<IGdbDraft | null>;
+  libraryDrafting?: boolean;
+  // opens a library document in a new tab, at the page when there is one
+  onOpenLibraryDocument: (documentId: string, page?: number) => Promise<void>;
   busy?: boolean;
 }
 
@@ -45,6 +51,9 @@ export const GdbDetailView = ({
   onPush,
   onDraftWithAi,
   drafting = false,
+  onDraftFromLibrary,
+  libraryDrafting = false,
+  onOpenLibraryDocument,
   busy = false,
 }: GdbDetailViewProps) => {
   const [editing, setEditing] = useState(false);
@@ -52,6 +61,8 @@ export const GdbDetailView = ({
   const [sourceDraft, setSourceDraft] = useState<IGdbSource[]>([]);
   const [draft, setDraft] = useState("");
   const [comment, setComment] = useState(item.comment ?? "");
+  // the passages the library draft cites, shown under the correction until the reviewer saves or leaves
+  const [libraryCitations, setLibraryCitations] = useState<IGdbDraftCitation[]>([]);
 
   const corrected = item.correctedAnswer;
   const diff = useMemo(
@@ -90,6 +101,27 @@ export const GdbDetailView = ({
       setEditing(true);
     }
   };
+
+  // the library draft goes into the correction box with its citations listed beside it
+  const draftFromLibrary = async () => {
+    const result = await onDraftFromLibrary();
+    if (result?.answer) {
+      setDraft(result.answer);
+      setLibraryCitations(result.citations);
+      setEditing(true);
+    }
+  };
+
+  // each cited passage becomes a source: its document, and the page the answer used
+  const useLibrarySources = () =>
+    onSaveSources(
+      libraryCitations.map((citation) => ({
+        sourceName: citation.documentName ?? "Library document",
+        source: citation.documentId ? libraryDocumentUrl(citation.documentId) : "",
+        page: String(citation.pageNumber ?? citation.sourcePages[0] ?? ""),
+        sourceType: "other",
+      }))
+    );
 
   const startEdit = () => {
     setDraft(corrected ?? item.answer);
@@ -211,6 +243,38 @@ export const GdbDetailView = ({
                 </Button>
               </div>
             )}
+            {libraryCitations.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-foreground">Library passages cited by this draft</p>
+                <ul className="text-sm space-y-1">
+                  {libraryCitations.map((citation) => (
+                    <li key={citation.passageId ?? citation.passageNumber} className="flex items-center gap-2">
+                      <span>
+                        [P{citation.passageNumber}] {citation.documentName ?? "Library document"}
+                        {citation.pageNumber != null && `, page ${citation.pageNumber}`}
+                        {citation.sourcePages.length > 0
+                          ? `${citation.pageNumber != null ? " (" : ", "}source page ${citation.sourcePages.join(", ")}${citation.pageNumber != null ? ")" : ""}`
+                          : citation.pageNumber == null && ", page unknown"}
+                      </span>
+                      {citation.documentId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={() => onOpenLibraryDocument(citation.documentId as string, citation.pageNumber ?? undefined)}
+                        >
+                          <ArrowUpRight className="w-4 h-4 mr-1" />
+                          Open
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <Button size="sm" variant="outline" onClick={useLibrarySources} disabled={busy || locked}>
+                  Use these as sources
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -231,6 +295,10 @@ export const GdbDetailView = ({
           <Button variant="outline" onClick={draftWithAi} disabled={locked || busy || drafting}>
             <Sparkles className="w-4 h-4 mr-1" />
             {drafting ? "Drafting..." : "Draft with AI"}
+          </Button>
+          <Button variant="outline" onClick={draftFromLibrary} disabled={locked || busy || libraryDrafting}>
+            <Sparkles className="w-4 h-4 mr-1" />
+            {libraryDrafting ? "Searching library (can take a minute)..." : "Draft from library"}
           </Button>
           <Button
             variant="outline"
@@ -384,14 +452,27 @@ export const GdbDetailView = ({
                   {source.sourceType ? `${SOURCE_TYPE_LABELS[source.sourceType]} · ` : ""}
                   {source.page ? `pg ${source.page}` : "no page"}
                 </span>
-                <a
-                  href={source.source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 rounded hover:bg-muted/20"
-                >
-                  <ArrowUpRight className="w-4 h-4" />
-                </a>
+                {libraryDocumentIdOf(source.source) ? (
+                  <button
+                    type="button"
+                    aria-label="Open the cited page"
+                    className="p-1 rounded hover:bg-muted/20"
+                    onClick={() =>
+                      onOpenLibraryDocument(libraryDocumentIdOf(source.source) as string, Number(source.page) || undefined)
+                    }
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <a
+                    href={source.source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 rounded hover:bg-muted/20"
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                  </a>
+                )}
               </div>
             ))}
           </div>

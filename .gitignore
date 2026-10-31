@@ -47,3 +47,6 @@ backend_routes.txt
 endpoints.txt
 .clinerules/
 
+
+# GDB draft service: documents downloaded at run time
+gdb-draft/data/
