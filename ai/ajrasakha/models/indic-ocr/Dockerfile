@@ -13,25 +13,18 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs install
 
-# Create venv
-RUN python -m venv /opt/venv
-
-# Install packages (no auth needed yet)
-RUN /opt/venv/bin/pip install --no-cache-dir huggingface_hub
-
 # Download repo using BuildKit secret
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr', force_download=True)"
+    pip install huggingface_hub && \
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh with bash (it creates its own venv internally)
-RUN chmod +x install.sh && \
-    bash install.sh --extras all-ocr
+# Run install.sh (creates venv at /opt/venv with all packages)
+RUN chmod +x install.sh && bash install.sh --extras all-ocr
 
-# Install bodhan_genai package into our venv
-RUN /opt/venv/bin/pip install --no-cache-dir -e .
+# The venv is at /opt/venv with bodhan_genai installed
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
@@ -44,7 +37,8 @@ FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     CUDA_VISIBLE_DEVICES=0 \
-    HF_HOME=/root/.cache/huggingface
+    HF_HOME=/root/.cache/huggingface \
+    PYTHONPATH=/tmp/indic-ocr:/tmp/indic-ocr/bodhan_genai
 
 WORKDIR /app
 
@@ -59,7 +53,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python
 
-# Copy venv from builder
+# Copy venv from builder (this has bodhan_genai installed)
 COPY --from=builder /opt/venv /opt/venv
 
 ENV PATH="/opt/venv/bin:${PATH}"
@@ -69,9 +63,6 @@ COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 
 # Pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
-
-# Set PYTHONPATH
-ENV PYTHONPATH=/tmp/indic-ocr:$PYTHONPATH
 
 # Copy server
 COPY server.py /app/server.py
