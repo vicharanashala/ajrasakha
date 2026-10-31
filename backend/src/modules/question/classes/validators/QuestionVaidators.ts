@@ -771,7 +771,24 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['all', 'open', 'in-review', 'delayed', 're-routed', 'pae_submitted', 'closed', 'pass', 'duplicate', 'draft', 'hold', 'static_dynamic', 'non_agri'])
+  @IsIn([
+    'all',
+    'open',
+    'in-review',
+    'delayed',
+    're-routed',
+    'pae_submitted',
+    'closed',
+    'pass',
+    'duplicate',
+    'draft',
+    'hold',
+    'static_dynamic',
+    'non_agri',
+    'dynamic',
+    'auditor_review',
+    'queue_duplicate',
+  ])
   status?: string;
 
   @JSONSchema({
