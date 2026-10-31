@@ -1,20 +1,11 @@
 # ============================================================
-# IndicOCR — Dockerfile
-# Multi-stage build that downloads model weights at build time
-# so the runtime image is self-contained.
-#
-# IMPORTANT: This model is gated. You need to:
-# 1. Accept the license at https://huggingface.co/bodhan-ai/indic-ocr
-# 2. Create a HF token at https://huggingface.co/settings/tokens
-# 3. Set HF_TOKEN secret in GitHub Actions
+# IndicOCR — Dockerfile (Simple: no venv, system Python)
 # ============================================================
 
 # ---- Build stage ----
 FROM python:3.11-slim AS builder
 
-ARG HF_TOKEN
-
-WORKDIR /app
+WORKDIR /tmp/indic-ocr
 
 # Install build dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -22,63 +13,60 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/* \
     && git lfs install
 
-# Create netrc for HuggingFace authentication
-RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
-    chmod 600 ~/.netrc
+# Download repo using BuildKit secret
+RUN --mount=type=secret,id=hf_token \
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    pip install huggingface_hub && \
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
-# Set HF token env var
-ENV HF_TOKEN=${HF_TOKEN}
-
-# Clone and install the model package
-RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
-    cd /tmp/indic-ocr && \
-    chmod +x install.sh && \
-    ./install.sh --extras all-ocr
+# Install packages - PyTorch from special index, rest from PyPI
+RUN pip install --no-cache-dir torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN pip install --no-cache-dir transformers accelerate pillow huggingface_hub
 
 # Download model weights
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+RUN --mount=type=secret,id=hf_token \
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
 FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
-
-ARG HF_TOKEN
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \
     CUDA_VISIBLE_DEVICES=0 \
     HF_HOME=/root/.cache/huggingface \
-    PYTHONPATH=/tmp/indic-ocr:$PYTHONPATH
+    PYTHONPATH=/tmp/indic-ocr
 
 WORKDIR /app
 
-# Install Python and runtime dependencies
+# Install Python 3.11 from deadsnakes PPA + pip
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-dev python3.11-distutils \
-        libpython3.11 libgomp1 \
+        software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-dev python3.11-distutils python3.11-venv \
         curl git git-lfs \
     && rm -rf /var/lib/apt/lists/* \
     && ln -sf /usr/bin/python3.11 /usr/bin/python \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
+    && ln -sf /usr/bin/python3.11 /usr/bin/python3 \
+    && python3.11 -m ensurepip --upgrade
 
-ENV PATH="/root/.local/bin:${PATH}"
-
-# Clone and install the model package
-RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
-    chmod 600 ~/.netrc && \
-    git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
-    cd /tmp/indic-ocr && \
-    chmod +x install.sh && \
-    ./install.sh --extras all-ocr
+# Copy model repo
+COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 
 # Copy pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
+
+# Install packages in runtime (same as builder)
+RUN python3.11 -m pip install --no-cache torch torchvision --index-url https://download.pytorch.org/whl/cpu
+RUN python3.11 -m pip install --no-cache transformers accelerate pillow huggingface_hub uvicorn fastapi python-multipart vllm
 
 # Copy server
 COPY server.py /app/server.py
 
 EXPOSE 8000
 
-# Health check - model takes ~2-3 min to load
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
