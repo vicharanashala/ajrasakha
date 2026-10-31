@@ -26,9 +26,9 @@ RUN --mount=type=secret,id=hf_token \
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh
+# Run install.sh with bash (it's a shell script, not Python)
 RUN chmod +x install.sh && \
-    /opt/venv/bin/python install.sh --extras all-ocr
+    bash install.sh --extras all-ocr
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
