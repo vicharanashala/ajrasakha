@@ -162,6 +162,17 @@ def _commodity_word_key(value: Optional[str]) -> frozenset:
     return frozenset(re.sub(r"[^a-z0-9]+", " ", value.lower()).split())
 
 
+# Qualifiers that only label the ordinary form of a crop ("paddy(common)", "rose(local)").
+# Qualifiers like red/dry/green/basmati name a different product and are NOT listed here.
+_GENERIC_COMMODITY_QUALIFIERS = frozenset({"common", "local", "general", "ordinary", "normal", "regular"})
+
+
+def _commodity_base_key(value: Optional[str]) -> frozenset:
+    """Word key without generic qualifiers: "paddy(common)" == "paddy", "chilli(red)" != "chilli"."""
+    words = _commodity_word_key(value)
+    return (words - _GENERIC_COMMODITY_QUALIFIERS) or words
+
+
 def _norm_commodity_name(
     value: Optional[Union[str, list[str]]],
 ) -> Optional[Union[str, list[str]]]:
@@ -218,11 +229,13 @@ def _filter_mc_by_commodity_preference(
         # 1. Exact match with user's requested commodity name(s) (verbatim or alphanumeric match)
         clean_targets = {_clean_commodity_token(t) for t in targets}
         word_targets = {_commodity_word_key(t) for t in targets} - {frozenset()}
+        base_targets = {_commodity_base_key(t) for t in targets} - {frozenset()}
         exact = [
             d for d in docs
             if _norm(d.get("commodity_name")) in targets
             or _clean_commodity_token(d.get("commodity_name")) in clean_targets
             or _commodity_word_key(d.get("commodity_name")) in word_targets
+            or _commodity_base_key(d.get("commodity_name")) in base_targets
         ]
         if exact:
             kept.extend(exact)

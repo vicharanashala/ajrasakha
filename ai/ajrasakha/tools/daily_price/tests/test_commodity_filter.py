@@ -74,6 +74,42 @@ def test_filter_mc_by_commodity_preference_whitespace_variation():
     assert res[0]["commodity_name"] == "ashgourd"
 
 
+def test_filter_mc_generic_qualifier_counts_as_exact():
+    # An exact "paddy" in one mandi must not drop "paddy(common)" from other mandis.
+    aid = ObjectId()
+    kurnool, pendurthi = ObjectId(), ObjectId()
+    mc_docs = [
+        {"_id": 1, "commodity_alias_lookup_id": aid, "market_id": kurnool, "commodity_name": "paddy"},
+        {"_id": 2, "commodity_alias_lookup_id": aid, "market_id": pendurthi, "commodity_name": "paddy(common)"},
+        {"_id": 3, "commodity_alias_lookup_id": aid, "market_id": pendurthi, "commodity_name": "rice"},
+    ]
+    resolved = {"paddy": [{"_id": aid, "canonical_name": "paddy"}]}
+    res = _filter_mc_by_commodity_preference(mc_docs, ["paddy"], resolved)
+    assert sorted(d["_id"] for d in res) == [1, 2]
+
+
+def test_filter_mc_real_qualifier_is_not_exact():
+    # "chilli" must not pull in "chilli(red)" from a mandi that only lists red chilli.
+    aid = ObjectId()
+    m1, m2 = ObjectId(), ObjectId()
+    mc_docs = [
+        {"_id": 1, "commodity_alias_lookup_id": aid, "market_id": m1, "commodity_name": "chilli"},
+        {"_id": 2, "commodity_alias_lookup_id": aid, "market_id": m2, "commodity_name": "chillies(red)"},
+    ]
+    resolved = {"chilli": [{"_id": aid, "canonical_name": "chilli"}]}
+    res = _filter_mc_by_commodity_preference(mc_docs, ["chilli"], resolved)
+    assert [d["_id"] for d in res] == [1]
+
+
+def test_commodity_base_key_keeps_lone_generic_word():
+    from ajrasakha.tools.daily_price.daily_market_price import _commodity_base_key
+
+    assert _commodity_base_key("Paddy (Common)") == _commodity_base_key("paddy")
+    assert _commodity_base_key("rose(local)") == _commodity_base_key("rose")
+    assert _commodity_base_key("chilli(red)") != _commodity_base_key("chilli")
+    assert _commodity_base_key("local") == frozenset({"local"})
+
+
 def test_state_synonyms_andaman_and_nicobar():
     from ajrasakha.tools.daily_price.daily_market_price import _STATE_SYNONYMS
     assert "andaman and nicobar" in _STATE_SYNONYMS["andaman and nicobar islands"]
