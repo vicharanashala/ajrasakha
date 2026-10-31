@@ -17,6 +17,7 @@ on:
           - llm_cache_proxy
           - langgraph_openai_adapter
           - daily_price
+          - daily_price_v2
           - weather_mcp
 
 permissions:
@@ -82,6 +83,11 @@ jobs:
           # Daily market price MCP
           if [[ "$TARGET" == "all" || "$TARGET" == "daily_price" ]]; then
             add_entry "daily_price" "./ai" "./ai/ajrasakha/tools/daily_price/Dockerfile"
+          fi
+
+          # Daily market price MCP, v2 data model (ai/ajrasakha/tools/daily_price_v2)
+          if [[ "$TARGET" == "all" || "$TARGET" == "daily_price_v2" ]]; then
+            add_entry "daily_price_v2" "./ai" "./ai/ajrasakha/tools/daily_price_v2/Dockerfile"
           fi
 
           # Weather MCP (ai/ajrasakha/tools/weather)
