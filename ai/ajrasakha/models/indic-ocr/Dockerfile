@@ -59,7 +59,7 @@ COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
 
 # Install packages in runtime (same as builder)
 RUN python3.11 -m pip install --no-cache torch torchvision --index-url https://download.pytorch.org/whl/cpu
-RUN python3.11 -m pip install --no-cache transformers accelerate pillow huggingface_hub uvicorn fastapi python-multipart
+RUN python3.11 -m pip install --no-cache transformers accelerate pillow huggingface_hub uvicorn fastapi python-multipart vllm
 
 # Copy server
 COPY server.py /app/server.py
