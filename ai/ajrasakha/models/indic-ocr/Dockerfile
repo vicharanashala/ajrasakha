@@ -26,9 +26,12 @@ RUN --mount=type=secret,id=hf_token \
 
 WORKDIR /tmp/indic-ocr
 
-# Run install.sh with bash (it's a shell script, not Python)
+# Run install.sh with bash (it creates its own venv internally)
 RUN chmod +x install.sh && \
     bash install.sh --extras all-ocr
+
+# Install bodhan_genai package into our venv
+RUN /opt/venv/bin/pip install --no-cache-dir -e .
 
 # Download model weights
 RUN --mount=type=secret,id=hf_token \
