@@ -28,6 +28,13 @@ export class GdbCleaningAnswerParam {
   answerId: string;
 }
 
+export class GdbLibraryDocumentParam {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  documentId: string;
+}
+
 export class GetGdbCleaningListQuery {
   @IsOptional()
   @IsString()

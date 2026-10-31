@@ -8,7 +8,7 @@ import {
   type IGdbListParams,
   type IGdbRange,
 } from "@/hooks/services/gdbCleaningService";
-import type { IGdbCleaningItem, IGdbSource } from "@/features/gdb-cleaning/types";
+import type { IGdbCleaningItem, IGdbDraft, IGdbSource } from "@/features/gdb-cleaning/types";
 
 const KEY = "gdb-cleaning";
 
@@ -86,6 +86,12 @@ export const useSaveGdbCorrection = (answerId: string) => {
     onError: (error) => toast.error(errorMessage(error, "Failed to save the correction")),
   });
 };
+
+// the library draft saves nothing, so the list and the item stay as they are
+export const useGdbLibraryDraft = (answerId: string) =>
+  useMutation<IGdbDraft, Error, void>({
+    mutationFn: () => gdbCleaningService.draftFromLibrary(answerId),
+  });
 
 export const useEditGdbFlag = (answerId: string) => {
   const refresh = useRefreshAfterChange();

@@ -110,3 +110,21 @@ export interface IGdbCleaningItem extends IGdbListItem {
   checkedAt: string | null;
   reviewedAt: string | null;
 }
+
+// a passage the library draft cites: open the document at this page to check it
+export interface IGdbDraftCitation {
+  passageNumber: number;
+  documentName: string | null;
+  documentId: string | null;
+  pageNumber: number | null;
+  // the page numbers of the source document the passage belongs to; empty when unknown
+  sourcePages: number[];
+  passageId: string | null;
+}
+
+// the suggested answer from the library, with the passages it used; nothing is saved yet
+export interface IGdbDraft {
+  answer: string;
+  citations: IGdbDraftCitation[];
+  note: string;
+}
