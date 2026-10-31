@@ -42,7 +42,8 @@ DRAFT_API_KEY = os.getenv("DRAFT_MINIMAX_API_KEY", "").strip() or None
 PROMPT_TEMPLATE = """You are drafting an agricultural answer for a farmer-facing database.
 
 Use ONLY the numbered passages below. Do not add facts that are not in them.
-Cite each sentence with the passage number it came from, like [P3].
+Do not name a crop, variety, disease, chemical or dose unless a passage names it.
+{crop_rule}Cite each sentence with the passage number it came from, like [P3].
 If the passages do not answer the question, return an empty answer and say so in "note".
 
 Return only JSON in this form:
@@ -71,7 +72,7 @@ def _format_passages(passages: list[dict[str, Any]]) -> str:
     return "\n\n".join(lines)
 
 
-def draft_answer(question: str, passages: list[dict[str, Any]]) -> dict[str, Any]:
+def draft_answer(question: str, passages: list[dict[str, Any]], crop: str | None = None) -> dict[str, Any]:
     """Return the draft plus the passages it cites, with document and page for each.
 
     Passage numbers in the answer map back to the passage list, so every citation
@@ -79,9 +80,14 @@ def draft_answer(question: str, passages: list[dict[str, Any]]) -> dict[str, Any
     """
     chosen = passages[:MAX_PASSAGES]
     if not chosen:
-        return {"answer": "", "citations": [], "note": "No library passages found"}
+        note = f"The library has no documents for {crop}" if crop else "No library passages found"
+        return {"answer": "", "citations": [], "note": note}
 
-    prompt = PROMPT_TEMPLATE.format(question=question, passages=_format_passages(chosen))
+    crop_rule = (
+        f"The question is about the crop: {crop}. A passage about a different crop does not answer it.\n"
+        if crop else ""
+    )
+    prompt = PROMPT_TEMPLATE.format(question=question, passages=_format_passages(chosen), crop_rule=crop_rule)
     result = call_llm(
         prompt,
         validate=lambda r: isinstance(r, dict) and "answer" in r,
