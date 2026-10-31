@@ -6,7 +6,8 @@
 #
 # Requires .env in this directory with at least:
 #   MARKET_MONGO_URI=mongodb://...
-#   MARKET_MONGO_DB_NAME=PriceV2
+#   MARKET_MONGO_DB_NAME=PriceV2          # or Price, with the prefix below
+#   MARKET_V2_COLLECTION_PREFIX=v2_       # when v2 lives next to v1 in Price
 #
 # Point the agent at it with DAILY_PRICE_AGENT_VERSION=v2 (see agents/config.py).
 

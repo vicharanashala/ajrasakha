@@ -45,6 +45,10 @@ logger = logging.getLogger("mandi_price_tool")
 # --------------------------------------------------------------------------
 MONGO_URI       = os.getenv("MARKET_MONGO_URI")
 MONGO_DB_NAME   = os.getenv("MARKET_MONGO_DB_NAME") or "PriceV2"
+# v2 collections can live next to v1 in the same database with a prefix (e.g. "v2_").
+# available_mandi is shared with v1 and never prefixed: v2 only reads it.
+V2_PREFIX       = (os.getenv("MARKET_V2_COLLECTION_PREFIX") or "").strip()
+MANDI_COLLECTION = (os.getenv("MARKET_MANDI_COLLECTION") or "available_mandi").strip()
 DEFAULT_TOP_N_NEAREST = int(os.getenv("MARKET_DEFAULT_TOP_N_NEAREST", 5))
 
 # Hard-coded result cap — never return more than this many price records
@@ -107,25 +111,25 @@ def get_db():
 
 def markets_commodities_col() -> Collection:
     """v2: listings (same _id and fields as v1 markets_commodities, plus product_id / mandi_id / state_code)."""
-    return get_db()["listings"]
+    return get_db()[f"{V2_PREFIX}listings"]
 
 def price_records_col() -> Collection:
-    return get_db()["price_records"]
+    return get_db()[f"{V2_PREFIX}price_records"]
 
 def available_mandi_col() -> Collection:
-    return get_db()["available_mandi"]
+    return get_db()[MANDI_COLLECTION]
 
 def crops_col() -> Collection:
-    return get_db()["crops"]
+    return get_db()[f"{V2_PREFIX}crops"]
 
 def products_col() -> Collection:
-    return get_db()["products"]
+    return get_db()[f"{V2_PREFIX}products"]
 
 def crop_names_col() -> Collection:
-    return get_db()["crop_names"]
+    return get_db()[f"{V2_PREFIX}crop_names"]
 
 def states_col() -> Collection:
-    return get_db()["states"]
+    return get_db()[f"{V2_PREFIX}states"]
 
 
 # --------------------------------------------------------------------------

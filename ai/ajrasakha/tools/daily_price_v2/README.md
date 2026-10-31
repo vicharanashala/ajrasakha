@@ -7,7 +7,7 @@ Same MCP tool (`mandi_price_tool`), same actions, inputs and output as `tools/da
 
 | | v1 (`tools/daily_price`) | v2 (this folder) |
 | --- | --- | --- |
-| Database | `Price` | `PriceV2` (built by the scraper's `maintenance/migrate_v2.py`) |
+| Database | `Price` | `PriceV2`, or `Price` with `v2_`-prefixed collections (`MARKET_V2_COLLECTION_PREFIX=v2_`); built by the scraper's `maintenance/migrate_v2.py` |
 | Crop → listings | `commodity_alias_lookup` group (guessed aliases) → `markets_commodities.commodity_alias_lookup_id` | product → `listings.product_id`, from person-approved links only |
 | Resolving the farmer's crop | alias, regex and compatibility rules | exact: product name, crop name (its default product), or an approved mandi spelling in `crop_names` |
 | Name filters after the query | `_filter_mc_by_commodity_preference`, `_name_matches_request` | none: one product is one meaning |
@@ -19,7 +19,8 @@ A crop name that is still **pending** review returns `COMMODITY_NOT_AVAILABLE` r
 ## Run
 
 ```bash
-cp ../daily_price/.env .env                       # then set MARKET_MONGO_DB_NAME=PriceV2
+cp ../daily_price/.env .env   # then set MARKET_MONGO_DB_NAME=Price and MARKET_V2_COLLECTION_PREFIX=v2_
+                              # (or MARKET_MONGO_DB_NAME=PriceV2 if v2 has its own database)
 docker compose up --build -d                      # MCP on port 8112
 ```
 
