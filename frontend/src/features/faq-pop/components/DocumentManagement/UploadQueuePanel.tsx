@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send, History, Copy, Clock } from "lucide-react";
+import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send, History, Copy, Clock, Upload } from "lucide-react";
 import { getDashboardUploadFileBlob } from "../../api";
 import { DOCUMENT_METADATA_FIELDS, formatDomainValue } from "./fields";
 import UploadEditForm from "./UploadEditForm";
@@ -74,6 +74,7 @@ export default function UploadQueuePanel({
   onResubmit,
   onDiscard,
   onRemove,
+  onReupload,
   onOpenDetail,
   busyId,
   processingIds,
@@ -584,6 +585,25 @@ export default function UploadQueuePanel({
                       >
                         <X size={10} /> Remove
                       </button>
+                    )}
+                    {actions.can_remove && !actions.can_discard && (
+                      <label
+                        className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-accent transition-colors ${disabled ? "opacity-40 pointer-events-none" : "cursor-pointer"}`}
+                        title="Re-upload file — same metadata, different file"
+                      >
+                        <Upload size={10} /> Re-upload file
+                        <input
+                          type="file"
+                          accept=".pdf"
+                          className="hidden"
+                          disabled={disabled}
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            e.target.value = "";
+                            if (file) onReupload(item, file);
+                          }}
+                        />
+                      </label>
                     )}
                   </div>
                 )}
