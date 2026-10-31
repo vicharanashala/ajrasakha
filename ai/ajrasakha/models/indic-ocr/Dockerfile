@@ -1,5 +1,5 @@
 # ============================================================
-# IndicOCR — Dockerfile
+# IndicOCR — Dockerfile (Simple: no venv, system Python)
 # ============================================================
 
 # ---- Build stage ----
@@ -19,24 +19,14 @@ RUN --mount=type=secret,id=hf_token \
     pip install huggingface_hub && \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
-# Install uv for fast venv creation
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.local/bin:${PATH}"
+# Install all packages directly to system Python (simpler!)
+RUN pip install --no-cache-dir \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    transformers accelerate pillow
 
-# Create venv with uv --link-mode=copy for cross-image compatibility
-RUN /root/.local/bin/uv venv /opt/venv --python 3.11 --link-mode=copy
-
-# Install all packages in venv using uv pip
-# Use extra-index-url so PyTorch comes from PyTorch index, rest from PyPI
-RUN /root/.local/bin/uv pip install --no-cache \
-    --python /opt/venv \
-    --extra-index-url https://download.pytorch.org/whl/cpu \
-    huggingface_hub torch torchvision transformers accelerate pillow
-
-# Download model weights to cache (huggingface_hub already installed)
+# Download model weights
 RUN --mount=type=secret,id=hf_token \
     export HF_TOKEN=$(cat /run/secrets/hf_token) && \
-    /opt/venv/bin/python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')" || \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
@@ -50,14 +40,26 @@ ENV DEBIAN_FRONTEND=noninteractive \
 
 WORKDIR /app
 
-# Copy entire venv from builder (has ALL packages)
-COPY --from=builder /opt/venv /opt/venv
+# Install Python 3.11 from deadsnakes PPA
+RUN apt-get update && apt-get install -y --no-install-recommends \
+        software-properties-common \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y --no-install-recommends \
+        python3.11 python3.11-dev python3.11-distutils \
+        curl git git-lfs \
+    && rm -rf /var/lib/apt/lists/* \
+    && ln -sf /usr/bin/python3.11 /usr/bin/python
 
 # Copy model repo
 COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 
 # Copy pre-downloaded model weights
 COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
+
+# Install packages in runtime (same as builder)
+RUN pip install --no-cache-dir \
+    torch torchvision --index-url https://download.pytorch.org/whl/cpu \
+    transformers accelerate pillow
 
 # Copy server
 COPY server.py /app/server.py
@@ -68,4 +70,4 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["/opt/venv/bin/python", "/app/server.py"]
+CMD ["python", "/app/server.py"]
