@@ -2,7 +2,11 @@
 backend/src/bootstrap/tailnetProxy.ts's isTailnetHost so both services
 agree on what needs the local Tailscale SOCKS proxy (scripts/start.sh)."""
 
+import httpx
+import pytest
+
 from assistant import config, llm_client
+from assistant.models import LLMUnavailableError
 
 
 def test_tailnet_cgnat_range_detected():
@@ -58,3 +62,26 @@ def test_chat_completion_does_not_proxy_a_public_host(monkeypatch):
     monkeypatch.setattr("httpx.post", _fake_post)
     llm_client._chat_completion([{"role": "user", "content": "hi"}])
     assert seen["proxy"] is None
+
+
+# A real timeout like this (reported by the testing team) left zero trace
+# in the server logs - llm_client had no logging at all. This confirms a
+# failure is now actually diagnosable: which call, how long it ran, and
+# how much input it was given, not just "MiniMax call failed" with
+# nothing else to go on.
+def test_chat_completion_logs_call_name_elapsed_and_input_size_on_failure(monkeypatch, caplog):
+    def _raise(*a, **kw):
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    monkeypatch.setattr("httpx.post", _raise)
+    with caplog.at_level("ERROR", logger="writing_assistant.llm_client"):
+        with pytest.raises(LLMUnavailableError):
+            llm_client._chat_completion(
+                [{"role": "system", "content": "sys"}, {"role": "user", "content": "a" * 500}],
+                call_name="generate_polish",
+            )
+    assert len(caplog.records) == 1
+    message = caplog.records[0].getMessage()
+    assert "generate_polish" in message
+    assert "input 503" in message  # "sys" (3 chars) + "a"*500 = 503
+    assert "The read operation timed out" in message

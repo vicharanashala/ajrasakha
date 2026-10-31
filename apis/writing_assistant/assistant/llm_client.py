@@ -8,13 +8,17 @@ so no automated test ever makes a real network call.
 """
 
 import json
+import logging
 import re
+import time
 from urllib.parse import urlparse
 
 import httpx
 
 from . import config, text_checks
 from .models import LLMUnavailableError, QuestionType, SelectionClassification, StepCoverage
+
+log = logging.getLogger("writing_assistant.llm_client")
 
 # Tailscale's userspace-networking mode (see scripts/start.sh) creates no
 # network interface, so a 100.x address is only reachable through the
@@ -74,7 +78,7 @@ def generate_polish(draft_text: str) -> str:
         {"role": "system", "content": _POLISH_SYSTEM_PROMPT},
         {"role": "user", "content": draft_text},
     ]
-    content = _chat_completion(messages, temperature=0.0)
+    content = _chat_completion(messages, temperature=0.0, call_name="generate_polish")
     return content.strip()
 
 
@@ -88,7 +92,7 @@ def check_meaning_preserved(original_text: str, rewrite_text: str) -> tuple[bool
         {"role": "system", "content": _SEMANTIC_CHECK_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
-    content = _chat_completion(messages, temperature=0.0)
+    content = _chat_completion(messages, temperature=0.0, call_name="check_meaning_preserved")
     try:
         parsed = json.loads(content)
         return bool(parsed["changed"]), str(parsed.get("explanation", ""))
@@ -154,7 +158,7 @@ def classify_and_select(
         {"role": "system", "content": _SELECTION_SYSTEM_PROMPT},
         {"role": "user", "content": "\n".join(lines)},
     ]
-    content = _chat_completion(messages, temperature=0.0)
+    content = _chat_completion(messages, temperature=0.0, call_name="classify_and_select")
     try:
         parsed = json.loads(content)
         return SelectionClassification(
@@ -259,7 +263,7 @@ def classify_step_coverage(
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
-    content = _chat_completion(messages, temperature=0.0)
+    content = _chat_completion(messages, temperature=0.0, call_name="classify_step_coverage")
     try:
         parsed = json.loads(content)
         coverage = StepCoverage(parsed["coverage"])
@@ -269,7 +273,7 @@ def classify_step_coverage(
         raise LLMUnavailableError(f"Could not parse step-coverage response: {exc}") from exc
 
 
-def _chat_completion(messages: list[dict], **kwargs) -> str:
+def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs) -> str:
     if not config.MINIMAX_BASE_URL:
         raise LLMUnavailableError("MINIMAX_BASE_URL is not set")
 
@@ -280,7 +284,12 @@ def _chat_completion(messages: list[dict], **kwargs) -> str:
 
     payload = {"model": config.MINIMAX_MODEL, "messages": messages, "seed": config.MINIMAX_SEED, **kwargs}
     proxy = _TAILNET_SOCKS_PROXY if _is_tailnet_host(urlparse(config.MINIMAX_BASE_URL).hostname or "") else None
+    # Input size, not output - what we send, to correlate a slow/timed-out
+    # call with how much the model had to read. Logged on failure only, so
+    # this costs nothing on the normal path.
+    content_chars = sum(len(m.get("content", "")) for m in messages)
 
+    t0 = time.monotonic()
     try:
         response = httpx.post(
             url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
@@ -296,4 +305,13 @@ def _chat_completion(messages: list[dict], **kwargs) -> str:
             raise LLMUnavailableError(f"MiniMax reported an error: {base_resp}")
         return data["choices"][0]["message"]["content"]
     except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
+        # The one thing every past timeout report (including this
+        # session's own investigation) has been missing: how long it
+        # actually ran and how big the input was, server-side, so the
+        # next real failure is diagnosable instead of a black box.
+        elapsed = time.monotonic() - t0
+        log.error(
+            "%s failed after %.1fs (budget %.0fs, input %d chars, model %s): %s",
+            call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+        )
         raise LLMUnavailableError(f"MiniMax call failed: {exc}") from exc
