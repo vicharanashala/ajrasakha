@@ -14,6 +14,19 @@ Same MCP tool (`mandi_price_tool`), same actions, inputs and output as `tools/da
 | State spellings | `_STATE_SYNONYMS` table in code | `states` collection (`spellings`), with the old table as a fallback |
 | Mandis | `available_mandi`, joined by `market_id` | `available_mandi` (unchanged), joined by `listings.mandi_id` |
 
+## How the farmer's crop word is matched
+
+In memory (refreshed every 5 minutes), first hit wins:
+
+1. a product or crop name (a crop gives its default product)
+2. an approved **farmer word** (`crop_words`: "dhan", "धान", "jhona", "basmati"); a word still pending or rejected stops here
+3. an approved source spelling (`crop_names`)
+4. a clear typo: one wrong letter (two for 16+ letters) from a name or farmer word, and no other crop equally close
+
+Words are compared by a key that ignores order, case and punctuation ("Ginger (Dry)" = "dry ginger") and keeps
+Indian-script vowel signs together. When nothing matches, the answer carries `reason: "crop_not_recognised"` and
+`did_you_mean` suggestions; a known crop with no listings in the state gives `reason: "no_listings_in_state"`.
+
 A crop name that is still **pending** review returns `COMMODITY_NOT_AVAILABLE` rather than a guessed price.
 
 ## Run

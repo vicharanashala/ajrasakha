@@ -21,6 +21,9 @@ from datetime import datetime, timedelta, timezone, time as dt_time
 from typing import Any, Optional, Union
 import logging
 import sys
+import threading
+import time
+import unicodedata
 
 from pymongo import MongoClient
 from pymongo.collection import Collection
@@ -128,8 +131,141 @@ def products_col() -> Collection:
 def crop_names_col() -> Collection:
     return get_db()[f"{V2_PREFIX}crop_names"]
 
+def crop_words_col() -> Collection:
+    return get_db()[f"{V2_PREFIX}crop_words"]
+
 def states_col() -> Collection:
     return get_db()[f"{V2_PREFIX}states"]
+
+
+# --------------------------------------------------------------------------
+# Farmer's word → product
+# --------------------------------------------------------------------------
+
+def word_key(value: Any) -> str:
+    """Order- and punctuation-insensitive key: "Ginger (Dry)" == "dry ginger".
+
+    Splits only on punctuation, symbols and spaces, so Indian scripts keep their
+    combining vowel signs ("धान" stays one word). Same rules as the scraper's
+    catalog.word_key and the review website.
+    """
+    text = unicodedata.normalize("NFKC", str(value or "")).lower()
+    cleaned = "".join(" " if unicodedata.category(ch)[0] in "PSZC" else ch for ch in text)
+    return " ".join(sorted(set(cleaned.split())))
+
+
+WORD_INDEX_TTL_S = float(os.getenv("MARKET_WORD_INDEX_TTL_S", "300"))
+
+
+class WordIndex:
+    """
+    Everything a farmer may type, keyed by word_key, in tiers (first tier with a hit wins):
+      1. product names, and crop names (→ the crop's default product)
+      2. approved farmer words (crop_words)
+      3. approved source spellings (crop_names.raw_name)
+    Loaded from the database and refreshed every WORD_INDEX_TTL_S seconds.
+    """
+
+    def __init__(self) -> None:
+        self.tiers: list[dict[str, set]] = [{}, {}, {}]
+        # Farmer words still pending or rejected: a decision is due (or was "no"), so
+        # they must not fall through to a source spelling ("chana" -> "chafa").
+        self.blocked: set[str] = set()
+        self.products: dict = {}
+        self.crop_names: dict = {}
+        self.loaded_at = 0.0
+        self._lock = threading.Lock()
+
+    def _load(self) -> None:
+        products = {p["_id"]: p for p in products_col().find({"active": {"$ne": False}}, {"name": 1, "crop_id": 1})}
+        crops = {c["_id"]: c for c in crops_col().find({"active": {"$ne": False}}, {"name": 1, "default_product_id": 1})}
+        tiers: list[dict[str, set]] = [{}, {}, {}]
+
+        def put(tier: int, text: Any, pid: Any) -> None:
+            key = word_key(text)
+            if key and pid in products:
+                tiers[tier].setdefault(key, set()).add(pid)
+
+        for pid, p in products.items():
+            put(0, p.get("name"), pid)
+        for c in crops.values():
+            put(0, c.get("name"), c.get("default_product_id"))
+        blocked: set[str] = set()
+        for w in crop_words_col().find({}, {"key": 1, "status": 1, "product_id": 1, "crop_id": 1}):
+            if w.get("status") != "approved":
+                blocked.add(word_key(w.get("key")))
+                continue
+            pid = w.get("product_id") or (crops.get(w.get("crop_id")) or {}).get("default_product_id")
+            put(1, w.get("key"), pid)
+        for n in crop_names_col().find({"status": "approved", "product_id": {"$ne": None}}, {"raw_name": 1, "product_id": 1}):
+            put(2, n.get("raw_name"), n.get("product_id"))
+        self.tiers, self.products, self.blocked = tiers, products, blocked
+        self.crop_names = {cid: c.get("name") for cid, c in crops.items()}
+        self.loaded_at = time.monotonic()
+        logger.info("Word index loaded: %s keys per tier", [len(t) for t in tiers])
+
+    def ensure(self) -> None:
+        if time.monotonic() - self.loaded_at > WORD_INDEX_TTL_S:
+            with self._lock:
+                if time.monotonic() - self.loaded_at > WORD_INDEX_TTL_S:
+                    self._load()
+
+    def resolve(self, text: Any) -> tuple[list, str]:
+        """Return (product ids, how it matched). Empty list when nothing clear matches."""
+        self.ensure()
+        key = word_key(text)
+        if not key:
+            return [], "empty"
+        for i, tier in enumerate(self.tiers):
+            if i == 1 and key in self.blocked:
+                return [], "word_pending"
+            if key in tier:
+                return sorted(tier[key], key=str), ("name", "farmer_word", "source_spelling")[i]
+        return self._fuzzy(key)
+
+    def _fuzzy(self, key: str) -> tuple[list, str]:
+        """Accept a typo only when it is a clear one: within 1 edit (2 for 16+ letters)
+        of a name or farmer word, and no other crop is equally close."""
+        try:
+            from rapidfuzz.distance import Levenshtein
+        except ImportError:
+            return [], "no_match"
+        if len(key) < 4:
+            return [], "no_match"
+        allowed = 2 if len(key) >= 16 else 1
+        best: Optional[int] = None
+        targets: set = set()
+        matched: list[str] = []
+        for tier in self.tiers[:2]:  # typos are checked against names and farmer words only
+            for k, pids in tier.items():
+                d = Levenshtein.distance(key, k, score_cutoff=allowed)
+                if d > allowed:
+                    continue
+                if best is None or d < best:
+                    best, targets, matched = d, set(pids), [k]
+                elif d == best:
+                    targets |= pids
+                    matched.append(k)
+        if best is None:
+            return [], "no_match"
+        if len(targets) > 1:
+            return [], "ambiguous_typo"
+        logger.info("Typo match: %r -> %r (%d edit(s))", key, matched[0], best)
+        return sorted(targets, key=str), f"typo:{matched[0]}"
+
+    def suggestions(self, text: Any, limit: int = 3) -> list[str]:
+        """Close names to offer back when nothing matched ("did you mean ...")."""
+        try:
+            from rapidfuzz import fuzz, process
+        except ImportError:
+            return []
+        self.ensure()
+        keys = list({k for tier in self.tiers[:2] for k in tier})
+        # Word-aware scoring for hints only; automatic acceptance (_fuzzy) stays strict.
+        return [k for k, score, _ in process.extract(word_key(text), keys, scorer=fuzz.WRatio, limit=limit) if score >= 70]
+
+
+WORDS = WordIndex()
 
 
 # --------------------------------------------------------------------------
@@ -755,45 +891,24 @@ def mandi_price_tool(
         }
 
     def _resolve_commodity_aliases(names: list[str]) -> dict[str, list[dict]]:
-        """Farmer's words → products (v2). Exact after lower-case/space normalising:
-
-          1. a product name            → that product
-          2. a crop name               → the crop's default product
-          3. an approved mandi name for a crop (crop_names.raw_name, status approved)
-                                       → its product
-
-        Only active crops/products and approved links count. Returns
-        {name: [{"_id": product_id, "canonical_name": product name, "crop_name": ...}]}.
+        """Farmer's words → products (v2), through the in-memory WORDS index:
+        product / crop name, then approved farmer word, then approved source
+        spelling, then a clear typo match. Only approved links and active
+        crops/products count. Returns {name: [{"_id": product_id, "canonical_name": ..., "crop_name": ...}]}.
         """
         results: dict[str, list[dict]] = {}
         for raw in names:
-            norm = _norm(raw) or ""
-            norm = re.sub(r"\s+", " ", norm)
-            found: dict = {}
-            if norm:
-                for p in products_col().find({"name": norm, "active": {"$ne": False}}).max_time_ms(MONGO_MAX_TIME_MS):
-                    found[p["_id"]] = p
-                for c in crops_col().find({"name": norm, "active": {"$ne": False}}).max_time_ms(MONGO_MAX_TIME_MS):
-                    if c.get("default_product_id"):
-                        p = products_col().find_one({"_id": c["default_product_id"], "active": {"$ne": False}})
-                        if p:
-                            found[p["_id"]] = p
-                if not found:
-                    pids = crop_names_col().distinct(
-                        "product_id", {"raw_name": norm, "status": "approved", "product_id": {"$ne": None}},
-                        maxTimeMS=MONGO_MAX_TIME_MS,
-                    )
-                    for p in products_col().find({"_id": {"$in": pids}, "active": {"$ne": False}}):
-                        found[p["_id"]] = p
-            crop_names = {c["_id"]: c.get("name") for c in crops_col().find(
-                {"_id": {"$in": [p.get("crop_id") for p in found.values()]}}, {"name": 1})}
-            docs = [{"_id": pid, "canonical_name": p.get("name"), "crop_name": crop_names.get(p.get("crop_id"))}
-                    for pid, p in found.items()]
+            pids, how = WORDS.resolve(raw)
+            docs = []
+            for pid in pids:
+                p = WORDS.products.get(pid) or {}
+                docs.append({"_id": pid, "canonical_name": p.get("name"),
+                             "crop_name": WORDS.crop_names.get(p.get("crop_id")), "matched_by": how})
             results[raw] = docs
             if docs:
-                logger.info("Resolved commodity '%s' to products: %s", raw, [d["canonical_name"] for d in docs])
+                logger.info("Resolved commodity '%s' (%s) to products: %s", raw, how, [d["canonical_name"] for d in docs])
             else:
-                logger.warning("No approved product for input name: '%s'", raw)
+                logger.warning("No approved product for input name: '%s' (%s)", raw, how)
         return results
 
     def _date_query(
@@ -1106,6 +1221,8 @@ def mandi_price_tool(
                 "error": f"We do not have {', '.join(commodity_list)} available in {state}.",
                 "error_code": "COMMODITY_NOT_AVAILABLE",
                 "unresolved_commodities": unmatched,
+                "reason": "crop_not_recognised",
+                "did_you_mean": {n: WORDS.suggestions(n) for n in unmatched},
             }
 
         state_norm_values = _mc_state_values(state or "")
@@ -1277,6 +1394,7 @@ def mandi_price_tool(
                 return {
                     "error": f"No markets_commodities entries matched crop={commodity_list} in state={state}.",
                     "error_code": "COMMODITY_NOT_AVAILABLE",
+                    "reason": "no_listings_in_state",
                 }
             if not scope["market_ids"]:
                 return {"error": f"No linked markets found for crop={commodity_list} in state={state}."}

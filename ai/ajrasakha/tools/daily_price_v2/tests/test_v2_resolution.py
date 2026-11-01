@@ -28,6 +28,12 @@ def tool():
         {"_id": paddy, "crop_id": crop, "name": "paddy", "active": True},
         {"_id": basmati, "crop_id": crop, "name": "basmati paddy", "active": True},
     ])
+    db.crop_words.insert_many([
+        {"key": "dhan", "word": "dhan", "crop_id": crop, "product_id": None, "status": "approved"},
+        {"key": "धान", "word": "धान", "crop_id": crop, "product_id": None, "status": "approved"},
+        {"key": "basmati", "word": "basmati", "crop_id": crop, "product_id": basmati, "status": "approved"},
+        {"key": "chawal", "word": "chawal", "crop_id": crop, "product_id": None, "status": "pending"},
+    ])
     db.crop_names.insert_many([
         {"source": "agmarknet", "raw_name": "paddy(common)", "raw_variety": "*", "product_id": paddy, "status": "approved"},
         {"source": "agmarknet", "raw_name": "rice", "raw_variety": "*", "product_id": None, "status": "pending"},
@@ -85,3 +91,54 @@ def test_approved_mandi_spelling_resolves(tool):
 def test_pending_name_gives_no_price(tool):
     res = tool(commodity_name="rice", state="kerala")
     assert res.get("error_code") == "COMMODITY_NOT_AVAILABLE"
+
+
+def test_farmer_word_resolves_to_crop_default(tool):
+    assert _rows(tool(commodity_name="dhan", state="kerala")) == [("kottayam apmc", "paddy(common)")]
+
+
+def test_farmer_word_in_hindi(tool):
+    assert _rows(tool(commodity_name="धान", state="kerala")) == [("kottayam apmc", "paddy(common)")]
+
+
+def test_farmer_word_pointing_at_a_product(tool):
+    assert _rows(tool(commodity_name="Basmati", state="kerala")) == [("pala apmc", "paddy(basmati)")]
+
+
+def test_pending_farmer_word_is_not_used(tool):
+    res = tool(commodity_name="chawal", state="kerala")
+    assert res.get("error_code") == "COMMODITY_NOT_AVAILABLE"
+    assert res.get("reason") == "crop_not_recognised"
+
+
+def test_clear_typo_is_accepted(tool):
+    assert _rows(tool(commodity_name="padddy", state="kerala")) == [("kottayam apmc", "paddy(common)")]
+
+
+def test_unknown_word_gets_suggestions(tool):
+    res = tool(commodity_name="pady rice", state="kerala")
+    assert res.get("error_code") == "COMMODITY_NOT_AVAILABLE"
+    assert "paddy" in res["did_you_mean"]["pady rice"]
+
+
+def test_typo_rules_are_strict():
+    from ajrasakha.tools.daily_price_v2.daily_market_price_v2 import WordIndex
+    w = WordIndex()
+    w.loaded_at = float("inf")  # use the hand-built index below, never the database
+    a, b = "A", "B"
+    w.tiers = [{"cucumber": {a}, "onion": {b}, "union": {a}}, {}, {}]
+    assert w.resolve("cucumbar") == ([a], "typo:cucumber")      # one wrong letter
+    assert w.resolve("cucmbr")[0] == []                          # two edits on a short word
+    assert w.resolve("onoin")[0] == []                           # transposition = 2 edits
+    assert w.resolve("unoin")[0] == []
+    assert w.resolve("anion") == ([], "ambiguous_typo")          # 1 edit from both onion and union
+
+
+def test_pending_farmer_word_blocks_source_spelling():
+    from ajrasakha.tools.daily_price_v2.daily_market_price_v2 import WordIndex
+    w = WordIndex()
+    w.loaded_at = float("inf")
+    w.tiers = [{}, {}, {"chana": {"CHAFA"}}]
+    assert w.resolve("chana") == (["CHAFA"], "source_spelling")
+    w.blocked = {"chana"}                                      # farmer word "chana" waits for review
+    assert w.resolve("chana") == ([], "word_pending")
