@@ -1,0 +1,1 @@
+import sys; from pathlib import Path; _ROOT = Path(__file__).resolve().parent.parent; _BACKEND = _ROOT / 'backend'; sys.path.insert(0, str(_BACKEND)) if str(_BACKEND) not in sys.path else None; sys.path.insert(0, str(_ROOT)) if str(_ROOT) not in sys.path else None
