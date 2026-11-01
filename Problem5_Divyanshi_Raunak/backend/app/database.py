@@ -26,6 +26,8 @@ def init_db():
         database["gdb_entries"].create_index([("crop", ASCENDING)])
         database["gdb_entries"].create_index([("domain", ASCENDING)])
         database["gdb_entries"].create_index([("status", ASCENDING)])
+        database["gdb_entries"].create_index([("is_flagged", ASCENDING)])
+        database["gdb_entries"].create_index([("flag_info.review_status", ASCENDING)])
         database["gdb_entries"].create_index([("metrics.helpful_ratio", ASCENDING)])
         
         database["farmer_feedback"].create_index([("gdb_id", ASCENDING)])
@@ -35,9 +37,6 @@ def init_db():
         
         database["farmer_sessions"].create_index([("phone_number", ASCENDING)], unique=True)
         database["farmer_sessions"].create_index([("expires_at", ASCENDING)], expireAfterSeconds=0)
-        
-        database["flagged_queue"].create_index([("gdb_id", ASCENDING)], unique=True)
-        database["flagged_queue"].create_index([("review_status", ASCENDING)])
         
         logger.info("Database indexes initialized successfully.")
     except Exception as e:

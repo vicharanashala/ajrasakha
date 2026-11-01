@@ -10,6 +10,7 @@ def list_gdb_entries(
     crop: Optional[str] = None,
     domain: Optional[str] = None,
     status: Optional[str] = None,
+    is_flagged: Optional[bool] = None,
     search: Optional[str] = None,
     page: int = 1,
     limit: int = 50
@@ -22,6 +23,8 @@ def list_gdb_entries(
         query["domain"] = domain
     if status and status != "ALL":
         query["status"] = status
+    if is_flagged is not None:
+        query["is_flagged"] = is_flagged
     if search:
         s = re.escape(search)
         query["$or"] = [

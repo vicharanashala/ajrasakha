@@ -36,24 +36,70 @@ def update_session(phone_number: str, update_data: Dict[str, Any]):
     update_data["updated_at"] = datetime.utcnow().isoformat()
     db["farmer_sessions"].update_one({"phone_number": phone_number}, {"$set": update_data})
 
+STOPWORDS = {
+    "में", "की", "का", "के", "को", "से", "है", "हैं", "पर", "लिए", "और", "या",
+    "क्या", "कैसे", "करें", "बताएं", "दीजिए", "होने", "वाले", "वाली", "उपाय", "बारे",
+    "in", "on", "at", "to", "for", "the", "a", "an", "is", "are", "how", "what",
+    "when", "which", "should", "be", "given", "during", "treatment", "उपचार"
+}
+
 def find_best_gdb_match(query: str) -> Optional[Dict[str, Any]]:
+    """
+    Finds the most accurate certified GDB entry matching the farmer's question.
+    Scores relevance based on crop names, specific pest/disease sub-domains,
+    canonical questions in Hindi/English, and discriminative keywords.
+    """
     db = get_db()
-    q_norm = query.lower()
-    words = [re.escape(w) for w in q_norm.split() if len(w) > 2]
-    if words:
-        pattern = "|".join(words)
-        match = db["gdb_entries"].find_one({
-            "$or": [
-                {"question_hi": {"$regex": pattern, "$options": "i"}},
-                {"question_en": {"$regex": pattern, "$options": "i"}},
-                {"crop": {"$regex": pattern, "$options": "i"}},
-                {"sub_domain": {"$regex": pattern, "$options": "i"}},
-                {"answer_hi": {"$regex": pattern, "$options": "i"}}
-            ]
-        })
-        if match:
-            return match
-    return db["gdb_entries"].find_one({"status": "ACTIVE"})
+    q_norm = (query or "").lower().strip()
+    if not q_norm:
+        return db["gdb_entries"].find_one({"status": {"$in": ["ACTIVE", "RE_VALIDATED"]}})
+
+    # 1. Direct GDB ID detection (e.g., GDB-03102, GDB-09450)
+    id_match = re.search(r'gdb[-_]?\d+', q_norm)
+    if id_match:
+        target_id = id_match.group(0).upper().replace('_', '-')
+        entry = db["gdb_entries"].find_one({"_id": target_id})
+        if entry:
+            return entry
+
+    # 2. Extract discriminative tokens (excluding conversational stopwords)
+    q_tokens = [w for w in re.split(r'[\s,?.!/()]+', q_norm) if len(w) > 1 and w not in STOPWORDS]
+
+    best_entry = None
+    best_score = -1
+
+    for entry in db["gdb_entries"].find():
+        score = 0
+        crop_text = (entry.get("crop") or "").lower()
+        q_hi = (entry.get("question_hi") or "").lower()
+        q_en = (entry.get("question_en") or "").lower()
+        sub_dom = (entry.get("sub_domain") or "").lower()
+        ans_hi = (entry.get("answer_hi") or "").lower()
+        ans_en = (entry.get("answer_en") or "").lower()
+
+        # Crop matching (Very High Priority: +30 pts)
+        for token in q_tokens:
+            if token in crop_text:
+                score += 30
+            if token in sub_dom:
+                score += 25
+            if token in q_hi or token in q_en:
+                score += 20
+            elif token in ans_hi or token in ans_en:
+                score += 2
+
+        # Direct phrase / substring bonus (+50 pts)
+        if q_norm and (q_norm in q_hi or q_norm in q_en):
+            score += 50
+
+        if score > best_score:
+            best_score = score
+            best_entry = entry
+
+    if best_score > 0 and best_entry:
+        return best_entry
+
+    return db["gdb_entries"].find_one({"status": {"$in": ["ACTIVE", "RE_VALIDATED"]}}) or db["gdb_entries"].find_one()
 
 def process_farmer_interaction(
     phone_number: str,
@@ -249,23 +295,41 @@ def process_farmer_interaction(
             }
 
     # -------------------------------------------------------------
-    # Action 5: Initial Farmer Question
+    # Action 5: New or Follow-up Farmer Question (answers from GDB)
+    # If the farmer sends a new question while in ANY state (including
+    # AWAITING_FEEDBACK), we always answer from GDB and update the
+    # active session context. A question is never treated as feedback.
     # -------------------------------------------------------------
     gdb_entry = find_best_gdb_match(message_body)
     matched_id = gdb_entry["_id"]
     crop = gdb_entry.get("crop", "गेहूँ")
-    
+
+    # If the farmer had an existing open session (AWAITING_FEEDBACK),
+    # note that the previous question is being superseded by this new one.
+    is_new_question_on_open_session = (
+        current_state == "AWAITING_FEEDBACK" and active_gdb_id and active_gdb_id != matched_id
+    )
+
     answer_text = (
         f"🌾 *अजरासखा कृषि सलाह (GDB: {matched_id})* 🌾\n\n"
         f"{gdb_entry.get('answer_hi', gdb_entry.get('answer_en'))}"
     )
-    prompt_text = "❓ *क्या यह जानकारी आपके लिए उपयोगी थी?*"
-    
+    if is_new_question_on_open_session:
+        answer_text = (
+            f"📋 *नया प्रश्न स्वीकार किया गया* — पुराना सत्र अद्यतन किया जा रहा है।\n\n"
+        ) + answer_text
+
+    prompt_text = (
+        "❓ *क्या यह सलाह आपके लिए उपयोगी रही? कृपया 1-टैप रेटिंग दें:*"
+        if language == "hi" else
+        "❓ *Was this agronomic advice helpful? Please provide 1-tap rating:*"
+    )
+
     quick_buttons = [
-        {"id": "btn_yes", "title": "👍 हाँ, उपयोगी था", "value": 1},
-        {"id": "btn_no", "title": "👎 नहीं, सुधार चाहिए", "value": 2}
+        {"id": "btn_yes", "title": "👍 हाँ, उपयोगी था", "value": 1, "payload": 1},
+        {"id": "btn_no", "title": "👎 नहीं, सुधार चाहिए", "value": 2, "payload": 2}
     ]
-    
+
     update_session(phone_number, {
         "current_state": "AWAITING_FEEDBACK",
         "active_gdb_id": matched_id,
@@ -274,15 +338,20 @@ def process_farmer_interaction(
         "query_delivered_at": datetime.utcnow().isoformat(),
         "nudge_scheduled": False
     })
-    
+
     db["gdb_entries"].update_one({"_id": matched_id}, {"$inc": {"metrics.total_queries": 1}})
-    
+
     return {
         "status": "success",
         "step": "ANSWER_DELIVERED",
         "phone_number": phone_number,
         "outgoing_messages": [answer_text, prompt_text],
+        "bot_response_text": f"{answer_text}\n\n{prompt_text}",
+        "answer_text": answer_text,
+        "prompt_text": prompt_text,
         "quick_reply_buttons": quick_buttons,
         "gdb_id": matched_id,
+        "crop": crop,
+        "is_new_question_on_open_session": is_new_question_on_open_session,
         "session_state": "AWAITING_FEEDBACK"
     }

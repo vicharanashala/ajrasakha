@@ -201,23 +201,10 @@ for entry in gdb_catalog:
             "timestamp": (datetime.utcnow() - timedelta(days=random.randint(0, 6), hours=random.randint(1, 12))).isoformat()
         }
         feedbacks.append(fb_doc)
-        
-    db["gdb_entries"].insert_one(entry)
-    
-    # Populate flagged queue if ratio < 0.60
+    # Set is_flagged and flag_info directly on the GDB document
     if ratio < 0.60:
-        db["flagged_queue"].insert_one({
-            "gdb_id": entry["_id"],
-            "crop": entry["crop"],
-            "domain": entry["domain"],
-            "question_en": entry["question_en"],
-            "question_hi": entry["question_hi"],
-            "current_answer_en": entry["answer_en"],
-            "current_answer_hi": entry["answer_hi"],
-            "helpful_ratio": ratio,
-            "total_feedback": tot,
-            "upvotes": up,
-            "downvotes": down,
+        entry["is_flagged"] = True
+        entry["flag_info"] = {
             "threshold_configured": 0.60,
             "min_samples_configured": 10,
             "flagged_at": datetime.utcnow().isoformat(),
@@ -229,8 +216,17 @@ for entry in gdb_catalog:
             },
             "flag_reason": f"Helpfulness score ({int(ratio*100)}%) is below 60% threshold across {tot} responses.",
             "review_status": "PENDING_AGRI_REVIEW",
-            "assigned_team": "ACE Agronomy Board"
-        })
+            "assigned_team": "ACE Agronomy Board",
+            "revised_answer_hi": None,
+            "revised_answer_en": None,
+            "reviewer_note": None,
+            "resolved_at": None
+        }
+    else:
+        entry["is_flagged"] = False
+        entry["flag_info"] = None
+
+    db["gdb_entries"].insert_one(entry)
 
 db["farmer_feedback"].insert_many(feedbacks)
 print(f"Successfully seeded {len(gdb_catalog)} GDB entries, {len(feedbacks)} farmer feedbacks, and 3 flagged entries!")

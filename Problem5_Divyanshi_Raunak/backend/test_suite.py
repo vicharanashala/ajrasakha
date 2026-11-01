@@ -5,9 +5,10 @@ import sys
 
 from pathlib import Path
 
-BACKEND_DIR = Path(__file__).resolve().parent
 print("Starting backend server for verification...")
-proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000"], cwd=str(BACKEND_DIR))
+import os
+base_dir = os.path.dirname(os.path.abspath(__file__))
+proc = subprocess.Popen([sys.executable, "-m", "uvicorn", "app.main:app", "--port", "8000"], cwd=base_dir)
 
 time.sleep(3)
 
@@ -21,6 +22,7 @@ try:
     r2 = requests.get("http://localhost:8000/api/flagged/queue")
     print("2. Flagged Queue Count:", r2.status_code, r2.json().get("total"))
     assert r2.json().get("total") == 3
+    assert all(item.get("is_flagged") is True and item.get("flag_info") is not None for item in r2.json().get("queue", []))
 
     # 3. Test WhatsApp Simulation - Initial Question
     r3 = requests.post("http://localhost:8000/api/whatsapp/simulate-turn", json={

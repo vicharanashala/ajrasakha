@@ -5,7 +5,15 @@ def get_analytics_overview() -> Dict[str, Any]:
     db = get_db()
     total_gdb = db["gdb_entries"].count_documents({})
     total_fb = db["farmer_feedback"].count_documents({})
-    flagged = db["flagged_queue"].count_documents({"review_status": "PENDING_AGRI_REVIEW"})
+    flagged = db["gdb_entries"].count_documents({
+        "$or": [
+            {"status": {"$in": ["FLAGGED", "FLAGGED_REVIEW"]}},
+            {"flag_info.review_status": {"$in": ["PENDING_REVIEW", "PENDING_AGRI_REVIEW"]}},
+            {"is_flagged": True}
+        ],
+        "flag_info.is_resolved": {"$ne": True},
+        "status": {"$nin": ["RE_VALIDATED", "RESOLVED", "RETIRED"]}
+    })
     voice_count = db["farmer_feedback"].count_documents({"input_channel": "WHATSAPP_VOICE"})
     
     pipeline = [
