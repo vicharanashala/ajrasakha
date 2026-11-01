@@ -19,9 +19,15 @@ import {
   cancelDashboardTranslationJob,
   deleteDashboardTranslationJob,
   translateUniqueDocument,
+  getUserManagementList,
+  getDashboardUniqueDocuments,
   getDashboardUploadsHistory,
+  getPendingUploads,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
+import { NotificationService } from "@/hooks/services/notificationService";
+
+const notificationService = new NotificationService();
 import MainTable from "./MainTable";
 import UniqueDocumentsTable from "./UniqueDocumentsTable";
 import AddDocumentForm from "./AddDocumentForm";
@@ -51,8 +57,15 @@ export default function DocumentManagementPanel({
   canTranslate = false,
   canApproveUploads = false,
   isAdmin = false,
+  initialMode,
 }) {
-  const [activeMode, setActiveMode] = useState("main-table");
+  const [activeMode, setActiveMode] = useState(initialMode || "main-table");
+  // initialMode arrives after this component already mounted once (it flips true a tick after
+  // DataProcessingDashboard mounts, from a notification click) — the useState default above only
+  // catches a mount-time value, so also react to it changing while mounted.
+  useEffect(() => {
+    if (initialMode) setActiveMode(initialMode);
+  }, [initialMode]);
   // approved_by (approver/admin columns) — the signed-in user's display name, same source as
   // uploaded_by/translated_by (see TranslateReviewCell.tsx).
   const currentUserName = useAuthStore((s) => s.user?.name);
@@ -120,6 +133,30 @@ export default function DocumentManagementPanel({
   // can show "Processing…" until an "upload" event (or the fallback poll) finds the item either
   // gone (succeeded) or flipped to status=failed.
   const [processingUploadIds, setProcessingUploadIds] = useState(() => new Set());
+  // "New" document notifications are deferred until the async upload actually finishes (see
+  // handleNewUpload/resolveNewDocNotification below) — the real ANNAM id doesn't exist at submit
+  // time. Keyed by upload id; a ref since it never needs to trigger a render on its own.
+  const pendingNewDocNotifications = useRef(new Map());
+
+  // A pending "new" upload's created document is found by sha256 — an exact, collision-proof
+  // match (it's the same hash the backend's own duplicate-detection uses: "exact byte match,
+  // sha256 unique"), unlike matching on shareable_name/uploaded_by, which two unrelated uploads
+  // can easily share (e.g. generic test filenames re-uploaded repeatedly) and did, in practice,
+  // match the wrong document. The only consumer of this match is the ANNAM id shown in the
+  // notification — notifyAdminAdded always takes uploaderId/approverId from `pending.item` itself,
+  // never from the matched document, so even a failed/wrong match here can't misdirect who gets
+  // notified, only which id the notification displays.
+  async function resolveNewDocNotification(pending) {
+    if (!pending.sha256) return;
+    try {
+      const data = await getDashboardUniqueDocuments(1, { sha256: [pending.sha256] });
+      const doc = data?.items?.[0];
+      if (!doc) return; // Nothing matched — skip rather than notify with a wrong/no id.
+      notifyAdminAdded(pending.item, doc.document_id);
+    } catch {
+      // Best-effort — same as every other notifyPopEvent call in this file.
+    }
+  }
 
   async function refetchUploads() {
     try {
@@ -129,7 +166,25 @@ export default function DocumentManagementPanel({
         const next = new Set(prev);
         for (const id of prev) {
           const item = items.find((it) => it.id === id);
-          if (!item || item.status !== "awaiting_review") next.delete(id);
+          const pending = pendingNewDocNotifications.current.get(id);
+          if (!item) {
+            // Gone from the queue — succeeded. Fire the deferred notification now that a real
+            // document (and ANNAM id) exists.
+            if (pending) {
+              pendingNewDocNotifications.current.delete(id);
+              resolveNewDocNotification(pending);
+            }
+            next.delete(id);
+          } else if (item.status === "failed") {
+            // Confirmed with the PoP team: "new" claims the item with status "uploading" the
+            // MOMENT the POST is accepted (before the Zoho upload even starts), and stays
+            // "uploading" the whole time it's in flight — it's never "awaiting_review" again once
+            // this starts. Only "failed" is a real terminal failure; anything else (status still
+            // "uploading") just means it's still running, so keep waiting rather than treating the
+            // very next poll as a failure and dropping the notification before it ever resolves.
+            pendingNewDocNotifications.current.delete(id);
+            next.delete(id);
+          }
         }
         return next;
       });
@@ -242,6 +297,7 @@ export default function DocumentManagementPanel({
       refetchTranslationJobs(),
       refetchTerminalJobs(),
       ...(finishedFilter ? [refetchFinishedJobs()] : []),
+      ...(viewRef.current === "history" ? [refetchHistory()] : []),
     ]);
   }
 
@@ -271,15 +327,20 @@ export default function DocumentManagementPanel({
   const uploadRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(uploadRefetchTimerRef.current), []);
 
-  // Upload History — a toggle inside UploadQueuePanel itself that swaps the queue's own list for
-  // a read-only view of finished uploads (GET /dashboard/uploads/history), rather than a separate
-  // modal. showHistoryRef mirrors showHistory for the mount-only SSE effect below, same reason
-  // refetchUploadsRef exists.
-  const [showHistory, setShowHistory] = useState(false);
+  // Upload Queue has three views, toggled inside UploadQueuePanel itself rather than separate
+  // modals: the live queue (default), History (read-only finished uploads, GET
+  // /dashboard/uploads/history), and Pending (this caller's own not-yet-forwarded uploads, GET
+  // /pop-uploads — see backend/src/modules/popUploads). Pending behaves exactly like History:
+  // fetched on demand when opened, not polled or pushed — the live queue is the only one with a
+  // push/SSE update path (see the dashboardEvents subscription below). viewRef mirrors view for
+  // the mount-only SSE effect below, same reason refetchUploadsRef exists.
+  const [view, setView] = useState("queue"); // "queue" | "pending" | "history"
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const showHistoryRef = useRef(false);
-  showHistoryRef.current = showHistory;
+  const [pendingItems, setPendingItems] = useState([]);
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const viewRef = useRef("queue");
+  viewRef.current = view;
   const historyRefetchTimerRef = useRef(null);
   useEffect(() => () => clearTimeout(historyRefetchTimerRef.current), []);
 
@@ -292,12 +353,25 @@ export default function DocumentManagementPanel({
     }
   }
 
+  async function refetchPending() {
+    try {
+      const items = (await getPendingUploads()) || [];
+      setPendingItems(items);
+    } catch {
+      // ignore transient errors, next toggle/manual refresh will retry
+    }
+  }
+
   useEffect(() => {
-    if (!showHistory) return;
-    setHistoryLoading(true);
-    refetchHistory().finally(() => setHistoryLoading(false));
+    if (view === "history") {
+      setHistoryLoading(true);
+      refetchHistory().finally(() => setHistoryLoading(false));
+    } else if (view === "pending") {
+      setPendingLoading(true);
+      refetchPending().finally(() => setPendingLoading(false));
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [showHistory]);
+  }, [view]);
 
   // GET /dashboard/events — one shared SSE connection (see dashboardEvents.ts) driving live
   // updates for both queues, instead of polling. No replay on reconnect, so every (re)connect
@@ -316,10 +390,17 @@ export default function DocumentManagementPanel({
         uploadRefetchTimerRef.current = setTimeout(refetchUploadsRef.current, 300);
         // An item leaving the queue (deleted:true) is exactly when it lands in history — refetch
         // the history view too, same debounce, but only while it's actually showing.
-        if (showHistoryRef.current) {
+        if (viewRef.current === "history") {
           clearTimeout(historyRefetchTimerRef.current);
           historyRefetchTimerRef.current = setTimeout(refetchHistory, 300);
         }
+        // This one SSE event already covers every pop-queue level change (approve, decline,
+        // add/new, and a GridFS item landing in the queue — they all funnel through PoP's one
+        // `upload` event), and it's firing live right now, proven by the queue list itself
+        // updating instantly above. NotificationModal listens for this to burst-refresh the
+        // bell/sidebar off the SAME cue, instead of only off the push notification's postMessage
+        // (which doesn't reliably reach every recipient's tab — see service-worker.js).
+        window.dispatchEvent(new CustomEvent("pop-queue-changed"));
       },
       translation: (job) => {
         // translationJobs mirrors GET /dashboard/translation-jobs' default (queued+running only)
@@ -360,7 +441,9 @@ export default function DocumentManagementPanel({
           return prev;
         });
       },
-      document: () => bumpRefresh(),
+      document: () => {
+        bumpRefresh();
+      },
     });
     return unsubscribe;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -392,6 +475,36 @@ export default function DocumentManagementPanel({
     }
   }
 
+  // Admin adds to db (via "add to match", synchronously, or "new" — once resolveNewDocNotification
+  // above has confirmed it finished) -> notify the uploader and whoever approved it.
+  // `approved_by_approver_id` is null when the item skipped the approver stage (an approver's or
+  // admin's own upload) or was approved before this field existed — skip that recipient then.
+  // `item.expert`/`item.approved_by_approver_id` are the queue item's own fields, always present
+  // regardless of which "add" path this came from — there's no need to read them off a response.
+  // `annamId` is the human ANNAM code (NOT the `document_id` field on an upload's `candidates`
+  // entries, which despite the name is the candidate's internal ObjectId — its `document_code`
+  // is the real ANNAM label; see handleAddUpload). Falls back to the filename/queue id only if
+  // the caller genuinely has nothing better.
+  function notifyAdminAdded(item, annamId) {
+    const uploaderId = item.expert;
+    // An approver who approves their own upload up to admin stage IS the approver on their own
+    // item (confirmed with the PoP team) — `approved_by_approver_id` then equals `expert`, not a
+    // second person. Drop it in that case so that one person doesn't get this notification twice.
+    const approverId =
+      item.approved_by_approver_id && item.approved_by_approver_id !== uploaderId
+        ? item.approved_by_approver_id
+        : undefined;
+    if (!uploaderId && !approverId) return;
+    notificationService
+      .notifyPopEvent({
+        type: "admin_added",
+        itemName: annamId || item.shareable_name || item.id,
+        uploaderId,
+        approverId,
+      })
+      .catch(() => {}); // Best-effort — never block the add action on it.
+  }
+
   async function handleAddUpload(item, documentId, candidate) {
     setBusyUploadId(item.id);
     try {
@@ -401,6 +514,7 @@ export default function DocumentManagementPanel({
       // count from the candidate's own new_placements, what the row already showed as "would
       // file it under N new place(s)".
       const count = candidate?.new_placements?.length ?? res?.placements_created ?? 0;
+      notifyAdminAdded(item, candidate?.document_code);
       toast.success(`Linked — ${count} new placement(s) created`);
       setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
       bumpRefresh();
@@ -412,13 +526,19 @@ export default function DocumentManagementPanel({
     }
   }
 
-  // Async — the item stays in the queue at status=awaiting_review while the real Zoho upload
-  // happens server-side; mark it "processing" and let the fast follow-up poll above discover
-  // when it's actually resolved rather than assuming this call alone finished the job.
+  // Async — the item moves to status "uploading" the moment this POST is accepted (confirmed
+  // with the PoP team: before the real Zoho upload even starts) and stays "uploading" while it
+  // runs server-side; mark it "processing" and let the fast follow-up poll above discover when
+  // it's actually resolved (gone = succeeded, status "failed" = failed) rather than assuming this
+  // call alone finished the job.
   async function handleNewUpload(item) {
     setBusyUploadId(item.id);
     try {
       await addUploadAsNew(item.id, currentUserName);
+      // No document (and no ANNAM id) exists yet — queue the notification for once refetchUploads
+      // sees this item actually succeed (see pendingNewDocNotifications/resolveNewDocNotification
+      // above), instead of notifying now with a placeholder id.
+      pendingNewDocNotifications.current.set(item.id, { item, sha256: item.sha256 });
       setProcessingUploadIds((prev) => new Set(prev).add(item.id));
     } catch (err) {
       toast.error(err.message || "Failed to process as a new document");
@@ -432,8 +552,20 @@ export default function DocumentManagementPanel({
   async function handleApproveUpload(item) {
     setBusyUploadId(item.id);
     try {
+      // Level 0 covers both: a fresh self-upload (never left the uploader) and the uploader
+      // approving their own item back from a decline — either way this is the first time it's
+      // leaving the uploader, same recipients/meaning as "upload_created". Level 1 is the existing
+      // approver -> admin transition.
+      const wasExpertStage = itemLevel(item) === 0;
       const updated = await approveDashboardUpload(item.id, currentUserName);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      notificationService
+        .notifyPopEvent(
+          wasExpertStage
+            ? { type: "upload_created", itemName: item.shareable_name || item.id }
+            : { type: "approved", itemName: item.shareable_name || item.id },
+        )
+        .catch(() => {}); // Best-effort — never block the approve action on it.
       toast.success("Approved");
     } catch (err) {
       toast.error(err.message || "Failed to approve");
@@ -449,8 +581,33 @@ export default function DocumentManagementPanel({
   async function handleDeclineUpload(item, note) {
     setBusyUploadId(item.id);
     try {
+      const wasAdminStage = itemLevel(item) === 2;
       const updated = await declineDashboardUpload(item.id, note);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      if (wasAdminStage) {
+        // Admin decline -> back to approvers: notify them all (role list).
+        getUserManagementList("upload")
+          .then((approvers) => {
+            const approverIds = (approvers || []).map((a) => a.user_id).filter(Boolean);
+            if (approverIds.length) {
+              return notificationService.notifyPopEvent({
+                type: "admin_rejected",
+                itemName: item.shareable_name || item.id,
+                approverIds,
+              });
+            }
+          })
+          .catch(() => {}); // Best-effort — never block the decline action on it.
+      } else if (item.expert) {
+        // Approver decline -> back to the uploader.
+        notificationService
+          .notifyPopEvent({
+            type: "approver_rejected",
+            itemName: item.shareable_name || item.id,
+            uploaderId: item.expert,
+          })
+          .catch(() => {});
+      }
       toast.success("Declined");
     } catch (err) {
       toast.error(err.message || "Failed to decline");
@@ -487,6 +644,12 @@ export default function DocumentManagementPanel({
     try {
       const updated = await resubmitDashboardUpload(item.id);
       setQueueItems((prev) => prev.map((it) => (it.id === item.id ? updated : it)));
+      // Reuses "upload_created" — same recipients (all current approvers) and the same
+      // "awaiting approval" meaning as a fresh upload; the backend resolves the approver list
+      // itself now (see NotificationService.fetchPopApproverIds), so no approverIds needed here.
+      notificationService
+        .notifyPopEvent({ type: "upload_created", itemName: item.shareable_name || item.id })
+        .catch(() => {}); // Best-effort — never block the resubmit action on it.
       toast.success("Resubmitted");
     } catch (err) {
       toast.error(err.message || "Failed to resubmit");
@@ -602,10 +765,12 @@ export default function DocumentManagementPanel({
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}
-                  showHistory={showHistory}
-                  onToggleHistory={() => setShowHistory((v) => !v)}
+                  view={view}
+                  onSetView={setView}
                   historyItems={historyItems}
                   historyLoading={historyLoading}
+                  pendingItems={pendingItems}
+                  pendingLoading={pendingLoading}
                 />
               }
               bottom={

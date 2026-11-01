@@ -1,0 +1,91 @@
+# Build the GDB library draft service (gdb-draft/) and deploy it to Cloud Run.
+#
+# Required repository secrets (the first four already exist for the backend):
+#   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+#   GCP_GH_SA_KEY, GCP_PROJECT_ID
+#   GDB_DRAFT_TOKEN          shared secret; the backend sends it as x-draft-token
+#   DRAFT_MINIMAX_API_KEY    key for the model that writes the draft
+#
+# Optional repository variables:
+#   POP_API_URL              the POP API (default below)
+#
+# The backend needs the service address and the same token: set the repository secrets
+# GDB_DRAFT_URL (the Cloud Run URL of this service) and GDB_DRAFT_TOKEN, which
+# backend-deployment.yml passes to the backend.
+#
+# The service keeps its own copy of the translated documents: when it starts it downloads them
+# from the POP API and makes a PDF of each, then repeats every DRAFT_SYNC_MINUTES. Questions
+# work as soon as the documents are downloaded; Open works once a document's PDF is made.
+
+name: GDB Draft Service Deployment
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  DOCKER_IMAGE: gdb-draft
+  GCP_REGION: asia-south2
+  GCP_SERVICE: gdb-draft
+
+jobs:
+  build:
+    name: Build and Push
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./gdb-draft
+          file: ./gdb-draft/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+
+  deploy:
+    name: Deploy to Cloud Run
+    needs: build
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+
+      - name: Deploy to Cloud Run
+        uses: google-github-actions/deploy-cloudrun@v1
+        with:
+          service: ${{ env.GCP_SERVICE }}
+          region: ${{ env.GCP_REGION }}
+          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+          project_id: ${{ secrets.GCP_PROJECT_ID }}
+
+          env_vars: |
+            GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
+            DRAFT_MINIMAX_API_KEY=${{ secrets.DRAFT_MINIMAX_API_KEY }}
+            DRAFT_MINIMAX_URL=https://api.minimax.io/v1/chat/completions
+            DRAFT_MINIMAX_MODEL=MiniMax-M3
+            POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south2.run.app/api/pop' }}
+            DRAFT_SYNC_MINUTES=30
+
+          # the documents and PDFs live in the instance's memory, and the sync runs in the
+          # background, so keep one instance up with its CPU on. A draft can take a few minutes.
+          flags: --allow-unauthenticated --min-instances=1 --max-instances=1 --memory=4Gi --cpu=2 --no-cpu-throttling --timeout=300 --concurrency=20

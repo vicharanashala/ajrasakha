@@ -1,7 +1,7 @@
 // @ts-nocheck
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send, History, Copy } from "lucide-react";
+import { X, Link2, FilePlus, Ban, Eye, ChevronDown, ChevronRight, Check, Undo2, Pencil, Send, History, Copy, Clock } from "lucide-react";
 import { getDashboardUploadFileBlob } from "../../api";
 import { DOCUMENT_METADATA_FIELDS, formatDomainValue } from "./fields";
 import UploadEditForm from "./UploadEditForm";
@@ -77,10 +77,12 @@ export default function UploadQueuePanel({
   onOpenDetail,
   busyId,
   processingIds,
-  showHistory,
-  onToggleHistory,
+  view,
+  onSetView,
   historyItems,
   historyLoading,
+  pendingItems,
+  pendingLoading,
 }) {
   const [selected, setSelected] = useState({});
   const [expanded, setExpanded] = useState(() => new Set());
@@ -121,23 +123,80 @@ export default function UploadQueuePanel({
     <div className="flex flex-col h-full bg-card">
       <div className="flex items-center justify-between px-3 py-2 border-b border-border shrink-0">
         <h3 className="text-xs font-semibold text-foreground">
-          {showHistory ? "Upload History" : "Upload Queue"}
+          {view === "pending" ? "Pending Uploads" : view === "history" ? "Upload History" : "Upload Queue"}
         </h3>
         <div className="flex items-center gap-2">
           <span className="text-[10px] text-muted-foreground">
-            {showHistory ? historyItems.length : items.length}
+            {view === "pending" ? pendingItems.length : view === "history" ? historyItems.length : items.length}
           </span>
           <button
             type="button"
             className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-            onClick={onToggleHistory}
-            title={showHistory ? "Back to the live queue" : "View finished uploads"}
+            onClick={() => onSetView(view === "pending" ? "queue" : "pending")}
+            title={
+              view === "pending"
+                ? "Back to the live queue"
+                : "Uploads submitted here, not yet forwarded to PoP"
+            }
           >
-            <History size={11} /> {showHistory ? "Queue" : "History"}
+            <Clock size={11} /> {view === "pending" ? "Queue" : "Pending"}
+          </button>
+          <button
+            type="button"
+            className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+            onClick={() => onSetView(view === "history" ? "queue" : "history")}
+            title={view === "history" ? "Back to the live queue" : "View finished uploads"}
+          >
+            <History size={11} /> {view === "history" ? "Queue" : "History"}
           </button>
         </div>
       </div>
-      {showHistory ? (
+      {view === "pending" ? (
+        <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
+          {pendingLoading ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              Loading…
+            </div>
+          ) : pendingItems.length === 0 ? (
+            <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">
+              Nothing pending — every upload you've submitted has been forwarded to PoP.
+            </div>
+          ) : (
+            pendingItems.map((item) => (
+              <div
+                key={item.id}
+                className="flex flex-col gap-0.5 rounded-md border border-border/50 bg-muted/10 px-2.5 py-2"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs font-medium text-foreground truncate" title={item.filename}>
+                    {item.filename}
+                  </span>
+                  {item.createdAt && (
+                    <span className="text-[10px] text-muted-foreground shrink-0">
+                      {formatDate(item.createdAt)}
+                    </span>
+                  )}
+                </div>
+                <span
+                  className={
+                    item.status === "failed"
+                      ? "text-[11px] text-destructive"
+                      : "text-[11px] text-muted-foreground"
+                  }
+                >
+                  {item.status === "failed"
+                    ? item.error || "Failed to forward to PoP"
+                    : item.status === "processing"
+                      ? "Forwarding to PoP…"
+                      : item.status === "succeeded"
+                        ? "Forwarded — check the main queue"
+                        : "Queued, waiting to be forwarded…"}
+                </span>
+              </div>
+            ))
+          )}
+        </div>
+      ) : view === "history" ? (
         <div className="flex-1 overflow-y-auto p-2 flex flex-col gap-2">
           {historyLoading ? (
             <div className="flex-1 flex items-center justify-center text-xs text-muted-foreground italic py-6">

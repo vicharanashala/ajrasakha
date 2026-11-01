@@ -58,7 +58,7 @@ const submissionRepo = new QuestionSubmissionRepository(database);
 await (submissionRepo as any).init();
 const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
-const notificationService = new NotificationService(notificationRepo, database);
+const notificationService = new NotificationService(notificationRepo, userRepo, database);
 
 (async () => {
   if (!questionIds?.length) {
