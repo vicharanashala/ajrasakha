@@ -1,9 +1,12 @@
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getCurrentUser } from "../api/api-fetch";
+import { getIdToken } from "firebase/auth";
 import { env } from "@/config/env";
+import { libraryDocumentUrl } from "@/features/gdb-cleaning/libraryDocument";
 import type {
   GdbStatus,
   IGdbHistoryEntry,
   IGdbCleaningItem,
+  IGdbDraft,
   IGdbListItem,
   IGdbSource,
 } from "@/features/gdb-cleaning/types";
@@ -131,6 +134,38 @@ class GdbCleaningService {
     });
     if (!response) throw new Error("Failed to save the correction: No response received");
     return response;
+  }
+
+  // drafts from the library; nothing is saved until the reviewer saves the correction or sources
+  async draftFromLibrary(answerId: string): Promise<IGdbDraft> {
+    const response = await apiFetch<IGdbDraft>(`${this._baseUrl}/${answerId}/draft`, { method: "POST" });
+    if (!response) throw new Error("Failed to draft from the library: No response received");
+    return response;
+  }
+
+  // opens a cited library document at the cited page in a new tab
+  async openLibraryDocument(documentId: string, page?: number): Promise<void> {
+    // the tab opens straight away, on the click, so the browser does not block it while the file loads
+    const tab = window.open("", "_blank");
+    try {
+      const user = await getCurrentUser();
+      const token = user ? await getIdToken(user) : null;
+      const response = await fetch(libraryDocumentUrl(documentId), {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+      if (!response.ok) {
+        throw new Error(
+          response.status === 404 ? "This library document is not available." : `Could not open the document (${response.status}).`
+        );
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const target = page ? `${url}#page=${page}` : url;
+      if (tab) tab.location.href = target;
+      else window.location.href = target;
+    } catch (error) {
+      tab?.close();
+      throw error;
+    }
   }
 
   async editFlag(answerId: string, edit: IGdbFlagEdit): Promise<IGdbCleaningItem> {

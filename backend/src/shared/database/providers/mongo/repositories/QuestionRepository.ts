@@ -998,9 +998,14 @@ export class QuestionRepository implements IQuestionRepository {
           filter.status = 'dynamic';
         }
       } else {
-        caseInsensitiveStringFilter('status', status);
+        // --- Status filter with special handling for static_dynamic ---
+        // When status is 'static_dynamic', filter by tag field instead of status field
+        if (status && status.toLowerCase() === 'static_dynamic') {
+          filter.tag = { $regex: '^static_dynamic$', $options: 'i' };
+        } else {
+          caseInsensitiveStringFilter('status', status);
+        }
       }
-
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
@@ -7390,14 +7395,24 @@ export class QuestionRepository implements IQuestionRepository {
         ],
         { session },
       ).toArray(),
-      this.QuestionCollection.aggregate(
-        [
-          { $match: filter },
-          { $group: { _id: '$source', count: { $sum: 1 } } },
-          { $project: { _id: 0, source: '$_id', count: 1 } },
-        ],
-        { session },
-      ).toArray(),
+      // For static_dynamic status, group by tag instead of status
+      query.status && query.status.toLowerCase() === 'static_dynamic'
+        ? this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$tag', count: { $sum: 1 } } },
+              { $project: { _id: 0, status: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray()
+        : this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$source', count: { $sum: 1 } } },
+              { $project: { _id: 0, source: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray(),
     ]);
 
     const statuses = statusResults.map(r => ({
