@@ -3,6 +3,40 @@
 Same MCP tool (`mandi_price_tool`), same actions, inputs and output as `tools/daily_price`, reading the
 **v2 database** (`PriceV2`). v1 is not changed.
 
+## What v2 solves
+
+The v1 tool, agent and collections are untouched; v2 runs beside them and is switched on with
+`DAILY_PRICE_AGENT_VERSION=v2`.
+
+**Wrong crop prices**
+* v1 matched source crop names to crops by guessed aliases. v2 links every source spelling to a
+  crop/product only after a person approves it on the review website; a pending name shows no price.
+* v1 crop groups mixed different crops. v2 has crops and products (paddy, basmati paddy, rice) and
+  answers for exactly one product, so prices never mix.
+* Farmer words are a separate, reviewed list, in English only (the planner translates questions first).
+* Only a clear one-letter typo is accepted; otherwise the answer is "did you mean …", never a guess.
+
+**Wrong or misleading answers**
+* No date fallback: when today's price does not exist, the answer is a message, never an older price.
+  "Today" is the date in India (IST), not UTC.
+* No mandi fallback: a named mandi with no price gives a message; other mandis are not shown in its place.
+* 40 km limit from the farmer's location (was 50 km, and 100 km for nearby mandis); a request cannot raise it.
+* Impossible rows (zero, min above max, modal outside min..max) are left out.
+* Bad inputs (unknown state such as "Bangladesh", NaN or swapped lat/long, odd dates or day counts) give a
+  clear message instead of a crash or a wrong answer.
+* A state alone, or the geocoder's state-capital fallback, is not used as the farmer's location.
+* Every error has an `error_code` and a message written for farmers; database or connection failures give
+  "Mandi prices could not be fetched right now", and Mongo calls time out instead of hanging.
+* Answers (agent, `daily_price_v2_formatter`) use ₹ with Indian grouping, readable dates, km per mandi and
+  plain lists instead of tables. The plan executor no longer replaces these messages with its generic reply.
+
+**Around the tool**
+* Scraper v2 (Mandi repo, `feat/catalog-v2`) saves prices exactly as each source names them and adds new
+  names as pending for review; listings get `product_id` / `mandi_id` from approved links.
+* The Mandi Data Review website (`mandi-review`, branch `v2`) is where experts approve crop names, mandi
+  names and farmer words, fix or delete wrong prices (a copy is kept), and see statistics. Every change is
+  in its change history.
+
 ## What is different from v1
 
 | | v1 (`tools/daily_price`) | v2 (this folder) |
@@ -19,7 +53,7 @@ Same MCP tool (`mandi_price_tool`), same actions, inputs and output as `tools/da
 In memory (refreshed every 5 minutes), first hit wins:
 
 1. a product or crop name (a crop gives its default product)
-2. an approved **farmer word** (`crop_words`: "dhan", "धान", "jhona", "basmati"); a word still pending or rejected stops here
+2. an approved **farmer word** (`crop_words`, English only: "dry chillies", "blackgram", "beet root"); a word still pending or rejected stops here
 3. an approved source spelling (`crop_names`)
 4. a clear typo: one wrong letter (two for 16+ letters) from a name or farmer word, and no other crop equally close
 
@@ -54,6 +88,9 @@ The agent uses it when `DAILY_PRICE_AGENT_VERSION=v2` is set for the main app (d
 ## Tests
 
 ```bash
-TEST_MONGO_URI=mongodb://127.0.0.1:27017 pytest ajrasakha/tools/daily_price_v2/tests
+TEST_MONGO_URI=mongodb://127.0.0.1:27017 pytest ajrasakha/tools/daily_price_v2/tests   # tool
+pytest ajrasakha/agents/tests/test_daily_price_v2.py                                   # agent and answers
 ```
-They create and drop their own database.
+The tool tests create and drop their own database.
+
+Manual testing by the testing team: [TESTING_SOP.md](TESTING_SOP.md).
