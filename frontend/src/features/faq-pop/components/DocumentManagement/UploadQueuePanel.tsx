@@ -586,7 +586,7 @@ export default function UploadQueuePanel({
                         <X size={10} /> Remove
                       </button>
                     )}
-                    {actions.can_remove && !actions.can_discard && (
+                    {actions.can_remove && (
                       <label
                         className={`flex items-center gap-1 text-[10px] px-1.5 py-0.5 rounded border border-border text-muted-foreground hover:bg-accent transition-colors ${disabled ? "opacity-40 pointer-events-none" : "cursor-pointer"}`}
                         title="Re-upload file — same metadata, different file"
