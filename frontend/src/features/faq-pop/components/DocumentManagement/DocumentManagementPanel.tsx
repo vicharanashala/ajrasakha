@@ -693,8 +693,8 @@ export default function DocumentManagementPanel({
     }
   }
 
-  // The uploading expert swapping the file on an item returned to them (same can_remove gate as
-  // Remove above). No replace-file endpoint exists, so it's the existing two calls in order: queue
+  // The person who uploaded the item swapping its file (uploader, approver or admin — gated on
+  // can_remove, which PoP only sets for the item's own uploader at the level they uploaded it). No replace-file endpoint exists, so it's the existing two calls in order: queue
   // the new file with this item's metadata/placements/language as a fresh upload (GridFS → queue,
   // same path as the upload form), and only once that's accepted, DELETE the old item. Upload
   // first, so a failed upload (network, duplicate 409) leaves the old item untouched. The upload
