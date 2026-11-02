@@ -533,6 +533,150 @@ export class AnswerService extends BaseService implements IAnswerService {
     return result;
   }
 
+  async submitFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{ job_id: string; status: string }> {
+    if (!payload?.question || !payload?.answer) {
+      throw new BadRequestError('Question and answer are required for FFV generation.');
+    }
+
+    const jobId = randomUUID();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes expiry
+
+    // Create job document in 'ffv_jobs' collection
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    await collection.insertOne({
+      jobId,
+      status: 'processing',
+      payload,
+      result: null,
+      error: null,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    });
+
+    // Process the job asynchronously
+    this.processFfvJob(jobId, payload).catch((err) => {
+      console.error(`[submitFfv] Job ${jobId} failed:`, err);
+    });
+
+    return { job_id: jobId, status: 'processing' };
+  }
+
+  private async processFfvJob(jobId: string, payload: { question: string; answer: string; domains?: string[] }): Promise<void> {
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    const now = new Date();
+
+    try {
+      // Call the FFV service
+      const ffvResult = await this.aiService.generateFfv(payload);
+
+      // Update job with successful result
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'completed',
+            result: ffvResult,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[processFfvJob] Job ${jobId} failed:`, errorMsg);
+
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: errorMsg,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    }
+  }
+
+  async getFfv(jobId: string): Promise<{
+    job_id: string;
+    status: 'processing' | 'completed' | 'failed';
+    results?: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions?: number;
+    error?: string;
+  }> {
+    if (!jobId) {
+      throw new BadRequestError('Job ID is required.');
+    }
+
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    const job = await collection.findOne({ jobId });
+
+    if (!job) {
+      throw new NotFoundError(`FFV job "${jobId}" not found`);
+    }
+
+    // Check for 5-minute timeout on jobs that are still processing
+    if (job.status === 'processing' && job.expiresAt && new Date() > new Date(job.expiresAt)) {
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: 'FFV generation timed out after 5 minutes.',
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      return {
+        job_id: jobId,
+        status: 'failed',
+        error: 'FFV generation timed out after 5 minutes.',
+      };
+    }
+
+    const response: {
+      job_id: string;
+      status: 'processing' | 'completed' | 'failed';
+      results?: Array<{
+        domain: string;
+        versions: Array<{
+          angle: string;
+          question: string;
+          answer: string;
+        }>;
+      }>;
+      total_versions?: number;
+      error?: string;
+    } = {
+      job_id: job.jobId,
+      status: job.status,
+    };
+
+    if (job.status === 'completed' && job.result) {
+      response.results = job.result.results;
+      response.total_versions = job.result.total_versions;
+    }
+
+    if (job.status === 'failed' && job.error) {
+      response.error = job.error;
+    }
+
+    return response;
+  }
+
   async generateFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{
     results: Array<{
       domain: string;
