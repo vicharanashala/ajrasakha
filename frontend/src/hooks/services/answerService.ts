@@ -292,24 +292,12 @@ export class AnswerService {
     }
   }
 
-  async generateFfv(payload: {
+  async submitFfv(payload: {
     question: string;
     answer: string;
     domains?: string[];
-  }): Promise<{
-    results: Array<{
-      domain: string;
-      versions: Array<{
-        angle: string;
-        question: string;
-        answer: string;
-      }>;
-    }>;
-    total_versions: number;
-  } | null> {
+  }): Promise<{ job_id: string; status: string } | null> {
     try {
-      // Normalize the answer: trim whitespace and normalize multiple
-      // newlines/spaces to a single space to ensure clean JSON serialization.
       const normalizedAnswer = payload.answer
         .trim()
         .replace(/\r\n/g, "\n")
@@ -317,17 +305,7 @@ export class AnswerService {
 
       const normalizedQuestion = payload.question.trim();
 
-      return await apiFetch<{
-        results: Array<{
-          domain: string;
-          versions: Array<{
-            angle: string;
-            question: string;
-            answer: string;
-          }>;
-        }>;
-        total_versions: number;
-      }>(`${this._baseUrl}/ffv`, {
+      return await apiFetch<{ job_id: string; status: string }>(`${this._baseUrl}/ffv/submit`, {
         method: "POST",
         body: JSON.stringify({
           question: normalizedQuestion,
@@ -336,7 +314,44 @@ export class AnswerService {
         }),
       });
     } catch (error) {
-      console.error(`Error in generateFfv:`, error);
+      console.error(`Error in submitFfv:`, error);
+      throw error;
+    }
+  }
+
+  async getFfv(jobId: string): Promise<{
+    job_id: string;
+    status: "processing" | "completed" | "failed";
+    results?: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions?: number;
+    error?: string;
+  } | null> {
+    try {
+      return await apiFetch<{
+        job_id: string;
+        status: "processing" | "completed" | "failed";
+        results?: Array<{
+          domain: string;
+          versions: Array<{
+            angle: string;
+            question: string;
+            answer: string;
+          }>;
+        }>;
+        total_versions?: number;
+        error?: string;
+      }>(`${this._baseUrl}/ffv/${jobId}`, {
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(`Error in getFfv(${jobId}):`, error);
       throw error;
     }
   }
