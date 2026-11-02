@@ -8,6 +8,7 @@ import {
   DialogFooter,
 } from "@/components/atoms/dialog";
 import { Button } from "@/components/atoms/button";
+import { Switch } from "@/components/atoms/switch";
 import { Input } from "@/components/atoms/input";
 import { Label } from "@/components/atoms/label";
 import { Badge } from "@/components/atoms/badge";
@@ -94,6 +95,10 @@ export const EditUserDetailsDialog: React.FC<EditUserDetailsDialogProps> = ({
   const [avatar, setAvatar] = useState("");
   const [mobile, setMobile] = useState("");
   const [university, setUniversity] = useState("");
+  const [sendDailyReport, setSendDailyReport] = useState(false);
+  const isReviewStaff = Boolean(
+    user?.role && ['expert', 'moderator', 'gate_keeper', 'auditor'].includes(user.role),
+  );
 
   const [preferenceState, setPreferenceState] = useState("");
   const [preferenceDistrict, setPreferenceDistrict] = useState("");
@@ -144,6 +149,7 @@ export const EditUserDetailsDialog: React.FC<EditUserDetailsDialogProps> = ({
       setAvatar(user.avatar || "");
       setMobile(user.mobile || "");
       setUniversity(user.university || "");
+      setSendDailyReport(user.sendDailyReport ?? false);
 
       const pref = user.preference;
       setPreferenceState(pref?.state ?? "");
@@ -310,6 +316,7 @@ export const EditUserDetailsDialog: React.FC<EditUserDetailsDialogProps> = ({
         domain: selectedDomains.length > 0 ? selectedDomains : "all",
       },
       kvkCovered: kvkList.length > 0 ? kvkList : null,
+      ...(isReviewStaff ? { sendDailyReport } : {}),
     };
 
     try {
@@ -532,6 +539,26 @@ export const EditUserDetailsDialog: React.FC<EditUserDetailsDialogProps> = ({
                     <p className="text-[11px] text-destructive font-medium">{errors.university}</p>
                   )}
                 </div>
+
+                {isReviewStaff && (
+                  <div className="rounded-lg border bg-muted/20 p-3.5 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <Label htmlFor="send-daily-report" className="text-xs font-semibold flex items-center gap-1.5 cursor-pointer">
+                      <Mail className="w-3.5 h-3.5 text-primary" />
+                      <span>Receive Daily Activity Report</span>
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Enable sending the individual 12:00 AM IST daily activity report email to this reviewer.
+                    </p>
+                  </div>
+                  <Switch
+                    id="send-daily-report"
+                    checked={sendDailyReport}
+                    onCheckedChange={setSendDailyReport}
+                    className="border-slate-300 data-[state=unchecked]:border-slate-300 data-[state=unchecked]:bg-slate-200 dark:border-slate-600"
+                  />
+                </div>
+                )}
               </div>
             </TabsContent>
 
