@@ -259,7 +259,7 @@ export function DetailSidebar({
     "",
     "",
     "",
-    "yes",
+    "all",
     false,
     false,
     userType as any,
@@ -268,9 +268,9 @@ export function DetailSidebar({
     "desc",
     false,
     "",
-    "verified",
+    "all",
     true,
-    "true",
+    undefined,
   );
 
   console.log(
