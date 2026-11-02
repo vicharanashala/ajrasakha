@@ -1,0 +1,13 @@
+# Core server
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-multipart>=0.0.20
+
+# Image handling
+Pillow>=10.0.0
+
+# The IndicOCR package (installed via install.sh inside Docker)
+# Listed here for reference; the Dockerfile installs from the cloned repo.
+# Do NOT pip install this directly from PyPI — use the install.sh path.
+#
+# hf-transfer>=0.1.0

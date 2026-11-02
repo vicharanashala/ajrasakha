@@ -16,6 +16,10 @@ ENABLE_V2_SEARCH = os.getenv("ENABLE_V2_SEARCH", "true").lower() == "true"
 BM25_RELEVANCE_WEIGHT = float(os.getenv("BM25_RELEVANCE_WEIGHT", "0.4"))
 SEMANTIC_RELEVANCE_WEIGHT = float(os.getenv("SEMANTIC_RELEVANCE_WEIGHT", "0.6"))
 
+# RAG search configuration for crop fallback
+RAG_TOP_K_NORMALISED = int(os.getenv("RAG_TOP_K_NORMALISED", "5"))  # Top 5 from normalised_crop
+RAG_TOP_K_CROP_FALLBACK = int(os.getenv("RAG_TOP_K_CROP_FALLBACK", "3"))  # Top 3 from crop field
+
 try:
     from .gemma_classifier import (
         GEMMA_MODEL,
@@ -373,12 +377,13 @@ async def gdb_search(
         },
     }
 
-    strict_results = await strict_exact_search(query=query, crop=crop, state=state)
-    log.info("gdb_search strict exact returned %d hit(s)", len(strict_results))
+    # Step 1: Check exact match on normalised_crop field
+    strict_results = await strict_exact_search(query=query, crop=crop, state=state, crop_field="normalised_crop")
+    log.info("gdb_search strict exact (normalised_crop) returned %d hit(s)", len(strict_results))
 
     if strict_results:
         log.info(
-            "gdb_search done path=strict_exact question_id=%s",
+            "gdb_search done path=strict_exact_normalised_crop question_id=%s",
             strict_results[0].question_id,
         )
         return _exact_match_response(
@@ -390,7 +395,8 @@ async def gdb_search(
             crop_fallback=False,
         )
 
-    rag_pairs = await vector_rag_search(
+    # Step 2: Fetch RAG results from normalised_crop (top 5)
+    rag_pairs_normalised = await vector_rag_search(
         query,
         crop,
         state,
@@ -398,29 +404,91 @@ async def gdb_search(
         domain=domain,
         use_dual_search=use_dual_search,
         embedding_field=embedding_field,
+        top_k=RAG_TOP_K_NORMALISED,
+        crop_field="normalised_crop",
     )
+    log.info("gdb_search RAG (normalised_crop) returned %d hit(s)", len(rag_pairs_normalised))
 
+    # Step 3: Also check exact match on crop field (for fallback)
+    strict_results_crop = await strict_exact_search(
+        query=query, crop=crop, state=state, crop_field="crop"
+    )
+    log.info("gdb_search strict exact (crop field) returned %d hit(s)", len(strict_results_crop))
+
+    if strict_results_crop:
+        log.info(
+            "gdb_search done path=strict_exact_crop_field question_id=%s",
+            strict_results_crop[0].question_id,
+        )
+        return _exact_match_response(
+            query,
+            state,
+            crop,
+            strict_results_crop[0],
+            original_crop=original_crop,
+            crop_fallback=False,
+        )
+
+    # Step 4: Fetch additional RAG results from crop field (top 3) - for fallback
+    rag_pairs_crop_fallback = []
+    if crop != "all":
+        rag_pairs_crop_fallback = await vector_rag_search(
+            query,
+            crop,
+            state,
+            season=season,
+            domain=domain,
+            use_dual_search=use_dual_search,
+            embedding_field=embedding_field,
+            top_k=RAG_TOP_K_CROP_FALLBACK,
+            crop_field="crop",
+        )
+        log.info("gdb_search RAG (crop field fallback) returned %d hit(s)", len(rag_pairs_crop_fallback))
+
+    # Step 5: Combine results from both normalised_crop and crop fields
+    # Deduplicate by question_id, preferring normalised_crop results
+    seen_question_ids: set[str] = set()
+    rag_pairs: list[QuestionAnswerPair] = []
+    
+    # First add all normalised_crop results
+    for pair in rag_pairs_normalised:
+        if pair.question_id not in seen_question_ids:
+            rag_pairs.append(pair)
+            seen_question_ids.add(pair.question_id)
+    
+    # Then add crop field fallback results (only if not already added)
+    for pair in rag_pairs_crop_fallback:
+        if pair.question_id not in seen_question_ids:
+            rag_pairs.append(pair)
+            seen_question_ids.add(pair.question_id)
+    
+    log.info("gdb_search combined RAG results: %d total (normalised=%d, crop_fallback=%d)",
+             len(rag_pairs), len(rag_pairs_normalised), len(rag_pairs_crop_fallback))
+
+    # Step 6: If still no results and crop != "all", fall back to crop=all
     if not rag_pairs and crop != "all":
         log.info(
             "gdb_search: no retrieval hits for crop=%s; retrying with crop=all",
             crop,
         )
         crop_fallback = True
-        strict_results = await strict_exact_search(query=query, crop="all", state=state)
+        
+        # Check exact match with crop=all
+        strict_results_all = await strict_exact_search(query=query, crop="all", state=state)
         log.info(
             "gdb_search strict exact (crop=all) returned %d hit(s)",
-            len(strict_results),
+            len(strict_results_all),
         )
-        if strict_results:
+        if strict_results_all:
             log.info(
                 "gdb_search done path=strict_exact_crop_fallback question_id=%s",
-                strict_results[0].question_id,
+                strict_results_all[0].question_id,
             )
             return _exact_match_response(
                 query,
                 state,
                 "all",
-                strict_results[0],
+                strict_results_all[0],
                 original_crop=original_crop,
                 crop_fallback=True,
             )

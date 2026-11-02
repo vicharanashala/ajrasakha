@@ -8,11 +8,13 @@ import {
   Min,
   Max,
   IsIn,
+  IsISO8601,
   ValidateNested,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 import {Type, Transform} from 'class-transformer';
-import type { CropType } from '#root/shared/interfaces/models.js';
+import type { CropType, CropListSort } from '#root/shared/interfaces/models.js';
+import { CROP_LIST_SORTS } from '#root/shared/interfaces/models.js';
 
 // ── Param Validators ──
 
@@ -58,6 +60,16 @@ class CropAliasDto {
   @IsOptional()
   @IsString()
   page_number?: string;
+
+  @JSONSchema({ description: 'Expert who verified this term' })
+  @IsOptional()
+  @IsString()
+  agri_expert?: string;
+
+  @JSONSchema({ description: 'Free-text note about this term' })
+  @IsOptional()
+  @IsString()
+  remark?: string;
 }
 
 // ── Body DTOs ──
@@ -174,10 +186,45 @@ class GetAllCropsQuery {
   @IsString()
   type?: CropType;
 
-  @JSONSchema({description: 'Sort order', example: 'newest', type: 'string'})
+  @JSONSchema({description: 'Sort order', example: 'newest', type: 'string', enum: [...CROP_LIST_SORTS]})
   @IsOptional()
-  @IsIn(['newest', 'oldest', 'name_asc', 'name_desc'])
-  sort?: 'newest' | 'oldest' | 'name_asc' | 'name_desc';
+  @IsIn([...CROP_LIST_SORTS])
+  sort?: CropListSort;
+
+  @JSONSchema({description: 'Only entries with / without aliases', example: 'without', type: 'string', enum: ['with', 'without']})
+  @IsOptional()
+  @IsIn(['with', 'without'])
+  aliases?: 'with' | 'without';
+
+  @JSONSchema({description: 'Only entries with / without an image', example: 'with', type: 'string', enum: ['with', 'without']})
+  @IsOptional()
+  @IsIn(['with', 'without'])
+  image?: 'with' | 'without';
+
+  @JSONSchema({description: 'Filter by status (chemicals)', example: 'Banned', type: 'string'})
+  @IsOptional()
+  @IsString()
+  status?: string;
+
+  @JSONSchema({description: 'Only entries with an alias in this language', example: 'te-IN', type: 'string'})
+  @IsOptional()
+  @IsString()
+  language?: string;
+
+  @JSONSchema({description: 'Only entries with an alias for this region', example: 'Andhra and Telangana', type: 'string'})
+  @IsOptional()
+  @IsString()
+  region?: string;
+
+  @JSONSchema({description: 'Updated on or after this ISO timestamp', example: '2026-10-01T00:00:00.000Z', type: 'string'})
+  @IsOptional()
+  @IsISO8601()
+  updatedFrom?: string;
+
+  @JSONSchema({description: 'Updated on or before this ISO timestamp', example: '2026-10-31T23:59:59.999Z', type: 'string'})
+  @IsOptional()
+  @IsISO8601()
+  updatedTo?: string;
 
   @JSONSchema({description: 'Page number', example: 1, type: 'number'})
   @IsOptional()

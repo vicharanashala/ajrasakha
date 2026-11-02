@@ -16,7 +16,7 @@ import {AuditTrailsService} from '../services/AuditTrailsService.js';
 import {BadRequestErrorResponse} from '#root/shared/index.js';
 // import { AuditTrailsResponse, AuditTrailUserIdParams } from "../classes/validators/AuditTrailsValidators.js";
 import {AuditTrailsResponse, AuditTrailsShiftReportResponse} from '../classes/Validators/AuditTrailsValidators.js';
-import { AuditFilters } from '../interfaces/IAuditTrails.js';
+import { AuditFilters, AuditCategory, OutComeStatus } from '../interfaces/IAuditTrails.js';
 
 @OpenAPI({
   tags: ['AuditTrails'],
@@ -228,6 +228,61 @@ class AuditTrailsController {
       totalDocuments: result.totalDocuments,
       totalPages: Math.ceil(result.totalDocuments / limit),
       currentPage: page,
+    };
+  }
+
+  @OpenAPI({
+    summary: 'AgriTech Management audit trail',
+    description: 'Lists every AgriTech Management audit entry, filterable by action, outcome, date, type, source, import and a free-text search.',
+  })
+  @Get('/crop-management')
+  @HttpCode(200)
+  @Authorized(['admin', 'moderator'])
+  async getCropManagementAuditTrails(
+    @QueryParam('page') page: number = 1,
+    @QueryParam('limit') limit: number = 20,
+    @QueryParam('action') action?: string,
+    @QueryParam('status') status?: string,
+    @QueryParam('start') start?: string,
+    @QueryParam('end') end?: string,
+    @QueryParam('order') order: string = 'desc',
+    @QueryParam('search') search?: string,
+    @QueryParam('importId') importId?: string,
+    @QueryParam('type') entryType?: string,
+    @QueryParam('source') source?: string,
+  ) {
+    const safePage = Math.max(1, Math.floor(Number(page) || 1));
+    const safeLimit = Math.min(100, Math.max(1, Math.floor(Number(limit) || 20)));
+    if (status && !Object.values(OutComeStatus).includes(status as OutComeStatus)) {
+      throw new BadRequestError('Invalid status');
+    }
+    if (!['asc', 'desc'].includes(order)) throw new BadRequestError('Invalid order');
+    for (const date of [start, end]) {
+      if (date && Number.isNaN(new Date(date).getTime())) throw new BadRequestError('Invalid date');
+    }
+    const trim = (value?: string, max = 120) => value?.trim().slice(0, max) || undefined;
+
+    const result = await this.auditTrailsService.getCropManagementAuditTrails({
+      page: safePage,
+      limit: safeLimit,
+      action: trim(action, 60),
+      status,
+      start,
+      end,
+      order: order as 'asc' | 'desc',
+      search: trim(search),
+      importId: trim(importId, 60),
+      entryType: trim(entryType, 60),
+      source: trim(source, 60),
+    });
+
+    return {
+      message: 'Audit trails retrieved successfully',
+      category: AuditCategory.CROP_MANAGEMENT,
+      data: result.data,
+      totalDocuments: result.totalDocuments,
+      totalPages: Math.ceil(result.totalDocuments / safeLimit),
+      currentPage: safePage,
     };
   }
 

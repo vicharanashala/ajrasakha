@@ -740,7 +740,8 @@ export class AiService {
     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120s for multi-step LLM pipeline
 
     try {
-      const url = `${this._writingAssistantServerUrl}/polish-draft`;
+      // const url = `${this._writingAssistantServerUrl}/polish-draft`;
+      const url = `https://ajrasakha-writing-assistant.onrender.com/polish-draft`;
       console.log(`[polishDraft] Calling writing assistant: ${url}`);
       const response = await fetch(url, {
         method: 'POST',

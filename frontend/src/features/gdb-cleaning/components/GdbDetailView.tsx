@@ -1,13 +1,17 @@
 import { useMemo, useState } from "react";
 import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
+import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
 import { diffWords } from "@/utils/wordDifference";
-import { ArrowLeft, ArrowUpRight, Check, Pencil, X } from "lucide-react";
-import type { IGdbCleaningItem } from "../types";
+import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
+import { effectiveResult } from "../types";
+import { SOURCE_TYPE_LABELS } from "../types";
+import type { GdbSourceType, IGdbCleaningItem, IGdbDraft, IGdbDraftCitation, IGdbSource } from "../types";
 import { GdbFlagsPanel } from "./GdbFlagsPanel";
 import { HighlightedText } from "./HighlightedText";
 import { StatusBadge } from "./GdbListView";
+import { libraryDocumentIdOf, libraryDocumentUrl } from "../libraryDocument";
 
 const REMOVED = "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300";
 const ADDED = "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300";
@@ -19,6 +23,20 @@ interface GdbDetailViewProps {
   onDismiss: (comment: string) => void;
   // resolves once the correction is saved
   onSaveCorrection: (text: string) => Promise<unknown>;
+  // resolves once the change is saved
+  onEditFlag: (parameter: string, result: "PASS" | "FAIL", comment: string) => Promise<unknown>;
+  // resolves once the sources are saved
+  onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
+  // replaces the golden answer with the accepted correction; resolves once it is done
+  onPush: () => Promise<unknown>;
+  // the AI draft in the predefined structure; null when it could not be made
+  onDraftWithAi: () => Promise<string | null>;
+  drafting?: boolean;
+  // the draft from the library with its citations; null when there is nothing to show
+  onDraftFromLibrary: () => Promise<IGdbDraft | null>;
+  libraryDrafting?: boolean;
+  // opens a library document in a new tab, at the page when there is one
+  onOpenLibraryDocument: (documentId: string, page?: number) => Promise<void>;
   busy?: boolean;
 }
 
@@ -28,11 +46,23 @@ export const GdbDetailView = ({
   onAccept,
   onDismiss,
   onSaveCorrection,
+  onEditFlag,
+  onSaveSources,
+  onPush,
+  onDraftWithAi,
+  drafting = false,
+  onDraftFromLibrary,
+  libraryDrafting = false,
+  onOpenLibraryDocument,
   busy = false,
 }: GdbDetailViewProps) => {
   const [editing, setEditing] = useState(false);
+  const [editingSources, setEditingSources] = useState(false);
+  const [sourceDraft, setSourceDraft] = useState<IGdbSource[]>([]);
   const [draft, setDraft] = useState("");
   const [comment, setComment] = useState(item.comment ?? "");
+  // the passages the library draft cites, shown under the correction until the reviewer saves or leaves
+  const [libraryCitations, setLibraryCitations] = useState<IGdbDraftCitation[]>([]);
 
   const corrected = item.correctedAnswer;
   const diff = useMemo(
@@ -41,12 +71,57 @@ export const GdbDetailView = ({
   );
   // the words a failed check found in the answer, for example the banned chemical
   const flaggedWords = useMemo(
-    () => item.checks.filter((check) => check.result === "FAIL").flatMap((check) => check.highlight ?? []),
+    () => item.checks.filter((check) => effectiveResult(check) === "FAIL").flatMap((check) => check.highlight ?? []),
     [item.checks]
   );
   const decided = item.status === "fixed" || item.status === "dismissed";
-  // only an answer with flags still to do can be changed
-  const locked = item.status !== "todo";
+  // an answer can be changed while it is to do or has no flags; a decided one is closed
+  const locked = item.status !== "todo" && item.status !== "clean";
+
+  const startSourceEdit = () => {
+    setSourceDraft(item.sources.map((source) => ({ ...source })));
+    setEditingSources(true);
+  };
+
+  const changeSource = (index: number, field: keyof IGdbSource, value: string) =>
+    setSourceDraft((draft) =>
+      draft.map((source, i) =>
+        i === index ? { ...source, [field]: field === "sourceType" ? value || undefined : value } : source
+      )
+    );
+
+  // a source needs a link, and a name to show
+  const sourcesValid = sourceDraft.every((source) => source.source.trim() && source.sourceName.trim());
+
+  // the draft goes into the correction box; nothing is saved until the expert saves it
+  const draftWithAi = async () => {
+    const text = await onDraftWithAi();
+    if (text) {
+      setDraft(text);
+      setEditing(true);
+    }
+  };
+
+  // the library draft goes into the correction box with its citations listed beside it
+  const draftFromLibrary = async () => {
+    const result = await onDraftFromLibrary();
+    if (result?.answer) {
+      setDraft(result.answer);
+      setLibraryCitations(result.citations);
+      setEditing(true);
+    }
+  };
+
+  // each cited passage becomes a source: its document, and the page the answer used
+  const useLibrarySources = () =>
+    onSaveSources(
+      libraryCitations.map((citation) => ({
+        sourceName: citation.documentName ?? "Library document",
+        source: citation.documentId ? libraryDocumentUrl(citation.documentId) : "",
+        page: String(citation.pageNumber ?? citation.sourcePages[0] ?? ""),
+        sourceType: "other",
+      }))
+    );
 
   const startEdit = () => {
     setDraft(corrected ?? item.answer);
@@ -82,7 +157,7 @@ export const GdbDetailView = ({
           The quality checks have not run on this answer yet.
         </div>
       ) : (
-        <GdbFlagsPanel checks={item.checks} />
+        <GdbFlagsPanel checks={item.checks} editable={!locked} busy={busy} onEditFlag={onEditFlag} />
       )}
 
       <div>
@@ -168,6 +243,38 @@ export const GdbDetailView = ({
                 </Button>
               </div>
             )}
+            {libraryCitations.length > 0 && (
+              <div className="mt-3 space-y-2">
+                <p className="text-xs font-semibold text-foreground">Library passages cited by this draft</p>
+                <ul className="text-sm space-y-1">
+                  {libraryCitations.map((citation) => (
+                    <li key={citation.passageId ?? citation.passageNumber} className="flex items-center gap-2">
+                      <span>
+                        [P{citation.passageNumber}] {citation.documentName ?? "Library document"}
+                        {citation.pageNumber != null && `, page ${citation.pageNumber}`}
+                        {citation.sourcePages.length > 0
+                          ? `${citation.pageNumber != null ? " (" : ", "}source page ${citation.sourcePages.join(", ")}${citation.pageNumber != null ? ")" : ""}`
+                          : citation.pageNumber == null && ", page unknown"}
+                      </span>
+                      {citation.documentId && (
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          className="h-6 px-2"
+                          onClick={() => onOpenLibraryDocument(citation.documentId as string, citation.pageNumber ?? undefined)}
+                        >
+                          <ArrowUpRight className="w-4 h-4 mr-1" />
+                          Open
+                        </Button>
+                      )}
+                    </li>
+                  ))}
+                </ul>
+                <Button size="sm" variant="outline" onClick={useLibrarySources} disabled={busy || locked}>
+                  Use these as sources
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -185,10 +292,18 @@ export const GdbDetailView = ({
             <Pencil className="w-4 h-4 mr-1" />
             Edit correction
           </Button>
+          <Button variant="outline" onClick={draftWithAi} disabled={locked || busy || drafting}>
+            <Sparkles className="w-4 h-4 mr-1" />
+            {drafting ? "Drafting..." : "Draft with AI"}
+          </Button>
+          <Button variant="outline" onClick={draftFromLibrary} disabled={locked || busy || libraryDrafting}>
+            <Sparkles className="w-4 h-4 mr-1" />
+            {libraryDrafting ? "Searching library (can take a minute)..." : "Draft from library"}
+          </Button>
           <Button
             variant="outline"
             onClick={() => onDismiss(comment.trim())}
-            disabled={editing || locked || busy}
+            disabled={editing || locked || busy || item.status === "clean"}
           >
             <X className="w-4 h-4 mr-1" />
             Dismiss flags
@@ -207,12 +322,124 @@ export const GdbDetailView = ({
               This answer has already been decided.
             </p>
           )}
+          {item.status === "fixed" && (
+            <div className="mt-2">
+              {item.pushedAt && (
+                <p className="mb-1 text-xs text-green-700 dark:text-green-300">
+                  Pushed to the golden database on {new Date(item.pushedAt).toLocaleString()}.
+                </p>
+              )}
+              {!item.pushedAt || item.sourcesEdited ? (
+                <Button
+                  size="sm"
+                  disabled={busy}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "Replace the golden answer with this accepted correction? The original text stays saved on this row."
+                      )
+                    ) {
+                      onPush().catch(() => undefined);
+                    }
+                  }}
+                >
+                  <Send className="w-4 h-4 mr-1" />
+                  {item.pushedAt ? "Push again (sources changed)" : "Push to GDB"}
+                </Button>
+              ) : null}
+            </div>
+          )}
         </div>
       </div>
 
-      {item.sources.length > 0 && (
-        <div>
-          <p className="text-sm font-medium text-foreground mb-3">Source URLs</p>
+      <div>
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-sm font-medium text-foreground">Source URLs</p>
+          {!editingSources && (
+            <Button size="sm" variant="outline" onClick={startSourceEdit} disabled={locked || busy}>
+              <Pencil className="w-4 h-4 mr-1" />
+              Edit sources
+            </Button>
+          )}
+        </div>
+
+        {editingSources ? (
+          <div className="space-y-3">
+            {sourceDraft.map((source, idx) => (
+              <div
+                key={idx}
+                className="grid grid-cols-1 gap-2 rounded-lg border bg-muted/30 p-3 md:grid-cols-[200px_1fr_90px_130px_auto]"
+              >
+                <Input
+                  value={source.sourceName}
+                  onChange={(e) => changeSource(idx, "sourceName", e.target.value)}
+                  placeholder="Name"
+                />
+                <Input
+                  value={source.source}
+                  onChange={(e) => changeSource(idx, "source", e.target.value)}
+                  placeholder="Link"
+                />
+                <Input
+                  value={source.page}
+                  onChange={(e) => changeSource(idx, "page", e.target.value)}
+                  placeholder="Page"
+                />
+                <select
+                  value={source.sourceType ?? ""}
+                  onChange={(e) => changeSource(idx, "sourceType", e.target.value)}
+                  className="h-9 rounded-md border bg-background px-2 text-sm"
+                  aria-label="Source type"
+                >
+                  <option value="">Type</option>
+                  {(Object.keys(SOURCE_TYPE_LABELS) as GdbSourceType[]).map((type) => (
+                    <option key={type} value={type}>
+                      {SOURCE_TYPE_LABELS[type]}
+                    </option>
+                  ))}
+                </select>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  aria-label="Remove this source"
+                  onClick={() => setSourceDraft((draft) => draft.filter((_, i) => i !== idx))}
+                >
+                  <Trash2 className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setSourceDraft((draft) => [...draft, { sourceName: "", source: "", page: "", sourceType: undefined }])}
+            >
+              <Plus className="w-4 h-4 mr-1" />
+              Add a source
+            </Button>
+            <p className="text-xs text-muted-foreground">
+              Saving changes the sources on this answer. The original sources are kept.
+            </p>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={!sourcesValid || busy}
+                onClick={async () => {
+                  try {
+                    await onSaveSources(sourceDraft);
+                    setEditingSources(false);
+                  } catch {
+                    // the error is shown by the save itself, the edits stay in the boxes
+                  }
+                }}
+              >
+                Save sources
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingSources(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : item.sources.length > 0 ? (
           <div className="space-y-2">
             {item.sources.map((source, idx) => (
               <div
@@ -222,21 +449,47 @@ export const GdbDetailView = ({
                 <span className="text-xs font-medium truncate">{source.sourceName}</span>
                 <span className="text-sm truncate text-blue-600 dark:text-blue-400">{source.source}</span>
                 <span className="text-xs text-muted-foreground whitespace-nowrap">
+                  {source.sourceType ? `${SOURCE_TYPE_LABELS[source.sourceType]} · ` : ""}
                   {source.page ? `pg ${source.page}` : "no page"}
                 </span>
-                <a
-                  href={source.source}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="p-1 rounded hover:bg-muted/20"
-                >
-                  <ArrowUpRight className="w-4 h-4" />
-                </a>
+                {libraryDocumentIdOf(source.source) ? (
+                  <button
+                    type="button"
+                    aria-label="Open the cited page"
+                    className="p-1 rounded hover:bg-muted/20"
+                    onClick={() =>
+                      onOpenLibraryDocument(libraryDocumentIdOf(source.source) as string, Number(source.page) || undefined)
+                    }
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                  </button>
+                ) : (
+                  <a
+                    href={source.source}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="p-1 rounded hover:bg-muted/20"
+                  >
+                    <ArrowUpRight className="w-4 h-4" />
+                  </a>
+                )}
               </div>
             ))}
           </div>
-        </div>
-      )}
+        ) : (
+          <p className="text-sm text-muted-foreground">No source is attached to this answer.</p>
+        )}
+
+        {item.sourcesEdited && !editingSources && (
+          <p className="mt-2 text-xs text-muted-foreground">
+            Edited by an expert. The original sources:{" "}
+            {item.originalSources.length
+              ? item.originalSources.map((s) => `${s.sourceName}${s.page ? ` (pg ${s.page})` : ""}`).join("; ")
+              : "none"}
+            .
+          </p>
+        )}
+      </div>
     </div>
   );
 };

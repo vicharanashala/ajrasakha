@@ -22,6 +22,8 @@ function buildAdminFilterParams(filters: ITesterLogAdminFilters): URLSearchParam
     if (filters.testerId) params.set("testerId", filters.testerId);
     if (filters.startDate) params.set("startDate", filters.startDate);
     if (filters.endDate) params.set("endDate", filters.endDate);
+    if (filters.startTime) params.set("startTime", filters.startTime);
+    if (filters.endTime) params.set("endTime", filters.endTime);
     if (filters.dateField) params.set("dateField", filters.dateField);
     if (filters.typeOfQuestion) params.set("typeOfQuestion", filters.typeOfQuestion);
     if (filters.channelTested) params.set("channelTested", filters.channelTested);
@@ -88,6 +90,8 @@ export class TesterLogService {
         dateField?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<IPaginatedTesterLogEntries> {
         const params = new URLSearchParams({ page: String(page), limit: String(limit) });
         if (startDate) params.set("startDate", startDate);
@@ -95,6 +99,8 @@ export class TesterLogService {
         if (dateField) params.set("dateField", dateField);
         if (search && search.trim()) params.set("search", search.trim());
         if (status && status !== "all") params.set("status", status);
+        if (startTime) params.set("startTime", startTime);
+        if (endTime) params.set("endTime", endTime);
         const url = `${this.baseUrl}/my?${params.toString()}`;
         const response = await apiFetch<IPaginatedTesterLogEntries>(url);
         if (!response) throw new Error("Failed to fetch test case history");
@@ -105,11 +111,15 @@ export class TesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<ITesterLogSummaryResponse> {
         const params = new URLSearchParams();
         if (startDate) params.set("startDate", startDate);
         if (endDate) params.set("endDate", endDate);
         if (dateField) params.set("dateField", dateField);
+        if (startTime) params.set("startTime", startTime);
+        if (endTime) params.set("endTime", endTime);
         const queryStr = params.toString();
         const url = `${this.baseUrl}/my-summary${queryStr ? `?${queryStr}` : ""}`;
         const response = await apiFetch<ITesterLogSummaryResponse>(url);
@@ -152,6 +162,8 @@ export class TesterLogService {
         if (filters.testerId) params.set("testerId", filters.testerId);
         if (filters.startDate) params.set("startDate", filters.startDate);
         if (filters.endDate) params.set("endDate", filters.endDate);
+        if (filters.startTime) params.set("startTime", filters.startTime);
+        if (filters.endTime) params.set("endTime", filters.endTime);
         const url = `${this.baseUrl}/question-type-summary?${params.toString()}`;
         const response = await apiFetch<ITesterQuestionTypeSummary>(url);
         if (!response) throw new Error("Failed to fetch question-type summary");

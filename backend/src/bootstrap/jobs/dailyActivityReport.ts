@@ -9,7 +9,7 @@ import { appConfig } from '#root/config/app.js';
  * Runs every day at 12:00 AM (00:00) Asia/Kolkata (IST).
  *
  * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST activity report
- * for all active, non-blocked review staff (Experts, Moderators, PAE, Gatekeepers, Auditors).
+ * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
  * Primary recipient ('To'): user's email (the concern person).
  * Multiple CC recipients ('CC'): configured via ACTIVITY_REPORT_CC.
  *

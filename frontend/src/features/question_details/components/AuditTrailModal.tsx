@@ -104,7 +104,7 @@ const actionOptions = Object.entries(actionLabels).map(([value, label]) => ({
   label,
 })).sort((a, b) => a.label.localeCompare(b.label));
 
-const getActionLabel = (action: string, entityLabel?: string): string => {
+export const getActionLabel = (action: string, entityLabel?: string): string => {
   // When an entity label is provided (Crop / Chemical / Entry), make the crop-generic
   // actions reflect it, so a chemical shows "Chemical Added" instead of "Crop Added".
   if (entityLabel) {
@@ -165,7 +165,7 @@ interface AuditItemProps {
   entityLabel?: string;
 }
 
-const AuditItem = ({ audit, entityLabel }: AuditItemProps) => {
+export const AuditItem = ({ audit, entityLabel }: AuditItemProps) => {
   return (
     <div className="border rounded-lg p-4 bg-card hover:bg-accent/50 transition-colors">
       <div className="flex items-start justify-between gap-3 mb-3">

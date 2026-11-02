@@ -10,10 +10,12 @@ export const useTesterLogHistory = (
     dateField?: string,
     search?: string,
     status?: string,
+    startTime?: string,
+    endTime?: string,
 ) => {
     return useQuery({
-        queryKey: ['tester-log-history', page, limit, startDate, endDate, dateField, search, status],
-        queryFn: () => testerLogService.getMyHistory(page, limit, startDate, endDate, dateField, search, status),
+        queryKey: ['tester-log-history', page, limit, startDate, endDate, dateField, search, status, startTime, endTime],
+        queryFn: () => testerLogService.getMyHistory(page, limit, startDate, endDate, dateField, search, status, startTime, endTime),
         staleTime: 1000 * 60 * 2,
     });
 };

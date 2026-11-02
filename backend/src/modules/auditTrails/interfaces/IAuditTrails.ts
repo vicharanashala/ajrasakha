@@ -185,6 +185,24 @@ export interface ModeratorAuditTrail {
   createdAt?: Date;
 }
 
+/** Filters for the AgriTech Management audit view (category is always CROP_MANAGEMENT). */
+export type CropManagementAuditFilters = {
+  page: number;
+  limit: number;
+  action?: string;
+  status?: string;
+  start?: string;
+  end?: string;
+  order: 'asc' | 'desc';
+  /** Matches the entry or organization name, the actor, or the import file name. */
+  search?: string;
+  importId?: string;
+  /** AgriTech type recorded on the entry, e.g. crop, weed, chemical. */
+  entryType?: string;
+  /** e.g. sheet_import, to show only changes made by sheet imports. */
+  source?: string;
+};
+
 export type AuditFilters = {
   page?: number;
   limit?: number;

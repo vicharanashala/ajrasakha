@@ -54,11 +54,31 @@ const KEY_BY_ALIAS = new Map<string, QuestionTypeKey>(
     QUESTION_TYPE_TARGETS.flatMap((t) => t.aliases.map((a) => [a, t.key] as [string, QuestionTypeKey])),
 );
 
+// Returns true if an entry is on hold either by status or overallTestStatus,
+// regardless of whitespace, casing, or hyphenation (e.g. 'on hold', 'onhold', 'On-Hold').
+export function isOnHold(entry: Partial<TesterLogEntry>): boolean {
+    const overall = (entry.overallTestStatus || '').trim().toLowerCase().replace(/[\s-_]/g, '');
+    const eStatus = (entry.status || '').trim().toLowerCase().replace(/[\s-_]/g, '');
+    return overall === 'onhold' || eStatus === 'onhold';
+}
+
 // typeOfQuestion -> one of the 6 Excel categories, or null. A bare
-// "Dynamic" (no Weather/Scheme/Mandi) or a blank type has no target row and
-// is not guessed into one - it is reported as uncategorized instead.
-export function questionTypeKeyFor(typeOfQuestion?: string): QuestionTypeKey | null {
-    return KEY_BY_ALIAS.get(compactQuestionType(typeOfQuestion)) ?? null;
+// "Dynamic" (no Weather/Scheme/Mandi) with a recognized questionCategory
+// falls back to the corresponding dynamic category; otherwise it is reported
+// as uncategorized instead.
+export function questionTypeKeyFor(typeOfQuestion?: string, questionCategory?: string): QuestionTypeKey | null {
+    const compact = compactQuestionType(typeOfQuestion);
+    const direct = KEY_BY_ALIAS.get(compact);
+    if (direct) return direct;
+
+    if (compact === 'dynamic' && questionCategory) {
+        const cat = compactQuestionType(questionCategory);
+        if (cat.includes('weather') || cat.includes('climate') || cat.includes('stress')) return 'weather';
+        if (cat.includes('scheme') || cat.includes('subsid')) return 'scheme';
+        if (cat.includes('mandi') || cat.includes('market') || cat.includes('price')) return 'mandi';
+    }
+
+    return null;
 }
 
 // "Both" counts toward both channels' actuals (tested on each), so Web App +
@@ -111,16 +131,21 @@ export function summarizeEntries(
 ): AdminSummaryCounts {
     const scale = workingDays * headcount;
     let uncategorizedCount = 0;
-    const perType = new Map<QuestionTypeKey, { actual: number; webApp: number; whatsApp: number }>(
-        QUESTION_TYPE_TARGETS.map((t) => [t.key, { actual: 0, webApp: 0, whatsApp: 0 }]),
+    let onHoldCount = 0;
+    const perType = new Map<QuestionTypeKey, { actual: number; onHold: number; webApp: number; whatsApp: number }>(
+        QUESTION_TYPE_TARGETS.map((t) => [t.key, { actual: 0, onHold: 0, webApp: 0, whatsApp: 0 }]),
     );
 
     for (const entry of entries) {
-        const overall = (entry.overallTestStatus || '').trim().toLowerCase();
-        const eStatus = (entry.status || '').trim().toLowerCase();
-        if (eStatus === 'on hold' || overall === 'on hold') continue;
+        const key = questionTypeKeyFor(entry.typeOfQuestion, entry.questionCategory);
+        if (isOnHold(entry)) {
+            onHoldCount += 1;
+            if (key) {
+                perType.get(key)!.onHold += 1;
+            }
+            continue;
+        }
 
-        const key = questionTypeKeyFor(entry.typeOfQuestion);
         if (!key) {
             uncategorizedCount += 1;
             continue;
@@ -140,6 +165,7 @@ export function summarizeEntries(
             target,
             actual: counts.actual,
             achievementPct: achievementPct(counts.actual, target),
+            onHold: counts.onHold,
             webApp: channelSummary(t.webAppPerDay * scale, counts.webApp),
             whatsApp: channelSummary(t.whatsAppPerDay * scale, counts.whatsApp),
         };
@@ -149,13 +175,16 @@ export function summarizeEntries(
     const webApp = channelSummary(sum((r) => r.webApp.target), sum((r) => r.webApp.actual));
     const whatsApp = channelSummary(sum((r) => r.whatsApp.target), sum((r) => r.whatsApp.actual));
     const overall = channelSummary(sum((r) => r.target), sum((r) => r.actual));
+    const totalOnHold = sum((r) => r.onHold ?? 0);
 
     return {
         overall,
         webApp,
         whatsApp,
-        byType: [...typeRows, { key: 'total', label: 'Total', ...overall, webApp, whatsApp }],
+        byType: [...typeRows, { key: 'total', label: 'Total', ...overall, onHold: totalOnHold, webApp, whatsApp }],
         counts: Object.fromEntries(typeRows.map((r) => [r.key, r.actual])) as Record<QuestionTypeKey, number>,
         uncategorizedCount,
+        onHoldCount,
+        totalLogged: overall.actual + onHoldCount + uncategorizedCount,
     };
 }

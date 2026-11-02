@@ -60,6 +60,7 @@ import {
   Copy,
   AlertCircle,
   Zap,
+  MessageCircle,
 } from "lucide-react";
 import { useGetAllUsers } from "@/hooks/api/user/useGetAllUsers";
 import {
@@ -73,8 +74,10 @@ import { useGetAllCrops } from "@/hooks/api/crop/useGetAllCrops";
 import { useGetStates } from "@/hooks/api/location/useLocations";
 export { STATES, CROPS, DOMAINS };
 import { DateRangeFilter } from "./DateRangeFilter";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
-export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "auditor_review" | "queue_duplicate";
+export type QuestionFilterStatus = "all" | "open" | "in-review" | "closed" | "pae_submitted" | "draft" | "hold" | "dynamic" | "static_dynamic" | "auditor_review" | "queue_duplicate";
 export type QuestionDateRangeFilter =
   | "all"
   | "today"
@@ -132,6 +135,7 @@ export type AdvanceFilterValues = {
   unallocatedQuestions?: boolean;
   pae_review?: boolean;
   is_non_agri?: boolean;
+  is_dynamic?: boolean;
   is_testing?: boolean;
   /** When set, filters to questions whose moderatorId matches this ID (dedicated tab). */
   moderatorId?: string;
@@ -155,6 +159,8 @@ interface AdvanceFilterDialogProps {
   onReset: () => void;
   isForQA: boolean;
   setIsSidebarOpen: (value: boolean) => void;
+  /** Optional single-key shortcut that opens the dialog. */
+  shortcut?: string;
 }
 
 type SearchableFilterSelectOption = {
@@ -237,8 +243,11 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
   onReset,
   isForQA,
   setIsSidebarOpen,
+  shortcut,
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const { data: userNameReponse, isLoading } = useGetAllUsers();
   const { data: cropsData } = useGetAllCrops({ type: "crop", limit: 500 });
   const dbCrops = cropsData?.crops || [];
@@ -361,6 +370,16 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
       ),
     },
     {
+      value: "static_dynamic",
+      searchText: "Static Dynamic",
+      children: (
+        <div className="flex items-center gap-2">
+          <Zap className="w-4 h-4 text-amber-500" />
+          <span>Static Dynamic</span>
+        </div>
+      ),
+    },
+    {
       value: "non_agri",
       searchText: "Non Agri",
       children: (
@@ -453,6 +472,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
               <p className="text-[11px] text-gray-500">Advanced Filters</p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 
@@ -500,14 +520,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                 </div>
               )}
 
-              <div className="space-y-2 min-w-0 cursor-not-allowed">
+              <div className="space-y-2 min-w-0">
                 <Label className="flex items-center gap-2 text-sm font-semibold">
                   <MessageSquare className="h-4 w-4 text-primary" />
                   Source
                 </Label>
                 <Select
                   value={advanceFilter.source}
-                  disabled
                   onValueChange={(v) => handleDialogChange("source", v)}
                 >
                   <SelectTrigger className="bg-background w-full">
@@ -524,7 +543,7 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                     <SelectItem value="AJRASAKHA">
                       <div className="flex items-center gap-2">
                         <Bot className="w-4 h-4 text-primary" />
-                        <span>Ajrasakha </span>
+                        <span>Ajrasakha</span>
                       </div>
                     </SelectItem>
 
@@ -537,8 +556,8 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
 
                     <SelectItem value="WHATSAPP">
                       <div className="flex items-center gap-2">
-                        <UserRound className="w-4 h-4 text-primary" />
-                        <span>Whatsapp</span>
+                        <MessageCircle className="w-4 h-4 text-green-500" />
+                        <span>WhatsApp</span>
                       </div>
                     </SelectItem>
 
@@ -546,6 +565,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       <div className="flex items-center gap-2">
                         <Radio className="w-4 h-4 text-primary" />
                         <span>Outreach</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="QUESTION_COLLECTION">
+                      <div className="flex items-center gap-2">
+                        <FileText className="w-4 h-4 text-primary" />
+                        <span>AnnaData</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

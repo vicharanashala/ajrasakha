@@ -41,6 +41,8 @@ import { formatDate } from "@/utils/formatDate";
 import { DateRangeFilter } from "@/components/DateRangeFilter";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { useGetPaeValidationQueueDetails } from "@/hooks/api/question/useGetPaeValidationQueueDetails";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
 type SectionColor = "blue" | "green" | "amber" | "violet" | "red" | "slate";
 
@@ -847,13 +849,17 @@ function QueueColumn({
 export const QueueDetailsModal = ({
   setIsSidebarOpen,
   currentUserIsAdmin,
-  isTrainingUser
+  isTrainingUser,
+  shortcut,
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
   currentUserIsAdmin?: boolean;
   isTrainingUser?: boolean;
+  shortcut?: string;
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   // Accordion + sub-tab state now lives inside each QueueColumn (one per source group).
   const { goToQuestion } = useNavigateToQuestion();
 
@@ -920,6 +926,7 @@ export const QueueDetailsModal = ({
               </p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 
@@ -1144,10 +1151,14 @@ function RoleQueueColumn({
 /** Gate Keeper / Auditor queue overview — mirrors Queue Details, side by side. */
 export const GateKeeperAuditorQueueModal = ({
   setIsSidebarOpen,
+  shortcut,
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
+  shortcut?: string;
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const [openSection, setOpenSection] = useState<string | null>("gateKeeperWaiting");
   const { goToQuestion } = useNavigateToQuestion();
 
@@ -1204,6 +1215,7 @@ export const GateKeeperAuditorQueueModal = ({
               </p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 
@@ -1384,10 +1396,14 @@ function FbSection<T>({
 
 export const FeedbackQueueModal = ({
   setIsSidebarOpen,
+  shortcut,
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
+  shortcut?: string;
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
   const { goToQuestion } = useNavigateToQuestion();
 
@@ -1434,6 +1450,7 @@ export const FeedbackQueueModal = ({
               </p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 
@@ -1594,10 +1611,14 @@ import { Pagination } from "@/components/pagination";
 const PaeSection = FbSection
 export const PaeValidationQueueModal = ({
   setIsSidebarOpen,
+  shortcut,
 }: {
   setIsSidebarOpen?: (v: boolean) => void;
+  shortcut?: string;
 }) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   const [openSection, setOpenSection] = useState<string | null>("waitingAuto");
   const { goToQuestion } = useNavigateToQuestion();
   
@@ -1681,6 +1702,7 @@ export const PaeValidationQueueModal = ({
               </p>
             </div>
           </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 

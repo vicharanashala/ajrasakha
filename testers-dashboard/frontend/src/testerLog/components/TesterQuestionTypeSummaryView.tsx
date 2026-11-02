@@ -46,6 +46,8 @@ export function TesterQuestionTypeSummaryView() {
     const [datePreset, setDatePreset] = useState<DatePreset>("7days");
     const [customStart, setCustomStart] = useState("");
     const [customEnd, setCustomEnd] = useState("");
+    const [customStartTime, setCustomStartTime] = useState("");
+    const [customEndTime, setCustomEndTime] = useState("");
     const [testerPage, setTesterPage] = useState(1);
 
     // Any filter change starts the By Tester table back on page 1.
@@ -79,6 +81,8 @@ export function TesterQuestionTypeSummaryView() {
         testerId: testerId === "all" ? undefined : testerId,
         startDate,
         endDate,
+        startTime: datePreset === "custom" && customStartTime ? customStartTime : undefined,
+        endTime: datePreset === "custom" && customEndTime ? customEndTime : undefined,
     };
 
     const { data: summary, isLoading, isError } = useTesterQuestionTypeSummary(filters);
@@ -126,9 +130,9 @@ export function TesterQuestionTypeSummaryView() {
                 </div>
 
                 {datePreset === "custom" && (
-                    <div className="basis-full flex gap-3">
+                    <div className="basis-full flex flex-wrap gap-3">
                         <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
-                            <label className="text-xs font-medium text-muted-foreground uppercase">Start</label>
+                            <label className="text-xs font-medium text-muted-foreground uppercase">Start Date</label>
                             <input
                                 type="date"
                                 className="h-8 w-full text-sm border rounded-md px-2"
@@ -137,12 +141,32 @@ export function TesterQuestionTypeSummaryView() {
                             />
                         </div>
                         <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
-                            <label className="text-xs font-medium text-muted-foreground uppercase">End</label>
+                            <label className="text-xs font-medium text-muted-foreground uppercase">End Date</label>
                             <input
                                 type="date"
                                 className="h-8 w-full text-sm border rounded-md px-2"
                                 value={customEnd}
                                 onChange={(e) => resettingPage(setCustomEnd)(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
+                            <label className="text-xs font-medium text-muted-foreground uppercase">Start Time</label>
+                            <input
+                                type="time"
+                                step="1"
+                                className="h-8 w-full text-sm border rounded-md px-2"
+                                value={customStartTime}
+                                onChange={(e) => resettingPage(setCustomStartTime)(e.target.value)}
+                            />
+                        </div>
+                        <div className="space-y-1 flex-1 min-w-[150px] max-w-[240px]">
+                            <label className="text-xs font-medium text-muted-foreground uppercase">End Time</label>
+                            <input
+                                type="time"
+                                step="1"
+                                className="h-8 w-full text-sm border rounded-md px-2"
+                                value={customEndTime}
+                                onChange={(e) => resettingPage(setCustomEndTime)(e.target.value)}
                             />
                         </div>
                     </div>
@@ -189,6 +213,12 @@ export function TesterQuestionTypeSummaryView() {
                                 <p className="text-[10px] text-muted-foreground">
                                     Target = {daily?.total} × {summary.workingDays} working day{summary.workingDays === 1 ? "" : "s"}
                                     {summary.byTester ? ` × ${summary.headcount} tester${summary.headcount === 1 ? "" : "s"}` : ""}.
+                                    {Boolean(summary.onHoldCount) && (
+                                        <span className="text-amber-600 dark:text-amber-400 font-medium"> ({summary.onHoldCount} on hold awaiting completion).</span>
+                                    )}
+                                    {Boolean(summary.uncategorizedCount) && (
+                                        <span> ({summary.uncategorizedCount} uncategorized).</span>
+                                    )}
                                     {showRange && summary.rangeStart && summary.rangeEnd && (
                                         <> Range: {summary.rangeStart} to {summary.rangeEnd}.</>
                                     )}
@@ -254,6 +284,7 @@ export function TesterQuestionTypeSummaryView() {
                                         clipped by the table's overflow-x-auto wrapper. */}
                                     <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground" title="Expected questions for this question type in the selected date range.">Target</th>
                                     <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground" title="Recorded questions matching this question type.">Actual</th>
+                                    <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap" title="Test cases currently saved on hold awaiting completion.">On Hold</th>
                                     <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground" title="Actual ÷ Target × 100.">Achievement %</th>
                                     <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap" title="Actual / target">Web App</th>
                                     <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap" title="Actual / target">WhatsApp</th>
@@ -265,6 +296,7 @@ export function TesterQuestionTypeSummaryView() {
                                         <td className="px-3 py-2">{row.label}</td>
                                         <td className="px-3 py-2 text-right tabular-nums">{row.target.toLocaleString()}</td>
                                         <td className="px-3 py-2 text-right tabular-nums">{row.actual.toLocaleString()}</td>
+                                        <td className="px-3 py-2 text-right tabular-nums text-muted-foreground">{row.onHold !== undefined ? row.onHold.toLocaleString() : "0"}</td>
                                         <td className={`px-3 py-2 text-right tabular-nums ${achievementClass(row.achievementPct)}`}>{formatAchievementPct(row.achievementPct)}</td>
                                         <td className="px-3 py-2 text-right tabular-nums whitespace-nowrap">
                                             {row.webApp.actual.toLocaleString()} / {row.webApp.target.toLocaleString()}
@@ -277,6 +309,22 @@ export function TesterQuestionTypeSummaryView() {
                             </tbody>
                         </table>
                     </div>
+                    {(Boolean(summary.onHoldCount) || Boolean(summary.uncategorizedCount)) && (
+                        <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground px-1">
+                            {Boolean(summary.onHoldCount) && (
+                                <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                                    {summary.onHoldCount} test case{summary.onHoldCount === 1 ? "" : "s"} on hold (excluded from target actuals until completed).
+                                </span>
+                            )}
+                            {Boolean(summary.uncategorizedCount) && (
+                                <span className="flex items-center gap-1.5">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-muted-foreground" />
+                                    {summary.uncategorizedCount} test case{summary.uncategorizedCount === 1 ? "" : "s"} outside the 6 target categories.
+                                </span>
+                            )}
+                        </div>
+                    )}
 
                     {summary.byTester && (
                         <div className="space-y-2">
@@ -294,6 +342,7 @@ export function TesterQuestionTypeSummaryView() {
                                                 {typeColumns.map((c) => (
                                                     <th key={c.key} className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">{c.label}</th>
                                                 ))}
+                                                <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap" title="Test cases currently saved on hold awaiting expert answer">On Hold</th>
                                                 <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Total / Target</th>
                                                 <th className="px-3 py-2 text-right font-semibold text-xs uppercase tracking-wide text-muted-foreground whitespace-nowrap">Achievement %</th>
                                             </tr>
@@ -306,8 +355,20 @@ export function TesterQuestionTypeSummaryView() {
                                                     {typeColumns.map((c) => (
                                                         <td key={c.key} className="px-3 py-2 text-right tabular-nums">{tester.counts[c.key as keyof typeof tester.counts]}</td>
                                                     ))}
-                                                    <td className="px-3 py-2 text-right tabular-nums font-medium">
+                                                    <td className="px-3 py-2 text-right tabular-nums font-medium text-muted-foreground">
+                                                        {(tester.onHold ?? 0) > 0 ? (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-semibold">{tester.onHold}</span>
+                                                        ) : (
+                                                            0
+                                                        )}
+                                                    </td>
+                                                    <td className="px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap">
                                                         {tester.actual.toLocaleString()} / {tester.target.toLocaleString()}
+                                                        {(tester.onHold ?? 0) > 0 && (
+                                                            <span className="block text-[11px] font-normal text-amber-600 dark:text-amber-400">
+                                                                +{tester.onHold} on hold
+                                                            </span>
+                                                        )}
                                                     </td>
                                                     <td className={`px-3 py-2 text-right tabular-nums font-medium ${achievementClass(tester.achievementPct)}`}>
                                                         {formatAchievementPct(tester.achievementPct)}

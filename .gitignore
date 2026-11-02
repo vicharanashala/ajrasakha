@@ -28,6 +28,8 @@ Thumbs.db
 # Logs
 *.log
 node_modules/
+# Symlink to backend/node_modules (see backend/scripts/link-testers-dashboard-deps.js)
+testers-dashboard/backend/node_modules
 
 # App Docker secrets and env
 .env
@@ -45,3 +47,6 @@ backend_routes.txt
 endpoints.txt
 .clinerules/
 
+
+# GDB draft service: documents downloaded at run time
+gdb-draft/data/

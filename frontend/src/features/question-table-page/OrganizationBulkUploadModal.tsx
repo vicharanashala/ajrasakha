@@ -38,8 +38,8 @@ type OrgType = "central" | "state" | "district";
 type FieldKey = "name" | "address" | "state" | "district";
 type Step = "upload" | "preview" | "importing" | "report";
 /** How complete a parsed row is, and the filter buckets built on top of it. */
-type RowState = "ready" | "warning" | "duplicate" | "blocked";
-type RowFilter = RowState | "all";
+export type RowState = "ready" | "warning" | "duplicate" | "blocked";
+export type RowFilter = RowState | "all";
 
 interface SheetRow {
   /** Position among the data rows, shown as the serial number in the preview. */
@@ -134,12 +134,12 @@ const splitCsvLine = (line: string): string[] => {
 
 /** A physical row of the uploaded sheet, keeping its real row number so the
  *  report can point back at the exact line to fix. */
-interface RawRow {
+export interface RawRow {
   rowNumber: number;
   cells: string[];
 }
 
-const parseCsv = (text: string): RawRow[] =>
+export const parseCsv = (text: string): RawRow[] =>
   text
     .replace(/^﻿/, "")
     .split(/\r\n|\n|\r/)
@@ -147,7 +147,7 @@ const parseCsv = (text: string): RawRow[] =>
     .filter((row) => row.cells.some((cell) => cell.length > 0));
 
 /** Flattens an ExcelJS cell value (rich text, formula result, hyperlink) to plain text. */
-const cellToText = (value: unknown): string => {
+export const cellToText = (value: unknown): string => {
   if (value === null || value === undefined) return "";
   if (value instanceof Date) return value.toISOString().slice(0, 10);
   if (typeof value === "object") {
@@ -224,13 +224,13 @@ const rowStateOf = (row: SheetRow, duplicateKeys: Set<string>): RowState => {
 
 /** Filter buckets deliberately overlap: a warning row is still importable, so it
  *  counts as ready as well. Blocked and duplicate rows are left out. */
-const matchesFilter = (state: RowState, filter: RowFilter) => {
+export const matchesFilter = (state: RowState, filter: RowFilter) => {
   if (filter === "all") return true;
   if (filter === "ready") return state === "ready" || state === "warning";
   return state === filter;
 };
 
-const FILTER_OPTIONS: { value: RowFilter; label: string; activeClassName: string }[] = [
+export const FILTER_OPTIONS: { value: RowFilter; label: string; activeClassName: string }[] = [
   {
     value: "all",
     label: "All",
@@ -306,7 +306,7 @@ const downloadTemplate = () =>
 
 /** Reveals list items a few at a time so long previews and reports stream in
  *  instead of appearing as one block. */
-const useStreamedReveal = (total: number, active: boolean) => {
+export const useStreamedReveal = (total: number, active: boolean) => {
   const [revealed, setRevealed] = useState(0);
   const frameRef = useRef<number | null>(null);
 

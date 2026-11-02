@@ -649,10 +649,6 @@ const UserRow: React.FC<UserRowProps> = ({
                 <div className="flex items-center gap-2">
                   <History className="w-4 h-4 mr-2 text-blue-500" />
                   History
-                  <Badge
-                    variant="default"
-                    className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
-                  >New</Badge>
                 </div>
               </DropdownMenuItem>
               )}
@@ -689,12 +685,6 @@ const UserRow: React.FC<UserRowProps> = ({
                   <div className="flex items-center gap-2 w-full">
                     <Gavel className="w-4 h-4 text-blue-500" />
                     <span>Switch Role</span>
-                    <Badge
-                      variant="default"
-                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
-                    >
-                      New
-                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
@@ -724,12 +714,6 @@ const UserRow: React.FC<UserRowProps> = ({
                   <div className="flex items-center gap-2 w-full">
                     <Zap className="w-4 h-4 text-indigo-500" />
                     <span>{u.special_task_force ? 'Remove STF' : 'Make STF'}</span>
-                    <Badge
-                      variant="default"
-                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
-                    >
-                      New
-                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
@@ -744,12 +728,6 @@ const UserRow: React.FC<UserRowProps> = ({
                   <div className="flex items-center gap-2 w-full">
                     <Zap className="w-4 h-4 text-indigo-500" />
                     <span>{u.special_task_force ? 'Remove STF' : 'Make STF'}</span>
-                    <Badge
-                      variant="default"
-                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
-                    >
-                      New
-                    </Badge>
                   </div>
                 </DropdownMenuItem>
               )}
@@ -769,12 +747,6 @@ const UserRow: React.FC<UserRowProps> = ({
                   <TooltipTrigger asChild>
                     <div className="flex items-center justify-between gap-2 w-full">
                     <span>{u.isTrainingUser ? 'Remove TMU' : 'Assign TMU'}</span>
-                    <Badge
-                      variant="default"
-                      className="h-4 text-[9px] px-1.5 py-0 ml-auto bg-red-500 text-white hover:bg-red-600 border-0 font-medium"
-                    >
-                      New
-                    </Badge>
                     </div>
                   </TooltipTrigger>
                   <TooltipContent>

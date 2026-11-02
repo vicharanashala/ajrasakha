@@ -1,7 +1,9 @@
 import { env } from "@/config/env";
+import { apiFetch } from "@/hooks/api/api-fetch";
 
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
+const API_BASE_URL = env.apiBaseUrl().replace(/\/$/, "");
 
 // Set once (and kept in sync) from the signed-in user — see DataProcessingDashboard.tsx, which
 // calls this from a useEffect on useGetCurrentUser(). Every POP_API request (reads included) needs
@@ -841,11 +843,63 @@ export async function uploadDashboardDocument(
   return _handleResponse(res);
 }
 
+// Queues the upload on OUR OWN backend instead of posting straight to PoP — the browser's
+// connection only has to survive "upload bytes to our Cloud Run instance, write to Mongo
+// GridFS" (fast, same infra, no Tailscale hop), not the full forward through PoP's slow/flaky
+// tailnet link, which is what caused the earlier 503s on large files. Our backend forwards it to
+// PoP in the background (see backend/src/modules/popUploads) and retries once on failure.
+// Throws (via apiFetch, err.message only — no err.status, unlike the popFetch helpers below)
+// when a synchronous duplicate check (our own pending queue, or PoP's live queue) finds a match
+// and refuses the upload outright.
+export async function submitPendingUpload(
+  file: File,
+  fields: Record<string, unknown>,
+  placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
+  language: string,
+): Promise<{ id: string; status: "received"; warning?: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("fields_json", JSON.stringify(fields || {}));
+  fd.append("placements_json", JSON.stringify(placements));
+  fd.append("language", language);
+  const res = await apiFetch<{ id: string; status: "received"; warning?: string }>(
+    `${API_BASE_URL}/pop-uploads`,
+    { method: "POST", body: fd },
+  );
+  return res as { id: string; status: "received"; warning?: string };
+}
+
+export interface PendingPopUpload {
+  id: string;
+  filename: string;
+  status: "received" | "processing" | "succeeded" | "failed";
+  error?: string | null;
+  createdAt: string;
+}
+
+// This caller's own not-yet-forwarded uploads — fetched on demand (Pending tab opened, or a
+// manual refresh), same as the History tab, not polled/pushed. Once an item reaches `succeeded`
+// it stops showing up here at all (our backend deletes the pending doc's GridFS bytes and it
+// becomes a real item in PoP's own queue instead) — refresh the main Queue to see it there.
+export async function getPendingUploads(): Promise<PendingPopUpload[]> {
+  const res = await apiFetch<PendingPopUpload[]>(`${API_BASE_URL}/pop-uploads`);
+  return res || [];
+}
+
 // Not explicitly re-documented in docs/first_render_frontend.md (only `GET /uploads/{id}`
 // polling is shown there) — kept as a carried-over assumption since the multi-item Upload Queue
 // panel has no other data source and nothing suggests this list endpoint went away.
 export async function getDashboardUploads() {
   const res = await popFetch(`${POP_API}/dashboard/uploads`);
+  return _handleResponse(res);
+}
+
+// Read-only, newest first — finished uploads (moved server-side to pop_upload_trail once an
+// add/new resolves), same UploadQueueItemOut shape as getDashboardUploads but with `actions`
+// always empty and created_document_id/created_row_ids filled in. Who sees what is decided
+// server-side (uploader, upload approver, or admin who acted on it) — no client-side filtering.
+export async function getDashboardUploadsHistory() {
+  const res = await popFetch(`${POP_API}/dashboard/uploads/history`);
   return _handleResponse(res);
 }
 

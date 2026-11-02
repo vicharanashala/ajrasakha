@@ -1,11 +1,21 @@
 import {ClientSession} from 'mongodb';
-import {AuditFilters, ModeratorAuditTrail} from './IAuditTrails.js';
+import {AuditFilters, CropManagementAuditFilters, ModeratorAuditTrail} from './IAuditTrails.js';
 
 export interface IAuditTrailsRepository {
   createAuditTrail(
     data: ModeratorAuditTrail,
     session?: ClientSession,
   ): Promise<string>;
+
+  createAuditTrails(
+    data: ModeratorAuditTrail[],
+    session?: ClientSession,
+  ): Promise<number>;
+
+  getCropManagementAuditTrails(
+    filters: CropManagementAuditFilters,
+    session?: ClientSession,
+  ): Promise<{data: ModeratorAuditTrail[]; totalDocuments: number}>;
 
   getAuditTrails(
     page: number,

@@ -55,7 +55,7 @@ await (questionRepo as any).init();
 const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 
-const notificationService = new NotificationService(notificationRepo, database);
+const notificationService = new NotificationService(notificationRepo, userRepo, database);
 
 const { AuditTrailsRepository } = await import('#root/modules/auditTrails/repositories/provider/mongodb/AuditTrailRepository.js');
 const auditRepo = new AuditTrailsRepository(database);
@@ -116,9 +116,10 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
         }
         await (questionRepo as any).updateQuestion(questionId, {
           isOnHold: false,
-          status: 'open',
+          status: (question as any).previousStatus || 'open',
           accumulatedHoldMs: prevAccum + segmentMs,
           holdAt: null,
+          previousStatus: null,
         });
       }
 

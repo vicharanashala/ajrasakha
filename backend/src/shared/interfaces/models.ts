@@ -184,6 +184,9 @@ export interface IQuestion {
   isHidden?: false;
   passingRemark?: string;
   isOnHold?: boolean;
+  /** Status the question had immediately before being put on hold, used to restore
+   *  its original status (e.g. 'dynamic', 'in-review', 'open') when unheld. */
+  previousStatus?: QuestionStatus | null;
   isTesting?: boolean;
   messageId?: string;
   threadId?: string;
@@ -328,9 +331,49 @@ export interface IPop {
   year_of_release?: string | number | null;
   live_source_link?: string | null;
   duplicate_links?: IPopDuplicateLink[];
+  /** sha256 of this document's own file bytes, plus (merged_sha256s) any documents merged
+   *  into it — used for the upload-intake duplicate check. Confirmed with the PoP team:
+   *  a match here is NOT a reason to block (it's the normal way to file an existing
+   *  document in more places), only to warn the uploader. */
+  sha256?: string;
+  merged_sha256s?: string[];
 }
 
 export type PopRequiredField = 'year_of_release' | 'live_source_link' | 'shareable_name';
+
+/** An entry in PoP's `pop_upload_queue_items` collection (same database as pop_unique_documents) —
+ *  read-only, direct Mongo, used only for the upload-intake duplicate pre-check (see
+ *  IPopRepository.findQueuedBySha256). Not the full shape PoP's own API returns; just what we need
+ *  to tell the uploader "this file is already queued" without round-tripping through their API. */
+export interface IPopQueueItemSummary {
+  _id?: string | ObjectId;
+  sha256: string;
+  filename?: string;
+  status?: string;
+  level?: number;
+}
+
+/** A document queued on OUR OWN backend, waiting to be forwarded to PoP's POST
+ *  /dashboard/uploads. See backend/src/modules/popUploads — the file's bytes live in GridFS
+ *  (bucket `pending_pop_uploads`), referenced by gridfsFileId, not inlined here. */
+export interface IPendingPopUpload {
+  _id?: string | ObjectId;
+  status: 'received' | 'processing' | 'succeeded' | 'failed';
+  gridfsFileId: ObjectId;
+  filename: string;
+  mimetype: string;
+  sha256: string;
+  fields: Record<string, unknown>;
+  placements: Array<{state_id: string; crop_ids?: string[]; organization_ids?: string[]}>;
+  language: string;
+  uploaderId: string;
+  popUserId: string;
+  popUserRole: string;
+  attempts: number;
+  error?: string | null;
+  createdAt: Date;
+  updatedAt: Date;
+}
 
 /** A source entry as saved on a `updated_sources` record (Closed Answers Edit Source
  *  modal). organization/source are references — the Organization document's and the
@@ -725,7 +768,11 @@ export type INotificationType =
   | 'delayed_question'
   | 'moderator_approval'
   | 'allocation_removal'
-  | 'coordinator_message';
+  | 'coordinator_message'
+  | 'pop_pending_approval'
+  | 'pop_pending_admin_review'
+  | 'pop_upload_rejected'
+  | 'pop_document_published';
 export interface INotification {
   _id?: string | ObjectId;
   userId: string | ObjectId;
@@ -855,9 +902,29 @@ export interface ICropAlias {
   native_representation: string; // native script e.g. "వరి"
   source_link?: string; // source URL e.g. "https://agritech.tnau.ac.in/..."
   page_number?: string; // page number reference e.g. "45"
+  agri_expert?: string; // expert who verified this term
+  remark?: string; // free-text note about this term
+  /** Additional sheet columns from an import, keyed by snake_case header (e.g. "Crop Season" -> crop_season). */
+  extra_fields?: Record<string, string>;
 }
 
 export type CropType = 'crop' | 'chemical' | (string & {});
+
+export const CROP_LIST_SORTS = ['newest', 'oldest', 'name_asc', 'name_desc', 'updated_desc', 'updated_asc'] as const;
+export type CropListSort = (typeof CROP_LIST_SORTS)[number];
+
+/** Optional filters for the AgriTech list; an absent field means no filter. */
+export interface CropListFilters {
+  aliases?: 'with' | 'without';
+  image?: 'with' | 'without';
+  status?: string;
+  /** Matches entries with at least one alias in this language (and region, when both are given). */
+  language?: string;
+  region?: string;
+  /** ISO timestamps bounding updatedAt. */
+  updatedFrom?: string;
+  updatedTo?: string;
+}
 
 /** Crop-side entry types that share the crop structure (title-casing, alias merge,
  *  uniqueness). 'chemical' is handled separately and is intentionally not listed here.
@@ -974,6 +1041,15 @@ export type GdbCleaningStatus =
   | 'fixed'
   | 'dismissed';
 
+/** A reviewer's change to one check: "not a problem" (PASS) or "this is a problem" (FAIL).
+ *  The check's own `result` stays as the system found it. */
+export interface IGdbCheckOverride {
+  result: 'PASS' | 'FAIL';
+  comment: string;
+  by: string;
+  at: Date;
+}
+
 export interface IGdbCleaningCheck {
   parameter: string;
   category: string;
@@ -981,12 +1057,32 @@ export interface IGdbCleaningCheck {
   reason: string;
   /** exact words in the answer to highlight, for a check that found something */
   highlight?: string[];
+  override?: IGdbCheckOverride;
 }
 
 export interface IGdbCleaningSource {
   sourceName: string;
   source: string;
   page: string;
+  /** central, state, district, hyper_local or other: the same types the reviewer app uses */
+  sourceType?: 'hyper_local' | 'state' | 'central' | 'district' | 'other';
+}
+
+export type GdbCleaningAction =
+  | 'accepted'
+  | 'dismissed'
+  | 'flag_changed'
+  | 'sources_edited'
+  | 'correction_saved'
+  | 'pushed';
+
+/** One thing a reviewer did on an answer. It is kept on the answer's own row, so the page's
+ *  database user needs no other collection. */
+export interface IGdbCleaningHistoryEntry {
+  userId: ObjectId;
+  action: GdbCleaningAction;
+  at: Date;
+  details?: Record<string, unknown>;
 }
 
 /** One answer in the `gdb_cleaning` collection: the answer, the result of each
@@ -1001,6 +1097,15 @@ export interface IGdbCleaning {
   crop: string;
   domain: string;
   sources: IGdbCleaningSource[];
+  /** the sources as the pipeline saved them, kept the first time a reviewer edits them */
+  originalSources?: IGdbCleaningSource[];
+  sourcesEditedBy?: ObjectId | null;
+  sourcesEditedAt?: Date | null;
+  /** everything reviewers did on this answer, oldest first */
+  history?: IGdbCleaningHistoryEntry[];
+  /** set when the accepted correction was pushed to the golden answer */
+  pushedAt?: Date | null;
+  pushedBy?: ObjectId | null;
   status: GdbCleaningStatus;
   checks: IGdbCleaningCheck[];
   flags: string[];

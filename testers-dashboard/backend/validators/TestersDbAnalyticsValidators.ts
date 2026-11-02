@@ -24,6 +24,16 @@ export class GetTestersDbAnalyticsQuery {
   @IsString()
   customEnd?: string;
 
+  @JSONSchema({ example: '10:00:00', description: 'Custom range start time (HH:MM or HH:MM:SS) - only used when dateRange="custom"' })
+  @IsOptional()
+  @IsString()
+  customStartTime?: string;
+
+  @JSONSchema({ example: '18:00:00', description: 'Custom range end time (HH:MM or HH:MM:SS) - only used when dateRange="custom"' })
+  @IsOptional()
+  @IsString()
+  customEndTime?: string;
+
   @JSONSchema({ example: 'GDB', description: 'Single Type of Question option, or "all"' })
   @IsOptional()
   @IsString()

@@ -33,12 +33,16 @@ import {
 } from "lucide-react";
 import { useSendOutreachReport } from "@/hooks/api/question/useSendOutreachReport";
 import { toast } from "sonner";
+import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
+import { ShortcutKey, isDialogOpen } from "@/components/atoms/shortcut-key";
 
 // Simple email validation regex
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:boolean) => void}) => {
+export const OutreachReportModal = ({setIsSidebarOpen, shortcut}:{setIsSidebarOpen:(value:boolean) => void; shortcut?: string}) => {
   const [open, setOpen] = useState(false);
+  // Optional single-key shortcut that opens this dialog from the questions page.
+  useKeyboardShortcuts(shortcut ? [{ key: shortcut, handler: () => setOpen(true) }] : [], () => !isDialogOpen());
   
   // Date states - default to last 7 days
   const [startDate, setStartDate] = useState<Date>(subDays(new Date(), 7));
@@ -148,6 +152,7 @@ export const OutreachReportModal = ({setIsSidebarOpen}:{setIsSidebarOpen:(value:
                       <p className="text-[11px] text-gray-500">Generate & send summary</p>
                     </div>
                   </div>
+          {shortcut && <ShortcutKey keyLabel={shortcut} className="ms-3" />}
         </button>
       </DialogTrigger>
 

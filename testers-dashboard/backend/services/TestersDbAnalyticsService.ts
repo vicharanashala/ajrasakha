@@ -123,6 +123,33 @@ function dateCondition(window: DbDateWindow): Record<string, any> {
     };
 }
 
+function timeCondition(startTime?: string, endTime?: string): Record<string, any> | null {
+    if (!startTime && !endTime) return null;
+    const conds: Record<string, any>[] = [];
+    if (startTime) {
+        const sFull = startTime.length === 5 ? `${startTime}:00` : startTime;
+        const sShort = startTime.slice(0, 5);
+        conds.push({
+            $or: [
+                { timeQuestionAsked: { $gte: sFull } },
+                { $and: [{ timeQuestionAsked: { $gte: sShort } }, { timeQuestionAsked: { $regex: /^\d{2}:\d{2}$/ } }] },
+            ],
+        });
+    }
+    if (endTime) {
+        const eFull = endTime.length === 5 ? `${endTime}:59` : endTime;
+        const eShort = endTime.slice(0, 5);
+        conds.push({
+            $or: [
+                { timeQuestionAsked: { $lte: eFull } },
+                { $and: [{ timeQuestionAsked: { $lte: eShort } }, { timeQuestionAsked: { $regex: /^\d{2}:\d{2}$/ } }] },
+            ],
+        });
+    }
+    if (conds.length === 1) return conds[0];
+    return { $and: conds };
+}
+
 // Builds the MongoDB filter for a DB Analytics selection. Each selected
 // option becomes `$in` over the stored values that resolve to it (see
 // dbFilterOptions.ts - case/spacing/punctuation-insensitive, legacy aliases),
@@ -136,6 +163,8 @@ export function buildDbAnalyticsMatch(
     customEnd: string | undefined,
     now: Date = new Date(),
     dateWindowOverride?: DbDateWindow,
+    customStartTime?: string | undefined,
+    customEndTime?: string | undefined,
 ): Record<string, any> {
     const conditions: Record<string, any>[] = [];
 
@@ -166,6 +195,11 @@ export function buildDbAnalyticsMatch(
 
     const window = dateWindowOverride ?? dbDateWindow(selection.dateRange, customStart, customEnd, now);
     if (window) conditions.push(dateCondition(window));
+
+    if (selection.dateRange === 'custom') {
+        const tCond = timeCondition(customStartTime, customEndTime);
+        if (tCond) conditions.push(tCond);
+    }
 
     return conditions.length > 0 ? { $and: conditions } : {};
 }
@@ -260,7 +294,7 @@ export class TestersDbAnalyticsService implements ITestersDbAnalyticsService {
         try {
             const collection = await this.db.getCollection(DB_COLLECTION);
             const overview = await this.loadOverview(collection);
-            const match = buildDbAnalyticsMatch(selectionFromQuery(query), overview.storedValues, query.customStart, query.customEnd, now);
+            const match = buildDbAnalyticsMatch(selectionFromQuery(query), overview.storedValues, query.customStart, query.customEnd, now, undefined, query.customStartTime, query.customEndTime);
             const entries = await this.findEntries(collection, match);
             return {
                 success: true,
@@ -314,7 +348,7 @@ export class TestersDbAnalyticsService implements ITestersDbAnalyticsService {
             const overview = await this.loadOverview(collection);
             const current = await this.findEntries(
                 collection,
-                buildDbAnalyticsMatch(selection, overview.storedValues, query.customStart, query.customEnd, now),
+                buildDbAnalyticsMatch(selection, overview.storedValues, query.customStart, query.customEnd, now, undefined, query.customStartTime, query.customEndTime),
             );
             const previousWindow = dbPreviousPeriodWindow(selection.dateRange, query.customStart, query.customEnd, now);
             const previous = previousWindow
@@ -322,7 +356,7 @@ export class TestersDbAnalyticsService implements ITestersDbAnalyticsService {
                       window: previousWindow,
                       entries: await this.findEntries(
                           collection,
-                          buildDbAnalyticsMatch(selection, overview.storedValues, query.customStart, query.customEnd, now, previousWindow),
+                          buildDbAnalyticsMatch(selection, overview.storedValues, query.customStart, query.customEnd, now, previousWindow, query.customStartTime, query.customEndTime),
                       ),
                   }
                 : null;

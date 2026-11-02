@@ -801,6 +801,7 @@ export class QuestionRepository implements IQuestionRepository {
         unallocatedQuestions,
         pae_review,
         is_non_agri,
+        is_dynamic,
         is_testing,
         isTrainingQuestion,
         moderatorId,
@@ -955,7 +956,56 @@ export class QuestionRepository implements IQuestionRepository {
 
       // --- Filters ---
 
-      caseInsensitiveStringFilter('status', status);
+      const isDynamicTab =
+        is_dynamic === 'true' ||
+        is_dynamic === true ||
+        (status && status.toLowerCase() === 'dynamic');
+
+      if (isDynamicTab) {
+        const isHoldFilter =
+          isOnHold === 'true' ||
+          (isOnHold as any) === true ||
+          (status && status.toLowerCase() === 'hold');
+        const isPassFilter =
+          hiddenQuestions === 'true' ||
+          (hiddenQuestions as any) === true ||
+          (status && status.toLowerCase() === 'pass');
+
+        if (isHoldFilter) {
+          filter.isOnHold = { $eq: true };
+          delete filter.status;
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({
+            $or: [
+              { tag: { $in: ['dynamic', 'static_dynamic'] } },
+              { previousStatus: 'dynamic' },
+            ],
+          });
+        } else if (isPassFilter) {
+          filter.isHidden = { $eq: true };
+          filter.status = 'pass';
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({
+            tag: { $in: ['dynamic', 'static_dynamic'] },
+          });
+        } else if (status && status.toLowerCase() !== 'all' && status.toLowerCase() !== 'dynamic') {
+          caseInsensitiveStringFilter('status', status);
+          if (!filter.$and) filter.$and = [];
+          filter.$and.push({
+            tag: { $in: ['dynamic', 'static_dynamic'] },
+          });
+        } else {
+          filter.status = 'dynamic';
+        }
+      } else {
+        // --- Status filter with special handling for static_dynamic ---
+        // When status is 'static_dynamic', filter by tag field instead of status field
+        if (status && status.toLowerCase() === 'static_dynamic') {
+          filter.tag = { $regex: '^static_dynamic$', $options: 'i' };
+        } else {
+          caseInsensitiveStringFilter('status', status);
+        }
+      }
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
@@ -965,7 +1015,7 @@ export class QuestionRepository implements IQuestionRepository {
       // Dynamic tab sends status=dynamic via caseInsensitiveStringFilter above.
       if (is_non_agri === 'true' || is_non_agri === true) {
         filter.status = 'non_agri';
-      } else if (filter.status === undefined) {
+      } else if (!isDynamicTab && filter.status === undefined) {
         filter.status = { $nin: ['non_agri'] };
       }
 
@@ -7263,14 +7313,53 @@ export class QuestionRepository implements IQuestionRepository {
       // filter.status = {$nin: ['non_agri', 'dynamic']};
     }
 
-    // Apply isOnHold filter exactly matching findDetailedQuestions logic
-    if (query.isOnHold === 'true') {
-      filter.isOnHold = { $eq: true };
-    }
+    const isDynamicTab =
+      query.is_dynamic === 'true' ||
+      query.is_dynamic === true ||
+      (query.status && query.status.toLowerCase() === 'dynamic');
 
-    // Apply isHidden filter exactly matching findDetailedQuestions logic
-    if (query.hiddenQuestions === 'true' || query.status === 'pass') {
-      filter.isHidden = { $eq: true };
+    if (isDynamicTab) {
+      const isHoldFilter =
+        query.isOnHold === 'true' ||
+        (query.isOnHold as any) === true ||
+        (query.status && query.status.toLowerCase() === 'hold');
+      const isPassFilter =
+        query.hiddenQuestions === 'true' ||
+        (query.hiddenQuestions as any) === true ||
+        (query.status && query.status.toLowerCase() === 'pass');
+
+      if (isHoldFilter) {
+        filter.isOnHold = { $eq: true };
+        delete filter.status;
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({
+          $or: [
+            { tag: { $in: ['dynamic', 'static_dynamic'] } },
+            { previousStatus: 'dynamic' },
+          ],
+        });
+      } else if (isPassFilter) {
+        filter.isHidden = { $eq: true };
+        filter.status = 'pass';
+        if (!filter.$and) filter.$and = [];
+        filter.$and.push({
+          tag: { $in: ['dynamic', 'static_dynamic'] },
+        });
+      } else if (query.status && query.status.toLowerCase() !== 'all' && query.status.toLowerCase() !== 'dynamic') {
+        filter.tag = { $in: ['dynamic', 'static_dynamic'] };
+      } else {
+        filter.status = 'dynamic';
+      }
+    } else {
+      // Apply isOnHold filter exactly matching findDetailedQuestions logic
+      if (query.isOnHold === 'true') {
+        filter.isOnHold = { $eq: true };
+      }
+
+      // Apply isHidden filter exactly matching findDetailedQuestions logic
+      if (query.hiddenQuestions === 'true' || query.status === 'pass') {
+        filter.isHidden = { $eq: true };
+      }
     }
 
     // Apply states/normalisedCrops from body if provided (matching findDetailedQuestions logic)
@@ -7305,14 +7394,24 @@ export class QuestionRepository implements IQuestionRepository {
         ],
         { session },
       ).toArray(),
-      this.QuestionCollection.aggregate(
-        [
-          { $match: filter },
-          { $group: { _id: '$source', count: { $sum: 1 } } },
-          { $project: { _id: 0, source: '$_id', count: 1 } },
-        ],
-        { session },
-      ).toArray(),
+      // For static_dynamic status, group by tag instead of status
+      query.status && query.status.toLowerCase() === 'static_dynamic'
+        ? this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$tag', count: { $sum: 1 } } },
+              { $project: { _id: 0, status: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray()
+        : this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$source', count: { $sum: 1 } } },
+              { $project: { _id: 0, source: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray(),
     ]);
 
     const statuses = statusResults.map(r => ({

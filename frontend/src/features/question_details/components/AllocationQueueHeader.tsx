@@ -137,7 +137,7 @@ export const AllocationQueueHeader = ({
       });
       setSelectedExperts([]);
       setIsModalOpen(false);
-      await initializeNotifications();
+      await initializeNotifications(currentUser._id);
       toast.success("Experts allocated successfully!");
     } catch (error: any) {
       console.error("Error allocating experts:", error);

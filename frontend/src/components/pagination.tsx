@@ -12,7 +12,6 @@ import {
   TooltipTrigger,
   TooltipProvider,
 } from "./atoms/tooltip";
-import { Badge } from "./atoms/badge";
 
 interface PaginationProps {
   currentPage: number;
@@ -32,12 +31,12 @@ export const Pagination = ({
   const MAX_VISIBLE_PAGES = 5;
 
   // Calculate start and end page for the visible window
-  let startPage = 1;
-  let endPage = Math.min(totalPages, MAX_VISIBLE_PAGES);
+  let startPage = Math.max(1, currentPage - Math.floor(MAX_VISIBLE_PAGES / 2));
+  let endPage = startPage + MAX_VISIBLE_PAGES - 1;
 
-  if (currentPage > MAX_VISIBLE_PAGES) {
-    startPage = currentPage;
-    endPage = Math.min(currentPage + MAX_VISIBLE_PAGES - 1, totalPages);
+  if (endPage > totalPages) {
+    endPage = totalPages;
+    startPage = Math.max(1, endPage - MAX_VISIBLE_PAGES + 1);
   }
 
   const pages = [];
@@ -70,12 +69,6 @@ export const Pagination = ({
                         ))}
                       </SelectContent>
                     </Select>
-                    <Badge 
-                      variant="default" 
-                      className="absolute -top-2 -right-2 h-4 text-[9px] px-1.5 py-0 bg-red-500 text-white hover:bg-red-600 border-0 font-medium shadow-sm"
-                    >
-                      New
-                    </Badge>
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -97,6 +90,17 @@ export const Pagination = ({
         </Button>
 
         <div className="flex gap-2 overflow-x-auto max-w-full px-1 scrollbar-thin scrollbar-thumb-gray-300">
+          {startPage > 1 && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => onPageChange(startPage - 1)}
+              className="flex-shrink-0"
+            >
+              ...
+            </Button>
+          )}
+
           {pages.map((p) => (
             <Button
               key={p}

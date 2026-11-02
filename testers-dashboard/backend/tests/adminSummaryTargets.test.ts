@@ -161,9 +161,35 @@ describe('summarizeEntries', () => {
             1,
         );
 
-        expect(result.overall.actual).toBe(1);
+                expect(result.overall.actual).toBe(1);
         expect(result.counts.unique).toBe(1);
         expect(result.counts.gdb).toBe(0);
         expect(result.counts.outreach).toBe(0);
+        expect(result.onHoldCount).toBe(3);
+        expect(result.totalLogged).toBe(4);
+    });
+
+    it('handles onhold with whitespace and casing variations correctly and tracks onHoldCount', () => {
+        const result = summarizeEntries(
+            [
+                entry('Unique', 'WebApp'),
+                { ...entry('Unique', 'WebApp'), status: 'onhold' },
+                { ...entry('GDB', 'WhatsApp'), status: 'on-hold' },
+                { ...entry('Outreach', 'WebApp'), overallTestStatus: 'on hold' },
+            ],
+            1,
+            1,
+        );
+
+        expect(result.overall.actual).toBe(1);
+        expect(result.onHoldCount).toBe(3);
+        expect(result.totalLogged).toBe(4);
+    });
+
+    it('resolves bare Dynamic using questionCategory when provided', () => {
+        expect(questionTypeKeyFor('Dynamic', 'Weather and Climate')).toBe('weather');
+        expect(questionTypeKeyFor('Dynamic', 'Government Scheme Subsidy')).toBe('scheme');
+        expect(questionTypeKeyFor('Dynamic', 'Mandi Market Price')).toBe('mandi');
+        expect(questionTypeKeyFor('Dynamic', 'Soil Health')).toBeNull();
     });
 });

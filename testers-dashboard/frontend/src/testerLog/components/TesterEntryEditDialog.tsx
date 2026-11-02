@@ -36,12 +36,14 @@ import {
     TRANSLATION_ERROR_MAP,
     getTranslationErrorOptions,
     DEFECT_SEVERITY_OPTIONS,
+    SEVERITY_TO_TESTER_REMARKS_MAP,
     INDIAN_LANGUAGES_OPTIONS,
     VOICE_ISSUE_OPTIONS,
     VOICE_INPUT_QUALITY_OPTIONS,
     VOICE_OUTPUT_QUALITY_OPTIONS,
     WHATSAPP_VS_WEB_MATCH_OPTIONS,
     TAGGING_OPTIONS,
+    META_DATA_FETCHED_OPTIONS,
     RETRIEVAL_ACCURACY_OPTIONS,
     TESTER_REMARKS_OPTIONS,
     TEXT_FIELD_LIMITS,
@@ -101,6 +103,7 @@ const SELECT_OPTIONS: Partial<Record<EntryKey, string[]>> = {
     translationQuality: TRANSLATION_QUALITY_OPTIONS,
     translationErrorType: TRANSLATION_ERROR_TYPE_OPTIONS,
     tagging: TAGGING_OPTIONS,
+    metaDataCorrectlyFetched: META_DATA_FETCHED_OPTIONS,
     retrievalAccuracy: RETRIEVAL_ACCURACY_OPTIONS,
     allocatedToReviewer: ALLOCATED_TO_AUTHOR_OPTIONS,
     followUpQInReviewModel: FOLLOW_UP_MODEL_OPTIONS,
@@ -169,7 +172,6 @@ function initialValues(entry: ITesterLogEntry): FormValues {
         values.defectSeverity = "NA";
         values.defectIdBugRef = "NA";
         values.testerRemarks = "No Action Required";
-        values.testerRemarksNotes = "";
     }
     return values;
 }
@@ -194,18 +196,22 @@ const FIELD_MAX_LENGTHS: Partial<Record<EntryKey, number>> = {
     testerRemarksNotes: TEXT_FIELD_LIMITS.REMARKS_NOTES_MAX,
 };
 
-function FieldInput({ fieldKey, isDateTime, value, disabled, onChange, translationQuality }: {
+function FieldInput({ fieldKey, isDateTime, value, disabled, onChange, translationQuality, isFail }: {
     fieldKey: EntryKey;
     isDateTime?: boolean;
     value: string;
     disabled: boolean;
     onChange: (value: string) => void;
     translationQuality?: string;
+    isFail?: boolean;
 }) {
     const id = `tester-entry-edit-${fieldKey}`;
     let options = SELECT_OPTIONS[fieldKey];
     if (fieldKey === "translationErrorType") {
         options = getTranslationErrorOptions(translationQuality);
+    }
+    if (fieldKey === "defectSeverity" && isFail) {
+        options = options?.filter((o) => o !== "NA");
     }
 
     if (options) {
@@ -315,11 +321,14 @@ function EditForm({ entry, onDone, mutation }: {
                 next.defectSeverity = "NA";
                 next.defectIdBugRef = "NA";
                 next.testerRemarks = "No Action Required";
-                next.testerRemarksNotes = "";
             } else if (wasPass && (next.overallTestStatus || "").trim().toLowerCase() === "fail") {
                 if (next.defectSeverity === "NA") next.defectSeverity = "";
                 if (next.defectIdBugRef === "NA") next.defectIdBugRef = "";
                 if (next.testerRemarks === "No Action Required") next.testerRemarks = "";
+            }
+            if (key === "defectSeverity") {
+                const mapped = SEVERITY_TO_TESTER_REMARKS_MAP[value];
+                if (mapped) next.testerRemarks = mapped;
             }
             if (key === "translationQuality") {
                 const allowed = TRANSLATION_ERROR_MAP[value.trim()];
@@ -342,12 +351,11 @@ function EditForm({ entry, onDone, mutation }: {
         const rawValue = (entry[field.key] as string | undefined) ?? "";
         const isChanged = field.key in changes;
         const isPass = (values.overallTestStatus || "").trim().toLowerCase() === "pass";
-        const isDefectFieldDisabled = isPass && (
-            field.key === "defectSeverity" ||
-            field.key === "defectIdBugRef" ||
-            field.key === "testerRemarks" ||
-            field.key === "testerRemarksNotes"
-        );
+        const isFail = (values.overallTestStatus || "").trim().toLowerCase() === "fail";
+        const isDefectFieldDisabled =
+            field.key === "defectSeverity"
+                ? !isFail
+                : isPass && (field.key === "defectIdBugRef" || field.key === "testerRemarks");
         return (
             <div
                 key={String(field.key)}
@@ -380,6 +388,7 @@ function EditForm({ entry, onDone, mutation }: {
                             value={values[field.key] ?? ""}
                             disabled={isPending || isDefectFieldDisabled}
                             translationQuality={values.translationQuality}
+                            isFail={isFail}
                             onChange={(v) => setField(field.key, v)}
                         />
                     )}

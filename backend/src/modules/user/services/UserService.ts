@@ -936,9 +936,12 @@ export class UserService extends BaseService {
           session,
         );
 
+        const question = await this.questionRepo.getById(questionId, session);
+
         await this.questionRepo.updateQuestion(
           questionId,
           {
+            previousStatus: question?.status,
             status: 'hold',
             isOnHold: true,
             holdAt: new Date(),
@@ -949,7 +952,6 @@ export class UserService extends BaseService {
 
         // Send notification to the expert that they have been removed from allocation
         try {
-          const question = await this.questionRepo.getById(questionId, session);
           const truncatedQuestionText = question?.question
             ? question.question.length > 50
               ? question.question.substring(0, 50) + '...'
@@ -1761,6 +1763,10 @@ export class UserService extends BaseService {
 
     // If sendToEmail flag is set, send the report via email
     if (query.sendToEmail) {
+      if (user.role === 'pae_expert') {
+        throw new BadRequestError('Sending activity reports to PAE users is not allowed');
+      }
+
       // Primary recipient is the concern person whose report is being viewed/generated
       const recipient = user.email?.trim();
       const fallbackEmails = (appConfig.individualReportEmails || '')
@@ -1841,7 +1847,7 @@ export class UserService extends BaseService {
   /**
    * Daily 12:00 AM IST batch job:
    * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST Activity Report
-   * for all active, non-blocked review staff (Experts, Moderators, PAE, Gatekeepers, Auditors).
+   * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
    * Primary 'To' is the user's email (the concern person), and 'CC' contains configured CC recipients.
    */
   async sendDailyUserActivityReports(targetDateStr?: string): Promise<{
@@ -1874,11 +1880,10 @@ export class UserService extends BaseService {
       `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
-    // 2. Fetch all active, non-blocked review staff
+    // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
     const staff = await this.userRepo.getActiveReviewStaff([
       'expert',
       'moderator',
-      'pae_expert',
       'gate_keeper',
       'auditor',
     ]);

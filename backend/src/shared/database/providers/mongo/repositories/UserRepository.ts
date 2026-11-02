@@ -334,7 +334,7 @@ export class UserRepository implements IUserRepository {
   }
 
   async getActiveReviewStaff(
-    roles: string[] = ['expert', 'moderator', 'pae_expert', 'gate_keeper', 'auditor'],
+    roles: string[] = ['expert', 'moderator', 'gate_keeper', 'auditor'],
     session?: ClientSession,
   ): Promise<IUser[]> {
     await this.init();
@@ -342,7 +342,7 @@ export class UserRepository implements IUserRepository {
       .find(
         {
           role: { $in: roles as any },
-          isBlocked: { $ne: true },
+          status: { $ne: 'in-active' },
         },
         { session },
       )

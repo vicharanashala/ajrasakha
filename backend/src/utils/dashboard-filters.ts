@@ -11,7 +11,7 @@ export function buildBaseQuestionMatch(source?: string, isTrainingQuestion?: boo
     ],
   };
 
-  if (source) {
+  if (source && source.toLowerCase() !== 'all') {
     if (source === 'both') {
       matchStage.source = { $in: ['WHATSAPP', 'AJRASAKHA'] };
     } else if (source.includes(',')) {

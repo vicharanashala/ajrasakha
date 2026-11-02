@@ -142,7 +142,10 @@ async def ajrasakha_chat_completions(request: Request):
     )
 
     if body.get("stream", True):
-        return EventSourceResponse(_stream_ajrasakha_response(body, request))
+        return EventSourceResponse(
+            _stream_ajrasakha_response(body, request),
+            headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
+        )
 
     try:
         result = await complete_openai_from_langgraph(
