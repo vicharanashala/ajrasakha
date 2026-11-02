@@ -328,10 +328,10 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
                     <TextFilter
-                      label="Document"
-                      value={filters.shareable_name?.[0] || ""}
-                      onChange={(v) => setFilter("shareable_name", v ? [v] : [])}
-                      placeholder="Search name…"
+                      label="Advisory"
+                      value={filters.advisory_name?.[0] || ""}
+                      onChange={(v) => setFilter("advisory_name", v ? [v] : [])}
+                      placeholder="Search advisory…"
                     />
                   </div>
                 </div>
@@ -489,8 +489,8 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                     {row.row_id}
                   </td>
                   <td className="px-3 py-2 align-middle max-w-[180px]">
-                    <span className="block truncate text-foreground" title={row.shareable_name || ""}>
-                      {row.shareable_name || "—"}
+                    <span className="block truncate text-foreground" title={row.advisory_name || ""}>
+                      {row.advisory_name || "—"}
                     </span>
                   </td>
                   <td className="px-3 py-2 align-middle">
