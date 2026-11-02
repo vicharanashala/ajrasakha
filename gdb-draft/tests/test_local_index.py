@@ -104,6 +104,9 @@ class Searching(unittest.TestCase):
         self.assertTrue(hits)
         self.assertTrue(all("Onion" in h["documentName"] for h in hits))
 
+    def test_a_crop_with_no_documents_returns_nothing_instead_of_other_crops(self):
+        self.assertEqual(self.index.search("what spacing", crop="Wheat"), [])
+
     def test_a_question_that_matches_nothing_returns_no_passages(self):
         self.assertEqual(self.index.search("quantum entanglement"), [])
 

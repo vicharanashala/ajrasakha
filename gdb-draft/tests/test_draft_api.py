@@ -57,7 +57,7 @@ class DraftApi(unittest.TestCase):
         ) as drafter:
             response = self.client.post("/draft", json={"question": "spacing?"}, headers=HEADERS)
         self.assertEqual(response.json(), draft)
-        drafter.assert_called_once_with("spacing?", [{"text": "t"}])
+        drafter.assert_called_once_with("spacing?", [{"text": "t"}], None)
 
     def test_draft_failure_is_a_502(self):
         with patch.object(draft_api, "search_library", side_effect=RuntimeError("anara down")):

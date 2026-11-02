@@ -111,4 +111,6 @@ jobs:
             FFV_PORT=${{ secrets.FFV_PORT}}
             GDB_DRAFT_URL=${{ secrets.GDB_DRAFT_URL }}
             GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
+            ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
+            WRITING_ASSISTANT_PORT=${{ secrets.WRITING_ASSISTANT_PORT}}
           flags: --allow-unauthenticated

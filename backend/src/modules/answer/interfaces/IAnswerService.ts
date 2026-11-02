@@ -34,6 +34,10 @@ export interface IAnswerService
 
   detectChemicals(text: string): Promise<ChemicalDetectionResponse>;
 
+  polishDraft(payload: { question: string; draft: string }): Promise<{ jobId: string; status: string }>;
+
+  getPolishDraftJob(jobId: string): Promise<any>;
+
   getAnswerByMessageOrThreadId(
     id: string,
   ): Promise<{

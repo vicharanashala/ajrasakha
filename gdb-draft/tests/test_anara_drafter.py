@@ -34,6 +34,19 @@ class DraftAnswer(unittest.TestCase):
         self.assertEqual([c["documentId"] for c in result["citations"]], ["b", "a"])
         self.assertEqual(result["citations"][1]["sourcePages"], [3])  # a passage number out of range is ignored
 
+    def test_the_crop_is_stated_in_the_prompt_and_no_other_crop_may_be_named(self):
+        with patch.object(anara_drafter, "call_llm", return_value={"answer": "", "used_passages": []}) as call:
+            anara_drafter.draft_answer("q", PASSAGES, "Wheat")
+        prompt = call.call_args.args[0]
+        self.assertIn("The question is about the crop: Wheat", prompt)
+        self.assertIn("Do not name a crop, variety", prompt)
+
+    def test_no_passages_for_a_crop_says_the_library_has_no_documents_for_it(self):
+        with patch.object(anara_drafter, "call_llm") as call:
+            result = anara_drafter.draft_answer("q", [], "Wheat")
+        call.assert_not_called()
+        self.assertEqual(result["note"], "The library has no documents for Wheat")
+
     def test_no_passages_means_no_model_call(self):
         with patch.object(anara_drafter, "call_llm") as call:
             result = anara_drafter.draft_answer("q", [])
