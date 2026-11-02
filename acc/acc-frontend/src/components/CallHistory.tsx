@@ -1055,83 +1055,148 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                         </CardHeader>
                                         <CardContent className="!p-2.5 !px-3 flex-1 flex flex-col min-h-0 overflow-hidden">
                                           {call.callDetails ? (
-                                            <div className="space-y-2 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full custom-scrollbar">
-                                              {/* Farmer bubble (Inbound) */}
-                                              {call.callDetails.caller &&
-                                                (call.callDetails.caller.transcript ||
-                                                  call.callDetails.caller.translation) && (
-                                                  <div className="flex flex-col items-start space-y-0.5 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
-                                                      <span>Farmer</span>
-                                                    </div>
-                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-farmer rounded-tl-none">
-                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
-                                                        {call.callDetails.caller.translation || "N/A"}
-                                                      </p>
-                                                      {call.callDetails.caller.transcript &&
-                                                        call.callDetails.caller.transcript !==
-                                                        call.callDetails.caller.translation && (
-                                                          <div className="mt-1 pt-1 border-t border-farmer-border/30 text-[11px] text-farmer-text/80">
-                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-zinc-400">
+                                            <div className="space-y-2.5 flex-1 min-h-0 overflow-y-auto pr-1 flex flex-col w-full custom-scrollbar">
+                                              {/* 1. Turn-by-Turn Chat Bubble Stream (New Calls) */}
+                                              {call.callDetails.conversations && call.callDetails.conversations.length > 0 ? (
+                                                call.callDetails.conversations.map((msg, index) => {
+                                                  const isCaller = msg.track === "inbound" || msg.speaker === "caller";
+                                                  const speakerLabel = isCaller ? "Farmer" : "Expert";
+                                                  const timeString = msg.timestamp
+                                                    ? new Date(msg.timestamp).toLocaleTimeString([], {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                        second: "2-digit",
+                                                      })
+                                                    : "";
+
+                                                  return (
+                                                    <div
+                                                      key={index}
+                                                      className={`flex flex-col ${isCaller ? "items-start" : "items-end"} space-y-0.5 w-full animate-in fade-in duration-200`}
+                                                    >
+                                                      <div
+                                                        className={`flex items-center gap-1.5 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase ${
+                                                          !isCaller ? "flex-row-reverse" : ""
+                                                        }`}
+                                                      >
+                                                        <span>{speakerLabel}</span>
+                                                        {timeString && (
+                                                          <>
+                                                            <span>•</span>
+                                                            <span>{timeString}</span>
+                                                          </>
+                                                        )}
+                                                      </div>
+                                                      <div
+                                                        className={`max-w-[88%] px-3 py-2 rounded-xl shadow-xs border leading-relaxed ${
+                                                          isCaller
+                                                            ? "chat-bubble-farmer rounded-tl-none"
+                                                            : "chat-bubble-agent rounded-tr-none"
+                                                        }`}
+                                                      >
+                                                        <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                                                          {msg.translatedText || msg.text || msg.originalText || "N/A"}
+                                                        </p>
+                                                        {msg.originalText && msg.originalText !== msg.translatedText && (
+                                                          <div
+                                                            className={`mt-1 pt-1 border-t text-[11px] ${
+                                                              isCaller
+                                                                ? "border-farmer-border/30 text-farmer-text/80"
+                                                                : "border-agent-border/30 text-agent-text/80"
+                                                            }`}
+                                                          >
+                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold opacity-75">
                                                               <Globe className="h-2.5 w-2.5" />
-                                                              <span>
-                                                                Original (
-                                                                {call.callDetails.caller.detectedLanguage || "unknown"}
-                                                                )
-                                                              </span>
+                                                              <span>Original ({msg.detectedLanguage || "unknown"})</span>
                                                             </div>
-                                                            <p className="italic leading-relaxed text-[11px]">
-                                                              {call.callDetails.caller.transcript}
-                                                            </p>
+                                                            <p className="italic leading-relaxed text-[11px]">{msg.originalText}</p>
                                                           </div>
                                                         )}
+                                                      </div>
                                                     </div>
-                                                  </div>
-                                                )}
+                                                  );
+                                                })
+                                              ) : (
+                                                /* 2. Legacy Fallback (Calls without messages array) */
+                                                <>
+                                                  {/* Farmer bubble (Inbound) */}
+                                                  {call.callDetails.caller &&
+                                                    (call.callDetails.caller.transcript ||
+                                                      call.callDetails.caller.translation) && (
+                                                      <div className="flex flex-col items-start space-y-0.5 animate-in fade-in duration-200">
+                                                        <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
+                                                          <span>Farmer</span>
+                                                        </div>
+                                                        <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-farmer rounded-tl-none">
+                                                          <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                                                            {call.callDetails.caller.translation || "N/A"}
+                                                          </p>
+                                                          {call.callDetails.caller.transcript &&
+                                                            call.callDetails.caller.transcript !==
+                                                            call.callDetails.caller.translation && (
+                                                              <div className="mt-1 pt-1 border-t border-farmer-border/30 text-[11px] text-farmer-text/80">
+                                                                <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-zinc-400">
+                                                                  <Globe className="h-2.5 w-2.5" />
+                                                                  <span>
+                                                                    Original (
+                                                                    {call.callDetails.caller.detectedLanguage || "unknown"}
+                                                                    )
+                                                                  </span>
+                                                                </div>
+                                                                <p className="italic leading-relaxed text-[11px]">
+                                                                  {call.callDetails.caller.transcript}
+                                                                </p>
+                                                              </div>
+                                                            )}
+                                                        </div>
+                                                      </div>
+                                                    )}
 
-                                              {/* Expert bubble (Outbound) */}
-                                              {call.callDetails.agent &&
-                                                (call.callDetails.agent.transcript ||
-                                                  call.callDetails.agent.translation) && (
-                                                  <div className="flex flex-col items-end space-y-0.5 animate-in fade-in duration-200">
-                                                    <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
-                                                      <span>Expert</span>
-                                                    </div>
-                                                    <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-agent rounded-tr-none">
-                                                      <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
-                                                        {call.callDetails.agent.translation || "N/A"}
-                                                      </p>
-                                                      {call.callDetails.agent.transcript &&
-                                                        call.callDetails.agent.transcript !==
-                                                        call.callDetails.agent.translation && (
-                                                          <div className="mt-1 pt-1 border-t border-agent-border/30 text-[11px] text-agent-text/80">
-                                                            <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-white/75">
-                                                              <Globe className="h-2.5 w-2.5" />
-                                                              <span>
-                                                                Original (
-                                                                {call.callDetails.agent.detectedLanguage || "unknown"}
-                                                                )
-                                                              </span>
-                                                            </div>
-                                                            <p className="italic leading-relaxed text-[11px]">
-                                                              {call.callDetails.agent.transcript}
-                                                            </p>
-                                                          </div>
-                                                        )}
-                                                    </div>
-                                                  </div>
-                                                )}
+                                                  {/* Expert bubble (Outbound) */}
+                                                  {call.callDetails.agent &&
+                                                    (call.callDetails.agent.transcript ||
+                                                      call.callDetails.agent.translation) && (
+                                                      <div className="flex flex-col items-end space-y-0.5 animate-in fade-in duration-200">
+                                                        <div className="flex items-center gap-1 px-1 text-[9px] text-zinc-400 dark:text-zinc-500 font-bold tracking-wider uppercase">
+                                                          <span>Expert</span>
+                                                        </div>
+                                                        <div className="max-w-[90%] px-3 py-2 rounded-xl shadow-sm border chat-bubble-agent rounded-tr-none">
+                                                          <p className="text-xs leading-relaxed whitespace-pre-wrap font-medium">
+                                                            {call.callDetails.agent.translation || "N/A"}
+                                                          </p>
+                                                          {call.callDetails.agent.transcript &&
+                                                            call.callDetails.agent.transcript !==
+                                                            call.callDetails.agent.translation && (
+                                                              <div className="mt-1 pt-1 border-t border-agent-border/30 text-[11px] text-agent-text/80">
+                                                                <div className="flex items-center gap-1 mb-0.5 text-[8.5px] uppercase tracking-wider font-bold text-white/75">
+                                                                  <Globe className="h-2.5 w-2.5" />
+                                                                  <span>
+                                                                    Original (
+                                                                    {call.callDetails.agent.detectedLanguage || "unknown"}
+                                                                    )
+                                                                  </span>
+                                                                </div>
+                                                                <p className="italic leading-relaxed text-[11px]">
+                                                                  {call.callDetails.agent.transcript}
+                                                                </p>
+                                                              </div>
+                                                            )}
+                                                        </div>
+                                                      </div>
+                                                    )}
 
-                                              {!(
-                                                call.callDetails.caller?.transcript ||
-                                                call.callDetails.caller?.translation ||
-                                                call.callDetails.agent?.transcript ||
-                                                call.callDetails.agent?.translation
-                                              ) && (
-                                                  <div className="text-xs text-muted-foreground text-center py-6">
-                                                    No transcript data available for this call
-                                                  </div>
-                                                )}
+                                                  {!(
+                                                    call.callDetails.caller?.transcript ||
+                                                    call.callDetails.caller?.translation ||
+                                                    call.callDetails.agent?.transcript ||
+                                                    call.callDetails.agent?.translation
+                                                  ) && (
+                                                      <div className="text-xs text-muted-foreground text-center py-6">
+                                                        No transcript data available for this call
+                                                      </div>
+                                                    )}
+                                                </>
+                                              )}
                                             </div>
                                           ) : (
                                             <div className="text-xs text-muted-foreground text-center py-8">
