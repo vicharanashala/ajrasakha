@@ -29,6 +29,18 @@ Indian-script vowel signs together. When nothing matches, the answer carries `re
 
 A crop name that is still **pending** review returns `COMMODITY_NOT_AVAILABLE` rather than a guessed price.
 
+## No fallback, 40 km
+
+* Only the asked day or period is answered. When today's price (or the asked date's) does not exist,
+  the answer is a message such as "Onion price today is not available at Karnal APMC." An older price
+  is never shown instead. "Today" is the date in India (IST).
+* A named mandi without a price gives that message; other mandis are not shown in its place. When it
+  has a price, `get_price_with_nearby` also lists other mandis near it.
+* With the farmer's location, only mandis within 40 km are used (`MARKET_DEFAULT_MAX_RADIUS_KM`); a larger
+  `radius_km` is capped. Without a location the whole state is used.
+* Rows that cannot be right (zero prices, min above max, modal outside min..max) are left out.
+* Every error has an `error_code` and a message written for farmers; the agent shows it as is.
+
 ## Run
 
 ```bash

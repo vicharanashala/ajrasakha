@@ -23,6 +23,7 @@ from langchain_mcp_adapters.client import MultiServerMCPClient
 from ajrasakha.agents import daily_price_agent as v1
 from ajrasakha.agents.config import MCP_URLS
 from ajrasakha.agents.daily_price_support import MISSING_COMMODITY, MISSING_LOCATION, clarify_reason_for_error, detect_unsupported_query
+from ajrasakha.agents.daily_price_v2_formatter import SERVICE_ERROR_MESSAGE, has_any_data, render_answer
 from ajrasakha.agents.location_context import profile_location_note
 
 logger = logging.getLogger(__name__)
@@ -58,7 +59,47 @@ async def call_mandi_price_tool(args: dict[str, Any]) -> Any:
         return await tool_obj.ainvoke(args)
     except Exception as exc:
         logger.error("v2 mandi_price_tool invoke failed: %s", exc, exc_info=True)
-        return {"error": str(exc)}
+        return {"error": SERVICE_ERROR_MESSAGE, "error_code": "SERVICE_ERROR"}
+
+
+_PLACEHOLDERS = {"", "all", "not specified", "unknown", "none", "null", "na", "n/a"}
+
+
+async def _farmer_location(state: Optional[str], district: Optional[str], place: Optional[str]) -> tuple[Optional[float], Optional[float]]:
+    """Coordinates for the farmer's district (or block/village in it).
+
+    A state alone is not a location: its capital could be hundreds of km from the
+    farmer, and "mandis within 40 km" of it would be wrong. Without a district the
+    tool answers for the whole state instead. The geocoder's state-capital fallback
+    is discarded for the same reason.
+    """
+    from ajrasakha.agents.location_extractor import _state_center_fallback, get_lat_long
+
+    if str(district or "").strip().lower() in _PLACEHOLDERS:
+        return None, None
+    lat, lon, name = await get_lat_long(district=district, subdistrict=place, state=state)
+    if lat is None or lon is None:
+        return None, None
+    c_lat, c_lon, _ = _state_center_fallback(state)
+    if c_lat is not None and abs(lat - c_lat) < 1e-6 and abs(lon - c_lon) < 1e-6:
+        logger.info("daily_price_v2_agent: geocoder gave only the state capital for %r/%r; not using it.", district, state)
+        return None, None
+    logger.info("daily_price_v2_agent: geocoded state=%r district=%r -> %s, %s (%s)", state, district, lat, lon, name)
+    return lat, lon
+
+
+def _envelope_tool_data(payload: Any) -> Any:
+    """Tool payload for the envelope; a failure's message is kept under "message".
+
+    The plan executor replaces an answer that is just the raw tool error with a generic
+    "price not available in this mandi" reply. v2 messages are written for the farmer
+    (today's price not reported yet, unknown crop, did you mean ...), so they are kept.
+    """
+    if isinstance(payload, dict) and payload.get("error"):
+        data = {k: v for k, v in payload.items() if k != "error"}
+        data["message"] = payload["error"]
+        return data
+    return payload
 
 
 @tool(args_schema=v1.DailyPriceInput)
@@ -87,12 +128,7 @@ async def daily_price(
 
         lat, lon = latitude, longitude
         if lat is None or lon is None:
-            from ajrasakha.agents.location_extractor import get_lat_long as _get_lat_long
-
-            _lat, _lon, _resolved_name = await _get_lat_long(district=district, subdistrict=None, state=state)
-            if _lat is not None and _lon is not None:
-                lat, lon = _lat, _lon
-                logger.info("daily_price_v2_agent: geocoded state=%r district=%r -> %s, %s (%s)", state, district, lat, lon, _resolved_name)
+            lat, lon = await _farmer_location(state, district, block or village)
 
         intent = await v1.extract_daily_price_intent(query, crop=crop, state=state, lat=lat, lon=lon, config=config)
         logger.info("Daily price (v2) intent: %s", intent)
@@ -110,6 +146,13 @@ async def daily_price(
         tool_result = await call_mandi_price_tool(tool_args)
         tool_payload = v1._unwrap_tool_payload(tool_result)
         logger.info("daily_price_v2_agent tool_data: %s", json.dumps(tool_payload, ensure_ascii=False, default=str)[:8000])
+        if not isinstance(tool_payload, dict):
+            logger.error("daily_price_v2_agent: unexpected tool reply %r", str(tool_payload)[:500])
+            tool_payload = {"error": SERVICE_ERROR_MESSAGE, "error_code": "SERVICE_ERROR"}
+        elif tool_payload.get("error") and not tool_payload.get("error_code"):
+            # An error from the transport or an old server, not a message written for farmers.
+            logger.error("daily_price_v2_agent: tool error without a code: %s", tool_payload.get("error"))
+            tool_payload = {"error": SERVICE_ERROR_MESSAGE, "error_code": "SERVICE_ERROR"}
 
         clarify = clarify_reason_for_error(tool_payload)
         if clarify:
@@ -120,11 +163,9 @@ async def daily_price(
             if isinstance(tool_args.get("commodity_name"), list)
             else (tool_args.get("commodity_name") or crop)
         )
-        answer = await v1.synthesize_daily_price_answer(
-            query, tool_result, crop=effective_crop, state=tool_args.get("state") or state,
-            market_name=tool_args.get("market_name"), config=config,
-        ) or ""
-        if answer and location_from_profile and not v1._tool_result_is_empty(tool_payload):
+        has_data = has_any_data(tool_payload)
+        answer = render_answer(tool_payload, crop=effective_crop)
+        if answer and location_from_profile and has_data:
             answer += f"\n\n{profile_location_note('mandi price', state, district)}"
         if answer and intent.get("dropped_actions"):
             answer += (
@@ -134,9 +175,9 @@ async def daily_price(
         return json.dumps(
             {
                 "answer": answer,
-                "tool_data": tool_payload,
-                "status": "no_data" if v1._tool_result_is_empty(tool_payload) else "ok",
-                "reason": None,
+                "tool_data": _envelope_tool_data(tool_payload),
+                "status": "ok" if has_data else "no_data",
+                "reason": None if has_data else (tool_payload.get("reason") or tool_payload.get("error_code")),
             },
             ensure_ascii=False,
             default=str,
@@ -144,6 +185,11 @@ async def daily_price(
     except Exception as exc:
         logger.error("daily_price v2 agent failed: %s", exc, exc_info=True)
         return json.dumps(
-            {"answer": v1._fallback_unavailable_answer({"error": str(exc)}, crop=crop, state=state), "tool_data": {"error": str(exc)}},
-            default=str,
+            {
+                "answer": SERVICE_ERROR_MESSAGE,
+                "tool_data": {"message": SERVICE_ERROR_MESSAGE, "error_code": "SERVICE_ERROR"},
+                "status": "no_data",
+                "reason": "SERVICE_ERROR",
+            },
+            ensure_ascii=False,
         )
