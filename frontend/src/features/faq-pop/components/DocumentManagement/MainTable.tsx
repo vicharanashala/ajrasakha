@@ -18,15 +18,14 @@ import ServerPagination from "./ServerPagination";
 import StatusBadge from "./StatusBadge";
 import TextFilter from "./TextFilter";
 import TopScrollbar from "./TopScrollbar";
-import { ADVISORY_TYPE_OPTIONS, folderDisplayLabel, filterFoldersByAdvisoryScope, displayStateName } from "./fields";
+import { ADVISORY_TYPE_OPTIONS, ADVISORY_SCOPE_OPTIONS, folderDisplayLabel, filterFoldersByAdvisoryScope, displayStateName } from "./fields";
 
 const STATUS_OPTIONS = ["not_started", "in_progress", "done"];
-const LANGUAGE_SOURCE_OPTIONS = ["detected", "state", "ambiguous", "manual"];
 const PAGE_SIZE = 100;
 // Sorting was pulled back to numeric columns only (none of which exist on this table — every
 // column here is a name/id/status) per the 2026-10-01 perf pass, so Main Table has no sort UI at
 // all now. See UniqueDocumentsTable.tsx for the numeric columns that kept it.
-const COL_COUNT = 13; // Row ID, Document ID, Document, Advisory Type, State, Folder, District, KVK, Language, Language Source, Translation, Review, actions
+const COL_COUNT = 13; // Row ID, Document ID, Advisory Name, Advisory Scope, Advisory Type, State, Folder, District, KVK, Language, Translation, Review, actions
 
 // A row of the main table is a PLACEMENT (POP_xxxxx), joined with its document (ANNAM_xxxxx) —
 // see docs/first_render_frontend.md. state/crop are plain strings now (no {id, name} relation
@@ -328,7 +327,19 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
                     <TextFilter
-                      label="Advisory"
+                      label="Document ID"
+                      value={filters.document_id?.[0] || ""}
+                      onChange={(v) => setFilter("document_id", v ? [v] : [])}
+                      placeholder="ANNAM_00042"
+                    />
+                  </div>
+                </div>
+              </th>
+              <th className="text-left px-3 py-2 whitespace-nowrap">
+                <div className="flex items-center gap-1">
+                  <div className="min-w-0">
+                    <TextFilter
+                      label="Advisory Name"
                       value={filters.advisory_name?.[0] || ""}
                       onChange={(v) => setFilter("advisory_name", v ? [v] : [])}
                       placeholder="Search advisory…"
@@ -339,11 +350,11 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
               <th className="text-left px-3 py-2 whitespace-nowrap">
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
-                    <TextFilter
-                      label="Document ID"
-                      value={filters.document_id?.[0] || ""}
-                      onChange={(v) => setFilter("document_id", v ? [v] : [])}
-                      placeholder="ANNAM_00042"
+                    <ColumnFilter
+                      label="Advisory Scope"
+                      options={ADVISORY_SCOPE_OPTIONS}
+                      selected={filters.advisory_scope || []}
+                      onChange={(v) => setFilter("advisory_scope", v)}
                     />
                   </div>
                 </div>
@@ -433,18 +444,6 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                 <div className="flex items-center gap-1">
                   <div className="min-w-0">
                     <ColumnFilter
-                      label="Language Source"
-                      options={LANGUAGE_SOURCE_OPTIONS}
-                      selected={filters.language_source || []}
-                      onChange={(v) => setFilter("language_source", v)}
-                    />
-                  </div>
-                </div>
-              </th>
-              <th className="text-left px-3 py-2 whitespace-nowrap">
-                <div className="flex items-center gap-1">
-                  <div className="min-w-0">
-                    <ColumnFilter
                       label="Translation"
                       options={STATUS_OPTIONS}
                       selected={filters.translation_status || []}
@@ -488,11 +487,6 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                   <td className="px-3 py-2 align-middle font-mono text-[10px] text-muted-foreground">
                     {row.row_id}
                   </td>
-                  <td className="px-3 py-2 align-middle max-w-[180px]">
-                    <span className="block truncate text-foreground" title={row.advisory_name || ""}>
-                      {row.advisory_name || "—"}
-                    </span>
-                  </td>
                   <td className="px-3 py-2 align-middle">
                     <div className="flex items-center gap-1">
                       <button
@@ -519,6 +513,12 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                       )}
                     </div>
                   </td>
+                  <td className="px-3 py-2 align-middle max-w-[180px]">
+                    <span className="block truncate text-foreground" title={row.advisory_name || ""}>
+                      {row.advisory_name || "—"}
+                    </span>
+                  </td>
+                  <td className="px-3 py-2 align-middle text-muted-foreground">{row.advisory_scope || "—"}</td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.advisory_type || "—"}</td>
                   <td className="px-3 py-2 align-middle">
                     {editingId === row.id ? (
@@ -554,24 +554,6 @@ export default function MainTable({ onOpenDetail, refreshKey, canEdit = true }) 
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.district || "—"}</td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.kvk || "—"}</td>
                   <td className="px-3 py-2 align-middle text-muted-foreground">{row.language || "—"}</td>
-                  <td className="px-3 py-2 align-middle">
-                    {row.language_source === "state" ? (
-                      <span
-                        className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400"
-                        title="Inferred from the state — plausible but not measured"
-                      >
-                        guess
-                      </span>
-                    ) : row.language_source === "ambiguous" ? (
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-destructive/10 text-destructive">
-                        ambiguous
-                      </span>
-                    ) : row.language_source === "manual" ? (
-                      <span className="text-[10px] text-muted-foreground">manual</span>
-                    ) : (
-                      <span className="text-[10px] text-muted-foreground/50">—</span>
-                    )}
-                  </td>
                   <td className="px-3 py-2 align-middle">
                     <StatusBadge status={row.translation_status} />
                   </td>
