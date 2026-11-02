@@ -343,6 +343,7 @@ export class UserRepository implements IUserRepository {
         {
           role: { $in: roles as any },
           status: { $ne: 'in-active' },
+          sendDailyReport: true,
         },
         { session },
       )

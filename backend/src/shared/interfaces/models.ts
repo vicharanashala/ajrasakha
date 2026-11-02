@@ -81,6 +81,8 @@ export interface IUser {
   /** Questions assigned to this user for feedback (auditor/moderator only).
    *  Contains question IDs that need feedback review. */
   feedbacksAssigned?: (string | ObjectId)[] | null;
+  /** Whether the user should receive the automated daily activity report email. */
+  sendDailyReport?: boolean;
 }
 
 export interface IUserAdminEdit {
@@ -91,6 +93,7 @@ export interface IUserAdminEdit {
   mobile?: string;
   university?: string;
   kvkCovered?: IKVKCoveredItem[] | null;
+  sendDailyReport?: boolean;
 }
 
 export interface IUserRoleHistory {

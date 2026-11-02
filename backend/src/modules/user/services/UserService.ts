@@ -272,6 +272,7 @@ export class UserService extends BaseService {
         'mobile',
         'university',
         'kvkCovered',
+        'sendDailyReport',
       ] as const;
 
       const sanitizedData: Partial<IUser> = {};
@@ -1904,6 +1905,14 @@ export class UserService extends BaseService {
         (user as any).userName ||
         user.email ||
         'User';
+
+      if (user.sendDailyReport !== true) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): sendDailyReport is false or not set.`,
+        );
+        skipped++;
+        continue;
+      }
 
       if (!user.email || !user.email.includes('@')) {
         console.warn(
