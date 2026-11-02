@@ -706,8 +706,27 @@ export class AnswerController {
   async generateFfv(
     @Body() body: { question: string; answer: string; domains?: string[] },
   ) {
-    console.log("body ",body)
     return await this.answerService.generateFfv(body);
+  }
+
+  @OpenAPI({ summary: 'Submit FFV generation job (returns job_id for polling)' })
+  @Post('/ffv/submit')
+  @HttpCode(200)
+  @Authorized()
+  async submitFfv(
+    @Body() body: { question: string; answer: string; domains?: string[] },
+  ) {
+    return await this.answerService.submitFfv(body);
+  }
+
+  @OpenAPI({ summary: 'Get FFV job status and result by jobId' })
+  @Get('/ffv/:jobId')
+  @HttpCode(200)
+  @Authorized()
+  async getFfv(
+    @Param('jobId') jobId: string,
+  ) {
+    return await this.answerService.getFfv(jobId);
   }
 }
 
