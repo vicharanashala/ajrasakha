@@ -1769,6 +1769,7 @@ async getUserQuestionsData(
     return {
       questions: emptyQuestionsPage,
       nonAgriQuestions: emptyQuestionsPage,
+      allQuestions: emptyQuestionsPage,
       messages,
     };
   }
@@ -1789,6 +1790,7 @@ async getUserQuestionsData(
     return {
       questions: emptyQuestionsPage,
       nonAgriQuestions: emptyQuestionsPage,
+      allQuestions: emptyQuestionsPage,
       messages,
     };
   }
@@ -1801,7 +1803,7 @@ async getUserQuestionsData(
     userId: user.userId,
   };
 
-  const [questions, nonAgriQuestions] = await Promise.all([
+  const [questions, nonAgriQuestions, allQuestions] = await Promise.all([
     this.chatbotRepository.getUserQuestionsData(
       identifiers,
       source,
@@ -1820,11 +1822,21 @@ async getUserQuestionsData(
       startDate,
       endDate,
     ),
+    this.chatbotRepository.getUserAllQuestionsData(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+    ),
   ]);
 
   return {
     questions,
     nonAgriQuestions,
+    allQuestions,
     messages,
   };
 }
