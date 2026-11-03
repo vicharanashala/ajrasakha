@@ -10793,13 +10793,82 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
-    const totalAuthoringMs = mergeAndSumIntervals(authoringIntervals);
-    const totalReviewingMs = mergeAndSumIntervals(reviewingIntervals);
-    const totalModeratingMs = mergeAndSumIntervals(moderatingIntervals);
-    const totalAuditingMs = mergeAndSumIntervals(auditingIntervals);
-    const totalGatekeepingMs = mergeAndSumIntervals(gatekeepingIntervals);
-    const totalReroutingMs = mergeAndSumIntervals(reroutingIntervals);
-    const totalExpertReroutingMs = mergeAndSumIntervals(expertReroutingIntervals);
+    // 8. Hold Questions: questions placed on hold by this user in date range
+    let heldCount = 0;
+    const holdIntervals: TimeInterval[] = [];
+
+    try {
+      const auditCollection =
+        await this.db.getCollection<any>('auditTrails');
+      const holdAudits = await auditCollection
+        .find({
+          action: 'QUESTION_HOLD',
+          $or: [
+            { 'actor.id': userObjectId },
+            { 'actor.id': userId },
+          ],
+          createdAt: { $gte: startDate, $lte: endDate },
+        })
+        .toArray();
+
+      if (holdAudits.length > 0) {
+        const qIdSet = new Set<string>();
+        for (const a of holdAudits) {
+          const qId = a.context?.questionId?.toString();
+          if (qId && ObjectId.isValid(qId)) {
+            qIdSet.add(qId);
+          }
+        }
+
+        const heldQuestions =
+          qIdSet.size > 0
+            ? await this.QuestionCollection.find({
+                _id: { $in: Array.from(qIdSet).map((id) => new ObjectId(id)) },
+              }).toArray()
+            : [];
+
+        const heldQMap = new Map<string, IQuestion>();
+        for (const q of heldQuestions) {
+          if (q._id) heldQMap.set(q._id.toString(), q);
+        }
+
+        for (const a of holdAudits) {
+          heldCount++;
+          const qIdStr = a.context?.questionId?.toString();
+          const q = qIdStr ? heldQMap.get(qIdStr) : undefined;
+          if (q && a.createdAt) {
+            const assignedAt =
+              q.gateKeeperId?.toString() === userId && q.gateKeeperAssignedAt
+                ? q.gateKeeperAssignedAt
+                : q.moderatorId?.toString() === userId && q.moderatorAssignedAt
+                  ? q.moderatorAssignedAt
+                  : q.auditorId?.toString() === userId && q.auditorAssignedAt
+                    ? q.auditorAssignedAt
+                    : (q.moderatorAssignedAt || q.gateKeeperAssignedAt || q.auditorAssignedAt);
+
+            if (assignedAt) {
+              holdIntervals.push(...getActiveOverlapIntervals(new Date(assignedAt), new Date(a.createdAt)));
+            }
+          }
+        }
+      }
+    } catch (err: any) {
+      console.error('[getUserActivityMetrics] Failed to fetch hold metrics:', err?.message);
+    }
+
+    // Clean and merge hold intervals first
+    const cleanHoldIntervals = mergeIntervals(holdIntervals);
+    const totalHoldingMs = sumIntervals(cleanHoldIntervals);
+
+    // Deduct overlapping hold intervals from primary review / screening / audit intervals
+    // so time spent reviewing a question to place it on hold is not double-counted as completed work
+    const totalAuthoringMs = sumIntervals(subtractIntervals(authoringIntervals, cleanHoldIntervals));
+    const totalReviewingMs = sumIntervals(subtractIntervals(reviewingIntervals, cleanHoldIntervals));
+    const totalModeratingMs = sumIntervals(subtractIntervals(moderatingIntervals, cleanHoldIntervals));
+    const totalAuditingMs = sumIntervals(subtractIntervals(auditingIntervals, cleanHoldIntervals));
+    const totalGatekeepingMs = sumIntervals(subtractIntervals(gatekeepingIntervals, cleanHoldIntervals));
+    const totalReroutingMs = sumIntervals(subtractIntervals(reroutingIntervals, cleanHoldIntervals));
+    const totalExpertReroutingMs = sumIntervals(subtractIntervals(expertReroutingIntervals, cleanHoldIntervals));
 
     return {
       authoredCount,
@@ -10818,6 +10887,8 @@ export class QuestionRepository implements IQuestionRepository {
       totalReroutingMs,
       expertReroutedCount,
       totalExpertReroutingMs,
+      heldCount,
+      totalHoldingMs,
     };
   }
 }

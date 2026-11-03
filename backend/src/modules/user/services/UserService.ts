@@ -1766,6 +1766,8 @@ export class UserService extends BaseService {
       totalReroutingMs: metrics.totalReroutingMs,
       expertReroutedCount: metrics.expertReroutedCount,
       totalExpertReroutingMs: metrics.totalExpertReroutingMs,
+      heldCount: metrics.heldCount,
+      totalHoldingMs: metrics.totalHoldingMs,
       sessions,
     });
 
