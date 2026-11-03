@@ -30,7 +30,7 @@ permissions:
 
 env:
   DOCKER_IMAGE: gdb-draft
-  GCP_REGION: asia-south2
+  GCP_REGION: asia-south1
   GCP_SERVICE: gdb-draft
 
 jobs:
