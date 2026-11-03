@@ -21,8 +21,9 @@ from ajrasakha.agents.new_weather_agent import new_weather  as weather
 logger = logging.getLogger(__name__)
 
 # Which mandi price agent serves "daily_price": v1 (default) or v2 (approved name links, PriceV2).
-DAILY_PRICE_AGENT_VERSION = os.getenv("DAILY_PRICE_AGENT_VERSION", "v1").strip().lower()
-daily_price = daily_price_v2 if DAILY_PRICE_AGENT_VERSION == "v2" else daily_price_v1
+# DAILY_PRICE_AGENT_VERSION = os.getenv("DAILY_PRICE_AGENT_VERSION", "v1").strip().lower()
+# daily_price = daily_price_v2 if DAILY_PRICE_AGENT_VERSION == "v2" else daily_price_v1
+daily_price = daily_price_v2
 logger.info("daily_price agent version: %s", "v2" if daily_price is daily_price_v2 else "v1")
 
 _location_tool = None
