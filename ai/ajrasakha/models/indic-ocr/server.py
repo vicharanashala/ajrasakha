@@ -9,7 +9,7 @@ POST /parse
   Returns    : JSON with "markdown", "blocks", "width", "height", "image"
 
 GET /health
-  Returns    : {"status": "ok"}
+  Returns    : {"status": "ok", "recognizer": "vllm"}
 
 The server loads the model once at startup (vLLM engine warm-up).  Subsequent
 requests reuse the engine and are served as fast as the GPU can decode.
@@ -112,12 +112,15 @@ logger = logging.getLogger(__name__)
 _parser = None
 
 
-def get_parser() -> IndicOCR:
+def get_parser():
     """Lazily create (or return) the global IndicOCR parser."""
     global _parser
     if _parser is None:
+        # Imported here so the indic_ocr import above (and its version preflight) always runs first.
+        from vllm_recognizer import VllmIndicOCR
+
         logger.info("Initialising IndicOCR (loading vLLM engine — this takes ~2-3 min)…")
-        _parser = IndicOCR.from_pretrained(_REPO_PATH)
+        _parser = VllmIndicOCR(_REPO_PATH)
         logger.info("IndicOCR ready.")
     return _parser
 
@@ -141,7 +144,7 @@ app = FastAPI(
 @app.get("/health")
 async def health():
     """Liveness probe — tells Portainer the container is alive."""
-    return {"status": "ok"}
+    return {"status": "ok", "recognizer": "vllm"}
 
 
 @app.post("/parse")
