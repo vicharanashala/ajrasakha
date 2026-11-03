@@ -34,13 +34,19 @@ describe('draftFromLibrary over HTTP', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(draft), {status: 200}));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await draftFromLibrary('What spacing for banana?', 'Banana');
+    const result = await draftFromLibrary('What spacing for banana?', 'Banana', [
+      {url: 'https://workdrive.zoho.in/file/abc123', name: 'Banana POP'},
+    ]);
 
     expect(result).toEqual(draft);
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe('http://draft.internal:8013/draft');
     expect(init.headers['x-draft-token']).toBe('secret-token');
-    expect(JSON.parse(init.body)).toEqual({question: 'What spacing for banana?', crop: 'Banana'});
+    expect(JSON.parse(init.body)).toEqual({
+      question: 'What spacing for banana?',
+      crop: 'Banana',
+      sources: [{url: 'https://workdrive.zoho.in/file/abc123', name: 'Banana POP'}],
+    });
   });
 
   it('turns an error response into an error with the status', async () => {
