@@ -2968,9 +2968,6 @@ export class ChatbotRepository implements IChatbotRepository {
       // Top 15 domains
       const top15 = raw.slice(0, 15);
 
-      // Remaining domains
-      const remainingDomains = raw.slice(15);
-
       // Response for top 15
       const result: QueryCategoryEntry[] = top15.map(item => ({
         label: item._id,
@@ -2978,27 +2975,44 @@ export class ChatbotRepository implements IChatbotRepository {
         duplicateQuestionCount: item.duplicateCount,
       }));
 
-      // Aggregate remaining domains
-      if (remainingDomains.length > 0) {
-        const remainingAggregation = remainingDomains.reduce(
-          (acc, item) => ({
-            totalQuestions: acc.totalQuestions + item.uniqueCount,
-
-            totalDuplicates: acc.totalDuplicates + item.duplicateCount,
-          }),
-
+      // A question can have multiple domains. Count a question in Remaining
+      // Categories once when it has at least one domain outside the top 15;
+      // this is the same rule used when opening the modal for this bucket.
+      const topDomainLabels = top15.map(item => item._id).filter(Boolean);
+      const remainingAggregation = await this.QuestionCollection.aggregate(
+        [
+          {$match: matchQuery},
+          {$unwind: '$details.domain'},
+          {$match: {'details.domain': {$nin: topDomainLabels}}},
           {
-            totalQuestions: 0,
-            totalDuplicates: 0,
+            $group: {
+              _id: '$_id',
+              isDuplicate: {$first: {$eq: ['$status', 'duplicate']}},
+            },
           },
-        );
+          {
+            $group: {
+              _id: null,
+              totalQuestions: {
+                $sum: {$cond: ['$isDuplicate', 0, 1]},
+              },
+              totalDuplicates: {
+                $sum: {$cond: ['$isDuplicate', 1, 0]},
+              },
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+      const remaining = remainingAggregation[0];
 
+      if (remaining) {
         result.push({
           label: 'Remaining Categories',
 
-          questionCount: remainingAggregation.totalQuestions,
+          questionCount: remaining.totalQuestions,
 
-          duplicateQuestionCount: remainingAggregation.totalDuplicates,
+          duplicateQuestionCount: remaining.totalDuplicates,
         });
       }
 
@@ -3063,8 +3077,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const topDomains = await this.QuestionCollection.aggregate(
           [
             {$match: baseMatch},
-            // ...lookupStages,
-            // ...lookupStages,
+            {$unwind: '$details.domain'},
             {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
             {$sort: {totalCount: -1}},
             {$limit: 15},
@@ -3073,9 +3086,28 @@ export class ChatbotRepository implements IChatbotRepository {
           {session},
         ).toArray();
 
+        const topDomainLabels = topDomains
+          .map(item => item._id)
+          .filter(Boolean);
         domainMatch = {
-          'details.domain': {
-            $nin: topDomains.map(item => item._id).filter(Boolean),
+          $expr: {
+            $gt: [
+              {
+                $size: {
+                  $setDifference: [
+                    {
+                      $cond: [
+                        {$isArray: '$details.domain'},
+                        '$details.domain',
+                        ['$details.domain'],
+                      ],
+                    },
+                    topDomainLabels,
+                  ],
+                },
+              },
+              0,
+            ],
           },
         };
       } else {
