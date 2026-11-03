@@ -136,6 +136,21 @@ class TestWhenPhrase:
         assert base.fmt_day("not a date") == "not a date"
 
 
+class TestIngestedIso:
+    def test_naive_datetime_is_utc(self):
+        assert base.ingested_iso(datetime(2026, 11, 2, 0, 45, 12, 999)) == "2026-11-02T00:45:12+00:00"
+
+    def test_aware_datetime_and_strings(self):
+        ist = timezone(timedelta(hours=5, minutes=30))
+        assert base.ingested_iso(datetime(2026, 11, 2, 6, 15, tzinfo=ist)) == "2026-11-02T00:45:00+00:00"
+        assert base.ingested_iso("2026-11-02T00:45:00.123456+00:00") == "2026-11-02T00:45:00+00:00"
+        assert base.ingested_iso("2026-11-02T00:45:00Z") == "2026-11-02T00:45:00+00:00"
+
+    @pytest.mark.parametrize("value", [None, "", "yesterday", 12345])
+    def test_unknown_is_none(self, value):
+        assert base.ingested_iso(value) is None
+
+
 def test_today_is_india_time(monkeypatch):
     """At 00:30 IST the UTC date is still yesterday; "today" must be India's date."""
     class Fake(datetime):
@@ -264,12 +279,16 @@ def env():
         listing("l_onion_kottayam", "onion", "p_onion", "m_kottayam", state="keralam"),
     ])
 
-    def price(listing_key, ago, modal, low=None, high=None, arrival=None):
-        return {"market_commodity_id": ids[listing_key], "date": day(ago), "modal_price": modal,
-                "min_price": low, "max_price": high, "arrival_quantity": arrival}
+    def price(listing_key, ago, modal, low=None, high=None, arrival=None, ingested=None):
+        doc = {"market_commodity_id": ids[listing_key], "date": day(ago), "modal_price": modal,
+               "min_price": low, "max_price": high, "arrival_quantity": arrival}
+        if ingested is not None:
+            doc["ingested_at"] = ingested
+        return doc
     db.price_records.insert_many([
-        price("l_onion_karnal", 0, 2000, 1900, 2100, arrival=120),
-        price("l_onion_karnal", 1, 2100, 2000, 2200, arrival=80),
+        # The scraper's two ingested_at formats: a datetime (stored naive UTC) and an older ISO string.
+        price("l_onion_karnal", 0, 2000, 1900, 2100, arrival=120, ingested=datetime(2026, 11, 2, 0, 45)),
+        price("l_onion_karnal", 1, 2100, 2000, 2200, arrival=80, ingested="2026-11-01T06:00:00+00:00"),
         price("l_onion_karnal", 3, 2200, 2100, 2300),
         price("l_onion_tarori", 1, 2300, 2200, 2400),
         price("l_onion_tarori", 0, 0, 0, 0),                    # zero: dropped
@@ -454,6 +473,16 @@ class TestCrops:
         assert markets(res) == ["karnal apmc"]
         assert res["price_records"][0]["product_name"] == "paddy"
         assert res["price_records"][0]["price_unit"] == "Rs/quintal"
+
+    def test_last_scrape_time_is_returned(self, env):
+        res = near(env, action="get_price_history", commodity_name=["onion"], lookback_days=7)
+        by_row = {(r["market_name"], r["date"]): r["ingested_at"] for r in res["price_records"]}
+        assert by_row[("karnal apmc", TODAY.isoformat())] == "2026-11-02T00:45:00+00:00"
+        assert by_row[("karnal apmc", "2026-11-01")] == "2026-11-01T06:00:00+00:00"
+        assert by_row[("tarori apmc", "2026-11-01")] is None           # row without ingested_at
+        assert res["resolution"]["data_updated_at"] == "2026-11-02T00:45:00+00:00"
+        summary = near(env, action="get_price_summary", commodity_name=["onion"], lookback_days=7)
+        assert summary["resolution"]["data_updated_at"] == "2026-11-02T00:45:00+00:00"
 
     def test_product_name(self, env):
         assert markets(near(env, action="get_today_price", commodity_name=["basmati paddy"])) == ["tarori apmc"]

@@ -29,6 +29,8 @@ The v1 tool, agent and collections are untouched; v2 runs beside them and is swi
   "Mandi prices could not be fetched right now", and Mongo calls time out instead of hanging.
 * Answers (agent, `daily_price_v2_formatter`) use ₹ with Indian grouping, readable dates, km per mandi and
   plain lists instead of tables. The plan executor no longer replaces these messages with its generic reply.
+* Every price or arrival answer ends with "Last updated: … IST", the time the scraper last saved those prices
+  (each row's `ingested_at`; the tool also returns the newest one as `resolution.data_updated_at`).
 
 **Around the tool**
 * Scraper v2 (Mandi repo, `feat/catalog-v2`) saves prices exactly as each source names them and adds new

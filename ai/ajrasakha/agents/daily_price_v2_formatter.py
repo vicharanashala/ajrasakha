@@ -12,6 +12,9 @@ when spoken aloud:
 
     Prices are per quintal (100 kg). The first price is the rate most of the produce sold at; the range is the lowest and highest rate.
     Source: Agmarknet.
+    Last updated: today (2 Nov 2026) at 6:15 AM IST.
+
+"Last updated" is when the scraper last saved these prices (the newest `ingested_at`).
 
 When the tool has no price for the asked day, the answer is the tool's message
 only: an older price is never shown in its place.
@@ -209,6 +212,42 @@ def source_line(payload: Any) -> str:
 
     walk(payload)
     return f"Source: {', '.join(sources)}." if sources else ""
+
+
+def _ingested_time(value: Any) -> datetime | None:
+    try:
+        t = datetime.fromisoformat(str(value).strip().replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return t if t.tzinfo else t.replace(tzinfo=timezone.utc)
+
+
+def updated_line(payload: Any, today: date | None = None) -> str:
+    """'Last updated: today (3 Nov 2026) at 6:15 AM IST.' — the latest scrape behind the answer.
+
+    Taken from the tool's `data_updated_at` (resolution) and each row's `ingested_at`, both UTC.
+    """
+    latest: datetime | None = None
+
+    def walk(obj: Any) -> None:
+        nonlocal latest
+        if isinstance(obj, dict):
+            for key in ("data_updated_at", "ingested_at"):
+                t = _ingested_time(obj[key]) if obj.get(key) else None
+                if t and (latest is None or t > latest):
+                    latest = t
+            for v in obj.values():
+                walk(v)
+        elif isinstance(obj, list):
+            for v in obj:
+                walk(v)
+
+    walk(payload)
+    if latest is None:
+        return ""
+    local = latest.astimezone(IST)
+    clock = local.strftime("%I:%M %p").lstrip("0")
+    return f"Last updated: {nice_day(local.date().isoformat(), today)} at {clock} IST."
 
 
 # --------------------------------------------------------------------------
@@ -457,7 +496,7 @@ class Rendered:
     lines: list[str] = field(default_factory=list)
     has_prices: bool = False
 
-    def text(self, payload: Any) -> str:
+    def text(self, payload: Any, today: date | None = None) -> str:
         body = "\n".join(self.lines).strip()
         parts = [body]
         if self.has_prices:
@@ -465,6 +504,8 @@ class Rendered:
         src = source_line(payload) if self.has_prices else ""
         if src:
             parts.append(src)
+        # Arrivals come from the same scrape, so they get the line too; a list of mandis has no time.
+        parts.append(updated_line(payload, today))
         return "\n\n".join(p for p in parts if p)
 
 
@@ -593,4 +634,4 @@ def render_answer(payload: Any, *, crop: str | None = None, today: date | None =
             f"{title(crop) + ' price' if crop and crop.lower() not in {'all', 'any'} else 'Mandi price'} "
             "is not available for this request."
         )
-    return sec.text(payload)
+    return sec.text(payload, today)

@@ -223,6 +223,28 @@ class TestOtherAnswers:
         assert "Onion price today" in text and "Mandis near you:" in text
 
 
+class TestLastUpdated:
+    def test_latest_scrape_in_ist_after_source(self):
+        p = today_payload([rec(dist=0.4) | {"ingested_at": "2026-11-02T00:45:00+00:00"},
+                           rec("x apmc", dist=2.0) | {"ingested_at": "2026-11-01T12:00:00+00:00"}])
+        text = answer(p)
+        assert text.endswith("Source: Agmarknet.\n\nLast updated: today (2 Nov 2026) at 6:15 AM IST.")
+
+    def test_from_resolution_when_rows_are_not_shown(self):
+        p = {"action": "get_price_summary", "stats": {"overall": {"avg_modal_price": 2000}},
+             "resolution": {"data_updated_at": "2026-10-31T20:30:00+00:00"}}
+        assert answer(p).endswith("Last updated: yesterday (1 Nov 2026) at 2:00 AM IST.")
+
+    def test_arrivals_get_the_line(self):
+        p = {"action": "get_today_arrival", "arrival_records": [rec(arrival=120)],
+             "resolution": {"data_updated_at": "2026-11-02T03:00:00Z"}}
+        assert answer(p).endswith("Last updated: today (2 Nov 2026) at 8:30 AM IST.")
+
+    def test_no_line_without_a_time(self):
+        assert "Last updated" not in answer(today_payload([rec(dist=0.4)]))
+        assert "Last updated" not in answer(today_payload([rec(dist=0.4) | {"ingested_at": "not a time"}]))
+
+
 class TestFailures:
     @pytest.mark.parametrize("payload", [
         {"error": "Onion price today is not available in mandis within 40 km of your location.", "error_code": "NO_PRICE_DATA"},

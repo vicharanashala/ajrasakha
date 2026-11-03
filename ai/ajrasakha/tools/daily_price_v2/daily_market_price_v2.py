@@ -150,6 +150,24 @@ def fmt_day(iso: Optional[str]) -> str:
     return f"{d.day} {d:%b %Y}"
 
 
+def ingested_iso(value: Any) -> Optional[str]:
+    """When the scraper last saved a price row, as a UTC ISO time to the second; None when unknown.
+
+    The scraper writes `ingested_at` on every run that sees the row, as a datetime
+    (naive means UTC) or, in older rows, an ISO string.
+    """
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if not isinstance(value, datetime):
+        return None
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=timezone.utc)
+    return value.astimezone(timezone.utc).isoformat(timespec="seconds")
+
+
 def when_phrase(date_meta: Optional[dict]) -> str:
     """The asked day or period in words: 'today', 'for 28 Oct 2026', 'in the last 7 days'."""
     meta = date_meta or {}
@@ -1034,6 +1052,7 @@ def mandi_price_tool(
             "source_url":    mc.get("source_url"),
             "source_system": display_source_system(mc.get("source_system")),
             "price_unit":    product.get("price_unit") or "Rs/quintal",
+            "ingested_at":   ingested_iso(pr.get("ingested_at")),
             **prices,
         }
         dist = _distance_km(market)
@@ -1722,6 +1741,10 @@ def mandi_price_tool(
                 formatted.sort(key=lambda r: r.get("date") or "", reverse=True)
 
             stats = _compute_stats(formatted)
+            # The latest scrape that saved any of these rows (all rows, not only the 15 returned).
+            updated = [r["ingested_at"] for r in formatted if r.get("ingested_at")]
+            if updated:
+                resolution_meta["data_updated_at"] = max(updated)
             return {
                 "stats":                  stats,
                 "resolution":             resolution_meta,
