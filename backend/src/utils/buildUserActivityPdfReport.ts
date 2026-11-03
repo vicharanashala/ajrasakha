@@ -524,15 +524,24 @@ export async function buildUserActivityPdfReport(
     data.reviewedCount +
     data.moderatedCount +
     data.auditedCount +
-    data.gatekeepedCount;
+    data.gatekeepedCount +
+    data.reroutedCount +
+    data.expertReroutedCount;
 
-  const totalActionHours =
+  const rawActionHours =
     (data.totalAuthoringMs +
       data.totalReviewingMs +
       data.totalModeratingMs +
       data.totalAuditingMs +
-      data.totalGatekeepingMs) /
+      data.totalGatekeepingMs +
+      data.totalReroutingMs +
+      data.totalExpertReroutingMs) /
     (1000 * 60 * 60);
+
+  const totalActionHours =
+    data.totalHoursInRevCycle > 0
+      ? Math.min(rawActionHours, data.totalHoursInRevCycle)
+      : rawActionHours;
 
   doc.rect(pageMargin, currentY, contentWidth, rowH).fill('#ECFDF5');
 
