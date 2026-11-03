@@ -956,6 +956,7 @@ export interface IQuestionRepository {
     userId: string,
     startDate: Date,
     endDate: Date,
+    activeSessions?: Array<{ start: number; end: number }>,
   ): Promise<IUserActivityMetrics>;
 }
 
