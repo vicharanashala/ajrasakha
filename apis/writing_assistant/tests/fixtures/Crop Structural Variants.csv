@@ -1,0 +1,7 @@
+Domain,Code,Crop,Question,Crop-Driven Structural Difference,Base Structure Reference,Full Written Answer,SL No.,Steps,Example,Suggestion 1,Suggestion 2
+Pest Management (Fixture),PMF,Fixture Vegetable (continuous-harvest),My fixture vegetable is picked every few days and has the leaf-hole pest. How do I manage spraying around harvest?,Continuous-harvest crop needs a recurring pre-harvest-interval check instead of a single one.,Compare with: Fixture Leaf Borer base structure (domain PMF),Fixture crop-variant answer for a continuous-harvest vegetable.,1,Introduction,Fixture Leaf Borer also affects this continuous-harvest vegetable.,,
+,,,,,,,2,Recurring interval check (crop-specific node),Check the pre-harvest interval before every single picking round.,,
+,,,,,,,3,Control,Apply the registered control product rotated across modes of action.,,
+Pest Management (Fixture),PMF,Fixture Fruit Tree (single-harvest),My fixture fruit tree has the leaf-hole pest near harvest. What should I do?,Single-harvest tree needs only one pre-harvest-interval check before the one harvest.,Compare with: Fixture Leaf Borer base structure (domain PMF),Fixture crop-variant answer for a single-harvest fruit tree.,1,Introduction,Fixture Leaf Borer also affects this single-harvest fruit tree.,,
+,,,,,,,2,Single interval check (crop-specific node),Check the pre-harvest interval once before the single harvest.,,
+,,,,,,,3,Control,Apply the registered control product.,,

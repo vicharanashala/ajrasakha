@@ -2,7 +2,7 @@
    STATE LIST - Clickable list of states
 ============================================================ */
 
-import { MapPin, Users, FileQuestionIcon } from "lucide-react";
+import { MapPin, FileQuestionIcon } from "lucide-react";
 import type { Analytics, GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 import { Skeleton } from "@/components/atoms/skeleton";
@@ -22,7 +22,7 @@ interface StateListProps {
   questionStatusRange?: any
 }
 
-export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue, metric = "questions", questionStatusRange}: StateListProps) {
+export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue, metric = "questions"}: StateListProps) {
   const getMetricValue = (
   analytics: {
     questions: number;
@@ -92,18 +92,11 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
               {renderCardValue(f.properties._name as string)}
             </span>
 
-            <div className="grid grid-cols-[56px_48px] gap-3 text-xs text-muted-foreground">
+            <div className="grid grid-cols-[56px] gap-3 text-xs text-muted-foreground">
               <div className="flex items-center justify-end gap-1">
                 <FileQuestionIcon className="h-3.5 w-3.5 shrink-0" />
                 <span className="tabular-nums">
                   {fmt((f.properties._analytics as Analytics).questions)}
-                </span>
-              </div>
-
-              <div className="flex items-center justify-end gap-1">
-                <Users className="h-3.5 w-3.5 shrink-0" />
-                <span className="tabular-nums">
-                  {questionStatusRange !== undefined ? fmt((f.properties._analytics as Analytics).activeUsers):fmt((f.properties._analytics as Analytics).users)}
                 </span>
               </div>
             </div>

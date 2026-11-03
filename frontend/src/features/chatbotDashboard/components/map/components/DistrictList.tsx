@@ -2,7 +2,7 @@
    DISTRICT LIST - Clickable list of districts
 ============================================================ */
 
-import { FileQuestionIcon, MapPin, User } from "lucide-react";
+import { FileQuestionIcon, MapPin } from "lucide-react";
 import type { GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 
@@ -23,7 +23,6 @@ export function DistrictList({
   districtsOfState,
   selectedState,
   onSelectDistrict,
-  questionStatusRnage
 }: DistrictListProps) {
   if (!districtsOfState) return null;
 
@@ -46,10 +45,6 @@ export function DistrictList({
                 {f.properties._name as string}
               </span>
               <span className="flex items-center gap-3">
-              <span className="flex items-center text-xs text-muted-foreground tabular-nums">
-                <User className="h-3"/>{questionStatusRnage === undefined ? fmt((f.properties._analytics as {users: number}).users): fmt((f.properties._analytics as {activeUsers: number}).activeUsers)}
-              </span>
-              <div>|</div>
               <span className="flex items-center text-xs text-muted-foreground tabular-nums">
                 <FileQuestionIcon className="h-3"/>
                 {fmt((f.properties._analytics as { questions: number }).questions)}
