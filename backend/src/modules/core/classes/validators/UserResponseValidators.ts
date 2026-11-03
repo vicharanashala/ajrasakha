@@ -277,6 +277,10 @@ export class UserHistoryUserDetailsResponse {
   @IsOptional()
   @IsBoolean()
   isTrainingUser?: boolean;
+
+  @IsOptional()
+  @IsBoolean()
+  sendDailyReport?: boolean;
 }
 
 export class UserHistoryResponse {

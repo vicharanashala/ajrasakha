@@ -3,7 +3,7 @@
  *
  * Triggered daily at 12:00 AM (00:00 Asia/Kolkata) by Cloud Scheduler.
  * Sends individual activity reports for the previous day [12:00 AM - 11:59 PM] IST
- * to all active review staff (To: user.email, CC: configured CC list).
+ * to review staff who have sendDailyReport enabled (To: user.email, CC: configured CC list).
  */
 import { getContainer, loadAppModules } from '../../bootstrap/loadModules.js';
 import { GLOBAL_TYPES } from '#root/types.js';

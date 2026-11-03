@@ -29,7 +29,7 @@ RUN --mount=type=secret,id=hf_token \
     python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
 
 # ---- Runtime stage ----
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+FROM nvidia/cuda:12.1.0-runtime-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive \
     PYTHONUNBUFFERED=1 \

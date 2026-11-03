@@ -29,6 +29,7 @@ import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestions
 import { getISOStringsForDateRange } from "./utils/dateUtils";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCount } from "./utils/dashboardHelpers";
 
 type CustomerNotificationsCardProps = {
   notified: number;
@@ -155,7 +156,16 @@ export function CustomerNotificationsCard({
                       </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      {totalClosedQuestions.toLocaleString()} closed questions
+                      {totalClosedQuestions >= 10000 ? (
+                        <span
+                          className="cursor-help"
+                          title={`${totalClosedQuestions.toLocaleString()} closed questions`}
+                        >
+                          {formatCount(totalClosedQuestions)} closed questions
+                        </span>
+                      ) : (
+                        `${totalClosedQuestions.toLocaleString()} closed questions`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -446,6 +456,7 @@ function StatTile({
   onClick: () => void;
 }) {
   const a = ACCENT[accent];
+  const isLarge = count >= 10000;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -469,13 +480,30 @@ function StatTile({
               {label}
             </span>
           </div>
-          <span className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
-            <CountUp end={count} duration={1.2} preserveValue />
+          <span
+            className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground"
+            title={isLarge ? count.toLocaleString() : undefined}
+          >
+            <CountUp
+              end={count}
+              duration={1.2}
+              preserveValue
+              formattingFn={formatCount}
+            />
           </span>
         </motion.button>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs">{tooltip}</p>
+      <TooltipContent side="top" className="z-[9999]">
+        <div className="space-y-0.5">
+          {isLarge && (
+            <div className="font-bold tabular-nums text-xs">
+              {count.toLocaleString()}
+            </div>
+          )}
+          <p className={cn("text-xs", isLarge && "text-[11px] text-muted-foreground")}>
+            {tooltip}
+          </p>
+        </div>
       </TooltipContent>
     </Tooltip>
   );
