@@ -972,5 +972,9 @@ export interface IUserActivityMetrics {
   gatekeepedCount: number;
   totalGatekeepingMs: number;
   gdbPushedCount: number;
+  reroutedCount: number;
+  totalReroutingMs: number;
+  expertReroutedCount: number;
+  totalExpertReroutingMs: number;
 }
 
