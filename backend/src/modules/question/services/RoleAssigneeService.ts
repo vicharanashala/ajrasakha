@@ -231,6 +231,19 @@ export class RoleAssigneeService extends BaseService {
     const previousId = (question as any)?.[assigneeField]?.toString();
     const noun = role === 'gate_keeper' ? 'gate keeper' : 'auditor';
 
+    if (role === 'gate_keeper' && previousId !== userId) {
+      const targetUser = await this.userRepo.findById(userId);
+      if (
+        targetUser &&
+        targetUser.assignedQuestionIds &&
+        targetUser.assignedQuestionIds.length > 0
+      ) {
+        throw new BadRequestError(
+          'Target gate keeper already has an assigned question in progress',
+        );
+      }
+    }
+
     await this.questionRepo.setRoleAssignee(
       questionId,
       assigneeField,

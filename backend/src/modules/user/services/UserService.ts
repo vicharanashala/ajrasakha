@@ -1670,6 +1670,7 @@ export class UserService extends BaseService {
     });
 
     const sessions: UserSessionLog[] = [];
+    const activeIntervals: Array<{ start: number; end: number }> = [];
     let totalRevCycleMs = 0;
     const nowMs = Date.now();
     const startLimitMs = startDate.getTime();
@@ -1708,6 +1709,7 @@ export class UserService extends BaseService {
       const end = Math.min(toTime, endLimitMs);
 
       if (end > start) {
+        activeIntervals.push({ start, end });
         const sessionMs = end - start;
         totalRevCycleMs += sessionMs;
 
@@ -1737,6 +1739,7 @@ export class UserService extends BaseService {
       userId,
       startDate,
       endDate,
+      activeIntervals,
     );
 
     // Build PDF buffer
