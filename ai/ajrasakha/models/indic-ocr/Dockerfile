@@ -35,9 +35,16 @@ COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 # Copy server
 COPY server.py vllm_recognizer.py /app/
 
+# The torchcodec in this image fails to load without CUDA 13's libnvrtc.so.13, and vLLM imports it
+# for audio even when it is never used. vLLM treats a missing torchcodec as "no audio decoder", but
+# does not catch the OSError from a broken one. OCR uses neither audio nor video.
+RUN python3 -m pip uninstall -y torchcodec
+
 # Fail the build, not the deployment, if the image stops providing what the server needs.
+# `import vllm` alone is lazy and proves nothing: it has to be the same import the server does.
 RUN command -v curl \
     && python3 -c "import fastapi, uvicorn, python_multipart, PIL, torch, torchvision, transformers, vllm; \
+from vllm import LLM, SamplingParams; \
 assert torch.version.cuda.startswith('12.'), f'expected a CUDA 12 torch, got {torch.version.cuda}'; \
 print('torch', torch.__version__, 'cuda', torch.version.cuda, 'vllm', vllm.__version__, 'transformers', transformers.__version__)"
 
