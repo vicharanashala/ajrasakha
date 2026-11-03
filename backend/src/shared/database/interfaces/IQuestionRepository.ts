@@ -977,5 +977,7 @@ export interface IUserActivityMetrics {
   totalReroutingMs: number;
   expertReroutedCount: number;
   totalExpertReroutingMs: number;
+  heldCount: number;
+  totalHoldingMs: number;
 }
 
