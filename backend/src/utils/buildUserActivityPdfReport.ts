@@ -32,6 +32,10 @@ export interface UserActivityReportData {
   gatekeepedCount: number;
   totalGatekeepingMs: number;
   gdbPushedCount: number;
+  reroutedCount: number;
+  totalReroutingMs: number;
+  expertReroutedCount: number;
+  totalExpertReroutingMs: number;
   sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
@@ -258,6 +262,24 @@ export async function buildUserActivityPdfReport(
       badgeText: 'Gate Passed',
     },
     {
+      title: 'Rerouting',
+      count: data.reroutedCount,
+      totalMs: data.totalReroutingMs,
+      accentColor: '#B45309',
+      bgColor: '#FFFBEB',
+      borderColor: '#FDE68A',
+      badgeText: 'Questions Rerouted',
+    },
+    {
+      title: 'Expert Rerouting',
+      count: data.expertReroutedCount,
+      totalMs: data.totalExpertReroutingMs,
+      accentColor: '#6D28D9',
+      bgColor: '#F5F3FF',
+      borderColor: '#DDD6FE',
+      badgeText: 'Rerouted to Expert',
+    },
+    {
       title: 'GDB Pushed',
       count: data.gdbPushedCount,
       totalMs: 0,
@@ -428,6 +450,20 @@ export async function buildUserActivityPdfReport(
       avg: formatMsToHMS(data.gatekeepedCount > 0 ? data.totalGatekeepingMs / data.gatekeepedCount : 0),
       hours: formatHours(data.totalGatekeepingMs / (1000 * 60 * 60)),
       notes: 'Gatekeeper screening completions',
+    },
+    {
+      role: 'Rerouting',
+      count: data.reroutedCount,
+      avg: formatMsToHMS(data.reroutedCount > 0 ? data.totalReroutingMs / data.reroutedCount : 0),
+      hours: formatHours(data.totalReroutingMs / (1000 * 60 * 60)),
+      notes: 'Questions rerouted to experts',
+    },
+    {
+      role: 'Expert Rerouting',
+      count: data.expertReroutedCount,
+      avg: formatMsToHMS(data.expertReroutedCount > 0 ? data.totalExpertReroutingMs / data.expertReroutedCount : 0),
+      hours: formatHours(data.totalExpertReroutingMs / (1000 * 60 * 60)),
+      notes: 'Questions received via reroute',
     },
   ];
 
