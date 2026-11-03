@@ -60,6 +60,8 @@ class DraftRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     # the crop of the record, when known: the search then looks only at documents of that crop
     crop: str | None = Field(default=None, max_length=200)
+    # the domain of the record (e.g. "Disease Management"): the answer follows that domain's outline
+    domain: str | None = Field(default=None, max_length=200)
     # the files attached to the record as its sources; their text is searched before the library
     sources: list[SourceRef] = Field(default_factory=list, max_length=10)
 
@@ -101,7 +103,7 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
         passages = from_sources + search_library(request.question, request.crop)
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        return draft_answer(request.question, passages, request.crop)
+        return draft_answer(request.question, passages, request.crop, request.domain)
     except Exception as error:
         logger.exception("library draft failed")
         raise HTTPException(status_code=502, detail=f"Library draft failed: {error}") from error

@@ -34,9 +34,12 @@ describe('draftFromLibrary over HTTP', () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify(draft), {status: 200}));
     vi.stubGlobal('fetch', fetchMock);
 
-    const result = await draftFromLibrary('What spacing for banana?', 'Banana', [
-      {url: 'https://workdrive.zoho.in/file/abc123', name: 'Banana POP'},
-    ]);
+    const result = await draftFromLibrary(
+      'What spacing for banana?',
+      'Banana',
+      [{url: 'https://workdrive.zoho.in/file/abc123', name: 'Banana POP'}],
+      'Horticulture',
+    );
 
     expect(result).toEqual(draft);
     const [url, init] = fetchMock.mock.calls[0];
@@ -46,6 +49,7 @@ describe('draftFromLibrary over HTTP', () => {
       question: 'What spacing for banana?',
       crop: 'Banana',
       sources: [{url: 'https://workdrive.zoho.in/file/abc123', name: 'Banana POP'}],
+      domain: 'Horticulture',
     });
   });
 

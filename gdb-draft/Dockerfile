@@ -13,7 +13,7 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY *.py library_manifest.json ./
+COPY *.py library_manifest.json answer_structures.json ./
 COPY checker/llm_client.py checker/run_stats.py ./checker/
 
 # the downloaded DOCX and their PDFs are kept here and rebuilt by the sync when the container starts

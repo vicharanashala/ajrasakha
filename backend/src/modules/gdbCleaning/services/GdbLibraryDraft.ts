@@ -37,6 +37,7 @@ const draftOverHttp = async (
   question: string,
   crop: string | null,
   sources: GdbDraftSource[],
+  domain: string | null,
 ): Promise<GdbDraft> => {
   const token = draftToken();
   const response = await fetch(`${url.replace(/\/+$/, '')}/draft`, {
@@ -45,7 +46,7 @@ const draftOverHttp = async (
       'content-type': 'application/json',
       ...(token ? {'x-draft-token': token} : {}),
     },
-    body: JSON.stringify({question, crop, sources}),
+    body: JSON.stringify({question, crop, sources, domain}),
     signal: AbortSignal.timeout(DRAFT_TIMEOUT_MS),
   });
   if (!response.ok) {
@@ -56,14 +57,15 @@ const draftOverHttp = async (
 };
 
 // the crop of the record narrows the search to documents of that crop, and the record's own
-// source files are searched first
+// source files are searched first; the domain picks the outline the answer follows
 export const draftFromLibrary = (
   question: string,
   crop: string | null = null,
   sources: GdbDraftSource[] = [],
+  domain: string | null = null,
 ): Promise<GdbDraft> => {
   const url = draftUrl();
-  if (url) return draftOverHttp(url, question, crop, sources);
+  if (url) return draftOverHttp(url, question, crop, sources, domain);
 
   const python = pythonPath();
   const dir = pipelineDir();
@@ -100,7 +102,7 @@ export const draftFromLibrary = (
       }
     });
 
-    child.stdin.end(JSON.stringify({question, crop, sources}));
+    child.stdin.end(JSON.stringify({question, crop, sources, domain}));
   });
 };
 
