@@ -28,8 +28,10 @@ from pydantic import BaseModel, Field
 
 import local_index
 import anara_search
+import anara_sources
 import record_sources
 from anara_drafter import draft_answer
+import library_files
 from library_files import pdf_path_for_document
 
 load_dotenv()
@@ -45,6 +47,8 @@ async def lifespan(_app: FastAPI):
         from sync_library import sync_forever
 
         threading.Thread(target=sync_forever, args=(url, minutes), name="library-sync", daemon=True).start()
+    if os.getenv("DRAFT_PREFETCH", "").strip() == "1":
+        threading.Thread(target=library_files.prefetch_english, name="library-preload", daemon=True).start()
     yield
 
 
@@ -72,7 +76,29 @@ MAX_SOURCE_PASSAGES = 4
 def search_library(question: str, crop: str | None = None) -> list[dict[str, Any]]:
     """Passages from the Anara library; if Anara cannot be used, from the documents on this machine."""
     hits = anara_search.search(question, crop)
-    return hits if hits is not None else local_index.search_library(question, crop)
+    if hits is not None:
+        return hits
+    local = local_index.search_library(question, crop)
+    for hit in local:
+        hit["fallback"] = True  # the draft tells the reviewer that the simpler search was used
+    return local
+
+
+def record_source_passages(
+    question: str, sources: list[dict[str, str]], crop: str | None
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Passages from the record's own files: through Anara where it can take them, else from the PDF itself."""
+    found: list[dict[str, Any]] = []
+    handled: set[str] = set()
+    problems: list[str] = []
+    if anara_search.enabled():
+        try:
+            found, handled, problems = anara_sources.search(question, sources, crop)
+        except Exception:
+            logger.exception("Anara could not search the record's files; their PDFs are read directly")
+    rest = [s for s in sources if (record_sources.parse_link(s["url"]) or (None, None))[1] not in handled]
+    own, own_problems = record_sources.search_sources(question, rest, crop) if rest else ([], [])
+    return found + own, problems + own_problems
 
 
 def _pdf_path(document_id: str):
@@ -94,20 +120,39 @@ def health() -> dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get("/status")
+def status(x_draft_token: str | None = Header(default=None)) -> dict[str, Any]:
+    """Why a draft or an Open might be failing: whether Anara works, and how much of the library can be opened."""
+    _check_token(x_draft_token)
+    return {
+        "anara": anara_search.check(),
+        "library": {
+            "documents": len(library_files.load_manifest()),
+            "openable": len(library_files.openable_document_ids()),
+            "englishPreload": dict(library_files.PREFETCH_STATE),
+        },
+    }
+
+
 # a plain def, so FastAPI runs it in a worker thread and the blocking search and model calls
 # do not stall other requests
 @app.post("/draft")
 def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None)) -> dict[str, Any]:
     _check_token(x_draft_token)
     try:
-        from_sources, problems = record_sources.search_sources(
+        from_sources, problems = record_source_passages(
             request.question, [source.model_dump() for source in request.sources], request.crop
         )
         # the model reads only the first few passages, so the record's files cannot fill them all
-        passages = from_sources[:MAX_SOURCE_PASSAGES] + search_library(request.question, request.crop)
+        from_sources = from_sources[:MAX_SOURCE_PASSAGES]
+        taken = {passage.get("passageId") for passage in from_sources}
+        passages = from_sources + [p for p in search_library(request.question, request.crop) if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        return draft_answer(request.question, passages, request.crop, request.domain)
+        draft = draft_answer(request.question, passages, request.crop, request.domain)
+        if any(passage.get("fallback") for passage in passages):
+            draft["note"] = f"{draft.get('note') or ''} The Anara search was not available, so a simpler local search was used.".strip()
+        return draft
     except Exception as error:
         logger.exception("library draft failed")
         raise HTTPException(status_code=502, detail=f"Library draft failed: {error}") from error

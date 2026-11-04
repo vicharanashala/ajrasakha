@@ -82,6 +82,23 @@ class DraftApi(unittest.TestCase):
         self.assertEqual(self.client.get("/documents/nope/pdf", headers=HEADERS).status_code, 404)
         self.assertEqual(self.client.get("/documents/doc-2/pdf", headers=HEADERS).status_code, 404)
 
+    def test_a_document_is_openable_when_its_file_is_saved_or_downloadable(self):
+        entries = {"Banana.pdf": {"documentId": "doc-1"}, "Gone.pdf": {"documentId": "doc-2"},
+                   "Zoho.pdf": {"documentId": "doc-3", "zohoFileId": "abc"}}
+        (Path(self.scratch.name) / "anara_uploads.json").write_text(json.dumps(entries), encoding="utf-8")
+        openable = library_files.openable_document_ids()
+        self.assertTrue({"doc-1", "doc-3"} <= openable)
+        self.assertNotIn("doc-2", openable)
+
+    def test_a_record_source_is_fetched_again_when_its_saved_copy_is_gone(self):
+        import record_sources
+
+        with patch.object(record_sources, "SOURCE_DIRECTORY", Path(self.scratch.name) / "none"), patch.object(
+            record_sources, "fetch_pdf", return_value=Path("x.pdf")
+        ) as fetch:
+            self.assertEqual(record_sources.pdf_path_for_document("src-abc123"), Path("x.pdf"))
+        fetch.assert_called_once_with("https://workdrive.zoho.in/file/abc123")
+
     def test_an_id_cannot_name_another_file(self):
         self.assertEqual(self.client.get("/documents/..%2Fanara_uploads.json/pdf", headers=HEADERS).status_code, 404)
 

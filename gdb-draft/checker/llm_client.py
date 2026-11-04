@@ -69,11 +69,12 @@ def call_llm_once(
     url: str | None = None,
     api_key: str | None = None,
     timeout: float = REQUEST_TIMEOUT_SECONDS,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     """One request, returns the raw text. Raises on failure; use call_llm for retries.
 
     model, url and api_key default to MINIMAX_MODEL, MINIMAX_URL and MINIMAX_API_KEY,
-    so the checks are unchanged.
+    so the checks are unchanged. `extra` adds request fields, such as a thinking setting.
     """
     load_dotenv(PROJECT_DIRECTORY / ".env")
     api_key = api_key or os.getenv("MINIMAX_API_KEY", "").strip()
@@ -89,6 +90,7 @@ def call_llm_once(
             "temperature": 0.1,
             "max_completion_tokens": max_completion_tokens,
             "reasoning_split": True,
+            **(extra or {}),
         },
         timeout=timeout,
     )
@@ -112,6 +114,7 @@ def call_llm(
     url: str | None = None,
     api_key: str | None = None,
     timeout: float = REQUEST_TIMEOUT_SECONDS,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Call the model with retries and return the parsed JSON.
 
@@ -125,7 +128,7 @@ def call_llm(
         try:
             content = call_llm_once(
                 prompt, max_completion_tokens=max_completion_tokens,
-                model=model, url=url, api_key=api_key, timeout=timeout,
+                model=model, url=url, api_key=api_key, timeout=timeout, extra=extra,
             )
             match = re.search(r"{.*}", content, re.DOTALL)
             if match is None:

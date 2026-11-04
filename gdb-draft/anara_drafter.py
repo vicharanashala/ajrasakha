@@ -32,6 +32,9 @@ DRAFT_ATTEMPT_TIMEOUT_SECONDS = 70
 # the model reasons before it answers, and the reasoning counts against this budget: at 2048 it
 # often used all of it and returned no answer text (finish_reason "length")
 DRAFT_MAX_COMPLETION_TOKENS = 6000
+# with thinking on, about half the drafts spent the whole budget deliberating and returned no answer
+# (65 s, nothing written); with it off a draft takes about 7 s. DRAFT_THINKING=on turns it back on.
+DRAFT_EXTRA = {} if os.getenv("DRAFT_THINKING", "off").strip().lower() == "on" else {"thinking": {"type": "disabled"}}
 # drafting has its own model, so the checks keep MINIMAX_MODEL and MINIMAX_URL from .env
 DRAFT_MODEL = os.getenv("DRAFT_MINIMAX_MODEL", "MiniMax-M3")
 DRAFT_URL = os.getenv(
@@ -53,6 +56,10 @@ Return only JSON in this form:
 
 Question: {question}
 
+Some passages are tables whose columns have run together. Read them row by row (crop, disease or
+pest, product, dose, waiting period or interval in days) and use the figures of the row for the
+crop asked.
+
 Passages:
 {passages}
 """
@@ -69,10 +76,12 @@ GENERIC_SHAPE = (
 
 SHAPE_TEMPLATE = """Write the answer in sections, each with a short title on its own line and then its text.
 The usual sections of an answer in the domain "{domain}" are listed below. Use the Narrow list for
-a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Follow
-its order, skip any section the passages do not cover, and end with a short conclusion that points
-the farmer to the local KVK if their case differs. The lists only give the sections: every fact
-comes from the passages. Do not deliberate over the sections, write the answer.
+a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Keep
+their order, but give each section a plain title that fits this question. Leave a section out
+completely when the passages have nothing for it: never write that something is not given, and
+never repeat a fact in a second section. Put the direct answer first and end with a short
+conclusion that points the farmer to the local KVK if their case differs. The lists only give the
+sections: every fact comes from the passages.
 
 Broad: {broad}
 Narrow: {narrow}
@@ -171,6 +180,7 @@ def draft_answer(
             max_completion_tokens=DRAFT_MAX_COMPLETION_TOKENS,
             max_retries=attempts - 1,
             timeout=DRAFT_ATTEMPT_TIMEOUT_SECONDS,
+            extra=DRAFT_EXTRA,
         )
 
     shape = answer_shape(domain)
