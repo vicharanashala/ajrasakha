@@ -70,6 +70,12 @@ class DraftRequest(BaseModel):
     sources: list[SourceRef] = Field(default_factory=list, max_length=10)
 
 
+class Passages(list):
+    """The passages of a library search; `fallback` is True when Anara could not be used."""
+
+    fallback = False
+
+
 MAX_SOURCE_PASSAGES = 4
 # a new record file is uploaded and read by Anara first; a draft does not wait longer than this for it
 ANARA_SOURCES_SECONDS = 100
@@ -79,10 +85,9 @@ def search_library(question: str, crop: str | None = None) -> list[dict[str, Any
     """Passages from the Anara library; if Anara cannot be used, from the documents on this machine."""
     hits = anara_search.search(question, crop)
     if hits is not None:
-        return hits
-    local = local_index.search_library(question, crop)
-    for hit in local:
-        hit["fallback"] = True  # the draft tells the reviewer that the simpler search was used
+        return Passages(hits)
+    local = Passages(local_index.search_library(question, crop))
+    local.fallback = True  # the draft tells the reviewer, even when this search found nothing
     return local
 
 
@@ -148,12 +153,16 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
         # the model reads only the first few passages, so the record's files cannot fill them all
         from_sources = from_sources[:MAX_SOURCE_PASSAGES]
         taken = {passage.get("passageId") for passage in from_sources}
-        passages = from_sources + [p for p in search_library(request.question, request.crop) if p.get("passageId") not in taken]
+        library = search_library(request.question, request.crop)
+        passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
         draft = draft_answer(request.question, passages, request.crop, request.domain)
-        if any(passage.get("fallback") for passage in passages):
-            draft["note"] = f"{draft.get('note') or ''} The Anara search was not available, so a simpler local search was used.".strip()
+        if getattr(library, "fallback", False):
+            draft["note"] = (
+                f"{draft.get('note') or ''} The Anara library search was not available, so this draft uses only "
+                "the record's own files and a simpler local search."
+            ).strip()
         return draft
     except Exception as error:
         logger.exception("library draft failed")

@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -65,12 +66,23 @@ class _FileStorage:
         TOKEN_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     async def get_tokens(self):
-        raw = self._load().get("tokens")
-        return OAuthToken(**raw) if raw else None
+        data = self._load()
+        raw = data.get("tokens")
+        if not raw:
+            return None
+        token = OAuthToken(**raw)
+        # The client reads expires_in as the time left from now, so a token saved a day ago would be
+        # sent as if it were new, answered with a 401, and end in a browser sign-in. Take off the time
+        # since it was saved, and the client refreshes it in time instead.
+        saved_at = data.get("saved_at") or (TOKEN_FILE.stat().st_mtime if TOKEN_FILE.exists() else None)
+        if saved_at and token.expires_in:
+            token.expires_in = max(1, int(token.expires_in - (time.time() - saved_at)))
+        return token
 
     async def set_tokens(self, tokens: OAuthToken) -> None:
         data = self._load()
         data["tokens"] = tokens.model_dump(mode="json", exclude_none=True)
+        data["saved_at"] = time.time()
         self._save(data)
 
     async def get_client_info(self):
