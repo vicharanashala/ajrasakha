@@ -16029,17 +16029,21 @@ async getAllUserMessageIds(
         };
       }
 
+      // NOTE: the Unique/Duplicate filter (typeMatch) and the non_agri exclusion both
+      // constrain `status`, so they must be separate $and conditions. Putting two
+      // `status` keys in one object makes the later one silently overwrite the first,
+      // which is why Unique/Duplicate used to return the same rows as All.
       const finalMatch: any = {
         ...matchStage,
         ...cropMatch,
-        ...typeMatch,
         ...searchMatch,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
+          typeMatch,
+          {status: {$ne: 'non_agri'}},
         ],
-        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
