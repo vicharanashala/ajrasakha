@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent / "checker"))
 
 load_dotenv(Path(__file__).resolve().parent / ".env")
 
-from llm_client import call_llm  # noqa: E402
+from llm_client import LLMCallFailed, call_llm  # noqa: E402
 
 # the model's reasoning time grows with the passages it is given (about 30 s for 8, about 70 s for 12)
 MAX_PASSAGES = 8
@@ -68,18 +68,14 @@ GENERIC_SHAPE = (
 )
 
 SHAPE_TEMPLATE = """Write the answer in sections, each with a short title on its own line and then its text.
-Below are the usual outlines of an answer in the domain "{domain}", taken from example questions.
-Use the Narrow outline when the question asks for one specific thing (a dose, a timing, one fix),
-otherwise the Broad one. Keep their order and kind of sections, change the titles to fit this
-question, and leave out any section the passages do not cover. Give the direct answer first and end
-with a short conclusion that points the farmer to the local KVK if their case differs.
-Never take a fact, crop, chemical or dose from the outlines: facts come only from the passages.
+The usual sections of an answer in the domain "{domain}" are listed below. Use the Narrow list for
+a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Follow
+its order, skip any section the passages do not cover, and end with a short conclusion that points
+the farmer to the local KVK if their case differs. The lists only give the sections: every fact
+comes from the passages. Do not deliberate over the sections, write the answer.
 
-Broad outline:
-{broad}
-
-Narrow outline:
-{narrow}
+Broad: {broad}
+Narrow: {narrow}
 """
 
 _structures: dict[str, Any] | None = None
@@ -116,10 +112,8 @@ def structure_for(domain: str | None) -> dict[str, Any] | None:
 
 
 def _outline(steps: list[dict[str, str]]) -> str:
-    return "\n".join(
-        f"  {number}. {step['step']}" + (f" ({step['note']})" if step.get("note") else "")
-        for number, step in enumerate(steps, start=1)
-    )
+    # titles only: the notes made the model spend its whole budget deciding how to follow them
+    return "; ".join(f"{number}. {step['step']}" for number, step in enumerate(steps, start=1))
 
 
 def answer_shape(domain: str | None) -> str:
@@ -164,19 +158,31 @@ def draft_answer(
         f"The question is about the crop: {crop}. A passage about a different crop does not answer it.\n"
         if crop else ""
     )
-    prompt = PROMPT_TEMPLATE.format(
-        question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=answer_shape(domain)
-    )
-    result = call_llm(
-        prompt,
-        validate=lambda r: isinstance(r, dict) and "answer" in r,
-        model=DRAFT_MODEL,
-        url=DRAFT_URL,
-        api_key=DRAFT_API_KEY,
-        max_completion_tokens=DRAFT_MAX_COMPLETION_TOKENS,
-        max_retries=DRAFT_ATTEMPTS - 1,
-        timeout=DRAFT_ATTEMPT_TIMEOUT_SECONDS,
-    )
+    def ask(shape: str, attempts: int) -> dict[str, Any]:
+        prompt = PROMPT_TEMPLATE.format(
+            question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape
+        )
+        return call_llm(
+            prompt,
+            validate=lambda r: isinstance(r, dict) and "answer" in r,
+            model=DRAFT_MODEL,
+            url=DRAFT_URL,
+            api_key=DRAFT_API_KEY,
+            max_completion_tokens=DRAFT_MAX_COMPLETION_TOKENS,
+            max_retries=attempts - 1,
+            timeout=DRAFT_ATTEMPT_TIMEOUT_SECONDS,
+        )
+
+    shape = answer_shape(domain)
+    if shape == GENERIC_SHAPE:
+        result = ask(shape, DRAFT_ATTEMPTS)
+    else:
+        # an outline can make the model reason until its budget is gone and return no answer, and
+        # trying the same prompt again does the same, so one try is followed by the plain format
+        try:
+            result = ask(shape, 1)
+        except LLMCallFailed:
+            result = ask(GENERIC_SHAPE, DRAFT_ATTEMPTS - 1)
 
     citations = []
     for number in result.get("used_passages", []):
