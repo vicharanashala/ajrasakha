@@ -8,6 +8,7 @@ then is left to the caller, which searches the PDF itself (record_sources.py).
 
 from __future__ import annotations
 
+import contextlib
 import json
 import logging
 import re
@@ -28,10 +29,22 @@ def _client():
 
     return anara_client
 
-READY_WAIT_SECONDS = 90
+READY_WAIT_SECONDS = 60
 POLL_SECONDS = 5
+LOCK_WAIT_SECONDS = 30
 TOP_K = 6
 _lock = threading.Lock()  # two drafts for the same new file must not upload it twice
+
+
+@contextlib.contextmanager
+def _locked(seconds: float):
+    """The upload lock, or a TimeoutError when another draft keeps it too long (the caller reads the PDF itself)."""
+    if not _lock.acquire(timeout=seconds):
+        raise TimeoutError("another draft is uploading a record file")
+    try:
+        yield
+    finally:
+        _lock.release()
 _pending: dict[str, tuple[str, str]] = {}  # document id -> (file id, name): uploaded, not renamed yet
 
 
@@ -120,6 +133,7 @@ def search(
             wanted[link[1]] = ((source.get("name") or "").strip() or f"Source {link[1][:8]}", source["url"].strip())
     if not wanted:
         return [], set(), []
+    anara_search.prepare()  # without it a server with no saved sign-in waits for a browser that does not exist
 
     problems: list[str] = []
     in_library = {  # a file that is one of the library's own documents needs no upload
@@ -130,7 +144,7 @@ def search(
     document_ids = {fid: in_library[fid] for fid in wanted if fid in in_library}
     reading: dict[str, str] = {}  # file id -> document id, for files Anara is still reading
 
-    with _lock:
+    with _locked(LOCK_WAIT_SECONDS):
         _settle_pending()
         found = _lookup([fid for fid in wanted if fid not in in_library])
         for fid, (name, url) in wanted.items():
