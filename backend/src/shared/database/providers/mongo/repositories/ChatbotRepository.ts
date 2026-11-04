@@ -16278,12 +16278,12 @@ async getAllUserMessageIds(
         };
       }
       if (status === 'pending') {
-        // matchQuery.status = {
-        //   $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
-        // };
+        // "In Queue" = every question that is not closed / non-GDB. This must match the
+        // tile's formula (total - closed - non-GDB), so it includes open, in-review,
+        // delayed, hold, etc. -- not only questions whose status is literally 'pending'.
         matchQuery.status = {
-          $in: ['pending'],
-        }
+          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+        };
       }
 
       // Apply date range
