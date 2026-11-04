@@ -729,10 +729,10 @@ export class QuestionController {
   @OpenAPI({
     summary: 'Get finalized questions for RDQA review',
     description:
-      'Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true). Questions are distributed equally among moderators based on their approvedBy field. If no date is provided, defaults to yesterday.',
+      'Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true). Questions are distributed equally among moderators based on their approvedBy field. If no date is provided, defaults to yesterday. Maximum 50 questions are returned by default, configurable via the limit parameter (max 50).',
   })
   async getRdqaQuestions(@QueryParams() query: RdqaListQuery) {
-    const result = await this.questionService.getRdqaQuestions(query.date);
+    const result = await this.questionService.getRdqaQuestions(query.date, query.limit);
     return { success: true, data: result };
   }
 }

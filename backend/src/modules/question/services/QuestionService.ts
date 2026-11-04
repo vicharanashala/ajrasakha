@@ -3064,13 +3064,15 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   /**
    * Get finalized questions for RDQA (Review Data Quality Assessment).
-   * 
+   *
    * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
    * Questions are distributed equally among moderators based on their approvedBy field.
    * Each moderator gets the same number of questions (minimum available count among all moderators).
+   * A maximum limit of questions is enforced (defaults to 50, max 50).
    */
-  async getRdqaQuestions(date?: string): Promise<{
+  async getRdqaQuestions(date?: string, limit?: number): Promise<{
     date: string;
+    limit: number;
     totalModerators: number;
     questionsPerModerator: number;
     totalQuestions: number;
@@ -3100,6 +3102,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       targetDate.setHours(0, 0, 0, 0);
       dateString = targetDate.toISOString().split('T')[0];
     }
+
+    // Determine the effective limit (default 50, max 50)
+    const MAX_LIMIT = 50;
+    const effectiveLimit = Math.min(limit ?? MAX_LIMIT, MAX_LIMIT);
 
     // Calculate date range for the full day (00:00:00 to 23:59:59.999)
     const startOfDay = new Date(targetDate);
@@ -3146,6 +3152,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (!moderatorGroups || moderatorGroups.length === 0) {
       return {
         date: dateString,
+        limit: effectiveLimit,
         totalModerators: 0,
         questionsPerModerator: 0,
         totalQuestions: 0,
@@ -3160,6 +3167,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     if (validModerators.length === 0) {
       return {
         date: dateString,
+        limit: effectiveLimit,
         totalModerators: 0,
         questionsPerModerator: 0,
         totalQuestions: 0,
@@ -3168,20 +3176,29 @@ export class QuestionService extends BaseService implements IQuestionService {
       };
     }
 
-    // Find minimum count among all moderators
-    const questionsPerModerator = Math.min(...validModerators.map(m => m.totalAvailable));
+    // Calculate max questions per moderator considering the global limit
+    // Each moderator gets equal questions, but we must respect the total limit
+    const minPerModerator = Math.min(...validModerators.map(m => m.totalAvailable));
+    const totalPotentialQuestions = validModerators.length * minPerModerator;
+    const distributedCount = Math.min(effectiveLimit, totalPotentialQuestions);
+    const questionsPerModerator = Math.max(1, Math.floor(distributedCount / validModerators.length));
 
     // Build moderator distribution info
     const moderatorDistribution = validModerators.map(m => ({
       approvedBy: m._id.toString(),
       totalAvailable: m.totalAvailable,
-      selectedCount: questionsPerModerator,
+      selectedCount: Math.min(questionsPerModerator, m.totalAvailable),
     }));
 
     // Fetch and randomly select questions for each moderator
     const selectedQuestions: Array<{ question: any; answer: any }> = [];
+    let remainingLimit = distributedCount;
 
     for (const moderator of validModerators) {
+      // Calculate how many questions this moderator can contribute
+      const questionsForThisModerator = Math.min(questionsPerModerator, moderator.totalAvailable, remainingLimit);
+      if (questionsForThisModerator <= 0) break;
+
       const questionAnswerPairs: Array<{ question: any; answer: any }> = [];
 
       // Fetch question-answer pairs for this moderator
@@ -3220,12 +3237,17 @@ export class QuestionService extends BaseService implements IQuestionService {
         [questionAnswerPairs[i], questionAnswerPairs[j]] = [questionAnswerPairs[j], questionAnswerPairs[i]];
       }
 
-      // Take the first N items
-      selectedQuestions.push(...questionAnswerPairs.slice(0, questionsPerModerator));
+      // Take the limited number of items
+      const selectedForModerator = questionAnswerPairs.slice(0, questionsForThisModerator);
+      selectedQuestions.push(...selectedForModerator);
+      remainingLimit -= selectedForModerator.length;
+
+      if (remainingLimit <= 0) break;
     }
 
     return {
       date: dateString,
+      limit: effectiveLimit,
       totalModerators: validModerators.length,
       questionsPerModerator,
       totalQuestions: selectedQuestions.length,

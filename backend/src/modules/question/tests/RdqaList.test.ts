@@ -31,6 +31,7 @@ describe('RDQA List Service - Core Logic', () => {
       expect(result.totalModerators).toBe(0);
       expect(result.questionsPerModerator).toBe(0);
       expect(result.questions).toEqual([]);
+      expect(result.limit).toBe(50); // default limit
     });
 
     it('should filter moderators with valid approvedBy only', async () => {
@@ -93,6 +94,60 @@ describe('RDQA List Service - Core Logic', () => {
 
       expect(result.date).toBe('2026-11-03');
     });
+
+    it('should respect the limit parameter', async () => {
+      const moderatorGroups = [
+        { _id: new ObjectId().toString(), totalAvailable: 100, answerIds: [], questionIds: [] },
+      ];
+
+      const service = createMockService(moderatorGroups);
+      const result = await service.getRdqaQuestions('2026-11-03', 25);
+
+      expect(result.limit).toBe(25);
+      expect(result.questionsPerModerator).toBe(25);
+    });
+
+    it('should cap limit at 50 when exceeded', async () => {
+      const moderatorGroups = [
+        { _id: new ObjectId().toString(), totalAvailable: 100, answerIds: [], questionIds: [] },
+      ];
+
+      const service = createMockService(moderatorGroups);
+      const result = await service.getRdqaQuestions('2026-11-03', 100);
+
+      expect(result.limit).toBe(50);
+      expect(result.questionsPerModerator).toBe(50);
+    });
+
+    it('should use default limit of 50 when not specified', async () => {
+      const service = createMockService([]);
+      const result = await service.getRdqaQuestions();
+
+      expect(result.limit).toBe(50);
+    });
+
+    it('should distribute equally when limit is set', async () => {
+      const moderatorGroups = [
+        { _id: new ObjectId().toString(), totalAvailable: 20, answerIds: [], questionIds: [] },
+        { _id: new ObjectId().toString(), totalAvailable: 20, answerIds: [], questionIds: [] },
+        { _id: new ObjectId().toString(), totalAvailable: 20, answerIds: [], questionIds: [] },
+      ];
+
+      // Need to provide 4 question-answer pairs for each moderator (3 x 4 = 12 total)
+      const allPairs = moderatorGroups.flatMap((mod) => {
+        return Array.from({ length: 4 }, (_, idx) => ({
+          question: { _id: new ObjectId(), question: 'Test', status: 'closed' },
+          answer: { _id: new ObjectId(), answer: 'Test answer', isFinalAnswer: true },
+        }));
+      });
+
+      const service = createMockService(moderatorGroups, allPairs);
+      const result = await service.getRdqaQuestions('2026-11-03', 12);
+
+      expect(result.totalModerators).toBe(3);
+      expect(result.questionsPerModerator).toBe(4);
+      expect(result.totalQuestions).toBe(12);
+    });
   });
 });
 
@@ -106,5 +161,16 @@ describe('RdqaListQuery Validator', () => {
   it('should allow undefined date', () => {
     const query = new RdqaListQuery();
     expect(query.date).toBeUndefined();
+  });
+
+  it('should accept valid limit', () => {
+    const query = new RdqaListQuery();
+    query.limit = 25;
+    expect(query.limit).toBe(25);
+  });
+
+  it('should allow undefined limit', () => {
+    const query = new RdqaListQuery();
+    expect(query.limit).toBeUndefined();
   });
 });
