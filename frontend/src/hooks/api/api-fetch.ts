@@ -12,7 +12,8 @@ export const getCurrentUser = (): Promise<User | null> => {
 };
 export const apiFetch = async <T>(
   url: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  timeoutMs = 60000
 ): Promise<T | null> => {
   const firebaseUser = await getCurrentUser();
 
@@ -40,7 +41,7 @@ export const apiFetch = async <T>(
 
   // Add timeout to prevent hanging requests
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 60000); // 60 second timeout
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
     const res = await fetch(url, { ...options, headers, signal: controller.signal });
