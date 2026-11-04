@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -50,6 +51,18 @@ class DraftAnswer(unittest.TestCase):
             self.assertIn("never mention \"the passages\"", prompt)
         self.assertIn("The usual sections", with_outline)
         self.assertNotIn("Rules for writing the answer", without)
+
+    def test_the_request_to_google_has_no_minimax_only_field(self):
+        import llm_client
+
+        response = unittest.mock.MagicMock(ok=True)
+        response.json.return_value = {"choices": [{"message": {"content": "{}"}}]}
+        with patch.object(llm_client.requests, "post", return_value=response) as post:
+            llm_client.call_llm_once("p", url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", api_key="k")
+            llm_client.call_llm_once("p", url="https://api.minimax.io/v1/chat/completions", api_key="k")
+        google, minimax = (c.kwargs["json"] for c in post.call_args_list)
+        self.assertNotIn("reasoning_split", google)
+        self.assertTrue(minimax["reasoning_split"])
 
     def test_citations_follow_the_passages_the_answer_used(self):
         reply = {"answer": "a [P2][P1]", "used_passages": [2, 1, 9, "x"], "note": ""}

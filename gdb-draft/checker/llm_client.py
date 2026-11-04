@@ -81,17 +81,20 @@ def call_llm_once(
     if not api_key:
         raise ValueError("MINIMAX_API_KEY is not configured")
 
+    url = url or MINIMAX_URL
+    body = {
+        "model": model or MINIMAX_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "max_completion_tokens": max_completion_tokens,
+        **(extra or {}),
+    }
+    if "googleapis.com" not in url:  # reasoning_split is MiniMax's; Google's endpoint rejects unknown fields
+        body["reasoning_split"] = True
     response = requests.post(
-        url or MINIMAX_URL,
+        url,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model or MINIMAX_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_completion_tokens": max_completion_tokens,
-            "reasoning_split": True,
-            **(extra or {}),
-        },
+        json=body,
         timeout=timeout,
     )
     if not response.ok:

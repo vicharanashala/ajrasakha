@@ -32,16 +32,21 @@ DRAFT_ATTEMPT_TIMEOUT_SECONDS = 70
 # the model reasons before it answers, and the reasoning counts against this budget: at 2048 it
 # often used all of it and returned no answer text (finish_reason "length")
 DRAFT_MAX_COMPLETION_TOKENS = 6000
-# with thinking on, about half the drafts spent the whole budget deliberating and returned no answer
-# (65 s, nothing written); with it off a draft takes about 7 s. DRAFT_THINKING=on turns it back on.
-DRAFT_EXTRA = {} if os.getenv("DRAFT_THINKING", "off").strip().lower() == "on" else {"thinking": {"type": "disabled"}}
-# drafting has its own model, so the checks keep MINIMAX_MODEL and MINIMAX_URL from .env
 DRAFT_MODEL = os.getenv("DRAFT_MINIMAX_MODEL", "MiniMax-M3")
 DRAFT_URL = os.getenv(
     "DRAFT_MINIMAX_URL", "https://samagama.in/platform/proxy/v1/chat/completions"
 )
 # empty means the drafter uses MINIMAX_API_KEY, the same key as the checks
 DRAFT_API_KEY = os.getenv("DRAFT_MINIMAX_API_KEY", "").strip() or None
+# MiniMax: with thinking on, about half the drafts spent the whole budget deliberating and returned no
+# answer (65 s, nothing written); with it off a draft takes about 7 s. DRAFT_THINKING=on turns it back on.
+# Gemini (the URL is Google's): reasoning stays on but low, which is about 8 s a draft.
+if "googleapis.com" in DRAFT_URL:
+    DRAFT_EXTRA = {"reasoning_effort": os.getenv("DRAFT_REASONING_EFFORT", "low")}
+elif os.getenv("DRAFT_THINKING", "off").strip().lower() == "on":
+    DRAFT_EXTRA = {}
+else:
+    DRAFT_EXTRA = {"thinking": {"type": "disabled"}}
 
 PROMPT_TEMPLATE = """You are drafting an agricultural answer for a farmer-facing database.
 
