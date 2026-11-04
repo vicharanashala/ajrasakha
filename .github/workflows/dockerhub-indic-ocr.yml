@@ -2,6 +2,12 @@ name: Dockerhub IndicOCR Model Deployment
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/indic-ocr/driver-issue
+    paths:
+      - 'ai/ajrasakha/models/indic-ocr/**'
+      - '.github/workflows/dockerhub-indic-ocr.yml'
 
 permissions:
   contents: read
@@ -29,8 +35,11 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # The vLLM base image is about 11 GB compressed, so free as much as the runner allows
+          sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/node_modules /usr/share/swift
           # Remove any existing Docker images to free space
           docker rmi $(docker images -q) || true
+          df -h
 
       - name: Check HF_TOKEN secret
         env:
