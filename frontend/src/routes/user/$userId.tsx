@@ -156,7 +156,7 @@ function RouteComponent() {
       return;
     }
 
-    void initializeNotifications();
+    void initializeNotifications(currentUser._id);
   }, [currentUser?._id, currentUser?.role]);
 
   const verifyUserMutation = useVerifyUserAnalytics();

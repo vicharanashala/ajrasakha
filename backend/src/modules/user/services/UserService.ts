@@ -272,6 +272,7 @@ export class UserService extends BaseService {
         'mobile',
         'university',
         'kvkCovered',
+        'sendDailyReport',
       ] as const;
 
       const sanitizedData: Partial<IUser> = {};
@@ -1758,6 +1759,10 @@ export class UserService extends BaseService {
       gatekeepedCount: metrics.gatekeepedCount,
       totalGatekeepingMs: metrics.totalGatekeepingMs,
       gdbPushedCount: metrics.gdbPushedCount,
+      reroutedCount: metrics.reroutedCount,
+      totalReroutingMs: metrics.totalReroutingMs,
+      expertReroutedCount: metrics.expertReroutedCount,
+      totalExpertReroutingMs: metrics.totalExpertReroutingMs,
       sessions,
     });
 
@@ -1845,9 +1850,16 @@ export class UserService extends BaseService {
   }
 
   /**
-   * Daily 12:00 AM IST batch job:
-   * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST Activity Report
-   * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
+   * Daily shift-based batch job:
+   * 
+   * MORNING SHIFT (2:55 PM IST):
+   *   - Sends report to users who checked in (sendDailyReport === true)
+   *   - Report covers: TODAY 6:00 AM to 2:55 PM IST
+   * 
+   * EVENING SHIFT (12:00 AM IST):
+   *   - Sends report to users who checked in (sendDailyReport === true)
+   *   - Report covers: YESTERDAY 3:00 PM to 11:59 PM IST
+   * 
    * Primary 'To' is the user's email (the concern person), and 'CC' contains configured CC recipients.
    */
   async sendDailyUserActivityReports(targetDateStr?: string): Promise<{
@@ -1858,26 +1870,69 @@ export class UserService extends BaseService {
     failed: number;
     errors: { userId: string; name?: string; email?: string; error: string }[];
   }> {
-    // 1. Calculate target date (yesterday in IST if not explicitly provided)
+    // 1. Calculate target date and time range based on current IST hour
+    const now = new Date();
+    // IST is UTC+5.5 hours
+    const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
+    const istHour = istNow.getUTCHours();
+
     let dateStr: string;
-    if (targetDateStr && /^\d{4}-\d{2}-\d{2}$/.test(targetDateStr)) {
-      dateStr = targetDateStr;
+    let startDateStr: string;
+    let endDateStr: string;
+    let shiftType: 'morning' | 'evening';
+
+    // Helper to format date as YYYY-MM-DD
+    const formatDateIST = (d: Date): string => {
+      const yyyy = d.getUTCFullYear();
+      const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+      const dd = String(d.getUTCDate()).padStart(2, '0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+
+    // Helper to pad number with leading zero
+    const pad = (n: number): string => String(n).padStart(2, '0');
+
+    // Determine if this is morning shift (2:55 PM) or evening shift (12:00 AM)
+    // Morning shift cron runs at 14:55 UTC = 2:55 PM IST
+    // Evening shift cron runs at 18:30 UTC = 12:00 AM IST
+    // istHour 14-15 = around 2:55 PM IST (morning shift report)
+    // istHour 18-19 = around 12:00 AM IST (evening shift report)
+    const isMorningShift = istHour >= 14 && istHour < 16;
+
+    if (isMorningShift) {
+      // ┌─────────────────────────────────────────────────────────────┐
+      // │  MORNING SHIFT REPORT (runs at 2:55 PM IST)                  │
+      // │  Covers: TODAY 6:00 AM → current time (or 3:00 PM)          │
+      // └─────────────────────────────────────────────────────────────┘
+      shiftType = 'morning';
+      const todayStr = formatDateIST(istNow);
+      
+      // Use current time for end date
+      const currentHours = pad(istNow.getUTCHours());
+      const currentMinutes = pad(istNow.getUTCMinutes());
+      const currentSeconds = pad(istNow.getUTCSeconds());
+      const currentMs = String(istNow.getUTCMilliseconds()).padStart(3, '0');
+      
+      dateStr = todayStr;
+      startDateStr = `${todayStr}T06:00:00.000+05:30`;
+      endDateStr = `${todayStr}T${currentHours}:${currentMinutes}:${currentSeconds}.${currentMs}+05:30`;
     } else {
-      const now = new Date();
-      // IST is UTC+5.5 hours
-      const istNow = new Date(now.getTime() + 5.5 * 60 * 60 * 1000);
-      istNow.setUTCDate(istNow.getUTCDate() - 1);
-      const yyyy = istNow.getUTCFullYear();
-      const mm = String(istNow.getUTCMonth() + 1).padStart(2, '0');
-      const dd = String(istNow.getUTCDate()).padStart(2, '0');
-      dateStr = `${yyyy}-${mm}-${dd}`;
+      // ┌─────────────────────────────────────────────────────────────┐
+      // │  EVENING SHIFT REPORT (runs at 12:00 AM IST)                 │
+      // │  Covers: YESTERDAY 3:00 PM → 11:59 PM IST                   │
+      // └─────────────────────────────────────────────────────────────┘
+      shiftType = 'evening';
+      const yesterday = new Date(istNow);
+      yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+      const yesterdayStr = formatDateIST(yesterday);
+      
+      dateStr = yesterdayStr;
+      startDateStr = `${yesterdayStr}T15:00:00.000+05:30`;
+      endDateStr = `${yesterdayStr}T23:59:59.999+05:30`;
     }
 
-    const startDateStr = `${dateStr}T00:00:00.000+05:30`;
-    const endDateStr = `${dateStr}T23:59:59.999+05:30`;
-
     console.log(
-      `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
+      `[sendDailyUserActivityReports] Generating ${shiftType} shift reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
     // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
@@ -1904,6 +1959,14 @@ export class UserService extends BaseService {
         (user as any).userName ||
         user.email ||
         'User';
+
+      if (user.sendDailyReport !== true) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): sendDailyReport is false or not set.`,
+        );
+        skipped++;
+        continue;
+      }
 
       if (!user.email || !user.email.includes('@')) {
         console.warn(

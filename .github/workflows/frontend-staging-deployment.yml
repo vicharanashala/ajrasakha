@@ -68,6 +68,7 @@ jobs:
           VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}
           VITE_SARVAM_API_KEY: ${{ secrets.VITE_SARVAM_API_KEY_STAGING }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY_STAGING }}
+          VITE_CARTO_API_KEY: ${{ secrets.VITE_CARTO_API_KEY }}
         run: |
           cd frontend
           pnpm exec vite build

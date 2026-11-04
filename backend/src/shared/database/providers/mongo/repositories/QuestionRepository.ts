@@ -998,9 +998,14 @@ export class QuestionRepository implements IQuestionRepository {
           filter.status = 'dynamic';
         }
       } else {
-        caseInsensitiveStringFilter('status', status);
+        // --- Status filter with special handling for static_dynamic ---
+        // When status is 'static_dynamic', filter by tag field instead of status field
+        if (status && status.toLowerCase() === 'static_dynamic') {
+          filter.tag = { $regex: '^static_dynamic$', $options: 'i' };
+        } else {
+          caseInsensitiveStringFilter('status', status);
+        }
       }
-
       caseInsensitiveStringFilter('source', source);
       caseInsensitiveStringFilter('priority', priority);
 
@@ -7390,14 +7395,24 @@ export class QuestionRepository implements IQuestionRepository {
         ],
         { session },
       ).toArray(),
-      this.QuestionCollection.aggregate(
-        [
-          { $match: filter },
-          { $group: { _id: '$source', count: { $sum: 1 } } },
-          { $project: { _id: 0, source: '$_id', count: 1 } },
-        ],
-        { session },
-      ).toArray(),
+      // For static_dynamic status, group by tag instead of status
+      query.status && query.status.toLowerCase() === 'static_dynamic'
+        ? this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$tag', count: { $sum: 1 } } },
+              { $project: { _id: 0, status: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray()
+        : this.QuestionCollection.aggregate(
+            [
+              { $match: filter },
+              { $group: { _id: '$source', count: { $sum: 1 } } },
+              { $project: { _id: 0, source: '$_id', count: 1 } },
+            ],
+            { session },
+          ).toArray(),
     ]);
 
     const statuses = statusResults.map(r => ({
@@ -10632,6 +10647,74 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
+    // 6. Rerouting: reroute entries where the moderator (reroutedBy) performed the reroute in date range
+    let reroutedCount = 0;
+    let totalReroutingMs = 0;
+
+    const rerouteDocs = await this.ReRouteCollection.find({
+      reroutes: {
+        $elemMatch: {
+          reroutedBy: userObjectId,
+          reroutedAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+    }).toArray();
+
+    for (const doc of rerouteDocs) {
+      const reroutes: any[] = (doc as any).reroutes || [];
+      for (const r of reroutes) {
+        const reroutedBy = typeof r.reroutedBy === 'string' ? r.reroutedBy : r.reroutedBy?.toString();
+        const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
+        if (reroutedBy === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
+          reroutedCount++;
+          // Calculate duration from first reroute entry time to this reroute time
+          const firstEntry = reroutes.find((entry: any) => {
+            const entryReroutedBy = typeof entry.reroutedBy === 'string' ? entry.reroutedBy : entry.reroutedBy?.toString();
+            return entryReroutedBy === userId && entry.reroutedAt;
+          });
+          if (firstEntry && firstEntry.reroutedAt) {
+            const startAt = new Date(firstEntry.reroutedAt);
+            const diff = reroutedAt.getTime() - startAt.getTime();
+            if (diff > 0 && diff < MAX_DURATION_MS) {
+              totalReroutingMs += diff;
+            }
+          }
+        }
+      }
+    }
+
+    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) received a rerouted question in date range
+    let expertReroutedCount = 0;
+    let totalExpertReroutingMs = 0;
+
+    const expertRerouteDocs = await this.ReRouteCollection.find({
+      reroutes: {
+        $elemMatch: {
+          reroutedTo: userObjectId,
+          reroutedAt: { $gte: startDate, $lte: endDate },
+        },
+      },
+    }).toArray();
+
+    for (const doc of expertRerouteDocs) {
+      const reroutes: any[] = (doc as any).reroutes || [];
+      for (const r of reroutes) {
+        const reroutedTo = typeof r.reroutedTo === 'string' ? r.reroutedTo : r.reroutedTo?.toString();
+        const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
+        if (reroutedTo === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
+          expertReroutedCount++;
+          // Duration: from reroutedAt (when expert was assigned) to updatedAt (last status change / completion)
+          const updatedAt = (doc as any).updatedAt ? new Date((doc as any).updatedAt) : null;
+          if (updatedAt) {
+            const diff = updatedAt.getTime() - reroutedAt.getTime();
+            if (diff > 0 && diff < MAX_DURATION_MS) {
+              totalExpertReroutingMs += diff;
+            }
+          }
+        }
+      }
+    }
+
     return {
       authoredCount,
       totalAuthoringMs,
@@ -10645,6 +10728,10 @@ export class QuestionRepository implements IQuestionRepository {
       gatekeepedCount,
       totalGatekeepingMs,
       gdbPushedCount,
+      reroutedCount,
+      totalReroutingMs,
+      expertReroutedCount,
+      totalExpertReroutingMs,
     };
   }
 }

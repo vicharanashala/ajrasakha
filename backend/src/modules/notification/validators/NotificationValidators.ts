@@ -11,6 +11,7 @@ import {
   ArrayNotEmpty,
   IsUrl,
   IsOptional,
+  IsIn,
 } from 'class-validator';
 import {JSONSchema} from 'class-validator-jsonschema';
 class AddNotificationBody {
@@ -122,6 +123,67 @@ class NotificationResponse {
 
 }
 
+// Each value is one PoP upload-queue state transition the frontend calls out right after the
+// corresponding POP_API action succeeds (uploadDashboardDocument / approveDashboardUpload /
+// declineDashboardUpload / addUploadToMatch|AsNew). Recipients for 'upload_created' and
+// 'admin_rejected' are "all approvers" — a list this backend can't look up itself (the approver
+// roster lives only in the external POP microservice), so the frontend resolves it via its
+// existing getUserManagementList('upload') call and passes the ids here.
+const POP_EVENT_TYPES = [
+  'upload_created',
+  'approved',
+  'admin_rejected',
+  'approver_rejected',
+  'admin_added',
+] as const;
+
+class PopNotificationEventBody {
+  @JSONSchema({
+    description: 'Which PoP upload-queue transition just happened',
+    example: 'upload_created',
+    type: 'string',
+    enum: [...POP_EVENT_TYPES],
+  })
+  @IsNotEmpty()
+  @IsIn([...POP_EVENT_TYPES])
+  type: typeof POP_EVENT_TYPES[number];
+
+  @JSONSchema({
+    description: 'Document name shown in the notification message',
+    example: 'Paddy_PoP_Karnataka.pdf',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  itemName: string;
+
+  @JSONSchema({
+    description: "User id of the queue item's uploader (required for approver_rejected, admin_added)",
+    type: 'string',
+  })
+  @IsOptional()
+  @IsMongoId()
+  uploaderId?: string;
+
+  @JSONSchema({
+    description: 'User id of the approver who approved this item (required for admin_added)',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsMongoId()
+  approverId?: string;
+
+  @JSONSchema({
+    description: 'All current PoP upload approvers (required for upload_created, admin_rejected)',
+    type: 'array',
+    items: {type: 'string'},
+  })
+  @IsOptional()
+  @IsArray()
+  @IsMongoId({each: true})
+  approverIds?: string[];
+}
+
 class MessageBody{
   @JSONSchema({
     description: 'Question text',
@@ -182,7 +244,8 @@ export const NOTIFICATION_VALIDATORS = [
   NotificationResponse,
   DeleteNotificationParams,
   AddPushSubscriptionBody,
-  MessageBody
+  MessageBody,
+  PopNotificationEventBody
 ];
 
 export {
@@ -190,5 +253,6 @@ export {
   NotificationResponse,
   DeleteNotificationParams,
   AddPushSubscriptionBody,
-  MessageBody
+  MessageBody,
+  PopNotificationEventBody
 };

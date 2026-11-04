@@ -66,6 +66,7 @@ import { OrganizationRepository } from '#root/shared/database/providers/mongo/re
 import { OrganizationService } from '../organization/services/OrganizationService.js';
 import { OrganizationController } from '../organization/controllers/OrganizationController.js';
 import { PopRepository } from '#root/shared/database/providers/mongo/repositories/PopRepository.js';
+import { PendingPopUploadRepository } from '#root/shared/database/providers/mongo/repositories/PendingPopUploadRepository.js';
 import { PopService } from '../pop/services/PopService.js';
 import { PopController } from '../pop/controllers/PopController.js';
 import { NewSourceRepository } from '#root/shared/database/providers/mongo/repositories/NewSourceRepository.js';
@@ -207,5 +208,6 @@ export const coreContainerModule = new ContainerModule(options => {
   options.bind(CORE_TYPES.FeedbackRepository).to(FeedbackRepository).inSingletonScope()
   options.bind(CORE_TYPES.OrganizationRepository).to(OrganizationRepository).inSingletonScope()
   options.bind(CORE_TYPES.PopRepository).to(PopRepository).inSingletonScope()
+  options.bind(CORE_TYPES.PendingPopUploadRepository).to(PendingPopUploadRepository).inSingletonScope()
   options.bind(CORE_TYPES.NewSourceRepository).to(NewSourceRepository).inSingletonScope()
 });
