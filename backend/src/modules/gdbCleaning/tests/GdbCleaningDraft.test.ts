@@ -79,8 +79,24 @@ describe('GdbCleaningService draft', () => {
   it('drafts from the question and the crop of the answer', async () => {
     const doc = makeDoc();
     const result = await serviceWith(repoWith(doc)).draft(doc.answerId.toString());
-    expect(draftFromLibrary).toHaveBeenCalledWith(doc.question, doc.crop);
+    expect(draftFromLibrary).toHaveBeenCalledWith(doc.question, doc.crop, [], doc.domain);
     expect(result).toEqual(draftResult);
+  });
+
+  it('sends the files attached to the answer as sources, leaving out empty ones', async () => {
+    const doc = makeDoc({
+      sources: [
+        {sourceName: 'Package of Practices', source: 'https://workdrive.zoho.in/file/abc123', page: ''},
+        {sourceName: 'Nothing', source: '', page: ''},
+      ],
+    });
+    await serviceWith(repoWith(doc)).draft(doc.answerId.toString());
+    expect(draftFromLibrary).toHaveBeenCalledWith(
+      doc.question,
+      doc.crop,
+      [{url: 'https://workdrive.zoho.in/file/abc123', name: 'Package of Practices'}],
+      doc.domain,
+    );
   });
 
   it('returns not found for an unknown answer', async () => {

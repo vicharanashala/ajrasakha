@@ -27,6 +27,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 import local_index
+import anara_search
+import record_sources
 from anara_drafter import draft_answer
 from library_files import pdf_path_for_document
 
@@ -49,19 +51,33 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(title="GDB library draft", lifespan=lifespan)
 
 
+class SourceRef(BaseModel):
+    url: str = Field(max_length=2000)
+    name: str = Field(default="", max_length=300)
+
+
 class DraftRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     # the crop of the record, when known: the search then looks only at documents of that crop
     crop: str | None = Field(default=None, max_length=200)
+    # the domain of the record (e.g. "Disease Management"): the answer follows that domain's outline
+    domain: str | None = Field(default=None, max_length=200)
+    # the files attached to the record as its sources; their text is searched before the library
+    sources: list[SourceRef] = Field(default_factory=list, max_length=10)
 
 
 def search_library(question: str, crop: str | None = None) -> list[dict[str, Any]]:
-    """Passages from the translated documents on this machine (see local_index.py)."""
-    return local_index.search_library(question, crop)
+    """Passages from the Anara library; if Anara cannot be used, from the documents on this machine."""
+    hits = anara_search.search(question, crop)
+    return hits if hits is not None else local_index.search_library(question, crop)
 
 
 def _pdf_path(document_id: str):
-    return pdf_path_for_document(document_id) or local_index.pdf_path_for_document(document_id)
+    return (
+        pdf_path_for_document(document_id)
+        or local_index.pdf_path_for_document(document_id)
+        or record_sources.pdf_path_for_document(document_id)
+    )
 
 
 def _check_token(supplied: str | None) -> None:
@@ -81,8 +97,13 @@ def health() -> dict[str, str]:
 def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None)) -> dict[str, Any]:
     _check_token(x_draft_token)
     try:
-        passages = search_library(request.question, request.crop)
-        return draft_answer(request.question, passages, request.crop)
+        from_sources, problems = record_sources.search_sources(
+            request.question, [source.model_dump() for source in request.sources]
+        )
+        passages = from_sources + search_library(request.question, request.crop)
+        if not passages and problems:
+            return {"answer": "", "citations": [], "note": "; ".join(problems)}
+        return draft_answer(request.question, passages, request.crop, request.domain)
     except Exception as error:
         logger.exception("library draft failed")
         raise HTTPException(status_code=502, detail=f"Library draft failed: {error}") from error

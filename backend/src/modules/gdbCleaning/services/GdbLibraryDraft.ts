@@ -10,6 +10,12 @@ export interface GdbDraftCitation {
   passageId: string | null;
 }
 
+// a file attached to the record as its source; the draft service reads shared files from it
+export interface GdbDraftSource {
+  url: string;
+  name: string;
+}
+
 export interface GdbDraft {
   answer: string;
   citations: GdbDraftCitation[];
@@ -30,6 +36,8 @@ const draftOverHttp = async (
   url: string,
   question: string,
   crop: string | null,
+  sources: GdbDraftSource[],
+  domain: string | null,
 ): Promise<GdbDraft> => {
   const token = draftToken();
   const response = await fetch(`${url.replace(/\/+$/, '')}/draft`, {
@@ -38,7 +46,7 @@ const draftOverHttp = async (
       'content-type': 'application/json',
       ...(token ? {'x-draft-token': token} : {}),
     },
-    body: JSON.stringify({question, crop}),
+    body: JSON.stringify({question, crop, sources, domain}),
     signal: AbortSignal.timeout(DRAFT_TIMEOUT_MS),
   });
   if (!response.ok) {
@@ -48,13 +56,16 @@ const draftOverHttp = async (
   return (await response.json()) as GdbDraft;
 };
 
-// the crop of the record narrows the search to documents of that crop
+// the crop of the record narrows the search to documents of that crop, and the record's own
+// source files are searched first; the domain picks the outline the answer follows
 export const draftFromLibrary = (
   question: string,
   crop: string | null = null,
+  sources: GdbDraftSource[] = [],
+  domain: string | null = null,
 ): Promise<GdbDraft> => {
   const url = draftUrl();
-  if (url) return draftOverHttp(url, question, crop);
+  if (url) return draftOverHttp(url, question, crop, sources, domain);
 
   const python = pythonPath();
   const dir = pipelineDir();
@@ -91,7 +102,7 @@ export const draftFromLibrary = (
       }
     });
 
-    child.stdin.end(JSON.stringify({question, crop}));
+    child.stdin.end(JSON.stringify({question, crop, sources, domain}));
   });
 };
 

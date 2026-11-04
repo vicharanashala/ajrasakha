@@ -239,7 +239,10 @@ export class GdbCleaningService implements IGdbCleaningService {
   async draft(answerId: string): Promise<GdbDraft> {
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    return draftFromLibrary(current.question, current.crop);
+    const sources = (current.sources ?? [])
+      .filter(item => item.source)
+      .map(item => ({url: item.source, name: item.sourceName ?? ''}));
+    return draftFromLibrary(current.question, current.crop, sources, current.domain ?? null);
   }
 
   // The PDF a citation points to, so a reviewer can open the cited page.

@@ -5,6 +5,8 @@
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID
 #   GDB_DRAFT_TOKEN          shared secret; the backend sends it as x-draft-token
 #   DRAFT_MINIMAX_API_KEY    key for the model that writes the draft
+#   ANARA_TOKENS_B64         optional; the Anara sign-in file, base64 encoded (see gdb-draft/anara_search.py);
+#                            without it the service searches its own copy of the documents
 #
 # Optional repository variables:
 #   POP_API_URL              the POP API (default below)
@@ -28,7 +30,7 @@ permissions:
 
 env:
   DOCKER_IMAGE: gdb-draft
-  GCP_REGION: asia-south2
+  GCP_REGION: asia-south1
   GCP_SERVICE: gdb-draft
 
 jobs:
@@ -85,6 +87,7 @@ jobs:
             DRAFT_MINIMAX_MODEL=MiniMax-M3
             POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south2.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
+            ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
           # background, so keep one instance up with its CPU on. A draft can take a few minutes.
