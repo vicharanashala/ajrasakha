@@ -85,7 +85,7 @@ jobs:
             DRAFT_MINIMAX_API_KEY=${{ secrets.DRAFT_MINIMAX_API_KEY }}
             DRAFT_MINIMAX_URL=https://api.minimax.io/v1/chat/completions
             DRAFT_MINIMAX_MODEL=MiniMax-M3
-            POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south2.run.app/api/pop' }}
+            POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south1.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
