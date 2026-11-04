@@ -139,12 +139,14 @@ def _rank(question: str, pieces: list[dict[str, Any]], top_k: int) -> list[dict[
 
 
 def search_sources(
-    question: str, sources: list[dict[str, str]]
+    question: str, sources: list[dict[str, str]], crop: str | None = None
 ) -> tuple[list[dict[str, Any]], list[str]]:
     """Passages from the record's own source files, and a message for each source that failed.
 
     `sources` are {"url": ..., "name": ...}; links that are not shared Zoho files are skipped
-    silently, since they are web pages or other things this search cannot read.
+    silently, since they are web pages or other things this search cannot read. When the crop is
+    known, only pieces that mention it are ranked (a file listing many crops would otherwise
+    return pages about the wrong ones), unless none do.
     """
     pieces: list[dict[str, Any]] = []
     problems: list[str] = []
@@ -176,4 +178,5 @@ def search_sources(
                     "passageId": f"{parsed[1][:8]}-{number}-{part}",
                     "text": chunk,
                 })
-    return _rank(question, pieces, TOP_K), problems
+    of_crop = [piece for piece in pieces if crop and crop.strip().lower() in piece["text"].lower()]
+    return _rank(question, of_crop or pieces, TOP_K), problems

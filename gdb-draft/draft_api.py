@@ -66,6 +66,9 @@ class DraftRequest(BaseModel):
     sources: list[SourceRef] = Field(default_factory=list, max_length=10)
 
 
+MAX_SOURCE_PASSAGES = 4
+
+
 def search_library(question: str, crop: str | None = None) -> list[dict[str, Any]]:
     """Passages from the Anara library; if Anara cannot be used, from the documents on this machine."""
     hits = anara_search.search(question, crop)
@@ -98,9 +101,10 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
     _check_token(x_draft_token)
     try:
         from_sources, problems = record_sources.search_sources(
-            request.question, [source.model_dump() for source in request.sources]
+            request.question, [source.model_dump() for source in request.sources], request.crop
         )
-        passages = from_sources + search_library(request.question, request.crop)
+        # the model reads only the first few passages, so the record's files cannot fill them all
+        passages = from_sources[:MAX_SOURCE_PASSAGES] + search_library(request.question, request.crop)
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
         return draft_answer(request.question, passages, request.crop, request.domain)
