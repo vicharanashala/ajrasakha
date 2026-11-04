@@ -104,21 +104,21 @@
     "lat": 30.96556,
     "lon": 76.47059,
     "data": {
-      "liveTemperature": 30.4,
-      "humidity": 38.1,
+      "liveTemperature": 29.4,
+      "humidity": 42.1,
       "rainfall": 0.0,
-      "windSpeed": 5.2,
+      "windSpeed": 1.6,
       "weatherCondition": "Clear Sky",
-      "feelsLikeTemperature": 27.9,
+      "feelsLikeTemperature": 27.8,
       "source": "annam+imd",
       "station_name": "Rup Nagar tehsil (Annam AWS: #ANNAM_CP02)",
       "station_distance_km": 0.64,
       "is_cached": false,
       "cache_type": null,
       "cache_age_seconds": 0.0,
-      "recorded_at": "2026-11-04T10:56:19Z"
+      "recorded_at": "2026-11-04T11:37:34Z"
     },
-    "timestamp_iso": "2026-11-04T10:56:19.665194+00:00",
-    "timestamp_epoch": 1793789779.6651938
+    "timestamp_iso": "2026-11-04T11:37:34.178080+00:00",
+    "timestamp_epoch": 1793792254.17808
   }
 }
