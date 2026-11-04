@@ -10734,4 +10734,19 @@ export class QuestionRepository implements IQuestionRepository {
       totalExpertReroutingMs,
     };
   }
+
+  async aggregate<T = any>(
+    pipeline: object[],
+    session?: ClientSession,
+  ): Promise<T[]> {
+    try {
+      await this.init();
+      const options = session ? { session } : {};
+      return await this.QuestionCollection.aggregate(pipeline, options).toArray() as T[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Error executing aggregation on questions: ${error}`,
+      );
+    }
+  }
 }

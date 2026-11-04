@@ -36,6 +36,7 @@ import {
   GetDetailedQuestionsQuery,
   QuestionIdParam,
   QuestionResponse,
+  RdqaListQuery,
 } from '../classes/validators/QuestionVaidators.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
@@ -720,5 +721,18 @@ export class QuestionController {
     };
     this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
+  }
+
+  @Get('/list/rdqa')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get finalized questions for RDQA review',
+    description:
+      'Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true). Questions are distributed equally among moderators based on their approvedBy field. If no date is provided, defaults to yesterday.',
+  })
+  async getRdqaQuestions(@QueryParams() query: RdqaListQuery) {
+    const result = await this.questionService.getRdqaQuestions(query.date);
+    return { success: true, data: result };
   }
 }

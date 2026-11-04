@@ -1170,6 +1170,23 @@ class ReallocateExpertsSelectedQuestionsRequest {
   questionIds!: string[];
 }
 
+/**
+ * DTO for RDQA list endpoint query parameters.
+ * Retrieves finalized questions closed on a specific date for RDQA review.
+ */
+export class RdqaListQuery {
+  @JSONSchema({
+    description:
+      'Date to filter closed questions (YYYY-MM-DD format). Defaults to yesterday if not provided.',
+    example: '2026-11-03',
+    type: 'string',
+    format: 'date',
+  })
+  @IsOptional()
+  @IsString()
+  date?: string;
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -1195,6 +1212,7 @@ export const QUESTION_VALIDATORS = [
   QuestionCollectionItemDto,
   QuestionCollectionDetailsDto,
   AddQuestionCollectionBodyDto,
+  RdqaListQuery,
 ];
 
 export {

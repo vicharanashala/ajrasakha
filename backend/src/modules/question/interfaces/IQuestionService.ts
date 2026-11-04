@@ -1047,4 +1047,30 @@ export interface IQuestionService {
     count: number;
     questionIds: string[];
   }>;
+
+  /**
+   * Get finalized questions for RDQA (Review Data Quality Assessment).
+   * 
+   * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
+   * Questions are distributed equally among moderators based on their approvedBy field.
+   * Each moderator gets the same number of questions (minimum available count among all moderators).
+   * 
+   * @param date - Optional date string (YYYY-MM-DD). Defaults to yesterday.
+   * @returns Object containing the date, moderator statistics, and selected questions with answers
+   */
+  getRdqaQuestions(date?: string): Promise<{
+    date: string;
+    totalModerators: number;
+    questionsPerModerator: number;
+    totalQuestions: number;
+    moderatorDistribution: Array<{
+      approvedBy: string;
+      totalAvailable: number;
+      selectedCount: number;
+    }>;
+    questions: Array<{
+      question: any;
+      answer: any;
+    }>;
+  }>;
 }

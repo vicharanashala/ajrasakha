@@ -3061,4 +3061,176 @@ export class QuestionService extends BaseService implements IQuestionService {
       recipients,
     );
   }
+
+  /**
+   * Get finalized questions for RDQA (Review Data Quality Assessment).
+   * 
+   * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
+   * Questions are distributed equally among moderators based on their approvedBy field.
+   * Each moderator gets the same number of questions (minimum available count among all moderators).
+   */
+  async getRdqaQuestions(date?: string): Promise<{
+    date: string;
+    totalModerators: number;
+    questionsPerModerator: number;
+    totalQuestions: number;
+    moderatorDistribution: Array<{
+      approvedBy: string;
+      totalAvailable: number;
+      selectedCount: number;
+    }>;
+    questions: Array<{
+      question: any;
+      answer: any;
+    }>;
+  }> {
+    // Determine the target date (default to yesterday)
+    let targetDate: Date;
+    let dateString: string;
+
+    if (date) {
+      // Parse the provided date string (YYYY-MM-DD)
+      const [year, month, day] = date.split('-').map(Number);
+      targetDate = new Date(year, month - 1, day);
+      dateString = date;
+    } else {
+      // Default to yesterday
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() - 1);
+      targetDate.setHours(0, 0, 0, 0);
+      dateString = targetDate.toISOString().split('T')[0];
+    }
+
+    // Calculate date range for the full day (00:00:00 to 23:59:59.999)
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Aggregate to find finalized answers and their questions closed on the target date
+    const pipeline = [
+      // Match finalized answers
+      { $match: { isFinalAnswer: true } },
+      // Lookup the associated question
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDoc',
+        },
+      },
+      // Unwind the question array
+      { $unwind: { path: '$questionDoc', preserveNullAndEmptyArrays: false } },
+      // Filter questions closed on the target date and with 'closed' status
+      {
+        $match: {
+          'questionDoc.closedAt': { $gte: startOfDay, $lte: endOfDay },
+          'questionDoc.status': 'closed',
+        },
+      },
+      // Group by approvedBy moderator
+      {
+        $group: {
+          _id: '$approvedBy',
+          totalAvailable: { $sum: 1 },
+          answerIds: { $push: '$_id' },
+          questionIds: { $push: '$questionId' },
+        },
+      },
+    ];
+
+    const moderatorGroups = await this.answerRepo.aggregate(pipeline);
+
+    // Handle empty results
+    if (!moderatorGroups || moderatorGroups.length === 0) {
+      return {
+        date: dateString,
+        totalModerators: 0,
+        questionsPerModerator: 0,
+        totalQuestions: 0,
+        moderatorDistribution: [],
+        questions: [],
+      };
+    }
+
+    // Filter out moderators with null/empty approvedBy
+    const validModerators = moderatorGroups.filter(m => m._id != null);
+
+    if (validModerators.length === 0) {
+      return {
+        date: dateString,
+        totalModerators: 0,
+        questionsPerModerator: 0,
+        totalQuestions: 0,
+        moderatorDistribution: [],
+        questions: [],
+      };
+    }
+
+    // Find minimum count among all moderators
+    const questionsPerModerator = Math.min(...validModerators.map(m => m.totalAvailable));
+
+    // Build moderator distribution info
+    const moderatorDistribution = validModerators.map(m => ({
+      approvedBy: m._id.toString(),
+      totalAvailable: m.totalAvailable,
+      selectedCount: questionsPerModerator,
+    }));
+
+    // Fetch and randomly select questions for each moderator
+    const selectedQuestions: Array<{ question: any; answer: any }> = [];
+
+    for (const moderator of validModerators) {
+      const questionAnswerPairs: Array<{ question: any; answer: any }> = [];
+
+      // Fetch question-answer pairs for this moderator
+      const answerPipeline = [
+        { $match: { _id: { $in: moderator.answerIds } } },
+        {
+          $lookup: {
+            from: 'questions',
+            localField: 'questionId',
+            foreignField: '_id',
+            as: 'questionDoc',
+          },
+        },
+        { $unwind: '$questionDoc' },
+        {
+          $project: {
+            _id: 1,
+            answer: '$$ROOT',
+            question: '$questionDoc',
+          },
+        },
+      ];
+
+      const pairs = await this.answerRepo.aggregate(answerPipeline);
+
+      for (const pair of pairs) {
+        questionAnswerPairs.push({
+          question: pair.question,
+          answer: pair.answer,
+        });
+      }
+
+      // Fisher-Yates shuffle
+      for (let i = questionAnswerPairs.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questionAnswerPairs[i], questionAnswerPairs[j]] = [questionAnswerPairs[j], questionAnswerPairs[i]];
+      }
+
+      // Take the first N items
+      selectedQuestions.push(...questionAnswerPairs.slice(0, questionsPerModerator));
+    }
+
+    return {
+      date: dateString,
+      totalModerators: validModerators.length,
+      questionsPerModerator,
+      totalQuestions: selectedQuestions.length,
+      moderatorDistribution,
+      questions: selectedQuestions,
+    };
+  }
 }

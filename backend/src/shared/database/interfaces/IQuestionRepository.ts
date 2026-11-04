@@ -957,6 +957,17 @@ export interface IQuestionRepository {
     startDate: Date,
     endDate: Date,
   ): Promise<IUserActivityMetrics>;
+
+  /**
+   * Execute an aggregation pipeline on the questions collection.
+   * @param pipeline - MongoDB aggregation pipeline array
+   * @param session - Optional MongoDB client session for transactions
+   * @returns Promise resolving to array of aggregated results
+   */
+  aggregate<T = any>(
+    pipeline: object[],
+    session?: ClientSession,
+  ): Promise<T[]>;
 }
 
 export interface IUserActivityMetrics {
