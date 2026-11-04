@@ -1,0 +1,124 @@
+{
+  "17.39,78.49": {
+    "lat": 17.385,
+    "lon": 78.4867,
+    "data": {
+      "liveTemperature": 30.0,
+      "humidity": 57.3,
+      "rainfall": 0.0,
+      "windSpeed": 3.2,
+      "weatherCondition": "Haze",
+      "feelsLikeTemperature": 28.2,
+      "source": "annam+imd",
+      "station_name": "Bandlaguda (Annam AWS: #20)",
+      "station_distance_km": 4.4,
+      "is_cached": false,
+      "cache_type": null,
+      "cache_age_seconds": 0.0,
+      "recorded_at": "2026-11-04T07:36:23Z"
+    },
+    "timestamp_iso": "2026-11-04T07:36:23.324973+00:00",
+    "timestamp_epoch": 1793777783.3249726
+  },
+  "28.61,77.21": {
+    "lat": 28.6139,
+    "lon": 77.209,
+    "data": {
+      "liveTemperature": 26.6,
+      "humidity": 65.0,
+      "rainfall": 0.0,
+      "windSpeed": 9.3,
+      "weatherCondition": "Smoke Fog",
+      "feelsLikeTemperature": 26.6,
+      "source": "imd",
+      "station_name": "New Delhi-Safdarjung",
+      "station_distance_km": 3.87,
+      "is_cached": false,
+      "cache_type": null,
+      "cache_age_seconds": 0.0,
+      "recorded_at": "2026-11-04T07:05:47.878340+00:00"
+    },
+    "timestamp_iso": "2026-11-04T07:05:47.878362+00:00",
+    "timestamp_epoch": 1793775947.8783627
+  },
+  "19.08,72.88": {
+    "lat": 19.076,
+    "lon": 72.8777,
+    "data": {
+      "liveTemperature": 30.5,
+      "humidity": 75.0,
+      "rainfall": 1.2,
+      "windSpeed": 14.0,
+      "weatherCondition": "Scattered Clouds",
+      "feelsLikeTemperature": 35.0,
+      "source": "mock_primed",
+      "station_name": "Mumbai Santacruz",
+      "station_distance_km": 4.2
+    },
+    "timestamp_iso": "2026-11-04T07:05:48.885097+00:00",
+    "timestamp_epoch": 1793775948.8850942
+  },
+  "26.23,90.23": {
+    "lat": 26.230591,
+    "lon": 90.234497,
+    "data": {
+      "liveTemperature": 27.2,
+      "humidity": 80.0,
+      "rainfall": 0.0,
+      "windSpeed": 3.7,
+      "weatherCondition": "Generally Cloudy Sky",
+      "feelsLikeTemperature": 30.2,
+      "source": "imd",
+      "station_name": "Jorhat",
+      "station_distance_km": 20.37,
+      "is_cached": false,
+      "cache_type": null,
+      "cache_age_seconds": 0.0,
+      "recorded_at": "2026-11-04T07:43:21Z"
+    },
+    "timestamp_iso": "2026-11-04T07:43:21.517994+00:00",
+    "timestamp_epoch": 1793778201.517993
+  },
+  "26.27,90.45": {
+    "lat": 26.2727,
+    "lon": 90.4456,
+    "data": {
+      "liveTemperature": 25.4,
+      "humidity": 82.0,
+      "rainfall": 0.0,
+      "windSpeed": 0.0,
+      "weatherCondition": "Mainly Clear Sky",
+      "feelsLikeTemperature": 25.4,
+      "source": "imd",
+      "station_name": "Goalpara",
+      "station_distance_km": 21.08,
+      "is_cached": false,
+      "cache_type": null,
+      "cache_age_seconds": 0.0,
+      "recorded_at": "2026-11-04T07:24:27.563498+00:00"
+    },
+    "timestamp_iso": "2026-11-04T07:24:27.563519+00:00",
+    "timestamp_epoch": 1793777067.5635195
+  },
+  "30.97,76.47": {
+    "lat": 30.96556,
+    "lon": 76.47059,
+    "data": {
+      "liveTemperature": 31.5,
+      "humidity": 33.6,
+      "rainfall": 0.0,
+      "windSpeed": 7.4,
+      "weatherCondition": "Clear Sky",
+      "feelsLikeTemperature": 30.9,
+      "source": "annam+imd",
+      "station_name": "Rup Nagar tehsil (Annam AWS: #ANNAM_CP02)",
+      "station_distance_km": 0.64,
+      "is_cached": false,
+      "cache_type": null,
+      "cache_age_seconds": 0.0,
+      "recorded_at": "2026-11-04T09:56:26Z"
+    },
+    "timestamp_iso": "2026-11-04T09:56:26.897781+00:00",
+    "timestamp_epoch": 1793786186.8977811
+  }
+}
