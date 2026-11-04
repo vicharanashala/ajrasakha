@@ -26,6 +26,7 @@ class DraftAnswer(unittest.TestCase):
         self.assertGreaterEqual(kwargs["max_completion_tokens"], 6000)
         self.assertEqual(kwargs["max_retries"], anara_drafter.DRAFT_ATTEMPTS - 1)
         self.assertEqual(kwargs["timeout"], anara_drafter.DRAFT_ATTEMPT_TIMEOUT_SECONDS)
+        self.assertEqual(kwargs["extra"], {"thinking": {"type": "disabled"}})  # unless DRAFT_THINKING=on
 
     def test_an_empty_reply_to_the_outline_prompt_is_retried_once_in_the_plain_format(self):
         reply = {"answer": "x [P1]", "used_passages": [1]}

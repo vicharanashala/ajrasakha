@@ -54,7 +54,12 @@ def pdf_path_for_document(document_id: str) -> Path | None:
     if not found:
         return None
     path = SOURCE_DIRECTORY / f"{found.group(1)}.pdf"
-    return path if path.is_file() else None
+    if path.is_file():
+        return path
+    try:  # the saved copy is gone after a restart; the id is the file's id, so fetch it again
+        return fetch_pdf(f"https://workdrive.zoho.in/file/{found.group(1)}")
+    except SourceUnavailable:
+        return None
 
 
 def fetch_pdf(url: str) -> Path:

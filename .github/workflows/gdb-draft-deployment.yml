@@ -87,6 +87,7 @@ jobs:
             DRAFT_MINIMAX_MODEL=MiniMax-M3
             POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south2.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
+            DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
