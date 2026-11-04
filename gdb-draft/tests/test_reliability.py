@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -78,7 +79,7 @@ class RecordSourcesThroughAnara(unittest.TestCase):
         client._phrasings.return_value = []  # one search is enough for these tests
         with patch.object(anara_sources, "_client", return_value=client), patch.object(
             library_files, "load_manifest", return_value={}
-        ):
+        ), patch.object(anara_search, "prepare"):
             return anara_sources.search("q", self.SOURCES, "Wheat")
 
     def test_a_file_already_in_anara_is_searched_there_without_another_upload(self):
@@ -130,6 +131,43 @@ class RecordSourcesThroughAnara(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(read.call_args.args[1], self.SOURCES)
         self.assertEqual(drafter.call_args.args[1], own)
+
+
+class AStuckAnaraCallDoesNotHoldUpADraft(unittest.TestCase):
+    def test_within_gives_up_on_time_and_does_not_wait_for_the_stuck_call(self):
+        started = time.time()
+        with self.assertRaises(TimeoutError):
+            anara_search.within(0.2, time.sleep, 3)
+        self.assertLess(time.time() - started, 1.5)
+
+    def test_the_draft_reads_the_record_files_itself_when_the_anara_step_is_stuck(self):
+        own = [{"passageId": "b", "text": "t", "documentName": "GOI"}]
+        draft = {"answer": "a", "citations": [], "note": ""}
+        sources = [{"url": "https://workdrive.zoho.in/file/abc123", "name": "GOI"}]
+        started = time.time()
+        with patch.dict(os.environ, {"GDB_DRAFT_TOKEN": "t"}), patch.object(
+            anara_search, "enabled", return_value=True
+        ), patch.object(draft_api, "ANARA_SOURCES_SECONDS", 0.2), patch.object(
+            anara_sources, "search", side_effect=lambda *a: time.sleep(3)
+        ), patch.object(record_sources, "search_sources", return_value=(own, [])), patch.object(
+            draft_api, "search_library", return_value=[]
+        ), patch.object(draft_api, "draft_answer", return_value=draft):
+            response = TestClient(draft_api.app).post(
+                "/draft", json={"question": "q", "sources": sources}, headers={"x-draft-token": "t"}
+            )
+        self.assertEqual(response.status_code, 200)
+        self.assertLess(time.time() - started, 2.5)
+
+    def test_the_record_file_search_prepares_the_sign_in_before_it_uses_anara(self):
+        client = MagicMock()
+        client.execute.return_value = [{"id": "abc123", "documentId": "A1", "status": "ready"}]
+        client._phrasings.return_value = []
+        client.search_library.return_value = []
+        with patch.object(anara_sources, "_client", return_value=client), patch.object(
+            library_files, "load_manifest", return_value={}
+        ), patch.object(anara_search, "prepare") as prepare:
+            anara_sources.search("q", [{"url": "https://workdrive.zoho.in/file/abc123", "name": "GOI"}], "Wheat")
+        prepare.assert_called_once()
 
 
 class FallbackNote(unittest.TestCase):

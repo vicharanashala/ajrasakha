@@ -24,7 +24,7 @@ from library_files import DATA_DIRECTORY
 SOURCE_DIRECTORY = DATA_DIRECTORY / "source_pdfs"
 MAX_SOURCES = 3
 MAX_PDF_BYTES = 60 * 1024 * 1024
-DOWNLOAD_TIMEOUT_SECONDS = 60
+DOWNLOAD_TIMEOUT_SECONDS = 30
 TOP_K = 6
 
 _LINK = re.compile(r"^https://workdrive\.zoho\.(in|com|eu|com\.au|jp)/file/([A-Za-z0-9]+)/?(?:[?#].*)?$")

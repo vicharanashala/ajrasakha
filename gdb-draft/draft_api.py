@@ -71,6 +71,8 @@ class DraftRequest(BaseModel):
 
 
 MAX_SOURCE_PASSAGES = 4
+# a new record file is uploaded and read by Anara first; a draft does not wait longer than this for it
+ANARA_SOURCES_SECONDS = 100
 
 
 def search_library(question: str, crop: str | None = None) -> list[dict[str, Any]]:
@@ -93,9 +95,9 @@ def record_source_passages(
     problems: list[str] = []
     if anara_search.enabled():
         try:
-            found, handled, problems = anara_sources.search(question, sources, crop)
+            found, handled, problems = anara_search.within(ANARA_SOURCES_SECONDS, anara_sources.search, question, sources, crop)
         except Exception:
-            logger.exception("Anara could not search the record's files; their PDFs are read directly")
+            logger.exception("Anara could not search the record's files in time; their PDFs are read directly")
     rest = [s for s in sources if (record_sources.parse_link(s["url"]) or (None, None))[1] not in handled]
     own, own_problems = record_sources.search_sources(question, rest, crop) if rest else ([], [])
     return found + own, problems + own_problems

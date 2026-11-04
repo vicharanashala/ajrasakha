@@ -279,7 +279,7 @@ def upload_pdf(path: Path, anara_name: str) -> str:
     if not created.ok:
         raise RuntimeError(f"Anara upload of {anara_name} failed: {created.status_code} {created.text[:200]}")
     created = created.json()
-    put = requests.put(created["uploadUrl"], data=data, headers=created["headers"], timeout=300)
+    put = requests.put(created["uploadUrl"], data=data, headers=created["headers"], timeout=120)
     if not put.ok:
         raise RuntimeError(f"Upload of {anara_name} failed: {put.status_code} {put.text[:200]}")
     return created["documentId"]
