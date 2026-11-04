@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
 import os
 import sys
 import tempfile
@@ -54,6 +56,29 @@ class AnaraRetry(unittest.TestCase):
             hits = anara_search.search("wheat seed rate", "Wheat")
         self.assertEqual(search.call_count, 2)
         self.assertEqual([h["documentId"] for h in hits], ["doc-1"])
+
+
+@unittest.skipIf(anara_client is None, "the Anara client is not installed")
+class SavedSignIn(unittest.TestCase):
+    def tokens_saved(self, seconds_ago):
+        folder = tempfile.mkdtemp()
+        path = Path(folder) / "tokens.json"
+        path.write_text(
+            json.dumps({
+                "tokens": {"access_token": "a", "refresh_token": "r", "token_type": "Bearer", "expires_in": 86400},
+                "saved_at": time.time() - seconds_ago,
+            }),
+            encoding="utf-8",
+        )
+        with patch.object(anara_client, "TOKEN_FILE", path):
+            return asyncio.run(anara_client._FileStorage().get_tokens())
+
+    def test_a_token_saved_a_day_ago_is_not_treated_as_new(self):
+        # otherwise it is sent expired, answered with a 401 and ends in a browser sign-in a server cannot do
+        self.assertLessEqual(self.tokens_saved(90000).expires_in, 1)
+
+    def test_a_recent_token_keeps_its_remaining_time(self):
+        self.assertTrue(80000 < self.tokens_saved(1000).expires_in < 86000)
 
 
 @unittest.skipIf(anara_client is None, "the Anara client is not installed")
@@ -171,13 +196,23 @@ class AStuckAnaraCallDoesNotHoldUpADraft(unittest.TestCase):
 
 
 class FallbackNote(unittest.TestCase):
-    def test_the_draft_says_when_the_simpler_search_was_used(self):
+    def test_the_draft_says_when_the_anara_search_was_not_available_even_if_nothing_was_found_instead(self):
         draft = {"answer": "a", "citations": [], "note": ""}
+        unavailable = draft_api.Passages()  # the local search found nothing, which is the case on the server
+        unavailable.fallback = True
         with patch.dict(os.environ, {"GDB_DRAFT_TOKEN": "t"}), patch.object(
-            draft_api, "search_library", return_value=[{"text": "t", "fallback": True}]
+            draft_api, "search_library", return_value=unavailable
         ), patch.object(draft_api, "draft_answer", return_value=draft):
             response = TestClient(draft_api.app).post("/draft", json={"question": "q"}, headers={"x-draft-token": "t"})
-        self.assertIn("simpler local search", response.json()["note"])
+        self.assertIn("Anara library search was not available", response.json()["note"])
+
+    def test_no_note_when_the_anara_search_ran(self):
+        draft = {"answer": "a", "citations": [], "note": ""}
+        with patch.dict(os.environ, {"GDB_DRAFT_TOKEN": "t"}), patch.object(
+            draft_api, "search_library", return_value=draft_api.Passages([{"text": "t", "passageId": "p"}])
+        ), patch.object(draft_api, "draft_answer", return_value=draft):
+            response = TestClient(draft_api.app).post("/draft", json={"question": "q"}, headers={"x-draft-token": "t"})
+        self.assertEqual(response.json()["note"], "")
 
 
 if __name__ == "__main__":

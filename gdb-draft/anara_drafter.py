@@ -87,6 +87,19 @@ Broad: {broad}
 Narrow: {narrow}
 """
 
+# the writing rules are on by default; DRAFT_PROMPT=v1 turns them off (the layout alone)
+WRITING_RULES_ON = os.getenv("DRAFT_PROMPT", "v4").strip().lower() != "v1"
+
+WRITING_RULES = """Rules for writing the answer:
+- Name the disease, pest or subject in the first sentence.
+- If a title in the list names a crop, disease, pest or chemical other than the one asked, give it a plain title for the one asked.
+- For chemicals, give the products the passages list for this crop, each with the dose and waiting period of ITS OWN table row. Never mix figures from different rows. If a waiting period is missing or not credible (for example over 100 days), leave it out. When products with different modes of action are given, suggest rotating them.
+- Never write that a passage lacks something, and never mention "the passages". Leave that point out.
+- After each sentence put only the one to three passage numbers that hold its facts, never a long run of numbers.
+- Mark advice that is optional or depends on the farmer's case.
+
+"""
+
 _structures: dict[str, Any] | None = None
 
 
@@ -125,11 +138,12 @@ def _outline(steps: list[dict[str, str]]) -> str:
     return "; ".join(f"{number}. {step['step']}" for number, step in enumerate(steps, start=1))
 
 
-def answer_shape(domain: str | None) -> str:
+def answer_shape(domain: str | None, rules: bool | None = None) -> str:
+    rules_text = WRITING_RULES if (WRITING_RULES_ON if rules is None else rules) else ""
     entry = structure_for(domain)
     if entry is None:
-        return GENERIC_SHAPE
-    return SHAPE_TEMPLATE.format(
+        return rules_text + GENERIC_SHAPE
+    return rules_text + SHAPE_TEMPLATE.format(
         domain=entry["domain"], broad=_outline(entry["broad"]), narrow=_outline(entry["narrow"])
     )
 
@@ -151,7 +165,8 @@ def _format_passages(passages: list[dict[str, Any]]) -> str:
 
 
 def draft_answer(
-    question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None
+    question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None,
+    rules: bool | None = None,
 ) -> dict[str, Any]:
     """Return the draft plus the passages it cites, with document and page for each.
 
@@ -183,8 +198,9 @@ def draft_answer(
             extra=DRAFT_EXTRA,
         )
 
-    shape = answer_shape(domain)
-    if shape == GENERIC_SHAPE:
+    shape = answer_shape(domain, rules)
+    plain = answer_shape(None, rules)
+    if shape == plain:
         result = ask(shape, DRAFT_ATTEMPTS)
     else:
         # an outline can make the model reason until its budget is gone and return no answer, and
@@ -192,7 +208,7 @@ def draft_answer(
         try:
             result = ask(shape, 1)
         except LLMCallFailed:
-            result = ask(GENERIC_SHAPE, DRAFT_ATTEMPTS - 1)
+            result = ask(plain, DRAFT_ATTEMPTS - 1)
 
     citations = []
     for number in result.get("used_passages", []):

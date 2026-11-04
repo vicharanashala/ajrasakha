@@ -37,6 +37,20 @@ class DraftAnswer(unittest.TestCase):
         self.assertEqual([c.kwargs["max_retries"] for c in call.call_args_list], [0, anara_drafter.DRAFT_ATTEMPTS - 2])
         self.assertIn(anara_drafter.GENERIC_SHAPE, call.call_args_list[1].args[0])
 
+    def test_the_writing_rules_are_in_every_prompt_and_can_be_switched_off(self):
+        reply = {"answer": "x [P1]", "used_passages": [1]}
+        with patch.object(anara_drafter, "call_llm", return_value=reply) as call:
+            anara_drafter.draft_answer("q", PASSAGES, domain="Weed Management")
+            anara_drafter.draft_answer("q", PASSAGES)
+            with patch.object(anara_drafter, "WRITING_RULES_ON", False):
+                anara_drafter.draft_answer("q", PASSAGES)
+        with_outline, plain, without = (c.args[0] for c in call.call_args_list)
+        for prompt in (with_outline, plain):
+            self.assertIn("dose and waiting period of ITS OWN table row", prompt)
+            self.assertIn("never mention \"the passages\"", prompt)
+        self.assertIn("The usual sections", with_outline)
+        self.assertNotIn("Rules for writing the answer", without)
+
     def test_citations_follow_the_passages_the_answer_used(self):
         reply = {"answer": "a [P2][P1]", "used_passages": [2, 1, 9, "x"], "note": ""}
         with patch.object(anara_drafter, "call_llm", return_value=reply):
