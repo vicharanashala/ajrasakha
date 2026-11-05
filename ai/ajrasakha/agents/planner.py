@@ -15,13 +15,12 @@ import logging
 import re
 from typing import Optional
 
-from anthropic import APITimeoutError, APIConnectionError, APIStatusError
-from langchain_anthropic import ChatAnthropic
+from ajrasakha.agents.config import get_minimax_chat_model
 from langchain_core.messages import AIMessage, BaseMessage, HumanMessage, SystemMessage
 from langchain_core.runnables import RunnableConfig, patch_config
 from pydantic import BaseModel, Field
 
-from ajrasakha.agents.config import PLANNER_MODEL, resolve_thread_id, resolve_user_id
+from ajrasakha.agents.config import PLANNER_MODEL, resolve_thread_id, resolve_user_id, get_minimax_chat_model
 from ajrasakha.agents.thread_logging import (
     begin_conversation_turn,
     end_conversation_turn,
@@ -507,8 +506,7 @@ async def _apply_domain_and_crop_async(
                 domain_remarks=policy.get("remarks", ""),
                 additional_remarks=additional_text,
                 default_crop_required=bool(policy.get("default_crop_required")),
-                llm=ChatAnthropic(
-                    model=PLANNER_MODEL,
+                llm=get_minimax_chat_model(
                     max_tokens=16,
                     temperature=0,
                 ),
@@ -796,7 +794,7 @@ async def planner_node(
     )
 
     try:
-        planner_llm = ChatAnthropic(model=PLANNER_MODEL)
+        planner_llm = get_minimax_chat_model()
         llm = planner_llm.with_structured_output(PlannerOutput)
         output = await llm.ainvoke(llm_messages, config=_planner_invoke_config(config))
         trace_llm_response(

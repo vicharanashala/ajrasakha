@@ -115,12 +115,14 @@ async def test_follow_up_node_returns_llm_answer(monkeypatch):
     """When inputs are present, the node calls the LLM and returns its answer."""
     from ajrasakha.agents import follow_up_node as fu_module
 
-    async def fake_ainvoke(self, messages, **kwargs):
+    async def fake_ainvoke(messages, **kwargs):
         class _Resp:
             content = "Translated answer: keep NPK at recommended dose."
         return _Resp()
 
-    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+    mock_model = MagicMock()
+    mock_model.ainvoke = fake_ainvoke
+    monkeypatch.setattr(fu_module, "get_minimax_chat_model", lambda **kw: mock_model)
 
     state: AjraSakhaState = {
         "messages": [
@@ -154,7 +156,7 @@ async def test_follow_up_node_does_not_pin_language_directive(monkeypatch):
     farmer types in Hinglish but asks for Telugu. The LLM must be free to pick
     the target language from the follow-up text itself.
 
-    We capture the messages passed to ChatAnthropic.ainvoke and assert the
+    We capture the messages passed to the LLM.ainvoke and assert the
     system content does NOT contain a hard OUTPUT LANGUAGE directive.
     """
     from ajrasakha.agents import follow_up_node as fu_module
@@ -162,13 +164,15 @@ async def test_follow_up_node_does_not_pin_language_directive(monkeypatch):
     captured: dict = {}
 
     class _Resp:
-        content = "Some body in any language Sonnet picks."
+        content = "Some body in any language picks."
 
-    async def fake_ainvoke(self, messages, **kwargs):
+    async def fake_ainvoke(messages, **kwargs):
         captured["messages"] = messages
         return _Resp()
 
-    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+    mock_model = MagicMock()
+    mock_model.ainvoke = fake_ainvoke
+    monkeypatch.setattr(fu_module, "get_minimax_chat_model", lambda **kw: mock_model)
 
     state: AjraSakhaState = {
         "messages": [
@@ -202,11 +206,13 @@ async def test_follow_up_node_passes_the_profile_location_note(monkeypatch):
     class _Resp:
         content = "Answer for Jammu."
 
-    async def fake_ainvoke(self, messages, **kwargs):
+    async def fake_ainvoke(messages, **kwargs):
         captured["messages"] = messages
         return _Resp()
 
-    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+    mock_model = MagicMock()
+    mock_model.ainvoke = fake_ainvoke
+    monkeypatch.setattr(fu_module, "get_minimax_chat_model", lambda **kw: mock_model)
 
     note = "The below answer is provided for the location: Jammu and Kashmir, Jammu."
     plan = {
@@ -233,13 +239,14 @@ async def test_follow_up_node_passes_the_profile_location_note(monkeypatch):
 @pytest.mark.asyncio
 async def test_follow_up_node_falls_back_to_previous_answer_on_timeout(monkeypatch):
     """On LLM failure, return the previous answer so the farmer still gets something."""
-    from anthropic import APITimeoutError
     from ajrasakha.agents import follow_up_node as fu_module
 
-    async def fake_ainvoke(self, messages, **kwargs):
-        raise APITimeoutError("simulated timeout")
+    async def fake_ainvoke(messages, **kwargs):
+        raise RuntimeError("simulated timeout")
 
-    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+    mock_model = MagicMock()
+    mock_model.ainvoke = fake_ainvoke
+    monkeypatch.setattr(fu_module, "get_minimax_chat_model", lambda **kw: mock_model)
 
     state: AjraSakhaState = {
         "messages": [
@@ -268,12 +275,14 @@ async def test_follow_up_node_falls_back_to_previous_answer_on_timeout(monkeypat
 async def test_follow_up_node_falls_back_when_llm_returns_empty(monkeypatch):
     from ajrasakha.agents import follow_up_node as fu_module
 
-    async def fake_ainvoke(self, messages, **kwargs):
+    async def fake_ainvoke(messages, **kwargs):
         class _Resp:
             content = "   "
         return _Resp()
 
-    monkeypatch.setattr(fu_module.ChatAnthropic, "ainvoke", fake_ainvoke)
+    mock_model = MagicMock()
+    mock_model.ainvoke = fake_ainvoke
+    monkeypatch.setattr(fu_module, "get_minimax_chat_model", lambda **kw: mock_model)
 
     state: AjraSakhaState = {
         "messages": [

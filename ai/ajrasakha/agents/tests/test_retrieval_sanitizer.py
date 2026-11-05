@@ -251,7 +251,7 @@ async def test_node_filters_pairs_via_llm():
     mock_llm.ainvoke = AsyncMock(return_value=llm_response)
 
     with patch(
-        "ajrasakha.agents.retrieval_sanitizer.ChatAnthropic",
+        "ajrasakha.agents.retrieval_sanitizer.get_minimax_chat_model",
         return_value=mock_llm,
     ):
         result = await retrieval_sanitizer_node(state, {})
@@ -285,7 +285,7 @@ async def test_node_invalid_json_keeps_all_pairs():
     mock_llm.ainvoke = AsyncMock(return_value=llm_response)
 
     with patch(
-        "ajrasakha.agents.retrieval_sanitizer.ChatAnthropic",
+        "ajrasakha.agents.retrieval_sanitizer.get_minimax_chat_model",
         return_value=mock_llm,
     ):
         result = await retrieval_sanitizer_node(state, {})
@@ -302,7 +302,7 @@ async def test_node_llm_failure_keeps_all_pairs():
     mock_llm.ainvoke = AsyncMock(side_effect=RuntimeError("API down"))
 
     with patch(
-        "ajrasakha.agents.retrieval_sanitizer.ChatAnthropic",
+        "ajrasakha.agents.retrieval_sanitizer.get_minimax_chat_model",
         return_value=mock_llm,
     ):
         result = await retrieval_sanitizer_node(state, {})

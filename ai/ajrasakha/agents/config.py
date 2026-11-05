@@ -4,25 +4,19 @@ from typing import Any, Optional
 
 _WHATSAPP_THREAD_ID_RE = re.compile(r"^(\d+)-\d{4}-\d{2}-\d{2}$")
 
-CLAUDE_MODEL = os.getenv("CLAUDE_MODEL", "claude-sonnet-4-6")
-
-# Fast model for simple tasks (routing, classification, translation)
-CLAUDE_FAST = os.getenv("CLAUDE_FAST", "claude-haiku-4-5-20251001")
-
-# MiniMax (self-hosted, OpenAI-compatible) — used by every non-planner agent.
+# MiniMax (self-hosted, OpenAI-compatible) — used by every agent.
 # All three values must be provided via environment (.env) — no defaults for the secret.
 MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL", "http://100.100.108.41:8001/v1/")
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 
 # Task-specific model assignments
-# Planner, translation, and follow-up use Claude Sonnet where faithful farmer-facing
-# interpretation matters. Other specialized agents route to MiniMax.
+# All models use MiniMax for consistent performance across all tasks.
 SYNTHESIZE_MODEL = MINIMAX_MODEL      # Fast rephrasing/simple synthesis
-PLANNER_MODEL = CLAUDE_MODEL          # Planner routing/classification/rephrasing
+PLANNER_MODEL = MINIMAX_MODEL         # Planner routing/classification/rephrasing
 SANITIZER_MODEL = MINIMAX_MODEL       # Relevance scoring
-TRANSLATE_MODEL = CLAUDE_MODEL        # Translation uses Claude Sonnet (avoid crop substitution)
-FOLLOW_UP_MODEL = CLAUDE_MODEL        # Translation/transformation - Sonnet for quality
+TRANSLATE_MODEL = MINIMAX_MODEL       # Translation
+FOLLOW_UP_MODEL = MINIMAX_MODEL       # Translation/transformation
 CROP_CLASSIFY_MODEL = MINIMAX_MODEL   # Binary classification
 DAILY_PRICE_MODEL = os.getenv("DAILY_PRICE_MODEL", MINIMAX_MODEL)  # Intent & synthesis use MiniMax
 

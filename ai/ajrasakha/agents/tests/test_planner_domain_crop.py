@@ -653,7 +653,7 @@ async def _run_planner(state, output):
     from ajrasakha.agents.planner import planner_node
 
     with (
-        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=_StaticPlannerModel(output)),
+        patch("ajrasakha.agents.planner.get_minimax_chat_model", return_value=_StaticPlannerModel(output)),
         patch("ajrasakha.agents.planner._llm_detect_language", return_value="English"),
         patch("ajrasakha.agents.planner.is_crop_specific_question", new_callable=AsyncMock),
         patch("ajrasakha.agents.planner.maybe_persist_rephrased_query"),

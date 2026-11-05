@@ -147,7 +147,7 @@ async def test_state_does_not_leak_on_new_question_with_gps():
     }
 
     with patch(
-        "ajrasakha.agents.planner.ChatAnthropic",
+        "ajrasakha.agents.planner.get_minimax_chat_model",
         return_value=_UnavailablePlannerModel(),
     ):
         res = await planner_node(state, RunnableConfig())
@@ -189,7 +189,7 @@ async def test_state_never_carries_forward_during_clarify_loop():
         )
     )
     with (
-        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model),
+        patch("ajrasakha.agents.planner.get_minimax_chat_model", return_value=model),
         patch("ajrasakha.agents.planner._llm_detect_language", return_value="English"),
         patch("ajrasakha.agents.planner.maybe_persist_rephrased_query"),
         patch("ajrasakha.agents.planner.maybe_persist_resolved_location"),
@@ -249,7 +249,7 @@ async def test_location_clarification_preserves_catalog_language_pair(
     )
 
     with (
-        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model),
+        patch("ajrasakha.agents.planner.get_minimax_chat_model", return_value=model),
         patch("ajrasakha.agents.planner._llm_detect_language", detected_language),
     ):
         result = await planner_node(state, RunnableConfig())
@@ -292,7 +292,7 @@ async def test_new_question_still_detects_language():
     )
 
     with (
-        patch("ajrasakha.agents.planner.ChatAnthropic", return_value=model) as chat_anthropic,
+        patch("ajrasakha.agents.planner.get_minimax_chat_model", return_value=model) as minimax_mock,
         patch("ajrasakha.agents.planner._llm_detect_language", detected_language),
     ):
         result = await planner_node(state, RunnableConfig())
@@ -304,5 +304,5 @@ async def test_new_question_still_detects_language():
         script_context="English",
         llm=model,
     )
-    chat_anthropic.assert_called_once_with(model=PLANNER_MODEL)
+    minimax_mock.assert_called_once_with()
 

@@ -268,19 +268,11 @@ Example multiple-query extraction:
 
 ## Configuration
 
-Configure Claude Sonnet for ACC transcript extraction in the AI service
-environment:
+Configure MiniMax for all ACC agent operations (transcript extraction, planning, and answer assembly):
 
 ```dotenv
-ANTHROPIC_API_KEY=<Anthropic API key>
-CLAUDE_MODEL=claude-sonnet-4-6
-```
-
-Configure the shared MiniMax model for ACC planning and answer assembly:
-
-```dotenv
-MINIMAX_BASE_URL=<OpenAI-compatible base URL>
-MINIMAX_API_KEY=<service key>
+MINIMAX_BASE_URL=http://100.100.108.41:8001/v1/
+MINIMAX_API_KEY=<your-api-key>
 MINIMAX_MODEL=MiniMaxAI/MiniMax-M2.7
 ```
 
