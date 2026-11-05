@@ -36,6 +36,8 @@ export interface UserActivityReportData {
   totalReroutingMs: number;
   expertReroutedCount: number;
   totalExpertReroutingMs: number;
+  heldCount?: number;
+  totalHoldingMs?: number;
   sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
@@ -261,33 +263,35 @@ export async function buildUserActivityPdfReport(
       borderColor: '#99F6E4',
       badgeText: 'Gate Passed',
     },
-    {
-      title: 'Rerouting',
-      count: data.reroutedCount,
-      totalMs: data.totalReroutingMs,
-      accentColor: '#B45309',
-      bgColor: '#FFFBEB',
-      borderColor: '#FDE68A',
-      badgeText: 'Questions Rerouted',
-    },
-    {
-      title: 'Expert Rerouting',
-      count: data.expertReroutedCount,
-      totalMs: data.totalExpertReroutingMs,
-      accentColor: '#6D28D9',
-      bgColor: '#F5F3FF',
-      borderColor: '#DDD6FE',
-      badgeText: 'Rerouted to Expert',
-    },
-    {
-      title: 'GDB Pushed',
-      count: data.gdbPushedCount,
-      totalMs: 0,
-      accentColor: '#E11D48',
-      bgColor: '#FFF1F2',
-      borderColor: '#FECDD3',
-      badgeText: 'Authored to GDB',
-    },
+    (data.heldCount || 0) > 0
+      ? {
+          title: 'Question Hold',
+          count: data.heldCount || 0,
+          totalMs: data.totalHoldingMs || 0,
+          accentColor: '#F59E0B',
+          bgColor: '#FFFBEB',
+          borderColor: '#FDE68A',
+          badgeText: 'Held Questions',
+        }
+      : (data.reroutedCount || 0) > 0
+        ? {
+            title: 'Rerouting',
+            count: data.reroutedCount,
+            totalMs: data.totalReroutingMs,
+            accentColor: '#B45309',
+            bgColor: '#FFFBEB',
+            borderColor: '#FDE68A',
+            badgeText: 'Questions Rerouted',
+          }
+        : {
+            title: 'GDB Pushed',
+            count: data.gdbPushedCount,
+            totalMs: 0,
+            accentColor: '#E11D48',
+            bgColor: '#FFF1F2',
+            borderColor: '#FECDD3',
+            badgeText: 'Authored to GDB',
+          },
   ];
 
   const drawCard = (card: ActivityCardConfig, x: number, y: number) => {
@@ -465,6 +469,13 @@ export async function buildUserActivityPdfReport(
       hours: formatHours(data.totalExpertReroutingMs / (1000 * 60 * 60)),
       notes: 'Questions received via reroute',
     },
+    {
+      role: 'Question Hold',
+      count: data.heldCount || 0,
+      avg: formatMsToHMS((data.heldCount && data.heldCount > 0) ? (data.totalHoldingMs || 0) / data.heldCount : 0),
+      hours: formatHours((data.totalHoldingMs || 0) / (1000 * 60 * 60)),
+      notes: 'Active time before placing on hold',
+    },
   ];
 
   let currentY = tHeaderY + tHeaderH;
@@ -524,15 +535,26 @@ export async function buildUserActivityPdfReport(
     data.reviewedCount +
     data.moderatedCount +
     data.auditedCount +
-    data.gatekeepedCount;
+    data.gatekeepedCount +
+    data.reroutedCount +
+    data.expertReroutedCount +
+    (data.heldCount || 0);
 
-  const totalActionHours =
+  const rawActionHours =
     (data.totalAuthoringMs +
       data.totalReviewingMs +
       data.totalModeratingMs +
       data.totalAuditingMs +
-      data.totalGatekeepingMs) /
+      data.totalGatekeepingMs +
+      data.totalReroutingMs +
+      data.totalExpertReroutingMs +
+      (data.totalHoldingMs || 0)) /
     (1000 * 60 * 60);
+
+  const totalActionHours =
+    data.totalHoursInRevCycle > 0
+      ? Math.min(rawActionHours, data.totalHoursInRevCycle)
+      : rawActionHours;
 
   doc.rect(pageMargin, currentY, contentWidth, rowH).fill('#ECFDF5');
 
