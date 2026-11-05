@@ -23,9 +23,11 @@ const BATCH_STATE_LABELS = {
 // "Stopping…" until a later poll confirms the job actually left the active list (stoppingIds is
 // owned by the parent so it survives across polls until then).
 //
-// Translation now runs page by page (page_links on the job, one entry per page — "" = not done).
-// A "failed" job keeps whatever pages it finished and can be retried in place (same job id, only
-// the empty-link pages get redone) rather than restarted from scratch.
+// Translation now runs page by page (page_stage on the job, one entry per page — 0 = nothing,
+// 1 = OCR transcript only, 2 = translated; a page is done only at 2, and pages_done/progress_pct
+// are computed by the backend from it). A "failed" job keeps whatever pages it finished and can be
+// retried in place (same job id, only the unfinished pages get redone) rather than restarted from
+// scratch, using the global mode/pipeline settings.
 //
 // A finished job (done/failed/cancelled) stays a queue row forever unless explicitly removed —
 // removing it only clears the queue-view row, translation_status/translation_file_id on the
@@ -109,7 +111,6 @@ export default function TranslationQueuePanel({
 }
 
 function JobRow({ job, removable, stopping, removing, redoing, onCancel, onRemove, onRedo, onOpenDetail }) {
-  const [redoMode, setRedoMode] = useState(job.mode || "normal");
   const isFailed = job.status === "failed";
   const isCancelled = job.status === "cancelled";
   const hasProgress = job.pages_done != null && job.total_pages != null;
@@ -144,22 +145,24 @@ function JobRow({ job, removable, stopping, removing, redoing, onCancel, onRemov
               {job.mode}
             </span>
           )}
+          {job.model && (
+            <span className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0" title="Model">
+              {job.model}
+            </span>
+          )}
+          {job.cost_usd != null && (
+            <span
+              className="text-[9px] px-1 py-0.5 rounded bg-muted text-muted-foreground shrink-0"
+              title="Estimated Gemini cost so far (USD) — flex/batch counted at half price; failed attempts with no token counts aren't included"
+            >
+              ${Number(job.cost_usd).toFixed(4)}
+            </span>
+          )}
           {canRedo && (
             <>
-              <select
-                className="text-[9px] rounded border border-border bg-background px-1 py-0.5 text-foreground disabled:opacity-40 disabled:cursor-not-allowed"
-                value={redoMode}
-                onChange={(e) => setRedoMode(e.target.value)}
-                disabled={redoing}
-                title="Retry in this mode"
-              >
-                <option value="normal">Normal</option>
-                <option value="flex">Flex</option>
-                <option value="batch">Batch</option>
-              </select>
               <button
                 className="flex items-center gap-1 text-[10px] text-muted-foreground hover:text-primary transition-colors cursor-pointer disabled:opacity-40"
-                onClick={() => onRedo(job, redoMode)}
+                onClick={() => onRedo(job)}
                 disabled={redoing}
               >
                 <RotateCcw size={9} /> {redoing ? "Retrying…" : "Translate again"}
