@@ -64,5 +64,43 @@ class TheNotes(unittest.TestCase):
         self.assertEqual(anara_agent.plain_notes(self.NOTES), "Sow in October. Use 1.5 kg.")
 
 
+class TheWriterLaysOutTheFindings(unittest.TestCase):
+    PASSAGES = [{"passageId": f"p{n}", "documentId": "d", "documentName": "Doc", "pageNumber": n, "text": "t"} for n in range(1, 6)]
+    NOTES = "A [P1]. B [P2]. C [P3]. D [P4]. E [P5]."
+
+    def run_draft(self, replies):
+        from unittest.mock import patch
+
+        import anara_drafter
+
+        with patch.object(anara_drafter, "call_llm", side_effect=replies) as llm:
+            result = anara_drafter.draft_answer("q?", self.PASSAGES, "Paddy", None, notes=self.NOTES)
+        return result, llm
+
+    def test_the_findings_go_to_the_writer_as_a_layout_job(self):
+        _, llm = self.run_draft([{"answer": "x", "used_passages": [1, 2, 3, 4, 5], "note": ""}])
+        prompt = llm.call_args.args[0]
+        self.assertIn("Research write-up", prompt)
+        self.assertIn("Do not summarise, shorten or drop anything", prompt)
+        self.assertIn("A [P1]. B [P2]", prompt)
+
+    def test_a_thin_answer_is_written_again_and_the_fullest_one_is_kept(self):
+        thin = {"answer": "thin", "used_passages": [1], "note": ""}
+        fuller = {"answer": "fuller", "used_passages": [1, 2, 3, 4], "note": ""}
+        result, llm = self.run_draft([thin, fuller])
+        self.assertEqual(result["answer"], "fuller")
+        self.assertEqual(llm.call_count, 2)
+        self.assertEqual(len(result["citations"]), 4)
+
+    def test_a_full_answer_is_not_written_again(self):
+        _, llm = self.run_draft([{"answer": "full", "used_passages": [1, 2, 3, 4], "note": ""}])
+        self.assertEqual(llm.call_count, 1)
+
+    def test_it_gives_up_after_two_more_tries(self):
+        thin = {"answer": "thin", "used_passages": [1], "note": ""}
+        _, llm = self.run_draft([thin, thin, thin, thin])
+        self.assertEqual(llm.call_count, 3)
+
+
 if __name__ == "__main__":
     unittest.main()
