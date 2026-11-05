@@ -5,8 +5,12 @@ import { GdbListView } from "./components/GdbListView";
 import { GdbDateRange } from "./components/GdbDateRange";
 import { GdbHistoryView } from "./components/GdbHistoryView";
 import { PRESETS, toQueryRange, type IDayRange } from "./dateRange";
+import { useTrackFeatureActivity } from "@/hooks/useTrackFeatureActivity";
 
 export const GdbCleaningPage = () => {
+  // Track active time spent in GDB Cleaning
+  useTrackFeatureActivity("gdb_cleaning", true);
+
   const [openId, setOpenId] = useState<string | null>(null);
   const [tab, setTab] = useState<"answers" | "history">("answers");
   const [range, setRange] = useState<IDayRange>(PRESETS[3].range());

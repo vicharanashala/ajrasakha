@@ -62,6 +62,22 @@ export class UserService {
   }
 
   /**
+   * Records active time spent by the authenticated user in specific platform features.
+   */
+  async trackFeatureActivity(payload: {
+    feature: 'pop_management' | 'gdb_cleaning';
+    durationMs: number;
+    startTime?: string;
+    endTime?: string;
+    metadata?: Record<string, unknown>;
+  }): Promise<{ success: boolean } | null> {
+    return apiFetch<{ success: boolean }>(`${this._baseUrl}/feature-activity/heartbeat`, {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+  }
+
+  /**
  * All users ({_id, name, email}) — based on the given roles.
  */
   async getUsersByRole(

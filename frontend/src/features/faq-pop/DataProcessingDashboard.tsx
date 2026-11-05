@@ -4,6 +4,7 @@ import PopTranslationPanel from "./components/FunctionsPanel/PopTranslationPanel
 import DocumentManagementPanel from "./components/DocumentManagement/DocumentManagementPanel";
 import UserManagementPanel from "./components/DocumentManagement/UserManagementPanel";
 import { setPopIdentity, getDashboardMe, type DashboardMe } from "./api";
+import { useTrackFeatureActivity } from "@/hooks/useTrackFeatureActivity";
 
 // Reaching this dashboard at all now requires only being signed in (PlaygroundHeader.tsx,
 // play-ground.tsx, mobile-sidebar.tsx — previously admin/moderator/expert only; every role gets
@@ -64,6 +65,9 @@ export function DataProcessingDashboard({
     if (openUploadQueue) setActiveTab("document-management");
   }, [openUploadQueue]);
   const effectiveTab = TABS.some((t) => t.id === activeTab) ? activeTab : TABS[0]?.id;
+
+  // Track active time spent in POP Management
+  useTrackFeatureActivity("pop_management", effectiveTab === "document-management", userId);
 
   return (
     <div className="flex flex-col">
