@@ -90,15 +90,7 @@ IMD_WX_CACHE_TTL = 60.0    # 1 minute
 class LiveWeatherResponse(BaseModel):
     """
     Standard live weather response format.
-    Guaranteed schema matching user specification:
-    {
-      "liveTemperature": 32.5,
-      "humidity": 65,
-      "rainfall": 0,
-      "windSpeed": 12.4,
-      "weatherCondition": "Partly Cloudy",
-      "feelsLikeTemperature": 35.2
-    }
+    Returns weather data plus station metadata and source attribution.
     """
     liveTemperature: float = Field(..., description="Current temperature in Celsius")
     humidity: float = Field(..., description="Relative humidity percentage (0-100)")
@@ -106,6 +98,10 @@ class LiveWeatherResponse(BaseModel):
     windSpeed: float = Field(..., description="Wind speed in km/h")
     weatherCondition: str = Field(..., description="Current weather condition description")
     feelsLikeTemperature: float = Field(..., description="Apparent / feels-like temperature in Celsius")
+    source: str = Field(..., description="Data source: 'aws', 'imd', or 'aws+imd'")
+    station_name: Optional[str] = Field(None, description="Name or identifier of the nearest station")
+    station_distance_km: Optional[float] = Field(None, description="Great-circle distance to station in kilometers")
+    recorded_at: Optional[str] = Field(None, description="Observation time in IST (e.g. 04 Nov 2026, 01:02 PM IST)")
 
     model_config = {
         "json_schema_extra": {
@@ -116,21 +112,13 @@ class LiveWeatherResponse(BaseModel):
                 "windSpeed": 12.4,
                 "weatherCondition": "Partly Cloudy",
                 "feelsLikeTemperature": 35.2,
+                "source": "aws+imd",
+                "station_name": "Rup Nagar tehsil (Annam AWS: #ANNAM_CP02)",
+                "station_distance_km": 0.64,
+                "recorded_at": "04 Nov 2026, 01:02 PM IST",
             }
         }
     }
-
-
-class LiveWeatherDetailedResponse(LiveWeatherResponse):
-    """Extended response model with diagnostic metadata."""
-    source: str = Field(..., description="Primary weather data source ('annam+imd', 'imd', 'stale_cache')")
-    stationName: Optional[str] = Field(None, description="Name or identifier of the nearest station")
-    stationDistanceKm: Optional[float] = Field(None, description="Great-circle distance to station in kilometers")
-    isCached: bool = Field(False, description="Whether this response was served from cache")
-    cacheType: Optional[str] = Field(None, description="'hot_ttl' or 'stale_fallback'")
-    recordedAt: Optional[str] = Field(None, description="ISO timestamp of observation (e.g. 2026-11-04T07:32:38Z)")
-    recordedAtReadable: Optional[str] = Field(None, description="Human-readable timestamp in IST (e.g. 04 Nov 2026, 01:02 PM IST)")
-    cacheAgeSeconds: Optional[float] = Field(None, description="Age of data in seconds")
 
 
 class ErrorResponse(BaseModel):
@@ -145,12 +133,66 @@ class ErrorResponse(BaseModel):
 _IST = timezone(timedelta(hours=5, minutes=30))
 
 
+def parse_observation_timestamp(
+    annam_result: Optional[Dict[str, Any]],
+    imd_result: Optional[Dict[str, Any]],
+) -> str:
+    """
+    Extract and parse the actual observation timestamp from the upstream sensor/API
+    into 'DD Mon YYYY, hh:mm AM/PM IST'.
+    1. If Annam WS is available: parse its 'TimeStamp' (e.g. '2026-11-05 13:10:00', recorded in IST).
+    2. Else if IMD is available: parse 'Date of Observation' + 'Time' (UTC hour) -> convert to IST.
+    3. Fallback: current time in IST.
+    """
+    # 1. Annam Weather Station
+    if annam_result:
+        raw_ts = annam_result.get("TimeStamp") or annam_result.get("timestamp") or annam_result.get("created_at")
+        if raw_ts:
+            try:
+                # Annam timestamps are typically 'YYYY-MM-DD HH:MM:SS' in local IST
+                dt = datetime.strptime(str(raw_ts).strip(), "%Y-%m-%d %H:%M:%S")
+                dt = dt.replace(tzinfo=_IST)
+                return dt.strftime("%d %b %Y, %I:%M %p IST")
+            except Exception:
+                try:
+                    dt = datetime.fromisoformat(str(raw_ts).strip())
+                    if dt.tzinfo is None:
+                        dt = dt.replace(tzinfo=_IST)
+                    else:
+                        dt = dt.astimezone(_IST)
+                    return dt.strftime("%d %b %Y, %I:%M %p IST")
+                except Exception:
+                    pass
+
+    # 2. IMD API
+    if imd_result:
+        raw_imd = imd_result.get("raw") or {}
+        obs_date = raw_imd.get("Date of Observation")
+        obs_time = raw_imd.get("Time")
+        if obs_date and obs_time is not None:
+            try:
+                hour = int(obs_time)
+                dt_utc = datetime.strptime(f"{str(obs_date).strip()} {hour:02d}:00:00", "%Y-%m-%d %H:%M:%S")
+                dt_utc = dt_utc.replace(tzinfo=timezone.utc)
+                dt_ist = dt_utc.astimezone(_IST)
+                return dt_ist.strftime("%d %b %Y, %I:%M %p IST")
+            except Exception:
+                pass
+
+    # 3. Fallback to current time
+    now_ist = datetime.now(timezone.utc).astimezone(_IST)
+    return now_ist.strftime("%d %b %Y, %I:%M %p IST")
+
+
 def format_readable_time(dt_val: Union[datetime, str, None]) -> Optional[str]:
-    """Convert UTC ISO timestamp or datetime to 'DD Mon YYYY, hh:mm AM/PM IST'."""
+    """Convert UTC ISO timestamp, IST formatted string, or datetime to 'DD Mon YYYY, hh:mm AM/PM IST'."""
     if not dt_val:
         return None
     try:
         if isinstance(dt_val, str):
+            # If already formatted as '... IST', return as is
+            if "IST" in dt_val:
+                return dt_val
             dt = datetime.fromisoformat(dt_val)
         else:
             dt = dt_val
@@ -635,6 +677,10 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
     if cached:
         cache_type = cached.pop("_cache_type", "hot_ttl")
         age = cached.pop("_cache_age_seconds", 0.0)
+        # Strip internal cache fields if stored from older data
+        cached.pop("is_cached", None)
+        cached.pop("cache_type", None)
+        cached.pop("cache_age_seconds", None)
         meta = {
             "source": cached.get("source", "cached"),
             "station_name": cached.get("station_name"),
@@ -667,7 +713,7 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
 
     if annam_result:
         # Priority 1: Annam Weather Station
-        source_used = "annam+imd"
+        source_used = "aws+imd"
         live_temp = safe_float(annam_result.get("Temperature"))
         humidity = safe_float(annam_result.get("Humidity"))
         
@@ -717,6 +763,9 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
             cache_type = stale.pop("_cache_type", "stale_fallback")
             age = stale.pop("_cache_age_seconds", 0.0)
             rec_at = stale.pop("_recorded_at", None)
+            stale.pop("is_cached", None)
+            stale.pop("cache_type", None)
+            stale.pop("cache_age_seconds", None)
             meta = {
                 "source": "stale_fallback",
                 "station_name": stale.get("station_name"),
@@ -744,7 +793,9 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
         "feelsLikeTemperature": round(feels_like, 1) if feels_like is not None else round(live_temp, 1),
     }
 
-    now_utc = datetime.now(timezone.utc)
+    # Extract actual recorded observation time from the source sensor/API
+    recorded_at_str = parse_observation_timestamp(annam_result, imd_result)
+
     meta = {
         "source": source_used,
         "station_name": station_name,
@@ -752,12 +803,22 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
         "is_cached": False,
         "cache_type": None,
         "cache_age_seconds": 0.0,
-        "recorded_at": now_utc.strftime("%Y-%m-%dT%H:%M:%SZ"),
+        "recorded_at": recorded_at_str,
     }
 
     # Store in hot and persistent cache
-    to_cache = dict(payload)
-    to_cache.update(meta)
+    to_cache = {
+        "liveTemperature": payload["liveTemperature"],
+        "humidity": payload["humidity"],
+        "rainfall": payload["rainfall"],
+        "windSpeed": payload["windSpeed"],
+        "weatherCondition": payload["weatherCondition"],
+        "feelsLikeTemperature": payload["feelsLikeTemperature"],
+        "source": source_used,
+        "station_name": station_name,
+        "station_distance_km": station_dist,
+        "recorded_at": recorded_at_str,
+    }
     cache_manager.put(lat, lon, to_cache)
 
     return payload, meta
@@ -859,13 +920,12 @@ async def get_grid_lock(key: Tuple[float, float]) -> asyncio.Lock:
     description=(
         "Fetch real-time weather data for a location specified by latitude and longitude.\n\n"
         "Priority order:\n"
-        "1. **Annam Weather Station** (within 10 km) for `liveTemperature`, `humidity`, `rainfall`, and `windSpeed`.\n"
+        "1. **Annam Weather Station (AWS)** (within 10 km) for `liveTemperature`, `humidity`, `rainfall`, and `windSpeed`.\n"
         "2. **IMD API** for `feelsLikeTemperature` and `weatherCondition`.\n"
-        "3. Full fallback to **IMD** when Annam is out of range or offline.\n"
+        "3. Full fallback to **IMD** when AWS is out of range or offline.\n"
         "4. Stale-while-revalidate fallback cache when upstream APIs are unreachable."
     ),
 )
-@app.get("/weather/live", response_model=LiveWeatherResponse, include_in_schema=False)
 async def get_live_weather_endpoint(
     request: Request,
     lat: float = Query(
@@ -894,10 +954,28 @@ async def get_live_weather_endpoint(
             detail="Longitude parameter is required. Provide either 'lon' or 'long'.",
         )
 
+    # Validate coordinates are within mainland India's bounding box
+    # Latitude: 8.0667°N to 37.1000°N, Longitude: 68.1167°E to 97.4167°E
+    if not (8.0667 <= lat <= 37.1000 and 68.1167 <= longitude <= 97.4167):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Coordinates are outside India. This API only serves weather data for locations within mainland India (lat: 8.0667°–37.1°N, lon: 68.1167°–97.4167°E).",
+        )
+
     grid_key = (round(lat, 2), round(longitude, 2))
     lock = await get_grid_lock(grid_key)
     async with lock:
         payload, meta = await asyncio.to_thread(get_live_weather_sync, lat, longitude)
+
+    # Clean legacy cache metadata fields if present
+    for k in ("is_cached", "cache_type", "cache_age_seconds"):
+        payload.pop(k, None)
+
+    # Enrich payload with station metadata
+    payload["source"] = meta.get("source", "unknown")
+    payload["station_name"] = meta.get("station_name")
+    payload["station_distance_km"] = meta.get("station_distance_km")
+    payload["recorded_at"] = format_readable_time(meta.get("recorded_at"))
 
     # Compute ETag for cache revalidation
     content_bytes = json.dumps(payload, sort_keys=True).encode("utf-8")
@@ -912,76 +990,13 @@ async def get_live_weather_endpoint(
             headers={
                 "ETag": etag,
                 "Cache-Control": cache_control,
-                "X-Weather-Source": meta.get("source", "unknown"),
-                "X-Cache-Status": "NOT_MODIFIED",
             },
         )
 
-    # Build response with diagnostic and browser caching headers
     response = JSONResponse(content=payload)
     response.headers["ETag"] = etag
     response.headers["Cache-Control"] = cache_control
-    response.headers["X-Weather-Source"] = meta.get("source", "unknown")
-    response.headers["X-Cache-Status"] = meta.get("cache_type") or ("HIT" if meta.get("is_cached") else "MISS")
-    if meta.get("station_name"):
-        response.headers["X-Station-Name"] = str(meta["station_name"])
-    if meta.get("station_distance_km") is not None:
-        response.headers["X-Station-Distance-KM"] = str(meta["station_distance_km"])
     return response
-
-
-@app.get(
-    "/live/details",
-    response_model=LiveWeatherDetailedResponse,
-    tags=["Weather"],
-    summary="Get live weather with extended metadata",
-    description="Same live weather data plus diagnostic metadata (data source, station name, distance, cache status).",
-)
-async def get_live_weather_detailed_endpoint(
-    request: Request,
-    lat: float = Query(..., ge=-90.0, le=90.0),
-    lon: Optional[float] = Query(None, ge=-180.0, le=180.0),
-    long: Optional[float] = Query(None, ge=-180.0, le=180.0),
-):
-    longitude = lon if lon is not None else long
-    if longitude is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Longitude parameter is required. Provide either 'lon' or 'long'.",
-        )
-
-    grid_key = (round(lat, 2), round(longitude, 2))
-    lock = await get_grid_lock(grid_key)
-    async with lock:
-        payload, meta = await asyncio.to_thread(get_live_weather_sync, lat, longitude)
-
-    detailed = dict(payload)
-    detailed["source"] = meta.get("source", "unknown")
-    detailed["stationName"] = meta.get("station_name")
-    detailed["stationDistanceKm"] = meta.get("station_distance_km")
-    detailed["isCached"] = meta.get("is_cached", False)
-    detailed["cacheType"] = meta.get("cache_type")
-    detailed["recordedAt"] = meta.get("recorded_at")
-    detailed["recordedAtReadable"] = format_readable_time(meta.get("recorded_at"))
-    detailed["cacheAgeSeconds"] = meta.get("cache_age_seconds", 0.0)
-
-    content_bytes = json.dumps(detailed, sort_keys=True).encode("utf-8")
-    etag = f'"{hashlib.md5(content_bytes).hexdigest()}"'
-    cache_control = f"public, max-age={int(WEATHER_CACHE_TTL_SECONDS)}, stale-while-revalidate=60"
-
-    if_none_match = request.headers.get("if-none-match")
-    if if_none_match and if_none_match.strip() == etag:
-        return Response(
-            status_code=status.HTTP_304_NOT_MODIFIED,
-            headers={"ETag": etag, "Cache-Control": cache_control},
-        )
-
-    res = JSONResponse(content=detailed)
-    res.headers["ETag"] = etag
-    res.headers["Cache-Control"] = cache_control
-    return res
-
-    return detailed
 
 
 @app.get(

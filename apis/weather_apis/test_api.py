@@ -61,7 +61,7 @@ def test_validation_invalid_latitude():
 def test_live_weather_annam_priority_hyderabad():
     """
     Hyderabad coordinates (17.3850, 78.4867):
-    Within ~7km of Annam sensor #11.
+    Within ~7km of Annam sensor.
     Should use Annam for temperature/humidity/rainfall/wind, and IMD for feels-like and condition.
     """
     cache_manager.clear()
@@ -69,7 +69,7 @@ def test_live_weather_annam_priority_hyderabad():
     assert resp.status_code == 200
     data = resp.json()
 
-    # Exact key validation required by user
+    # Required keys in single live endpoint
     expected_keys = {
         "liveTemperature",
         "humidity",
@@ -77,6 +77,10 @@ def test_live_weather_annam_priority_hyderabad():
         "windSpeed",
         "weatherCondition",
         "feelsLikeTemperature",
+        "source",
+        "station_name",
+        "station_distance_km",
+        "recorded_at",
     }
     assert set(data.keys()) == expected_keys
 
@@ -87,11 +91,9 @@ def test_live_weather_annam_priority_hyderabad():
     assert isinstance(data["windSpeed"], (int, float))
     assert isinstance(data["weatherCondition"], str)
     assert isinstance(data["feelsLikeTemperature"], (int, float))
-
-    # Header check
-    assert resp.headers.get("X-Weather-Source") in ("annam+imd", "imd")
+    assert data["source"] in ("aws+imd", "imd")
+    assert "IST" in data["recorded_at"]
     print("\n[TEST] Hyderabad live response:", data)
-    print("[TEST] Headers:", dict(resp.headers))
 
 
 def test_live_weather_imd_fallback_delhi():
@@ -111,9 +113,14 @@ def test_live_weather_imd_fallback_delhi():
         "windSpeed",
         "weatherCondition",
         "feelsLikeTemperature",
+        "source",
+        "station_name",
+        "station_distance_km",
+        "recorded_at",
     }
     assert set(data.keys()) == expected_keys
-    assert resp.headers.get("X-Weather-Source") == "imd"
+    assert data["source"] == "imd"
+    assert "IST" in data["recorded_at"]
     print("\n[TEST] Delhi IMD fallback response:", data)
 
 
@@ -128,7 +135,7 @@ def test_hot_cache_hit():
     # Second call
     resp2 = client.get("/live?lat=17.3850&lon=78.4867")
     assert resp2.status_code == 200
-    assert resp2.headers.get("X-Cache-Status") == "hot_ttl"
+    assert resp2.headers.get("ETag") == resp1.headers.get("ETag")
 
 
 def test_conditional_get_304_not_modified():
@@ -144,15 +151,11 @@ def test_conditional_get_304_not_modified():
     assert resp2.headers.get("ETag") == etag
 
 
-def test_live_details_endpoint():
-    """Verify /live/details returns metadata fields."""
-    resp = client.get("/live/details?lat=17.3850&lon=78.4867")
-    assert resp.status_code == 200
-    data = resp.json()
-    assert "source" in data
-    assert "stationName" in data
-    assert "stationDistanceKm" in data
-    assert "isCached" in data
+def test_validation_out_of_bounds_india():
+    """Verify that coordinates outside mainland India return 400 Bad Request."""
+    resp = client.get("/live?lat=0.0&lon=0.0")
+    assert resp.status_code == 400
+    assert "outside India" in resp.json()["message"]
 
 
 def test_stale_fallback_cache_when_apis_down():
@@ -176,6 +179,7 @@ def test_stale_fallback_cache_when_apis_down():
             "source": "mock_primed",
             "station_name": "Mumbai Santacruz",
             "station_distance_km": 4.2,
+            "recorded_at": "05 Nov 2026, 01:00 PM IST",
         },
     )
 
@@ -194,7 +198,7 @@ def test_stale_fallback_cache_when_apis_down():
         assert data["liveTemperature"] == 30.5
         assert data["humidity"] == 75.0
         assert data["weatherCondition"] == "Scattered Clouds"
-        assert resp.headers.get("X-Cache-Status") == "stale_fallback"
+        assert data["source"] == "stale_fallback"
         print("\n[TEST] Successfully recovered from API outage using stale fallback cache:", data)
 
 
