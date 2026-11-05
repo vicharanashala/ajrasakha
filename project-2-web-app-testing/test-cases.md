@@ -31,7 +31,17 @@ To automate testing of the AjraSakha farmer-facing web application using Playwri
 - Bug report for identified issues.
 
 ## Current Progress
-- Playwright installed and configured.
-- Chromium sample test executed successfully.
-- Website URL configured.
-- Actual application testing pending account verification.
+
+- Playwright installed and configured successfully.
+- TypeScript test environment configured.
+- Staging website URL configured.
+- Six test specification files implemented.
+- Chromium test execution completed successfully.
+- All tests in the current Chromium run passed.
+- HTML test report generated successfully.
+- GitHub Actions workflow created and changes pushed to GitHub.
+
+**Remaining Work:**
+- Expand the suite to meet the minimum 40 meaningful end-to-end tests.
+- Implement and verify actual functional scenarios.
+- Complete account-dependent testing where access is available.
