@@ -1,0 +1,333 @@
+name: Reviewer E2E Tests
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - feature/reviewer-system-e2e-tests
+  pull_request:
+
+permissions:
+  contents: read
+
+env:
+  NODE_VERSION: "22"
+
+jobs:
+  reviewer-e2e:
+    name: Run Reviewer Playwright Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+          run_install: false
+
+      - name: Generate VAPID keys
+        run: npx --yes web-push generate-vapid-keys --json > "$RUNNER_TEMP/vapid-keys.json"
+
+      - name: Check DB_URL_STAGING shape
+        env:
+          DB_URL_STAGING: ${{ secrets.DB_URL_STAGING }}
+        run: |
+          length=${#DB_URL_STAGING}
+          starts_with_mongodb_srv=false
+          starts_with_mongodb=false
+          contains_double_quote=false
+          contains_single_quote=false
+          starts_with_NAME_equals=false
+          contains_whitespace=false
+
+          [[ "$DB_URL_STAGING" == mongodb+srv://* ]] && starts_with_mongodb_srv=true
+          [[ "$DB_URL_STAGING" == mongodb://* ]] && starts_with_mongodb=true
+          [[ "$DB_URL_STAGING" == \"* ]] && contains_double_quote=true
+          [[ "$DB_URL_STAGING" == *\"* ]] && contains_double_quote=true
+          [[ "$DB_URL_STAGING" == \'* ]] && contains_single_quote=true
+          [[ "$DB_URL_STAGING" == *\'* ]] && contains_single_quote=true
+          [[ "$DB_URL_STAGING" =~ ^[A-Za-z_]+= ]] && starts_with_NAME_equals=true
+          [[ "$DB_URL_STAGING" =~ [[:space:]] ]] && contains_whitespace=true
+
+          printf '%s\n' \
+            "length=$length" \
+            "starts_with_mongodb_srv=$starts_with_mongodb_srv" \
+            "starts_with_mongodb=$starts_with_mongodb" \
+            "contains_double_quote=$contains_double_quote" \
+            "contains_single_quote=$contains_single_quote" \
+            "starts_with_NAME_equals=$starts_with_NAME_equals" \
+            "contains_whitespace=$contains_whitespace"
+
+          if [[ "$DB_URL_STAGING" != mongodb://* && "$DB_URL_STAGING" != mongodb+srv://* ]]; then
+            echo "::error::DB_URL_STAGING must start with mongodb:// or mongodb+srv://."
+            exit 1
+          fi
+
+      - name: Write backend environment
+        env:
+          DB_URL_STAGING: ${{ secrets.DB_URL_STAGING }}
+          DB_NAME_STAGING: ${{ secrets.DB_NAME_STAGING }}
+          FIREBASE_PROJECT_ID: ${{ secrets.FIREBASE_PROJECT_ID_STAGING }}
+          FIREBASE_CLIENT_EMAIL: ${{ secrets.FIREBASE_CLIENT_EMAIL_STAGING }}
+          FIREBASE_PRIVATE_KEY: ${{ secrets.FIREBASE_PRIVATE_KEY_STAGING }}
+          FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+        run: |
+          db_url="$DB_URL_STAGING"
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          if [[ "$db_url" == \"*\" && "$db_url" == *\" ]]; then
+            db_url="${db_url:1:${#db_url}-2}"
+          elif [[ "$db_url" == \'*\' && "$db_url" == *\' ]]; then
+            db_url="${db_url:1:${#db_url}-2}"
+          fi
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          db_url="${db_url#DB_URL=}"
+          db_url="${db_url#"${db_url%%[![:space:]]*}"}"
+          db_url="${db_url%"${db_url##*[![:space:]]}"}"
+          export DB_URL_STAGING="$db_url"
+
+          printf '%s\n' \
+            'NODE_ENV=development' \
+            'PORT=8080' \
+            'APP_ORIGINS=http://localhost:5173' \
+            'FRONTEND_URL=http://localhost:5173' \
+            > backend/.env
+
+          node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+
+          const databaseUrl = process.env.DB_URL_STAGING;
+          const vapidKeys = JSON.parse(
+            fs.readFileSync(path.join(process.env.RUNNER_TEMP, 'vapid-keys.json'), 'utf8'),
+          );
+          const firebasePrivateKey = process.env.FIREBASE_PRIVATE_KEY.replace(/\r?\n/g, '\\n');
+          const values = {
+            DB_URL: process.env.DB_URL_STAGING,
+            DB_NAME: process.env.DB_NAME_STAGING,
+            ANNAM_URL_ANALYTICS: databaseUrl,
+            ANNAM_DB_ANALYTICS: 'annam_analytics',
+            DB_URL_ANALYTICS: databaseUrl,
+            DB_NAME_ANALYTICS: 'analytics',
+            DATASET_APP_DB_URL: databaseUrl,
+            DATASET_APP_DB_NAME: 'dataset_app',
+            FIREBASE_PROJECT_ID: process.env.FIREBASE_PROJECT_ID,
+            FIREBASE_CLIENT_EMAIL: process.env.FIREBASE_CLIENT_EMAIL,
+            FIREBASE_PRIVATE_KEY: `"${firebasePrivateKey}"`,
+            FIREBASE_API_KEY: process.env.FIREBASE_API_KEY,
+            VAPID_PUBLIC_KEY: vapidKeys.publicKey,
+            VAPID_PRIVATE_KEY: vapidKeys.privateKey,
+            VAPID_EMAIL: 'mailto:ci@example.com',
+            INTERNAL_API_KEY: require('node:crypto').randomBytes(32).toString('hex'),
+            REVIEW_SYSTEM_AUTH_KEY: require('node:crypto').randomBytes(32).toString('hex'),
+            PLIVO_AUTH_ID: 'dummy-plivo-auth-id',
+            PLIVO_AUTH_TOKEN: 'dummy-plivo-auth-token',
+          };
+
+          fs.appendFileSync(
+            'backend/.env',
+            Object.entries(values).map(([key, value]) => `${key}=${value}`).join('\n') + '\n',
+          );
+          NODE
+
+      - name: Write frontend environment
+        env:
+          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STAGING }}
+          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID_STAGING }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STAGING }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}
+          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID_STAGING }}
+          VITE_FIREBASE_MEASUREMENT_ID: ${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}
+        run: |
+          printf '%s\n' \
+            'VITE_API_BASE_URL=http://localhost:8080/api' \
+            "VITE_FIREBASE_API_KEY=$VITE_FIREBASE_API_KEY" \
+            "VITE_FIREBASE_AUTH_DOMAIN=$VITE_FIREBASE_AUTH_DOMAIN" \
+            "VITE_FIREBASE_PROJECT_ID=$VITE_FIREBASE_PROJECT_ID" \
+            "VITE_FIREBASE_STORAGE_BUCKET=$VITE_FIREBASE_STORAGE_BUCKET" \
+            "VITE_FIREBASE_MESSAGING_SENDER_ID=$VITE_FIREBASE_MESSAGING_SENDER_ID" \
+            "VITE_FIREBASE_APP_ID=$VITE_FIREBASE_APP_ID" \
+            "VITE_FIREBASE_MEASUREMENT_ID=$VITE_FIREBASE_MEASUREMENT_ID" \
+            > frontend/.env
+
+      - name: Install and build backend
+        working-directory: backend
+        run: |
+          pnpm install
+          pnpm run build
+
+      - name: Start backend and wait for health check
+        run: |
+          nohup pnpm --dir backend start > backend.log 2>&1 < /dev/null &
+          for attempt in $(seq 1 120); do
+            if curl --fail --silent http://localhost:8080/api/health > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Backend did not become healthy within 2 minutes."
+          exit 1
+
+      - name: Show backend log on failure
+        if: failure()
+        run: tail -n 60 backend.log || true
+
+      - name: Install and build frontend
+        working-directory: frontend
+        run: |
+          pnpm install
+          pnpm exec vite build
+
+      - name: Serve frontend and wait for readiness
+        run: |
+          ls -la frontend/dist
+          if [[ ! -f frontend/dist/index.html ]]; then
+            echo "::error::Frontend build output is missing frontend/dist/index.html."
+            exit 1
+          fi
+          nohup pnpm --dir frontend exec vite preview --host localhost --port 5173 --strictPort > frontend.log 2>&1 < /dev/null &
+          for attempt in $(seq 1 120); do
+            status=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:5173/ || true)
+            if [[ "$status" == "200" ]]; then
+              exit 0
+            fi
+            sleep 1
+          done
+          echo "Frontend did not become ready within 2 minutes."
+          exit 1
+
+      - name: Show frontend diagnostics on failure
+        if: failure()
+        run: |
+          tail -n 60 frontend.log || true
+          ss -ltn | grep -E '4173|5173' || true
+
+      - name: Write Playwright test environment
+        env:
+          MODERATOR_EMAIL: ${{ secrets.MODERATOR_EMAIL }}
+          MODERATOR_PASSWORD: ${{ secrets.MODERATOR_PASSWORD }}
+          EXPERT_EMAIL: ${{ secrets.EXPERT_EMAIL }}
+          EXPERT_PASSWORD: ${{ secrets.EXPERT_PASSWORD }}
+        working-directory: qa-tests
+        run: |
+          printf '%s\n' \
+            'BASE_URL=http://localhost:5173' \
+            "MODERATOR_EMAIL=$MODERATOR_EMAIL" \
+            "MODERATOR_PASSWORD=$MODERATOR_PASSWORD" \
+            "EXPERT_EMAIL=$EXPERT_EMAIL" \
+            "EXPERT_PASSWORD=$EXPERT_PASSWORD" \
+            > .env
+
+      - name: Install Playwright dependencies
+        working-directory: qa-tests
+        run: npm ci
+
+      - name: Install Chromium
+        working-directory: qa-tests
+        run: npx playwright install --with-deps chromium
+
+      - name: Check Firebase login for test accounts
+        continue-on-error: true
+        env:
+          VITE_FIREBASE_API_KEY_STAGING: ${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+          MODERATOR_EMAIL: ${{ secrets.MODERATOR_EMAIL }}
+          MODERATOR_PASSWORD: ${{ secrets.MODERATOR_PASSWORD }}
+          EXPERT_EMAIL: ${{ secrets.EXPERT_EMAIL }}
+          EXPERT_PASSWORD: ${{ secrets.EXPERT_PASSWORD }}
+        run: |
+          print_secret_facts() {
+            local label="$1"
+            local value="$2"
+            local is_email="$3"
+            local length=${#2}
+            local has_whitespace_at_ends=false
+            local contains_newline=false
+
+            if [[ "$value" =~ ^[[:space:]]|[[:space:]]$ ]]; then
+              has_whitespace_at_ends=true
+            fi
+            if [[ "$value" == *$'\n'* ]]; then
+              contains_newline=true
+            fi
+
+            if [[ "$is_email" == true ]]; then
+              local contains_at=false
+              if [[ "$value" == *'@'* ]]; then
+                contains_at=true
+              fi
+              printf '%s length=%s has_whitespace_at_ends=%s contains_newline=%s contains_at=%s\n' \
+                "$label" "$length" "$has_whitespace_at_ends" "$contains_newline" "$contains_at"
+            else
+              printf '%s length=%s has_whitespace_at_ends=%s contains_newline=%s\n' \
+                "$label" "$length" "$has_whitespace_at_ends" "$contains_newline"
+            fi
+          }
+
+          check_firebase_login() {
+            local label="$1"
+            local email="$2"
+            local password="$3"
+            local payload
+            local response
+            local status
+            local body
+            local error_message
+
+            payload=$(jq -n --arg email "$email" --arg password "$password" \
+              '{email:$email,password:$password,returnSecureToken:true}')
+            response=$(curl --silent --write-out $'\n%{http_code}' \
+              --header 'Content-Type: application/json' \
+              --data "$payload" \
+              "https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=$VITE_FIREBASE_API_KEY_STAGING" \
+              2>/dev/null || true)
+            status="${response##*$'\n'}"
+            body="${response%$'\n'*}"
+            error_message=$(printf '%s' "$body" | jq -r '.error.message // "OK"' 2>/dev/null) || error_message=OK
+            printf '%s status=%s %s\n' "$label" "$status" "$error_message"
+          }
+
+          print_secret_facts MODERATOR_EMAIL "$MODERATOR_EMAIL" true
+          print_secret_facts MODERATOR_PASSWORD "$MODERATOR_PASSWORD" false
+          print_secret_facts EXPERT_EMAIL "$EXPERT_EMAIL" true
+          print_secret_facts EXPERT_PASSWORD "$EXPERT_PASSWORD" false
+          print_secret_facts VITE_FIREBASE_API_KEY_STAGING "$VITE_FIREBASE_API_KEY_STAGING" false
+
+          check_firebase_login moderator "$MODERATOR_EMAIL" "$MODERATOR_PASSWORD"
+          check_firebase_login expert "$EXPERT_EMAIL" "$EXPERT_PASSWORD"
+
+      - name: Run Playwright tests
+        working-directory: qa-tests
+        run: npx playwright test --workers=1
+
+      - name: Upload service logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-e2e-service-logs
+          path: |
+            backend.log
+            frontend.log
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload Playwright reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reviewer-e2e-playwright-artifacts
+          path: |
+            qa-tests/playwright-report
+            qa-tests/test-results
+          if-no-files-found: ignore
+          retention-days: 7
