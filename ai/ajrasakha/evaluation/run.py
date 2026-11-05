@@ -38,8 +38,12 @@ def run_case(case: dict, mode: str) -> dict:
 
     quality_result = evaluate_response_quality(
         result,
+        case=case,
         enabled=(mode == "live"),
     )
+    # TODO(v2): When quality_pass=None (e.g., NO_ANSWER), triage routes to
+    # 'needs_review' instead of 'answer_quality_issue'. Consider if we want
+    # to route to a different category or set graph_status='error' here.
 
     combined = {
         **result,
