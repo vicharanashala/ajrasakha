@@ -236,9 +236,10 @@ def search(question: str, crop: str | None = None, state: str | None = None) -> 
     return finish_hits(hits)
 
 
-def finish_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+def finish_hits(hits: list[dict[str, Any]], keep_unopenable: bool = False) -> list[dict[str, Any]]:
     """Make passages ready to cite: record files under their own names, no document the reviewer cannot
-    open, the full document name, and no repeated page."""
+    open (unless keep_unopenable: the agent chose them, and the draft says which cannot be opened), the full
+    document name, and no repeated page."""
     for hit in hits:
         uploaded = _RECORD_SOURCE_NAME.match(str(hit.get("documentName") or ""))
         if uploaded:  # a file uploaded for some record: its PDF is fetched from Zoho again when it is opened
@@ -247,6 +248,8 @@ def finish_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
     # a citation the reviewer cannot open is worse than none, so a document we hold no file for is left out
     openable = library_files.openable_document_ids()
     skipped = [hit for hit in hits if hit.get("documentId") not in openable and not str(hit.get("documentId")).startswith("src-")]
+    if skipped and keep_unopenable:
+        skipped = []
     if skipped:
         logger.warning("left out %d passages of documents that cannot be opened: %s", len(skipped),
                        sorted({str(hit.get("documentName")) for hit in skipped}))
