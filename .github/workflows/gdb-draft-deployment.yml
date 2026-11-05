@@ -4,7 +4,8 @@
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID
 #   GDB_DRAFT_TOKEN          shared secret; the backend sends it as x-draft-token
-#   DRAFT_MINIMAX_API_KEY    key for the model that writes the draft
+#   GEMINI_API_KEY           key for Gemini 3.5 Flash, which writes the draft when this secret exists
+#   DRAFT_MINIMAX_API_KEY    key for MiniMax, used when GEMINI_API_KEY does not exist
 #   ANARA_TOKENS_B64         optional; the Anara sign-in file, base64 encoded (see gdb-draft/anara_search.py);
 #                            without it the service searches its own copy of the documents
 #
@@ -82,11 +83,12 @@ jobs:
 
           env_vars: |
             GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
-            DRAFT_MINIMAX_API_KEY=${{ secrets.DRAFT_MINIMAX_API_KEY }}
-            DRAFT_MINIMAX_URL=https://api.minimax.io/v1/chat/completions
-            DRAFT_MINIMAX_MODEL=MiniMax-M3
-            POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south2.run.app/api/pop' }}
+            DRAFT_MINIMAX_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.DRAFT_MINIMAX_API_KEY }}
+            DRAFT_MINIMAX_URL=${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' || 'https://api.minimax.io/v1/chat/completions' }}
+            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && 'gemini-3.5-flash' || 'MiniMax-M3' }}
+            POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south1.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
+            DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the

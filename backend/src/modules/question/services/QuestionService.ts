@@ -2413,7 +2413,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     action: 'hold' | 'unhold',
   ): Promise<{id: string}> {
-    return await this._withTransaction(async session => {
+    const result = await this._withTransaction(async session => {
       if (action === 'unhold') {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) {
@@ -2437,15 +2437,25 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
         const restoredStatus = question.previousStatus || 'open';
+        const unholdUpdates: Record<string, any> = {
+          isOnHold: false,
+          status: restoredStatus,
+          accumulatedHoldMs: prevAccum + segmentMs,
+          holdAt: null,
+          previousStatus: null,
+          isAutoAllocate: true,
+        };
+        if ((question as any).gateKeeperId && (question as any).gateKeeperFinishedAt) {
+          unholdUpdates.gateKeeperAssignedAt = new Date();
+          unholdUpdates.gateKeeperFinishedAt = null;
+        }
+        if ((question as any).auditorId && (question as any).auditorFinishedAt) {
+          unholdUpdates.auditorAssignedAt = new Date();
+          unholdUpdates.auditorFinishedAt = null;
+        }
         await this.questionRepo.updateQuestion(
           questionId,
-          {
-            isOnHold: false,
-            status: restoredStatus,
-            accumulatedHoldMs: prevAccum + segmentMs,
-            holdAt: null,
-            previousStatus: null,
-          },
+          unholdUpdates,
           session,
         );
         return {id: questionId};
@@ -2474,6 +2484,41 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
+
+      // Release any active role assignee from user queue and mark finish timestamp to prevent timer leaks while on hold
+      const holdTime = new Date();
+      if ((question as any).gateKeeperId) {
+        const gkId = (question as any).gateKeeperId.toString();
+        await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
+        if (!(question as any).gateKeeperFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'gateKeeperFinishedAt',
+            holdTime,
+            session,
+          );
+        }
+      }
+      if ((question as any).auditorId) {
+        const audId = (question as any).auditorId.toString();
+        await this.userRepo.removeAssignedQuestion(audId, questionId, session);
+        if (!(question as any).auditorFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'auditorFinishedAt',
+            holdTime,
+            session,
+          );
+        }
+      }
+      if (question.moderatorId) {
+        await this.userRepo.removeAssignedQuestion(
+          question.moderatorId.toString(),
+          questionId,
+          session,
+        );
+      }
+
       await this.questionRepo.updateQuestion(
         questionId,
         {
@@ -2481,12 +2526,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           isAutoAllocate: false,
           previousStatus: question.status,
           status: 'hold',
-          holdAt: new Date(),
+          holdAt: holdTime,
         },
         session,
       );
       return {id: questionId};
     });
+    this.triggerRoleQueueAllocation(`holdQuestion:${action}`);
+    return result;
   }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
     const submission =

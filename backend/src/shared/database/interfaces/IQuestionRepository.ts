@@ -956,6 +956,7 @@ export interface IQuestionRepository {
     userId: string,
     startDate: Date,
     endDate: Date,
+    activeSessions?: Array<{ start: number; end: number }>,
   ): Promise<IUserActivityMetrics>;
 
   /**
@@ -987,5 +988,7 @@ export interface IUserActivityMetrics {
   totalReroutingMs: number;
   expertReroutedCount: number;
   totalExpertReroutingMs: number;
+  heldCount: number;
+  totalHoldingMs: number;
 }
 

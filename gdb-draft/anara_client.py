@@ -13,6 +13,7 @@ import logging
 import os
 import re
 import threading
+import time
 import webbrowser
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -36,9 +37,11 @@ SERVER_URL = "https://anara.com/api/mcp"
 CALLBACK_PORT = 8765
 REDIRECT_URI = f"http://localhost:{CALLBACK_PORT}/callback"
 TOKEN_FILE = Path.home() / ".anara_mcp" / "tokens.json"
-SEARCH_LIMIT = 20
-SEARCH_TOP_K = 10
-PASSAGE_CHARS = 1500
+# more candidates than the model reads, because the crop filter drops the passages of other crops
+SEARCH_LIMIT = 40
+SEARCH_TOP_K = 20
+# passages are about 450 characters at the median and 5% run past 1500, so a longer cut loses little
+PASSAGE_CHARS = 2500
 # the passages whose source page is worked out; each one costs up to two pages of the sandbox's 20-page budget
 SOURCE_PAGE_HITS = 8
 # a hit that is only a page marker line has nothing to cite
@@ -63,12 +66,23 @@ class _FileStorage:
         TOKEN_FILE.write_text(json.dumps(data, indent=2), encoding="utf-8")
 
     async def get_tokens(self):
-        raw = self._load().get("tokens")
-        return OAuthToken(**raw) if raw else None
+        data = self._load()
+        raw = data.get("tokens")
+        if not raw:
+            return None
+        token = OAuthToken(**raw)
+        # The client reads expires_in as the time left from now, so a token saved a day ago would be
+        # sent as if it were new, answered with a 401, and end in a browser sign-in. Take off the time
+        # since it was saved, and the client refreshes it in time instead.
+        saved_at = data.get("saved_at") or (TOKEN_FILE.stat().st_mtime if TOKEN_FILE.exists() else None)
+        if saved_at and token.expires_in:
+            token.expires_in = max(1, int(token.expires_in - (time.time() - saved_at)))
+        return token
 
     async def set_tokens(self, tokens: OAuthToken) -> None:
         data = self._load()
         data["tokens"] = tokens.model_dump(mode="json", exclude_none=True)
+        data["saved_at"] = time.time()
         self._save(data)
 
     async def get_client_info(self):
@@ -196,9 +210,11 @@ function sourcePagesFor(h) {
 """
 
 
-def _search_code(query: str) -> str:
+def _search_code(query: str, document_ids: list[str] | None = None) -> str:
     """JavaScript run inside Anara's sandbox: a library search with each passage's source pages."""
-    arguments = {"query": query, "limit": SEARCH_LIMIT, "topK": SEARCH_TOP_K}
+    arguments: dict[str, Any] = {"query": query, "limit": SEARCH_LIMIT, "topK": SEARCH_TOP_K}
+    if document_ids:  # only these documents are searched
+        arguments["documentIds"] = document_ids
     extra = _phrasings(query)
     if extra:
         arguments["queries"] = extra
@@ -230,22 +246,70 @@ def _parse_hits(result) -> list[dict[str, Any]]:
     return returned or []
 
 
-async def _search_async(query: str) -> list[dict[str, Any]]:
+async def _call_async(tool: str, arguments: dict[str, Any]):
     async with httpx2.AsyncClient(auth=_provider(), timeout=120) as http_client:
         async with streamable_http_client(SERVER_URL, http_client=http_client) as (read, write):
             async with ClientSession(read, write) as session:
                 await session.initialize()
-                result = await session.call_tool("anara_execute", {"code": _search_code(query)})
-                return _parse_hits(result)
+                return await session.call_tool(tool, arguments)
 
 
-def search_library(query: str) -> list[dict[str, Any]]:
-    """Return passages from the Anara library that match the query.
+async def _execute_async(code: str):
+    return _parse_hits(await _call_async("anara_execute", {"code": code}))
+
+
+async def _search_async(query: str, document_ids: list[str] | None = None) -> list[dict[str, Any]]:
+    return await _execute_async(_search_code(query, document_ids))
+
+
+def execute(code: str) -> Any:
+    """Run a script in Anara's sandbox and return what it returns."""
+    return asyncio.run(_execute_async(code))
+
+
+def upload_pdf(path: Path, anara_name: str) -> str:
+    """Upload a PDF to the library under this name and return its Anara document id.
+
+    Needs the sign-in to have write access. Anara reads the file afterwards; a lookup by name
+    shows when it is ready.
+    """
+    import requests
+
+    result = asyncio.run(_call_async("anara_local_bootstrap", {"scopes": ["anara:write"]}))
+    if result.is_error:
+        raise RuntimeError(f"Anara upload key failed: {result.content[0].text if result.content else 'unknown'}")
+    session = json.loads(result.content[0].text)
+    if "anara:write" not in session.get("scopes", []):
+        raise RuntimeError("Anara did not grant write access: sign in again with write access")
+    data = path.read_bytes()
+    created = requests.post(
+        f"{session['baseUrl']}/api/v1/sdk/documents.createUpload",
+        headers={"x-api-key": session["apiKey"], "x-anara-organization-id": session["organizationId"]},
+        json={"filename": anara_name, "contentLength": len(data)},
+        timeout=60,
+    )
+    if not created.ok:
+        raise RuntimeError(f"Anara upload of {anara_name} failed: {created.status_code} {created.text[:200]}")
+    created = created.json()
+    put = requests.put(created["uploadUrl"], data=data, headers=created["headers"], timeout=120)
+    if not put.ok:
+        raise RuntimeError(f"Upload of {anara_name} failed: {put.status_code} {put.text[:200]}")
+    return created["documentId"]
+
+
+def library_size() -> int:
+    """How many documents the library holds; a cheap way to see that the sign-in works."""
+    count = asyncio.run(_execute_async("return anara.entities.query({ type: 'DOCUMENT', limit: 500 }).length;"))
+    return count if isinstance(count, int) else 0
+
+
+def search_library(query: str, document_ids: list[str] | None = None) -> list[dict[str, Any]]:
+    """Return passages from the Anara library that match the query (only from document_ids, when given).
 
     Each passage has documentName, documentId, pageNumber (the PDF page index),
     displayPageNumber (the printed page), passageId, and text.
     """
-    return [hit for hit in asyncio.run(_search_async(query)) if _has_content(hit)]
+    return [hit for hit in asyncio.run(_search_async(query, document_ids)) if _has_content(hit)]
 
 
 def _has_content(hit: dict[str, Any]) -> bool:

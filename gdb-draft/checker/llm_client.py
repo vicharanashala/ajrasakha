@@ -69,27 +69,32 @@ def call_llm_once(
     url: str | None = None,
     api_key: str | None = None,
     timeout: float = REQUEST_TIMEOUT_SECONDS,
+    extra: dict[str, Any] | None = None,
 ) -> str:
     """One request, returns the raw text. Raises on failure; use call_llm for retries.
 
     model, url and api_key default to MINIMAX_MODEL, MINIMAX_URL and MINIMAX_API_KEY,
-    so the checks are unchanged.
+    so the checks are unchanged. `extra` adds request fields, such as a thinking setting.
     """
     load_dotenv(PROJECT_DIRECTORY / ".env")
     api_key = api_key or os.getenv("MINIMAX_API_KEY", "").strip()
     if not api_key:
         raise ValueError("MINIMAX_API_KEY is not configured")
 
+    url = url or MINIMAX_URL
+    body = {
+        "model": model or MINIMAX_MODEL,
+        "messages": [{"role": "user", "content": prompt}],
+        "temperature": 0.1,
+        "max_completion_tokens": max_completion_tokens,
+        **(extra or {}),
+    }
+    if "googleapis.com" not in url:  # reasoning_split is MiniMax's; Google's endpoint rejects unknown fields
+        body["reasoning_split"] = True
     response = requests.post(
-        url or MINIMAX_URL,
+        url,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
-        json={
-            "model": model or MINIMAX_MODEL,
-            "messages": [{"role": "user", "content": prompt}],
-            "temperature": 0.1,
-            "max_completion_tokens": max_completion_tokens,
-            "reasoning_split": True,
-        },
+        json=body,
         timeout=timeout,
     )
     if not response.ok:
@@ -112,6 +117,7 @@ def call_llm(
     url: str | None = None,
     api_key: str | None = None,
     timeout: float = REQUEST_TIMEOUT_SECONDS,
+    extra: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Call the model with retries and return the parsed JSON.
 
@@ -125,7 +131,7 @@ def call_llm(
         try:
             content = call_llm_once(
                 prompt, max_completion_tokens=max_completion_tokens,
-                model=model, url=url, api_key=api_key, timeout=timeout,
+                model=model, url=url, api_key=api_key, timeout=timeout, extra=extra,
             )
             match = re.search(r"{.*}", content, re.DOTALL)
             if match is None:

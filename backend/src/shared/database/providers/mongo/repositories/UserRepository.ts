@@ -1288,12 +1288,20 @@ export class UserRepository implements IUserRepository {
     const result = await this.usersCollection.updateOne(
       {
         _id: new ObjectId(moderatorId),
-        // Auditor either-or guard (mirrors findAvailableUsersByRole): an auditor's one
-        // time-bound slot must be free — no feedback AND no time-bound assigned
-        // question. A manual-source assigned question is fine. Non-auditors are
-        // unconstrained.
+        // Role allocation guards:
+        // - Gate keepers must be completely free (assignedQuestionIds empty).
+        // - Auditors: one time-bound item (no feedback AND no time-bound question).
+        // - Moderators: unconstrained here.
         $or: [
-          { role: { $ne: 'auditor' } },
+          { role: { $nin: ['auditor', 'gate_keeper'] } },
+          {
+            role: 'gate_keeper',
+            $or: [
+              { assignedQuestionIds: { $exists: false } },
+              { assignedQuestionIds: null },
+              { assignedQuestionIds: { $size: 0 } },
+            ],
+          },
           {
             role: 'auditor',
             $and: [

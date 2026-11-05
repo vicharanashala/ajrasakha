@@ -32,13 +32,21 @@ DRAFT_ATTEMPT_TIMEOUT_SECONDS = 70
 # the model reasons before it answers, and the reasoning counts against this budget: at 2048 it
 # often used all of it and returned no answer text (finish_reason "length")
 DRAFT_MAX_COMPLETION_TOKENS = 6000
-# drafting has its own model, so the checks keep MINIMAX_MODEL and MINIMAX_URL from .env
 DRAFT_MODEL = os.getenv("DRAFT_MINIMAX_MODEL", "MiniMax-M3")
 DRAFT_URL = os.getenv(
     "DRAFT_MINIMAX_URL", "https://samagama.in/platform/proxy/v1/chat/completions"
 )
 # empty means the drafter uses MINIMAX_API_KEY, the same key as the checks
 DRAFT_API_KEY = os.getenv("DRAFT_MINIMAX_API_KEY", "").strip() or None
+# MiniMax: with thinking on, about half the drafts spent the whole budget deliberating and returned no
+# answer (65 s, nothing written); with it off a draft takes about 7 s. DRAFT_THINKING=on turns it back on.
+# Gemini (the URL is Google's): reasoning stays on but low, which is about 8 s a draft.
+if "googleapis.com" in DRAFT_URL:
+    DRAFT_EXTRA = {"reasoning_effort": os.getenv("DRAFT_REASONING_EFFORT", "low")}
+elif os.getenv("DRAFT_THINKING", "off").strip().lower() == "on":
+    DRAFT_EXTRA = {}
+else:
+    DRAFT_EXTRA = {"thinking": {"type": "disabled"}}
 
 PROMPT_TEMPLATE = """You are drafting an agricultural answer for a farmer-facing database.
 
@@ -52,6 +60,10 @@ Return only JSON in this form:
 {{"answer": "...", "used_passages": [3, 5], "note": ""}}
 
 Question: {question}
+
+Some passages are tables whose columns have run together. Read them row by row (crop, disease or
+pest, product, dose, waiting period or interval in days) and use the figures of the row for the
+crop asked.
 
 Passages:
 {passages}
@@ -69,13 +81,28 @@ GENERIC_SHAPE = (
 
 SHAPE_TEMPLATE = """Write the answer in sections, each with a short title on its own line and then its text.
 The usual sections of an answer in the domain "{domain}" are listed below. Use the Narrow list for
-a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Follow
-its order, skip any section the passages do not cover, and end with a short conclusion that points
-the farmer to the local KVK if their case differs. The lists only give the sections: every fact
-comes from the passages. Do not deliberate over the sections, write the answer.
+a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Keep
+their order, but give each section a plain title that fits this question. Leave a section out
+completely when the passages have nothing for it: never write that something is not given, and
+never repeat a fact in a second section. Put the direct answer first and end with a short
+conclusion that points the farmer to the local KVK if their case differs. The lists only give the
+sections: every fact comes from the passages.
 
 Broad: {broad}
 Narrow: {narrow}
+"""
+
+# the writing rules are on by default; DRAFT_PROMPT=v1 turns them off (the layout alone)
+WRITING_RULES_ON = os.getenv("DRAFT_PROMPT", "v4").strip().lower() != "v1"
+
+WRITING_RULES = """Rules for writing the answer:
+- Name the disease, pest or subject in the first sentence.
+- If a title in the list names a crop, disease, pest or chemical other than the one asked, give it a plain title for the one asked.
+- For chemicals, give the products the passages list for this crop, each with the dose and waiting period of ITS OWN table row. Never mix figures from different rows. If a waiting period is missing or not credible (for example over 100 days), leave it out. When products with different modes of action are given, suggest rotating them.
+- Never write that a passage lacks something, and never mention "the passages". Leave that point out.
+- After each sentence put only the one to three passage numbers that hold its facts, never a long run of numbers.
+- Mark advice that is optional or depends on the farmer's case.
+
 """
 
 _structures: dict[str, Any] | None = None
@@ -116,11 +143,12 @@ def _outline(steps: list[dict[str, str]]) -> str:
     return "; ".join(f"{number}. {step['step']}" for number, step in enumerate(steps, start=1))
 
 
-def answer_shape(domain: str | None) -> str:
+def answer_shape(domain: str | None, rules: bool | None = None) -> str:
+    rules_text = WRITING_RULES if (WRITING_RULES_ON if rules is None else rules) else ""
     entry = structure_for(domain)
     if entry is None:
-        return GENERIC_SHAPE
-    return SHAPE_TEMPLATE.format(
+        return rules_text + GENERIC_SHAPE
+    return rules_text + SHAPE_TEMPLATE.format(
         domain=entry["domain"], broad=_outline(entry["broad"]), narrow=_outline(entry["narrow"])
     )
 
@@ -142,7 +170,8 @@ def _format_passages(passages: list[dict[str, Any]]) -> str:
 
 
 def draft_answer(
-    question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None
+    question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None,
+    rules: bool | None = None,
 ) -> dict[str, Any]:
     """Return the draft plus the passages it cites, with document and page for each.
 
@@ -171,10 +200,12 @@ def draft_answer(
             max_completion_tokens=DRAFT_MAX_COMPLETION_TOKENS,
             max_retries=attempts - 1,
             timeout=DRAFT_ATTEMPT_TIMEOUT_SECONDS,
+            extra=DRAFT_EXTRA,
         )
 
-    shape = answer_shape(domain)
-    if shape == GENERIC_SHAPE:
+    shape = answer_shape(domain, rules)
+    plain = answer_shape(None, rules)
+    if shape == plain:
         result = ask(shape, DRAFT_ATTEMPTS)
     else:
         # an outline can make the model reason until its budget is gone and return no answer, and
@@ -182,7 +213,7 @@ def draft_answer(
         try:
             result = ask(shape, 1)
         except LLMCallFailed:
-            result = ask(GENERIC_SHAPE, DRAFT_ATTEMPTS - 1)
+            result = ask(plain, DRAFT_ATTEMPTS - 1)
 
     citations = []
     for number in result.get("used_passages", []):
