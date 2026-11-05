@@ -27,6 +27,8 @@ from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
 import local_index
+import anara_agent
+import anara_drafter
 import anara_search
 import anara_sources
 import record_sources
@@ -114,6 +116,15 @@ def record_source_passages(
     return found + own, problems + own_problems
 
 
+def agent_research(request: "DraftRequest", from_sources: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """Anara's own agent researches the question, as in its web chat. None when it is off or cannot be used,
+    and the plain library search is used instead (DRAFT_ENGINE=search turns the agent off)."""
+    if os.getenv("DRAFT_ENGINE", "agent").strip().lower() == "search" or not anara_search.enabled():
+        return None
+    names = list(dict.fromkeys(str(p.get("documentName")) for p in from_sources if p.get("documentName")))
+    return anara_agent.research(request.question, request.crop, request.state, request.domain, names)
+
+
 def _pdf_path(document_id: str):
     return (
         pdf_path_for_document(document_id)
@@ -159,11 +170,28 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
         # the model reads only the first few passages, so the record's files cannot fill them all
         from_sources = from_sources[:MAX_SOURCE_PASSAGES]
         taken = {passage.get("passageId") for passage in from_sources}
-        library = search_library(request.question, request.crop, request.state)
-        passages = from_sources + [p for p in library if p.get("passageId") not in taken]
+        problems = list(dict.fromkeys(problems))  # the same file can be reported by two searches
+        notes = ""
+        researched = agent_research(request, from_sources)
+        if researched is not None:
+            library = Passages(researched["passages"])
+            passages = from_sources + [p for p in library if p.get("passageId") not in taken]
+            if not passages:  # the agent looked and found nothing: its own explanation is the best note
+                reason = anara_agent.plain_notes(researched["notes"]) or "The library has nothing for this question."
+                return {"answer": "", "citations": [], "note": " ".join([reason[:900]] + (["Source files not used: " + "; ".join(problems) + "."] if problems else []))}
+            notes = anara_agent.number_notes(researched["notes"], passages[:anara_drafter.MAX_PASSAGES])
+        else:
+            library = search_library(request.question, request.crop, request.state)
+            passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        draft = draft_answer(request.question, passages, request.crop, request.domain)
+        draft = draft_answer(request.question, passages, request.crop, request.domain, notes=notes or None)
+        notes = [draft.get("note") or ""]
+        if draft.get("answer"):
+            notes.append(anara_search.other_state_notice(draft.get("citations") or [], request.state))
+        if problems:  # a source file that could not be read must not be silently ignored
+            notes.append("Source files not used: " + "; ".join(problems) + ".")
+        draft["note"] = " ".join(note for note in notes if note).strip()
         if getattr(library, "fallback", False):
             draft["note"] = (
                 f"{draft.get('note') or ''} The Anara library search was not available, so this draft uses only "

@@ -172,6 +172,24 @@ class StateAwareSearch(unittest.TestCase):
         self.assertEqual(search.call_count, 2)
         self.assertEqual([h["passageId"] for h in hits], ["a", "x"])
 
+    def test_the_reviewer_is_warned_when_no_cited_document_is_from_the_records_state(self):
+        cited = [{"documentName": "English__General__PAU RABI POP 2022-23~x.pdf"}]
+        notice = anara_search.other_state_notice(cited, "Rajasthan")
+        self.assertIn("No cited document is specific to Rajasthan", notice)
+        self.assertIn("Punjab", notice)
+
+    def test_a_mix_of_own_and_other_state_documents_gets_a_milder_warning(self):
+        cited = [{"documentName": "Odisha__Paddy__POP~a.pdf"}, {"documentName": "English__State__Dharmapuri DAP~b.pdf"}]
+        notice = anara_search.other_state_notice(cited, "Odisha")
+        self.assertIn("other states (Tamil Nadu)", notice)
+        self.assertNotIn("No cited document", notice)
+
+    def test_no_warning_for_own_state_national_or_unknown_state(self):
+        own = [{"documentName": "Package of Practices for Crops of Punjab~a.pdf"}, {"documentName": "Wheat Pocket Guide~b.pdf"}]
+        self.assertEqual(anara_search.other_state_notice(own, "Punjab"), "")
+        self.assertEqual(anara_search.other_state_notice(own, None), "")
+        self.assertEqual(anara_search.other_state_notice(own, "Atlantis"), "")
+
     def test_the_same_page_from_two_copies_of_a_document_is_read_once(self):
         hits = [
             {"text": "Table 1: Herbicides   recommended", "documentId": "a"},
@@ -227,6 +245,16 @@ class TheAnaraShellPort(unittest.TestCase):
         }
         exec(anara_client._SOURCE_PAGES_PY, scope)
         self.assertEqual(scope["RESULT"][0]["sourcePages"], [6])
+
+
+class ASourceThatIsNotAPdf(unittest.TestCase):
+    def test_an_image_is_named_so_the_reviewer_knows_why_it_was_not_used(self):
+        import record_sources
+
+        self.assertEqual(record_sources._file_kind(b"\xff\xd8\xff\xe1Exif"), "an image (JPEG)")
+        self.assertEqual(record_sources._file_kind(b"\x89PNG\r\n"), "an image (PNG)")
+        self.assertIn("Office", record_sources._file_kind(b"PK\x03\x04rest"))
+        self.assertIsNone(record_sources._file_kind(b"<html>login</html>"))
 
 
 if __name__ == "__main__":

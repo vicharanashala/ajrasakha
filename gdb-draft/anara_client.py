@@ -224,6 +224,9 @@ with ThreadPoolExecutor(6) as pool:
         ordered[document] = [p for _, p in numbered]
 def markers(text):
     return [(int(m.group(1)), m.start()) for m in re.finditer(r"page_(\d+)", text or "")]
+def text_of(h):
+    # a passage the agent cited comes without its text
+    return next((p.get("text") or "" for p in ordered.get(h["documentId"], []) if p.get("passageId") == h["passageId"]), "")
 def source_pages(h):
     passages = ordered.get(h["documentId"], [])
     index = next((i for i, p in enumerate(passages) if p.get("passageId") == h["passageId"]), -1)
@@ -248,7 +251,7 @@ RESULT = [
     {
         "documentName": h.get("documentName"), "documentId": h["documentId"], "pageNumber": h.get("pageNumber"),
         "displayPageNumber": h.get("displayPageNumber"), "passageId": h["passageId"],
-        "sourcePages": source_pages(h) if n < TOP else [], "text": (h.get("text") or "")[:CHARS],
+        "sourcePages": source_pages(h) if n < TOP else [], "text": (h.get("text") or text_of(h))[:CHARS],
     }
     for n, h in enumerate(hits)
 ]
@@ -363,6 +366,17 @@ def search_library(query: str, document_ids: list[str] | None = None) -> list[di
     displayPageNumber (the printed page), passageId, and text.
     """
     return [hit for hit in asyncio.run(_search_async(query, document_ids)) if _has_content(hit)]
+
+
+def passages_for(citations: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """The passages an Anara agent cited, with their text and source pages (the agent gives only the ids)."""
+    hits = [
+        {"documentId": c["documentId"], "documentName": c.get("documentName"), "pageNumber": c.get("pageNumber"),
+         "passageId": c["passageId"], "text": ""}
+        for c in citations if c.get("documentId") and c.get("passageId")
+    ]
+    script = f"hits = {literal(hits)}\nTOP = {len(hits)}\nCHARS = {PASSAGE_CHARS}\n" + _SOURCE_PAGES_PY
+    return [hit for hit in asyncio.run(_execute_async(script)) if _has_content(hit)]
 
 
 def _has_content(hit: dict[str, Any]) -> bool:
