@@ -35,6 +35,9 @@ try:
         QuestionAnswerPair,
         _truncate_text,
         _normalize_crop_state,
+        _author_display_name,
+        answers_collection,
+        users_collection,
         match_entry,
         strict_exact_search,
         vector_rag_search,
@@ -56,6 +59,9 @@ except ImportError:
         QuestionAnswerPair,
         _truncate_text,
         _normalize_crop_state,
+        _author_display_name,
+        answers_collection,
+        users_collection,
         match_entry,
         strict_exact_search,
         vector_rag_search,
@@ -82,6 +88,36 @@ def _apply_crop_fallback_metadata(
     audit["crop_fallback"] = True
     audit["original_crop"] = original_crop
     response["classification_audit"] = audit
+
+
+async def _fill_missing_author_from_approved_by(
+    pairs: list[QuestionAnswerPair],
+) -> None:
+    """For pairs with no author (e.g. uploaded questions), use answers.approvedBy."""
+    from bson import ObjectId
+
+    for pair in pairs:
+        if pair.author:
+            continue
+        try:
+            answer_doc = await answers_collection.find_one(
+                {"questionId": ObjectId(pair.question_id), "isFinalAnswer": True},
+                {"approvedBy": 1},
+            )
+            approved_by = (answer_doc or {}).get("approvedBy")
+            if not approved_by:
+                continue
+            user_doc = await users_collection.find_one(
+                {"_id": ObjectId(approved_by)},
+                {"firstName": 1, "lastName": 1, "name": 1},
+            )
+            pair.author = _author_display_name(user_doc) or pair.author
+        except Exception as exc:
+            log.warning(
+                "approvedBy author fallback failed question_id=%s: %s",
+                pair.question_id,
+                exc,
+            )
 
 
 def _exact_match_response(
@@ -386,6 +422,7 @@ async def gdb_search(
             "gdb_search done path=strict_exact_normalised_crop question_id=%s",
             strict_results[0].question_id,
         )
+        await _fill_missing_author_from_approved_by(strict_results[:1])
         return _exact_match_response(
             query,
             state,
@@ -420,6 +457,7 @@ async def gdb_search(
             "gdb_search done path=strict_exact_crop_field question_id=%s",
             strict_results_crop[0].question_id,
         )
+        await _fill_missing_author_from_approved_by(strict_results_crop[:1])
         return _exact_match_response(
             query,
             state,
@@ -484,6 +522,7 @@ async def gdb_search(
                 "gdb_search done path=strict_exact_crop_fallback question_id=%s",
                 strict_results_all[0].question_id,
             )
+            await _fill_missing_author_from_approved_by(strict_results_all[:1])
             return _exact_match_response(
                 query,
                 state,
@@ -513,6 +552,8 @@ async def gdb_search(
         )
         log.warning("gdb_search done path=empty (no vector hits)")
         return response
+
+    await _fill_missing_author_from_approved_by(rag_pairs)
 
     return await _run_gemma_pipeline(
         query,
