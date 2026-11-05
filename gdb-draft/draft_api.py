@@ -179,14 +179,25 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
             if not passages:  # the agent looked and found nothing: its own explanation is the best note
                 reason = anara_agent.plain_notes(researched["notes"]) or "The library has nothing for this question."
                 return {"answer": "", "citations": [], "note": " ".join([reason[:900]] + (["Source files not used: " + "; ".join(problems) + "."] if problems else []))}
-            notes = anara_agent.number_notes(researched["notes"], passages[:anara_drafter.MAX_PASSAGES])
+            limit = anara_agent.MAX_PASSAGES  # the agent already chose which passages matter, so all of them are read
+            passages = passages[:limit]
+            notes = anara_agent.number_notes(researched["notes"], passages)
         else:
             library = search_library(request.question, request.crop, request.state)
             passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        draft = draft_answer(request.question, passages, request.crop, request.domain, notes=notes or None)
+        draft = draft_answer(
+            request.question, passages, request.crop, request.domain, notes=notes or None,
+            max_passages=anara_agent.MAX_PASSAGES if notes else None,
+        )
         notes = [draft.get("note") or ""]
+        if not draft.get("answer") and researched is not None:
+            # the agent's own explanation says what the library does and does not hold, which is more use to the
+            # reviewer than the model's generic "the passages do not contain ..."
+            reason = anara_agent.plain_notes(researched["notes"])
+            if reason:
+                notes = [reason[:900]]
         if draft.get("answer"):
             notes.append(anara_search.other_state_notice(draft.get("citations") or [], request.state))
         if problems:  # a source file that could not be read must not be silently ignored

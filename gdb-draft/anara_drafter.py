@@ -65,14 +65,32 @@ Some passages are tables whose columns have run together. Read them row by row (
 pest, product, dose, waiting period or interval in days) and use the figures of the row for the
 crop asked.
 
-{notes}Passages:
+Passages:
 {passages}
 """
 
-NOTES_TEMPLATE = """Findings from the library agent, which read the library for this question. [P#] marks the passage
-holding each fact. Use them to find the right passages and figures, but write only what the passages below support.
+# When Anara's agent did the research, its write-up is the content and the model only lays it out: the model
+# used to write its own, shorter answer from the passages and dropped methods the agent had found.
+LAYOUT_TEMPLATE = """You are laying out an agricultural answer for a farmer-facing database. The research write-up below was
+written by a library agent from the passages listed after it; [P#] marks the passage holding each fact.
+
+Do not summarise, shorten or drop anything. Every method, product, dose, figure, timing, specification and
+condition in the write-up stays in the answer, arranged in the layout below. Remove only: statements about what the
+library lacks, mentions of other states' documents or of another crop, talk about the searching, and repeated facts.
+Keep each fact's passage numbers (one to three per sentence) and add no fact that neither the write-up nor the
+passages hold. {crop_rule}If the write-up holds nothing that answers the question, return an empty answer and say so in "note".
+
+{shape}
+Return only JSON in this form:
+{{"answer": "...", "used_passages": [3, 5], "note": ""}}
+
+Question: {question}
+
+Research write-up:
 {notes}
 
+Passages:
+{passages}
 """
 
 
@@ -159,6 +177,19 @@ def answer_shape(domain: str | None, rules: bool | None = None) -> str:
     )
 
 
+# an answer that uses less than this share of the passages the agent's findings rest on is written again, at most twice
+LAYOUT_MIN_COVERAGE = 0.6
+LAYOUT_RETRIES = 2
+
+
+def _coverage(result: dict[str, Any], wanted: set[int]) -> float:
+    """The share of the passages the findings rest on that the answer cites."""
+    if not wanted:
+        return 1.0
+    used = {number for number in result.get("used_passages", []) if isinstance(number, int)}
+    return len(used & wanted) / len(wanted)
+
+
 def _format_passages(passages: list[dict[str, Any]]) -> str:
     lines = []
     for number, passage in enumerate(passages, start=1):
@@ -177,14 +208,14 @@ def _format_passages(passages: list[dict[str, Any]]) -> str:
 
 def draft_answer(
     question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None,
-    rules: bool | None = None, notes: str | None = None,
+    rules: bool | None = None, notes: str | None = None, max_passages: int | None = None,
 ) -> dict[str, Any]:
     """Return the draft plus the passages it cites, with document and page for each.
 
     Passage numbers in the answer map back to the passage list, so every citation
     points to a document and PDF page the reviewer can open.
     """
-    chosen = passages[:MAX_PASSAGES]
+    chosen = passages[:max_passages or MAX_PASSAGES]
     if not chosen:
         note = f"The library has no documents for {crop}" if crop else "No library passages found"
         return {"answer": "", "citations": [], "note": note}
@@ -194,9 +225,9 @@ def draft_answer(
         if crop else ""
     )
     def ask(shape: str, attempts: int) -> dict[str, Any]:
-        prompt = PROMPT_TEMPLATE.format(
-            question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape,
-            notes=NOTES_TEMPLATE.format(notes=notes) if notes else "",
+        template = LAYOUT_TEMPLATE if notes else PROMPT_TEMPLATE
+        prompt = template.format(
+            question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape, notes=notes or "",
         )
         return call_llm(
             prompt,
@@ -221,6 +252,19 @@ def draft_answer(
             result = ask(shape, 1)
         except LLMCallFailed:
             result = ask(plain, DRAFT_ATTEMPTS - 1)
+
+    if notes and result.get("answer"):
+        # the writer sometimes lays out only a few of the agent's findings; try again and keep the fullest answer
+        wanted = {int(n) for n in re.findall(r"\[P(\d+)\]", notes) if int(n) <= len(chosen)}
+        for _ in range(LAYOUT_RETRIES):
+            if _coverage(result, wanted) >= LAYOUT_MIN_COVERAGE:
+                break
+            try:
+                again = ask(shape, 1)
+            except LLMCallFailed:
+                break
+            if again.get("answer") and _coverage(again, wanted) > _coverage(result, wanted):
+                result = again
 
     citations = []
     for number in result.get("used_passages", []):

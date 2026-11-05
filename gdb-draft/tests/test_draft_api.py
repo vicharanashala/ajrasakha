@@ -57,7 +57,7 @@ class DraftApi(unittest.TestCase):
         ) as drafter:
             response = self.client.post("/draft", json={"question": "spacing?"}, headers=HEADERS)
         self.assertEqual(response.json(), draft)
-        drafter.assert_called_once_with("spacing?", [{"text": "t"}], None, None, notes=None)
+        drafter.assert_called_once_with("spacing?", [{"text": "t"}], None, None, notes=None, max_passages=None)
 
     def agent_result(self, passages, notes):
         return {"passages": passages, "notes": notes}
@@ -87,6 +87,18 @@ class DraftApi(unittest.TestCase):
         drafter.assert_not_called()
         self.assertEqual(body["answer"], "")
         self.assertIn("covers Rajasthan", body["note"])
+
+    def test_when_the_model_writes_nothing_the_agents_explanation_replaces_its_generic_note(self):
+        passage = {"passageId": "p1", "documentId": "d", "documentName": "Punjab POP", "pageNumber": 5, "text": "urea"}
+        empty = {"answer": "", "citations": [], "note": "The provided passages do not contain it."}
+        findings = "No document mentions polysulphate. The library has Punjab's paddy schedule {p1}."
+        with patch.dict(os.environ, {"DRAFT_ENGINE": "agent"}), patch.object(
+            draft_api.anara_search, "enabled", return_value=True
+        ), patch.object(
+            draft_api.anara_agent, "research", return_value=self.agent_result([passage], findings)
+        ), patch.object(draft_api, "draft_answer", return_value=empty):
+            body = self.client.post("/draft", json={"question": "q"}, headers=HEADERS).json()
+        self.assertEqual(body["note"], "No document mentions polysulphate. The library has Punjab's paddy schedule.")
 
     def test_if_the_agent_cannot_be_used_the_plain_library_search_is_the_fallback(self):
         draft = {"answer": "a", "citations": [], "note": ""}
