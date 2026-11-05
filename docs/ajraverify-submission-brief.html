@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>AjraVerify — Submission Brief (Summership 2026)</title>
+<style>
+  @page { size: A4; margin: 14mm 13mm 16mm 13mm; }
+
+  :root {
+    --ink: #16211c;
+    --muted: #5b6b63;
+    --line: #d6ded9;
+    --green: #1f6b45;
+    --green-soft: #eaf3ee;
+    --amber: #8a5b00;
+    --amber-soft: #fdf3e2;
+    --red: #8f2d20;
+    --red-soft: #fbeceb;
+    --blue: #1d4f74;
+    --blue-soft: #eaf1f7;
+    --paper: #ffffff;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    margin: 0;
+    padding: 0;
+    background: #eef1ef;
+    color: var(--ink);
+    font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    font-size: 10.4pt;
+    line-height: 1.45;
+  }
+
+  .sheet {
+    max-width: 210mm;
+    margin: 0 auto;
+    padding: 12mm 13mm 10mm 13mm;
+    background: var(--paper);
+  }
+
+  h1 { font-size: 20pt; margin: 0 0 2mm 0; letter-spacing: -0.2pt; }
+  h2 {
+    font-size: 12.4pt;
+    margin: 7mm 0 2.5mm 0;
+    padding-bottom: 1.2mm;
+    border-bottom: 1.6pt solid var(--green);
+    color: var(--green);
+  }
+  h3 { font-size: 10.8pt; margin: 4mm 0 1.5mm 0; color: var(--ink); }
+  p { margin: 0 0 2.4mm 0; }
+  ul, ol { margin: 0 0 2.4mm 0; padding-left: 5mm; }
+  li { margin-bottom: 1.1mm; }
+  code {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 8.8pt;
+    background: #f2f5f3;
+    padding: 0 1mm;
+    border-radius: 1mm;
+  }
+  pre {
+    font-family: "Cascadia Mono", Consolas, "Courier New", monospace;
+    font-size: 8.4pt;
+    background: #f7f9f8;
+    border: 0.6pt solid var(--line);
+    border-left: 2.4pt solid var(--green);
+    border-radius: 1.4mm;
+    padding: 2.4mm 3mm;
+    margin: 0 0 3mm 0;
+    white-space: pre-wrap;
+    overflow-wrap: break-word;
+  }
+
+  .eyebrow {
+    font-size: 8.4pt;
+    letter-spacing: 1.6pt;
+    text-transform: uppercase;
+    color: var(--green);
+    font-weight: 700;
+  }
+  .sub { color: var(--muted); font-size: 10pt; margin-bottom: 4mm; }
+  .lede {
+    font-size: 11pt;
+    line-height: 1.5;
+    border-left: 2.6pt solid var(--green);
+    padding: 1mm 0 1mm 3.4mm;
+    margin: 0 0 4mm 0;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 3.4mm 0;
+    font-size: 8.9pt;
+  }
+  th, td {
+    border: 0.6pt solid var(--line);
+    padding: 1.5mm 2mm;
+    text-align: left;
+    vertical-align: top;
+  }
+  th { background: var(--green-soft); font-weight: 700; }
+  tr { break-inside: avoid; }
+
+  .tag {
+    display: inline-block;
+    font-size: 7.8pt;
+    font-weight: 700;
+    padding: 0.3mm 1.6mm;
+    border-radius: 3mm;
+    white-space: nowrap;
+  }
+  .t-green { background: var(--green-soft); color: var(--green); }
+  .t-blue  { background: var(--blue-soft); color: var(--blue); }
+  .t-amber { background: var(--amber-soft); color: var(--amber); }
+  .t-red   { background: var(--red-soft); color: var(--red); }
+
+  .card {
+    border: 0.6pt solid var(--line);
+    border-radius: 1.6mm;
+    padding: 2.6mm 3mm;
+    margin: 0 0 3mm 0;
+    break-inside: avoid;
+  }
+  .card h3 { margin-top: 0; }
+  .note { background: var(--blue-soft); border-color: #cbdcea; }
+  .warn { background: var(--amber-soft); border-color: #ecd9ae; }
+  .good { background: var(--green-soft); border-color: #c5ded1; }
+
+  .flow { display: flex; align-items: stretch; gap: 1.6mm; margin: 0 0 3mm 0; }
+  .flow .step {
+    flex: 1;
+    border: 0.6pt solid var(--line);
+    border-radius: 1.4mm;
+    padding: 2mm;
+    font-size: 8.2pt;
+    background: #fbfcfb;
+  }
+  .flow .step b { display: block; font-size: 8.6pt; color: var(--green); margin-bottom: 0.8mm; }
+  .flow .arrow { align-self: center; color: var(--muted); font-size: 10pt; }
+
+  .kpi { display: flex; gap: 2.4mm; margin: 0 0 3.4mm 0; }
+  .kpi .box {
+    flex: 1;
+    border: 0.6pt solid var(--line);
+    border-radius: 1.6mm;
+    padding: 2.4mm;
+    text-align: center;
+    background: #fbfcfb;
+  }
+  .kpi .num { font-size: 15pt; font-weight: 700; color: var(--green); display: block; }
+  .kpi .lbl { font-size: 7.8pt; color: var(--muted); }
+
+  .mono { font-family: "Cascadia Mono", Consolas, "Courier New", monospace; font-size: 8.4pt; }
+  .muted { color: var(--muted); }
+  .small { font-size: 8.6pt; }
+
+  .pagebreak { break-before: page; }
+  .avoid { break-inside: avoid; }
+
+  footer.end {
+    margin-top: 6mm;
+    padding-top: 2mm;
+    border-top: 0.6pt solid var(--line);
+    font-size: 8.2pt;
+    color: var(--muted);
+  }
+
+  @media screen {
+    .sheet { box-shadow: 0 2mm 8mm rgba(0,0,0,0.12); margin: 8mm auto; }
+  }
+  @media print {
+    html, body { background: #fff; }
+    .sheet { box-shadow: none; margin: 0; max-width: none; padding: 0; }
+    /* On A4 the five-step row is too cramped to read — stack it and point the
+       arrows downwards. */
+    .flow { flex-direction: column; align-items: stretch; }
+    .flow .arrow { align-self: center; font-size: 0; line-height: 1; margin: 0.6mm 0; }
+    .flow .arrow::after { content: "▼"; font-size: 9pt; }
+    .flow .step { padding: 1.8mm 2.4mm; }
+  }
+
+  /* A fixed element repeats on every printed page in Chrome — used here as a
+     running footer so a printed copy is always attributable. */
+  .print-footer { display: none; }
+  @media print {
+    .print-footer {
+      display: block;
+      position: fixed;
+      bottom: -9mm;
+      left: 0;
+      right: 0;
+      text-align: center;
+      font-size: 7.6pt;
+      color: #8b9790;
+      border-top: 0.5pt solid var(--line);
+      padding-top: 1mm;
+    }
+  }
+</style>
+</head>
+<body>
+<div class="sheet">
+
+  <!-- ══════════ COVER ══════════ -->
+  <div class="eyebrow">Summership 2026 · Internship Project Brief</div>
+  <h1>AjraVerify — a deterministic safety gate for AI-generated agricultural answers</h1>
+  <p class="sub">
+    Ajrasakha · <span class="mono">github.com/vicharanashala/ajrasakha</span> ·
+    Feature branch <span class="mono">feature/agricultural-answer-verification</span> ·
+    Module <span class="mono">backend/src/modules/verification/</span> · Prepared 2026-10-02
+  </p>
+
+  <p class="lede">
+    AI answers to farmers' questions used to ship with no checking of their
+    factual claims. AjraVerify now inspects every AI-generated answer after it is
+    produced and before it is delivered, checks its claims against the product's
+    own trusted catalogues, returns one of four verdicts, and writes an audit
+    receipt for every decision. Unsafe or unverifiable claims escalate into the
+    expert review workflow that already existed. Milestone&nbsp;1 uses
+    <b>zero LLM calls</b> — it is regex extraction plus catalogue lookups, so it
+    is offline-testable, free per answer, and cannot hallucinate a restriction.
+  </p>
+
+  <div class="kpi">
+    <div class="box"><span class="num">36</span><span class="lbl">offline tests passing</span></div>
+    <div class="box"><span class="num">4</span><span class="lbl">verdicts per answer</span></div>
+    <div class="box"><span class="num">0</span><span class="lbl">LLM calls on the decision path</span></div>
+    <div class="box"><span class="num">18</span><span class="lbl">audit receipts recorded</span></div>
+    <div class="box"><span class="num">2</span><span class="lbl">pipeline seams wired</span></div>
+  </div>
+
+  <h2>1 · The problem this solves</h2>
+  <p>
+    Ajrasakha answers farmers' agricultural questions, prioritising verified
+    expert knowledge but falling back to AI-generated answers. Those AI answers
+    carry dosage and timing instructions — exactly the claims where a mistake
+    costs a farmer money, crop or health. Before this work the only check was a
+    human reading the answer later.
+  </p>
+  <p class="muted small">A realistic AI answer the pipeline used to ship unchecked:</p>
+  <pre>"Spray monocrotophos 36% SL at 25 ml per litre of water, about 500 ml per acre.
+ Repeat the spray every 5 days for 3 sprays. Spray during early morning for best results."</pre>
+  <p>
+    If monocrotophos is marked <b>Restricted</b> in the product's own catalogue,
+    this answer must not reach a farmer unreviewed. Nothing in the pipeline knew.
+  </p>
+
+  <h2>2 · What was built</h2>
+  <div class="flow">
+    <div class="step"><b>1 · Extract</b>Regex recognises claim <i>shapes</i>: dosages (ml/L, g/L, ml/acre, kg/acre, %, ppm), intervals → days, spray counts, chemical-name candidates. No agricultural facts in code.</div>
+    <div class="arrow">▶</div>
+    <div class="step"><b>2 · Resolve</b>Look names up in <span class="mono">chemical_master</span> then <span class="mono">crop_master</span> (type chemical, aliases included). Statuses come from the documents.</div>
+    <div class="arrow">▶</div>
+    <div class="step"><b>3 · Decide</b>Deterministic counters → one of four verdicts with a human-readable reason. No LLM, no randomness.</div>
+    <div class="arrow">▶</div>
+    <div class="step"><b>4 · Record</b>A receipt document is persisted for every decision: claims, per-claim resolutions, reason, counters, policy thresholds, timestamp.</div>
+    <div class="arrow">▶</div>
+    <div class="step"><b>5 · Escalate</b>Verdict + receipt ride on the question into the existing PAE-expert / moderator review workflow.</div>
+  </div>
+
+  <h3>The four verdicts</h3>
+  <table>
+    <thead>
+      <tr><th style="width:22%">Verdict</th><th style="width:44%">Meaning</th><th>What happens</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><span class="tag t-green">VERIFIED</span></td><td>Every factual claim matched trusted data within tolerance.</td><td>Answer ships with its receipt.</td></tr>
+      <tr><td><span class="tag t-blue">CONDITIONAL</span></td><td>All claims matched, but some values sit in the ±10% caution band.</td><td>Answer ships <i>with the receipt attached</i> for the record.</td></tr>
+      <tr><td><span class="tag t-amber">REVIEW_REQUIRED</span></td><td>A claim — or a dose that cannot be attributed to any product — matched nothing trusted.</td><td>Escalates into the existing expert review workflow.</td></tr>
+      <tr><td><span class="tag t-red">BLOCKED</span></td><td>A restricted/banned chemical is named, or a value is beyond the 50% safety tolerance.</td><td>Must not ship without expert approval.</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Precedence: <span class="mono">BLOCKED</span> &gt; <span class="mono">REVIEW_REQUIRED</span> &gt; <span class="mono">CONDITIONAL</span> &gt; <span class="mono">VERIFIED</span>. Policy thresholds live in one object: near-miss ±10%, blocked 50%, restricted statuses <span class="mono">['restricted','banned']</span>.</p>
+
+  <h3>Module map — <span class="mono">backend/src/modules/verification/</span></h3>
+  <table>
+    <thead><tr><th style="width:34%">File</th><th>Responsibility</th></tr></thead>
+    <tbody>
+      <tr><td class="mono">extractors/RuleBasedClaimExtractor.ts</td><td>Regex claim extraction: dosage units, interval ranges normalised to days, spray counts (digits/words/ordinals), chemical-name candidates across four passes (before-dose run, "name NN% formulation", product shapes like 2,4-D, "of/with" and interleaved shapes).</td></tr>
+      <tr><td class="mono">services/ClaimResolver.ts</td><td>Catalogue lookups; Restricted/Banned read from the document; guards against empty-subject lookups (an empty regex <span class="mono">\b\b</span> would match any document).</td></tr>
+      <tr><td class="mono">services/PolicyEngine.ts</td><td>Deterministic counters → verdict + reason. Reads structured fields only (<span class="mono">status</span>, <span class="mono">valueVerdict</span>, <span class="mono">restrictedChemical</span>), never its own prose.</td></tr>
+      <tr><td class="mono">services/VerificationService.ts</td><td>Orchestrator: extract → resolve → decide → persist. A receipt write failure can never change the decision.</td></tr>
+      <tr><td class="mono">repositories/VerificationReceiptRepository.ts</td><td><span class="mono">verification_receipts</span> collection with indexes on questionId, answerId (sparse), createdAt, verdict + createdAt.</td></tr>
+      <tr><td class="mono">controllers/VerificationController.ts</td><td><span class="mono">POST /api/verification/check</span>, <span class="mono">GET /api/verification/receipt/:questionId</span>, <span class="mono">GET /api/verification/receipts?limit&amp;verdict</span> — existing auth middleware + DTO validation.</td></tr>
+      <tr><td class="mono">classes/validators/, container.ts, index.ts, types/</td><td>DTOs, DI wiring and domain types. Module is auto-discovered by the repo's folder convention — no manual registration.</td></tr>
+      <tr><td class="mono">tests/ (4 files)</td><td>36 offline specs: extractor shapes, all four verdicts and tolerance edges, catalogue guards, verdict routing, persistence-failure isolation.</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Where it hooks into the pipeline</h3>
+  <table>
+    <thead><tr><th style="width:30%">Seam</th><th style="width:38%">Behaviour</th><th>Safety property</th></tr></thead>
+    <tbody>
+      <tr>
+        <td><b>Ingestion</b><br><span class="mono small">workers/questionProcessor.worker.ts</span></td>
+        <td>After the AI initial answer is generated <i>or</i> supplied in a bulk upload, the gate runs and stores <span class="mono">aiAnswerVerification {verdict, reason, receiptId}</span> on the question. The question id is pre-allocated so the receipt is linked to the question it judged.</td>
+        <td>Verification failures are logged and swallowed — ingestion can never stall because of the gate.</td>
+      </tr>
+      <tr>
+        <td><b>Shipping</b><br><span class="mono small">modules/answer/services/AnswerApprovalService.ts</span></td>
+        <td>The WhatsApp / AJRASAKHA AI-ship path verifies the answer text before it is marked shipped and stores the verdict on the question.</td>
+        <td>Same non-blocking rule. Enforcement (withholding a BLOCKED answer) is left as a maintainer policy decision, with the seam already in place.</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="small muted">Both seams run behind the configuration flag <span class="mono">ENABLE_AJRAVERIFY</span> — off by default, so nothing changes for existing deployments until it is switched on.</p>
+
+  <!-- ══════════ EVIDENCE ══════════ -->
+  <div class="pagebreak"></div>
+  <h2>3 · Evidence: before and after, same answer text</h2>
+  <table>
+    <thead>
+      <tr><th style="width:26%"></th><th>Before</th><th>After</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><b>Ingested question</b></td><td class="mono small">6abe12e0997a10320b06553d</td><td class="mono small">6abf84086c4139d68ea7f5bc</td></tr>
+      <tr><td><b>Verification in the pipeline</b></td><td>none</td><td>gate runs after the AI answer, before delivery</td></tr>
+      <tr><td><b>Verdict stored on the question</b></td><td><span class="mono small">aiAnswerVerification: null</span></td><td><span class="mono small">{verdict: "REVIEW_REQUIRED", reason: "1 claim could not be matched against trusted data — expert review required before delivery.", receiptId: "6abf84086c4139d68ea7f5bd"}</span></td></tr>
+      <tr><td><b>Audit receipt</b></td><td>none for this question</td><td><span class="mono small">GET /api/verification/receipt/6abf84086c4139d68ea7f5bc → 200</span>, linked, dosage claims attributed to subject <span class="mono">monocrotophos</span></td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">Both questions carry the same unsafe AI answer shown on page 1. The "before" question is kept in the local database on purpose as the unverified artefact.</p>
+
+  <h2>4 · Evidence: the verdict follows the data, not the code</h2>
+  <p>
+    The identical answer text was checked three times against the running system.
+    The <b>only</b> difference was one catalogue document — no code, no config,
+    no re-deploy.
+  </p>
+  <table>
+    <thead>
+      <tr><th style="width:30%">Catalogue state for <span class="mono">Monocrotophos</span></th><th style="width:20%">Verdict</th><th style="width:34%">Reason recorded in the receipt</th><th>Receipt</th></tr>
+    </thead>
+    <tbody>
+      <tr><td>no entry</td><td><span class="tag t-amber">REVIEW_REQUIRED</span></td><td>"1 claim could not be matched against trusted data — expert review required before delivery."</td><td class="mono small">6abf81be…5ac8</td></tr>
+      <tr><td>entry, <span class="mono">status: "Restricted"</span></td><td><span class="tag t-red">BLOCKED</span></td><td>"Blocked: 1 restricted/banned chemical in the trusted catalogue. This answer must not ship without expert approval."</td><td class="mono small">6abf81cf…5aca</td></tr>
+      <tr><td>entry, <span class="mono">status: "Approved"</span></td><td><span class="tag t-green">VERIFIED</span></td><td>"All factual claims matched trusted data within tolerance."</td><td class="mono small">6abf81cf…5acb</td></tr>
+    </tbody>
+  </table>
+  <p class="small muted">A dose with no product named — "Apply about 500 ml per acre of water." — is checked against nothing, so it escalates: <span class="tag t-amber">REVIEW_REQUIRED</span>, receipt <span class="mono small">6abf81be…5ac9</span>. Catalogue seeds were removed after the demonstration; all receipts remain as the audit trail.</p>
+
+  <div class="card note">
+    <h3>Receipt store at the time of writing</h3>
+    <p style="margin-bottom:1.5mm"><span class="tag t-green">VERIFIED</span> 5 &nbsp;·&nbsp; <span class="tag t-blue">CONDITIONAL</span> 0 &nbsp;·&nbsp; <span class="tag t-amber">REVIEW_REQUIRED</span> 10 &nbsp;·&nbsp; <span class="tag t-red">BLOCKED</span> 3 &nbsp;·&nbsp; total 18</p>
+    <p class="small muted" style="margin:0">Filtered queries return a total that matches the filter. Verified live: blank body → 400, unknown verdict → 400, malformed receipt id → 400, unknown question → 404, and both authentication modes (internal API key and Firebase JWT) accepted.</p>
+  </div>
+
+  <h2>5 · Evidence: what running it for real caught</h2>
+  <p>
+    Unit tests passed while four real defects were still present. Running the gate
+    against the database — with the text the AI actually produces — exposed them.
+    All four are fixed, each with a regression test (test count 25 → 36).
+  </p>
+  <table>
+    <thead><tr><th style="width:5%">#</th><th style="width:33%">Defect</th><th style="width:33%">Why it mattered</th><th>Fix</th></tr></thead>
+    <tbody>
+      <tr>
+        <td>1</td>
+        <td><b>The chemical name was lost behind a formulation code.</b> "monocrotophos 36% SL at 25 ml per litre" attributed the doses to <span class="mono">"sl at"</span> and <span class="mono">"about"</span>.</td>
+        <td>With a restricted chemical in the catalogue this resolved "not found" → review, instead of <b>BLOCKED</b> — a false go-ahead in the dangerous direction.</td>
+        <td>Filler / formulation-token rejection, a new extraction pass for "name NN% formulation", and sentence-scoped positional attribution of doses to the nearest mention.</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><b>A dose with no product passed as verified.</b> "Apply about 500 ml per acre of water" resolved as "matched" although nothing had been compared.</td>
+        <td>The gate would certify a dose it never actually checked.</td>
+        <td>An unattributable dose now resolves "not found" → <span class="tag t-amber">REVIEW_REQUIRED</span>.</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><b>Ingestion receipts were unlinked.</b> <span class="mono">questionId</span> was null on 12 of 17 receipts.</td>
+        <td>The per-question audit lookup 404'd for every ingested question — the audit trail could not be followed.</td>
+        <td>The question id is pre-allocated and passed to the gate; verified by a 200 with the linked id.</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><b>Filtered totals ignored the filter</b> — every verdict query reported the collection size.</td>
+        <td>Any dashboard built on this API would show impossible numbers.</td>
+        <td>Counts now honour the filter; the list and its total always agree.</td>
+      </tr>
+    </tbody>
+  </table>
+  <div class="card good">
+    <h3>Lesson worth keeping</h3>
+    <p style="margin:0">Unit tests validate the shapes you imagine. Only real answer text against real data shows you which claims you silently dropped. That round turned "green tests" into "verified behaviour" — and it is the most useful thing I learned in this project.</p>
+  </div>
+
+  <h2>6 · Quality</h2>
+  <ul>
+    <li><b>36 offline tests, 4 files, all passing</b> — extractor 16, policy 8, resolver 4, service 8. No database, no Firebase, no API keys, no network: the suite runs anywhere CI runs.</li>
+    <li><b><span class="mono">tsc --noEmit</span> clean</b> with the module included in the production build (test files typecheck too — this repo's tsconfig only excludes <span class="mono">*.spec.ts</span>).</li>
+    <li><b>Full backend suite unchanged:</b> the repository has 21 pre-existing failures in auth / crop / question tests — test drift verified as pre-existing by stashing only my tracked changes and re-running. Untouched by this work.</li>
+    <li><b>Failure isolation:</b> a receipt write failure is logged and cannot alter the verdict; a gate failure in ingestion cannot stall ingestion.</li>
+  </ul>
+
+  <!-- ══════════ LIMITS ══════════ -->
+  <div class="pagebreak"></div>
+  <h2>7 · Honest limitations (Milestone 1 scope)</h2>
+  <table>
+    <thead><tr><th style="width:34%">Limitation</th><th>Why it matters, and what unblocks it</th></tr></thead>
+    <tbody>
+      <tr><td>Catalogues carry no <b>per-chemical dose limits</b> yet.</td><td>Dosage <i>values</i> are recorded as expert evidence rather than compared; name and restricted/banned status are compared today. A gate is only as strict as its data — adding dose limits unlocks the ±10% / ±50% bands.</td></tr>
+      <tr><td>Interval and spray-count claims are recorded as <b>unresolved</b>.</td><td>No trusted schedule source is wired yet; the claims are captured for the expert instead of being dropped.</td></tr>
+      <tr><td>Extraction is <b>English / Latin-script regex</b>.</td><td>Paraphrase, mixed-language and regional-script answers are Milestone 2 (an LLM extractor behind the same interface; the deterministic policy engine remains the only decision-maker).</td></tr>
+      <tr><td>Enforcement is <b>evidence-only</b>.</td><td>The gate flags and records; it does not unilaterally withhold a BLOCKED answer. That is a maintainer policy decision, and the seam is ready for it.</td></tr>
+      <tr><td><b>No dashboard tab</b> and no frontend surface beyond the API.</td><td>The receipts API is dashboard-ready (verdict filters, totals, per-question lookup).</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Next milestones, in order</h3>
+  <ol>
+    <li>Per-chemical dose limits in the catalogue → unlocks real dosage comparison.</li>
+    <li>Interval resolution against Package-of-Practices documents.</li>
+    <li>Enforced withholding of BLOCKED answers.</li>
+    <li>Milestone 2: LLM-assisted extraction behind the same interface, config-switched.</li>
+    <li>Admin receipts dashboard tab.</li>
+  </ol>
+
+  <h2>8 · Two companion fixes (small, separate PRs)</h2>
+  <table>
+    <thead><tr><th style="width:26%">Fix</th><th>Problem and resolution</th></tr></thead>
+    <tbody>
+      <tr><td><b>MongoDB TLS</b><br><span class="mono small">shared/database/providers/mongo/MongoDatabase.ts</span></td><td>The driver hard-coded <span class="mono">ssl: true, tls: true</span> on every client, breaking any non-Atlas <span class="mono">mongodb://</span> server with <span class="mono">SSLHandshakeFailed</span>. TLS is now enabled only for <span class="mono">mongodb+srv://</span> URIs or URIs carrying <span class="mono">ssl/tls=true</span>. Verified against a local mongod.</td></tr>
+      <tr><td><b>Environment typo</b><br><span class="mono small">frontend/src/shared/app.ts</span></td><td>Read the misspelled key <span class="mono">VITE_IS_DEVELPOMENT</span> while the example env file already used <span class="mono">VITE_IS_DEVELOPMENT</span>, so the development flag never matched. Fixed to the correct key.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>9 · How to see it working (five minutes)</h2>
+  <pre>cd backend &amp;&amp; pnpm exec vitest run src/modules/verification     # 36 offline tests
+
+# 1. Gate one answer (admin/expert JWT or internal API key)
+curl -s -X POST localhost:3141/api/verification/check \
+  -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"answerText":"Spray monocrotophos 36% SL at 25 ml per litre of water, about 500 ml per acre. Repeat every 5 days for 3 sprays."}'
+
+# 2. The audit trail, then the verdict distribution
+curl -s "localhost:3141/api/verification/receipts?limit=5"            -H "Authorization: Bearer $TOKEN"
+curl -s "localhost:3141/api/verification/receipts?verdict=BLOCKED"    -H "Authorization: Bearer $TOKEN"
+
+# 3. The receipt attached to an ingested question
+curl -s "localhost:3141/api/verification/receipt/6abf84086c4139d68ea7f5bc" -H "Authorization: Bearer $TOKEN"</pre>
+  <p class="small muted">
+    To reproduce the verdict flip, insert a <span class="mono">chemical_master</span> document named
+    <span class="mono">Monocrotophos</span> with <span class="mono">status: "Restricted"</span>,
+    re-run step 1 → <span class="tag t-red">BLOCKED</span>; change the status to
+    <span class="mono">"Approved"</span> and re-run → <span class="tag t-green">VERIFIED</span>.
+    No code change either time. Remove the document afterwards.
+  </p>
+
+  <h2>10 · Submission artefacts</h2>
+  <table>
+    <thead><tr><th style="width:36%">Artefact</th><th>Where</th></tr></thead>
+    <tbody>
+      <tr><td>Feature code</td><td class="mono small">backend/src/modules/verification/ (new module) · small edits to <span class="mono">workers/questionProcessor.worker.ts</span>, <span class="mono">modules/answer/services/AnswerApprovalService.ts</span>, <span class="mono">config/app.ts</span>, <span class="mono">types.ts</span></td></tr>
+      <tr><td>Companion fixes</td><td class="mono small">shared/database/providers/mongo/MongoDatabase.ts · frontend/src/shared/app.ts</td></tr>
+      <tr><td>Before / after report</td><td class="mono small">docs/ajraverify-before-after.md (+ .html visual) · docs/ajraverify-submission-brief.pdf (this document)</td></tr>
+      <tr><td>Dated build log</td><td class="mono small">docs/ajraverify-buildlog.md (2026-10-01 M1, 2026-10-02 M1.5 + defect round)</td></tr>
+      <tr><td>Context for review</td><td class="mono small">docs/ajraverify-submission-context.md · docs/ajraverify-plan.md</td></tr>
+      <tr><td>Evidence receipts</td><td class="mono small">6abf81be…5ac8 · 6abf81be…5ac9 · 6abf81cf…5aca · 6abf81cf…5acb · 6abf84086c4139d68ea7f5bd</td></tr>
+      <tr><td>Before / after questions</td><td class="mono small">6abe12e0997a10320b06553d (no verdict) · 6abf84086c4139d68ea7f5bc (verdict + linked receipt)</td></tr>
+    </tbody>
+  </table>
+
+  <h2>11 · Anticipated questions</h2>
+  <h3>"Why not just ask the LLM to check its own answer?"</h3>
+  <p>An LLM cannot reliably state what the catalogue says and cannot prove a restriction. The gate resolves against documents and stores the evidence; in Milestone 2 the LLM only <i>finds</i> candidate claims and never decides.</p>
+  <h3>"Is regex extraction reliable?"</h3>
+  <p>Not alone — which is why the design favours recall: an unrecognised chemical escalates to a human instead of passing. Precision comes from the catalogue lookup, and every receipt shows exactly what matched.</p>
+  <h3>"What if the catalogue is empty or wrong?"</h3>
+  <p>Then the gate escalates rather than waving answers through: an empty catalogue produced <span class="tag t-amber">REVIEW_REQUIRED</span> for the demo answer. Data quality becomes a visible verdict, not a silent gap.</p>
+  <h3>"Can this block a good answer?"</h3>
+  <p>In Milestone 1.5 it is evidence-only by design; enforcement is a maintainer policy decision. A wrong catalogue entry causes visible escalation to an expert, never silent harm.</p>
+  <h3>"What is the biggest limitation?"</h3>
+  <p>No per-chemical dose limits in the catalogue yet, so dosage values are recorded for expert review instead of compared. Adding that data unlocks the tolerance bands — it is the first roadmap item.</p>
+
+  <div class="print-footer">
+    AjraVerify · Ajrasakha · <span class="mono">github.com/vicharanashala/ajrasakha</span> · Summership 2026 submission brief
+  </div>
+
+  <footer class="end">
+    Prepared 2026-10-02 · Ajrasakha · AjraVerify (feature branch
+    <span class="mono">feature/agricultural-answer-verification</span>) · All figures in this
+    brief come from the running local system: receipts, question documents, test output and
+    HTTP responses.
+  </footer>
+
+</div>
+</body>
+</html>
