@@ -21,8 +21,9 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
-# the agent finishes a plain question in about 10 seconds; a draft gives it this long (the backend waits 240)
-AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "100"))
+# a plain question takes the agent about 10 seconds, a broad one over 100; past this it is cancelled and the weaker
+# plain search is used. The backend waits 240 seconds, and the writer needs about 30 after the agent.
+AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "150"))
 POLL_SECONDS = 3
 # empty means Anara's own default ("Auto"), the model its web interface uses
 AGENT_MODEL = os.getenv("ANARA_AGENT_MODEL", "").strip()
@@ -38,8 +39,9 @@ How to work:
 - Read tables row by row (crop, pest or disease, product, dose, waiting period or interval) and take each product's dose and waiting period from its own row. Never mix the figures of different rows.
 - Report every relevant fact with its figures: doses, timings, intervals, waiting periods, conditions.
 - Cite every fact with the library passage it comes from.
+- Questions come in a farmer's words, the documents in technical ones. Before concluding that the library has nothing, search the technical names too: "ground worms" or "soil pests" also means white grubs, termites, cutworms, root weevils, root-feeding larvae and nematodes, and pests that pupate in the soil; "birds" also means parrots, sparrows and scaring or netting methods.
 - Use only my library. Do not use the web or papers, and add nothing from general knowledge.
-- Give clear findings; do not write a final farmer-facing answer.
+- Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
 - If the library has nothing for this crop in this state, say so plainly and say what it does have.
 """
 
@@ -52,8 +54,9 @@ def build_prompt(
         lines.append(f"Crop: {crop}. A document about another crop does not answer this.")
     if state:
         lines.append(
-            f"State of the record: {state}. Prefer documents of this state and national documents. If no document "
-            f"covers {state}, say so plainly: do not present another state's advice as {state}'s."
+            f"State of the record: {state}. Prefer documents of this state and national documents. Another state's "
+            f"document may be used when none of this state's covers the point; name its state, and never present "
+            f"another state's advice as {state}'s."
         )
     if domain:
         lines.append(f"Topic area: {domain}.")
@@ -90,13 +93,24 @@ async def _run(prompt: str) -> dict[str, Any]:
                 if not run_id:
                     raise RuntimeError(f"Anara did not start the agent: {json.dumps(started)[:300]}")
                 deadline = time.time() + AGENT_TIMEOUT_SECONDS
+                last_length = -1
                 while True:
                     status = _server_text(await session.call_tool("anara_check_agent", {"runId": run_id})).get("status")
                     if status == "completed":
                         break
                     if status in ("failed", "cancelled"):
                         raise RuntimeError(f"the Anara agent {status}")
+                    # the status can stay "running" for a minute or more after the findings are written (seen: a
+                    # 75-second wait for an answer that was ready), so the result is looked at too: findings that
+                    # have stopped growing are final
+                    snapshot = _server_text(await session.call_tool("anara_get_agent_result", {"runId": run_id}))
+                    length = snapshot.get("totalLength") or 0
+                    if length and length == last_length:
+                        break
+                    last_length = length
                     if time.time() > deadline:
+                        if length:  # better the findings so far than the weaker plain search
+                            break
                         await session.call_tool("anara_cancel_agent", {"runId": run_id})
                         raise TimeoutError(f"the Anara agent took longer than {AGENT_TIMEOUT_SECONDS:.0f} seconds")
                     await asyncio.sleep(POLL_SECONDS)
@@ -109,6 +123,8 @@ async def _run(prompt: str) -> dict[str, Any]:
                     text += more["text"]
                     offset += len(more["text"])
                 result["text"] = text
+                if status != "completed":
+                    await session.call_tool("anara_cancel_agent", {"runId": run_id})
                 return result
 
 
@@ -135,18 +151,45 @@ def research(
     import anara_client
     import anara_search
 
-    try:
-        anara_search.prepare()
-        result = anara_search.within(AGENT_TIMEOUT_SECONDS + 20, lambda: asyncio.run(_run(build_prompt(question, crop, state, domain, source_names))))
-        cited = _cited(result)
-        hits = anara_client.passages_for(cited) if cited else []
-        passages = anara_search.finish_hits(hits)
-    except Exception as error:
-        logger.warning("the Anara agent could not be used, using the plain library search: %s", error)
-        return None
+    prompt = build_prompt(question, crop, state, domain, source_names)
+    result = passages = None
+    for attempt in (1, 2):
+        started = time.time()
+        try:
+            anara_search.prepare()
+            result = anara_search.within(AGENT_TIMEOUT_SECONDS + 20, lambda: asyncio.run(_run(prompt)))
+            cited = _cited(result)
+            hits = anara_client.passages_for(cited) if cited else []
+            passages = anara_search.finish_hits(hits, keep_unopenable=True)
+            break
+        except Exception as error:
+            # the MCP client wraps the real error in an ExceptionGroup ("unhandled errors in a TaskGroup")
+            logger.warning("the Anara agent failed (attempt %d): %s", attempt, _leaf_errors(error))
+            # a quick failure is a connection hiccup and worth one more try; a slow one would only use up the draft's time
+            if attempt == 2 or time.time() - started > RETRY_ONLY_IF_FAILED_WITHIN:
+                logger.warning("using the plain library search instead")
+                return None
     keep = {passage.get("passageId") for passage in passages}
     notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", result.get("text") or "")
-    return {"passages": passages, "notes": notes.strip()}
+    return {"passages": passages, "notes": _drop_narration(notes.strip())}
+
+
+RETRY_ONLY_IF_FAILED_WITHIN = 30
+
+
+def _leaf_errors(error: BaseException) -> str:
+    """The real errors inside nested ExceptionGroups."""
+    inner_errors = getattr(error, "exceptions", None)  # an ExceptionGroup (also the backport on Python 3.10)
+    if inner_errors:
+        return "; ".join(_leaf_errors(inner) for inner in inner_errors)
+    return f"{type(error).__name__}: {error}"
+
+
+def _drop_narration(text: str) -> str:
+    """The agent narrates while it searches ("Let me check ...") before its findings, which start at the first heading."""
+    # the narration runs straight into the first heading ("...rice chapter.## Findings")
+    heading = re.search(r"(?m)(?:^|(?<=[.!?:]))#{1,4} ", text)
+    return text[heading.start():] if heading and heading.start() > 0 else text
 
 
 def number_notes(notes: str, passages: list[dict[str, Any]]) -> str:
