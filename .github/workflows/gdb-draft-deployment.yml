@@ -90,6 +90,8 @@ jobs:
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
+            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || 'none' }}
+            ANARA_KEEPALIVE_HOURS=6
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
           # background, so keep one instance up with its CPU on. A draft can take a few minutes.

@@ -49,6 +49,10 @@ async def lifespan(_app: FastAPI):
         threading.Thread(target=sync_forever, args=(url, minutes), name="library-sync", daemon=True).start()
     if os.getenv("DRAFT_PREFETCH", "").strip() == "1":
         threading.Thread(target=library_files.prefetch_english, name="library-preload", daemon=True).start()
+    # the deployment sets ANARA_KEEPALIVE_HOURS so the Anara sign-in is renewed even when nobody drafts
+    hours = float(os.getenv("ANARA_KEEPALIVE_HOURS", "0") or 0)
+    if hours > 0 and anara_search.enabled():
+        threading.Thread(target=anara_search.keepalive, args=(hours,), name="anara-keepalive", daemon=True).start()
     yield
 
 
@@ -64,6 +68,8 @@ class DraftRequest(BaseModel):
     question: str = Field(min_length=1, max_length=4000)
     # the crop of the record, when known: the search then looks only at documents of that crop
     crop: str | None = Field(default=None, max_length=200)
+    # the state of the record: its own state's documents and the national ones are searched first
+    state: str | None = Field(default=None, max_length=200)
     # the domain of the record (e.g. "Disease Management"): the answer follows that domain's outline
     domain: str | None = Field(default=None, max_length=200)
     # the files attached to the record as its sources; their text is searched before the library
@@ -81,9 +87,9 @@ MAX_SOURCE_PASSAGES = 4
 ANARA_SOURCES_SECONDS = 100
 
 
-def search_library(question: str, crop: str | None = None) -> list[dict[str, Any]]:
+def search_library(question: str, crop: str | None = None, state: str | None = None) -> list[dict[str, Any]]:
     """Passages from the Anara library; if Anara cannot be used, from the documents on this machine."""
-    hits = anara_search.search(question, crop)
+    hits = anara_search.search(question, crop, state)
     if hits is not None:
         return Passages(hits)
     local = Passages(local_index.search_library(question, crop))
@@ -153,7 +159,7 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
         # the model reads only the first few passages, so the record's files cannot fill them all
         from_sources = from_sources[:MAX_SOURCE_PASSAGES]
         taken = {passage.get("passageId") for passage in from_sources}
-        library = search_library(request.question, request.crop)
+        library = search_library(request.question, request.crop, request.state)
         passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
