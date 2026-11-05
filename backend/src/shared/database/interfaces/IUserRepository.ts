@@ -4,7 +4,7 @@ import {
   UserRoleOverview,
 } from '#root/modules/dashboard/validators/DashboardValidators.js';
 import { PreferenceDto } from '#root/modules/user/validators/UserValidators.js';
-import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory,UserRole } from '#shared/interfaces/models.js';
+import { IUser, NotificationRetentionType, QuestionStatus, QuestionSource, IUserHistory, UserRole, TrackedFeature } from '#shared/interfaces/models.js';
 import { MongoClient, ClientSession, ObjectId } from 'mongodb';
 import { TrendGranularity } from '../providers/mongo/repositories/UserRepository.js';
 
@@ -444,4 +444,27 @@ export interface IUserRepository {
   removeFeedbacksAssigned(userId: string, questionId: string, session?: ClientSession): Promise<IUser | null>;
 
   getUsersByRole(roles: UserRole[], session?: ClientSession): Promise<IUser[]>;
+
+  recordFeatureActivity(
+    userId: string,
+    feature: TrackedFeature,
+    durationMs: number,
+    startTime?: Date,
+    endTime?: Date,
+    metadata?: Record<string, unknown>,
+    session?: ClientSession,
+  ): Promise<void>;
+
+  getFeatureActivityMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+    session?: ClientSession,
+  ): Promise<{
+    popManagementCount: number;
+    totalPopManagementMs: number;
+    gdbCleaningCount: number;
+    totalGdbCleaningMs: number;
+  }>;
 }
+

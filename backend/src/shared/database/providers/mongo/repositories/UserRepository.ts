@@ -10,6 +10,8 @@ import {
   QuestionSource,
   IUserHistory,
   TIME_BOUND_SOURCES,
+  IUserFeatureActivity,
+  TrackedFeature,
 } from '#shared/interfaces/models.js';
 import {instanceToPlain} from 'class-transformer';
 import {injectable, inject} from 'inversify';
@@ -37,6 +39,7 @@ export class UserRepository implements IUserRepository {
   private usersCollection!: Collection<IUser>;
   private userRoleHistoryCollection!: Collection<IUserRoleHistory>;
   private AnswerCollection: Collection<IAnswer>;
+  private userFeatureActivityCollection!: Collection<IUserFeatureActivity>;
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -55,6 +58,10 @@ export class UserRepository implements IUserRepository {
         await this.db.getCollection<IUserRoleHistory>('user_role_history');
     }
     this.AnswerCollection = await this.db.getCollection<IAnswer>('answers');
+    if (!this.userFeatureActivityCollection) {
+      this.userFeatureActivityCollection =
+        await this.db.getCollection<IUserFeatureActivity>('user_feature_activity');
+    }
   }
   private async ensureIndexes() {
     try {
@@ -70,6 +77,10 @@ export class UserRepository implements IUserRepository {
         {userId: 1, to: 1},
         {partialFilterExpression: {to: null}},
       );
+      if (this.userFeatureActivityCollection) {
+        await this.userFeatureActivityCollection.createIndex({userId: 1, feature: 1, startTime: -1});
+        await this.userFeatureActivityCollection.createIndex({userId: 1, startTime: 1, endTime: 1});
+      }
     } catch (error) {
       console.error('Failed to create index:', error);
     }
@@ -3188,4 +3199,154 @@ export class UserRepository implements IUserRepository {
     ).toArray();
   }
 
+  /**
+   * Records or updates active time spent by a user on a specific feature (e.g. pop_management, gdb_cleaning).
+   * Heartbeats within a continuous session window (e.g. within 60s of previous end) are merged into the existing session doc.
+   */
+  async recordFeatureActivity(
+    userId: string,
+    feature: TrackedFeature,
+    durationMs: number,
+    startTime?: Date,
+    endTime?: Date,
+    metadata?: Record<string, unknown>,
+    session?: ClientSession,
+  ): Promise<void> {
+    await this.init();
+    const userObjectId = new ObjectId(userId);
+    const now = endTime ?? new Date();
+    const start = startTime ?? new Date(now.getTime() - durationMs);
+
+    // Format IST date string (YYYY-MM-DD)
+    const istOffset = 5.5 * 60 * 60 * 1000;
+    const istDate = new Date(now.getTime() + istOffset);
+    const sessionDate = istDate.toISOString().split('T')[0];
+
+    // Look for a recent active session doc within the last 60 seconds
+    const mergeWindowMs = 60 * 1000;
+    const recentThreshold = new Date(start.getTime() - mergeWindowMs);
+
+    const recentSession = await this.userFeatureActivityCollection.findOne(
+      {
+        userId: userObjectId,
+        feature,
+        endTime: { $gte: recentThreshold, $lte: new Date(now.getTime() + 10000) },
+      },
+      { sort: { endTime: -1 }, session },
+    );
+
+    if (recentSession && recentSession._id) {
+      // Merge into the recent session
+      const newEndTime = now > recentSession.endTime ? now : recentSession.endTime;
+      const addedDuration = Math.max(0, durationMs);
+      await this.userFeatureActivityCollection.updateOne(
+        { _id: recentSession._id },
+        {
+          $set: {
+            endTime: newEndTime,
+            updatedAt: new Date(),
+            ...(metadata ? { metadata: { ...(recentSession.metadata || {}), ...metadata } } : {}),
+          },
+          $inc: { durationMs: addedDuration },
+        },
+        { session },
+      );
+    } else {
+      // Insert new session doc
+      await this.userFeatureActivityCollection.insertOne(
+        {
+          userId: userObjectId,
+          feature,
+          sessionDate,
+          startTime: start,
+          endTime: now,
+          durationMs: Math.max(0, durationMs),
+          metadata: metadata || {},
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        },
+        { session },
+      );
+    }
+  }
+
+  /**
+   * Retrieves aggregated time metrics and session/item counts for tracked features
+   * within [startDate, endDate].
+   */
+  async getFeatureActivityMetrics(
+    userId: string,
+    startDate: Date,
+    endDate: Date,
+    session?: ClientSession,
+  ): Promise<{
+    popManagementCount: number;
+    totalPopManagementMs: number;
+    gdbCleaningCount: number;
+    totalGdbCleaningMs: number;
+  }> {
+    await this.init();
+    const userObjectId = new ObjectId(userId);
+
+    const docs = await this.userFeatureActivityCollection.find(
+      {
+        userId: userObjectId,
+        startTime: { $lte: endDate },
+        endTime: { $gte: startDate },
+      },
+      { session },
+    ).toArray();
+
+    let popManagementCount = 0;
+    let totalPopManagementMs = 0;
+    let gdbCleaningCount = 0;
+    let totalGdbCleaningMs = 0;
+
+    for (const doc of docs) {
+      const docStart = new Date(doc.startTime).getTime();
+      const docEnd = new Date(doc.endTime).getTime();
+      const overlapStart = Math.max(docStart, startDate.getTime());
+      const overlapEnd = Math.min(docEnd, endDate.getTime());
+      const overlapMs = Math.max(0, overlapEnd - overlapStart);
+
+      if (doc.feature === 'pop_management') {
+        popManagementCount++;
+        totalPopManagementMs += overlapMs;
+      } else if (doc.feature === 'gdb_cleaning') {
+        gdbCleaningCount++;
+        totalGdbCleaningMs += overlapMs;
+      }
+    }
+
+    // Also check GDB Cleaning collection to see if any distinct answers were modified in that date range
+    try {
+      const gdbCleaningCol = await this.db.getCollection<any>('gdb_cleaning');
+      const gdbActions = await gdbCleaningCol.aggregate([
+        { $match: { 'history.0': { $exists: true } } },
+        { $unwind: '$history' },
+        {
+          $match: {
+            'history.userId': userObjectId,
+            'history.at': { $gte: startDate, $lte: endDate },
+          },
+        },
+        { $group: { _id: '$answerId' } },
+        { $count: 'n' },
+      ], { session }).toArray();
+
+      const uniqueAnswersHandled = gdbActions[0]?.n ?? 0;
+      if (uniqueAnswersHandled > 0) {
+        gdbCleaningCount = Math.max(gdbCleaningCount, uniqueAnswersHandled);
+      }
+    } catch {
+      // In case gdb_cleaning collection is in a separate DB or not accessible, fallback to feature activity count
+    }
+
+    return {
+      popManagementCount,
+      totalPopManagementMs,
+      gdbCleaningCount,
+      totalGdbCleaningMs,
+    };
+  }
 }

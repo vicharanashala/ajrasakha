@@ -23,6 +23,7 @@ import {
   PreferenceDto,
   UsersNameResponseDto,
   ExpertReviewLevelDto,
+  RecordFeatureActivityDto,
 } from '#root/modules/user/validators/UserValidators.js';
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
@@ -1586,6 +1587,22 @@ export class UserService extends BaseService {
       .filter((user) => user._id);
   }
 
+  async recordFeatureActivity(
+    userId: string,
+    data: RecordFeatureActivityDto,
+  ): Promise<void> {
+    const startTime = data.startTime ? new Date(data.startTime) : undefined;
+    const endTime = data.endTime ? new Date(data.endTime) : undefined;
+    await this.userRepo.recordFeatureActivity(
+      userId,
+      data.feature,
+      data.durationMs,
+      startTime,
+      endTime,
+      data.metadata,
+    );
+  }
+
   async exportUserActivityReport(
     userId: string,
     query: {
@@ -1739,6 +1756,13 @@ export class UserService extends BaseService {
       endDate,
     );
 
+    // 2b. Fetch Tracked Feature Metrics (POP Management & GDB Cleaning) via userRepo
+    const featureMetrics = await this.userRepo.getFeatureActivityMetrics(
+      userId,
+      startDate,
+      endDate,
+    );
+
     // Build PDF buffer
     const pdfBuffer = await buildUserActivityPdfReport({
       userName,
@@ -1763,6 +1787,10 @@ export class UserService extends BaseService {
       totalReroutingMs: metrics.totalReroutingMs,
       expertReroutedCount: metrics.expertReroutedCount,
       totalExpertReroutingMs: metrics.totalExpertReroutingMs,
+      popManagementCount: featureMetrics.popManagementCount,
+      totalPopManagementMs: featureMetrics.totalPopManagementMs,
+      gdbCleaningCount: featureMetrics.gdbCleaningCount,
+      totalGdbCleaningMs: featureMetrics.totalGdbCleaningMs,
       sessions,
     });
 

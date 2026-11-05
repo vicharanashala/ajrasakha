@@ -6,11 +6,15 @@ import {
   IsOptional,
   IsString,
   ValidateNested,
-  IsNotEmpty
+  IsNotEmpty,
+  IsNumber,
+  Min,
+  Max,
+  IsDateString
 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import { NotificationRetentionType } from '#root/shared/index.js';
-import { ICropRef, UserRole } from '#root/shared/interfaces/models.js';
+import { ICropRef, UserRole, TrackedFeature } from '#root/shared/interfaces/models.js';
 import { USER_ROLES } from '#root/shared/constants/roles.js';
 
 export class KVKCoveredItemDto {
@@ -247,4 +251,26 @@ export class ToggleUserRoleDto {
 }
 
 export { PreferenceDto, UsersNameResponseDto, UserDto, NotificationDeletePreferenceDTO, UpdatePenaltyAndIncentive, BlockUnblockBody, ExpertReviewLevelDto, UpdateUserDto, VerifyUserBody };
+
+
+export class RecordFeatureActivityDto {
+  @IsEnum(['pop_management', 'gdb_cleaning'])
+  feature: TrackedFeature;
+
+  @IsNumber()
+  @Min(1)
+  @Max(3600000)
+  durationMs: number;
+
+  @IsOptional()
+  @IsDateString()
+  startTime?: string;
+
+  @IsOptional()
+  @IsDateString()
+  endTime?: string;
+
+  @IsOptional()
+  metadata?: Record<string, unknown>;
+}
 

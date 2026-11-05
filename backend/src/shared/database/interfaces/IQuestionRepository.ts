@@ -976,5 +976,9 @@ export interface IUserActivityMetrics {
   totalReroutingMs: number;
   expertReroutedCount: number;
   totalExpertReroutingMs: number;
+  popManagementCount?: number;
+  totalPopManagementMs?: number;
+  gdbCleaningCount?: number;
+  totalGdbCleaningMs?: number;
 }
 

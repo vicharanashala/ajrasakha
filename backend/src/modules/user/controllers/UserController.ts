@@ -44,6 +44,7 @@ import {
   VerifyUserBody,
   VerificationRequestDto,
   AdminEditUserDto,
+  RecordFeatureActivityDto,
 } from '#root/modules/user/validators/UserValidators.js';
 import { IAuditTrailsService } from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import { AUDIT_TRAILS_TYPES } from '#root/modules/auditTrails/types.js';
@@ -1621,5 +1622,23 @@ export class UserController {
     @QueryParams() query: { targetDate?: string },
   ) {
     return await this.userService.sendDailyUserActivityReports(query.targetDate);
+  }
+  @Post('/feature-activity/heartbeat')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Record active time spent in features (e.g. pop_management, gdb_cleaning)',
+    description: 'Updates or records continuous feature activity sessions for the authenticated user.',
+  })
+  async recordFeatureActivity(
+    @CurrentUser() currentUser: IUser,
+    @Body() body: RecordFeatureActivityDto,
+  ): Promise<{ success: boolean }> {
+    const userId = currentUser._id?.toString();
+    if (!userId) {
+      throw new BadRequestError('User id is missing');
+    }
+    await this.userService.recordFeatureActivity(userId, body);
+    return { success: true };
   }
 }

@@ -1121,3 +1121,20 @@ export interface IGdbCleaning {
   reviewedBy: ObjectId | null;
   reviewedAt: Date | null;
 }
+
+
+export type TrackedFeature = 'pop_management' | 'gdb_cleaning';
+
+/** Contiguous session log of active time spent by a user in specific platform features. */
+export interface IUserFeatureActivity {
+  _id?: ObjectId | string;
+  userId: ObjectId;
+  feature: TrackedFeature;
+  sessionDate: string; // YYYY-MM-DD (IST)
+  startTime: Date;
+  endTime: Date;
+  durationMs: number;
+  metadata?: Record<string, unknown>;
+  createdAt?: Date;
+  updatedAt?: Date;
+}

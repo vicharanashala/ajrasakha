@@ -36,6 +36,10 @@ export interface UserActivityReportData {
   totalReroutingMs: number;
   expertReroutedCount: number;
   totalExpertReroutingMs: number;
+  popManagementCount?: number;
+  totalPopManagementMs?: number;
+  gdbCleaningCount?: number;
+  totalGdbCleaningMs?: number;
   sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
@@ -280,6 +284,24 @@ export async function buildUserActivityPdfReport(
       badgeText: 'Rerouted to Expert',
     },
     {
+      title: 'POP Management',
+      count: data.popManagementCount || 0,
+      totalMs: data.totalPopManagementMs || 0,
+      accentColor: '#0284C7',
+      bgColor: '#F0F9FF',
+      borderColor: '#BAE6FD',
+      badgeText: 'POP Docs Managed',
+    },
+    {
+      title: 'GDB Cleaning',
+      count: data.gdbCleaningCount || 0,
+      totalMs: data.totalGdbCleaningMs || 0,
+      accentColor: '#4F46E5',
+      bgColor: '#EEF2FF',
+      borderColor: '#C7D2FE',
+      badgeText: 'Answers Cleaned',
+    },
+    {
       title: 'GDB Pushed',
       count: data.gdbPushedCount,
       totalMs: 0,
@@ -338,8 +360,33 @@ export async function buildUserActivityPdfReport(
     }
   };
 
-  // Render the 6 cards in a 3x2 grid
-  cards.forEach((c, idx) => {
+  // Select up to 9 most relevant cards: those with activity (>0) or aligned with user's role
+  const roleCardPriority: Record<string, string[]> = {
+    expert: ['Authoring', 'Reviewing', 'Expert Rerouting', 'POP Management', 'GDB Pushed', 'GDB Cleaning', 'Rerouting'],
+    moderator: ['Moderating', 'Reviewing', 'Rerouting', 'POP Management', 'GDB Cleaning', 'Authoring', 'GDB Pushed'],
+    gate_keeper: ['Gatekeeping', 'GDB Cleaning', 'POP Management', 'Moderating', 'Reviewing', 'GDB Pushed'],
+    auditor: ['Auditing', 'POP Management', 'GDB Cleaning', 'Reviewing', 'Moderating', 'GDB Pushed'],
+    admin: ['POP Management', 'GDB Cleaning', 'Moderating', 'Gatekeeping', 'Authoring', 'Reviewing', 'Auditing', 'GDB Pushed'],
+  };
+
+  const prioritizedTitles = roleCardPriority[data.userRole] || [];
+  const sortedCards = [...cards].sort((a, b) => {
+    const aActive = a.count > 0 || a.totalMs > 0 ? 1 : 0;
+    const bActive = b.count > 0 || b.totalMs > 0 ? 1 : 0;
+    if (aActive !== bActive) return bActive - aActive;
+
+    const aIdx = prioritizedTitles.indexOf(a.title);
+    const bIdx = prioritizedTitles.indexOf(b.title);
+    const aRank = aIdx >= 0 ? aIdx : 99;
+    const bRank = bIdx >= 0 ? bIdx : 99;
+    return aRank - bRank;
+  });
+
+  // Render top 6 (or up to 9 if more active)
+  const activeCount = sortedCards.filter(c => c.count > 0 || c.totalMs > 0).length;
+  const cardsToDraw = sortedCards.slice(0, activeCount > 6 ? 9 : 6);
+
+  cardsToDraw.forEach((c, idx) => {
     const col = idx % 3;
     const row = Math.floor(idx / 3);
     const cx = pageMargin + col * (cardW + colGap);
@@ -348,7 +395,8 @@ export async function buildUserActivityPdfReport(
   });
 
   // 5. REVIEW ROUNDS BREAKDOWN STRIP (REV 1 - REV 9)
-  const revStripY = gridY + 2 * cardH + rowGap + 8;
+  const cardRows = Math.ceil(cardsToDraw.length / 3);
+  const revStripY = gridY + cardRows * (cardH + rowGap) + 6;
   const revStripH = 34;
 
   doc.roundedRect(pageMargin, revStripY, contentWidth, revStripH, 5)
@@ -465,6 +513,20 @@ export async function buildUserActivityPdfReport(
       hours: formatHours(data.totalExpertReroutingMs / (1000 * 60 * 60)),
       notes: 'Questions received via reroute',
     },
+    {
+      role: 'POP Management',
+      count: data.popManagementCount || 0,
+      avg: formatMsToHMS((data.popManagementCount && data.popManagementCount > 0) ? (data.totalPopManagementMs || 0) / data.popManagementCount : 0),
+      hours: formatHours((data.totalPopManagementMs || 0) / (1000 * 60 * 60)),
+      notes: 'Document operations & management',
+    },
+    {
+      role: 'GDB Cleaning',
+      count: data.gdbCleaningCount || 0,
+      avg: formatMsToHMS((data.gdbCleaningCount && data.gdbCleaningCount > 0) ? (data.totalGdbCleaningMs || 0) / data.gdbCleaningCount : 0),
+      hours: formatHours((data.totalGdbCleaningMs || 0) / (1000 * 60 * 60)),
+      notes: 'Answer quality review & cleaning',
+    },
   ];
 
   let currentY = tHeaderY + tHeaderH;
@@ -524,15 +586,28 @@ export async function buildUserActivityPdfReport(
     data.reviewedCount +
     data.moderatedCount +
     data.auditedCount +
-    data.gatekeepedCount;
+    data.gatekeepedCount +
+    data.reroutedCount +
+    data.expertReroutedCount +
+    (data.popManagementCount || 0) +
+    (data.gdbCleaningCount || 0);
 
-  const totalActionHours =
+  const rawActionHours =
     (data.totalAuthoringMs +
       data.totalReviewingMs +
       data.totalModeratingMs +
       data.totalAuditingMs +
-      data.totalGatekeepingMs) /
+      data.totalGatekeepingMs +
+      data.totalReroutingMs +
+      data.totalExpertReroutingMs +
+      (data.totalPopManagementMs || 0) +
+      (data.totalGdbCleaningMs || 0)) /
     (1000 * 60 * 60);
+
+  const totalActionHours =
+    data.totalHoursInRevCycle > 0
+      ? Math.min(rawActionHours, data.totalHoursInRevCycle)
+      : rawActionHours;
 
   doc.rect(pageMargin, currentY, contentWidth, rowH).fill('#ECFDF5');
 
