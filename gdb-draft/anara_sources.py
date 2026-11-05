@@ -23,6 +23,11 @@ import record_sources
 logger = logging.getLogger(__name__)
 
 
+def _literal(value: Any) -> str:
+    """A Python expression for a JSON-compatible value, to place inside a sandbox script."""
+    return "json.loads(%r)" % json.dumps(value)
+
+
 def _client():
     """The Anara client, loaded when first needed, so a missing package only turns Anara off."""
     import anara_client
@@ -57,15 +62,16 @@ def _lookup(file_ids: list[str]) -> dict[str, dict[str, Any]]:
     """The Anara document of each source file already uploaded, with its reading status."""
     if not file_ids:
         return {}
-    code = (
-        f"const ids = {json.dumps(file_ids)};\n"
-        "return ids.map(function (id) {\n"
-        "  const found = anara.entities.query({ type: 'DOCUMENT', nameContains: 'src-' + id, limit: 1 });\n"
-        "  if (!found.length) return { id: id, documentId: null };\n"
-        "  const e = anara.entities.get(found[0].id, { withIngestion: true });\n"
-        "  return { id: id, documentId: found[0].id, status: e && e.ingestion ? e.ingestion.status : 'unknown' };\n"
-        "});\n"
-    )
+    code = f"""IDS = {_literal(file_ids)}
+def one(i):
+    found = anara("entities.query", {{"type": "DOCUMENT", "nameContains": "src-" + i, "limit": 1}})
+    if not found:
+        return {{"id": i, "documentId": None}}
+    e = anara("entities.get", {{"id": found[0]["id"], "withIngestion": True}})
+    ingestion = (e or {{}}).get("ingestion")
+    return {{"id": i, "documentId": found[0]["id"], "status": ingestion.get("status") if ingestion else "unknown"}}
+RESULT = [one(i) for i in IDS]
+"""
     return {row["id"]: row for row in (_client().execute(code) or []) if row.get("documentId")}
 
 
@@ -86,7 +92,8 @@ def _rename(document_id: str, file_id: str, name: str) -> None:
     find it; the name is set back when the document is ready."""
     try:
         _client().execute(
-            f"anara.entities.update({json.dumps(document_id)}, {{ name: {json.dumps(anara_name(file_id, name))} }}); return true;"
+            f"anara('entities.update', {{'id': {_literal(document_id)}, 'name': {_literal(anara_name(file_id, name))}}})\n"
+            "RESULT = True"
         )
     except Exception:
         logger.exception("could not rename the Anara document of a record source")
@@ -106,15 +113,13 @@ def _settle_pending() -> None:
 
 
 def _statuses(document_ids: list[str]) -> dict[str, str]:
-    code = (
-        f"const ids = {json.dumps(document_ids)};\n"
-        "const out = {};\n"
-        "ids.forEach(function (id) {\n"
-        "  const e = anara.entities.get(id, { withIngestion: true });\n"
-        "  out[id] = e && e.ingestion ? e.ingestion.status : 'unknown';\n"
-        "});\n"
-        "return out;\n"
-    )
+    code = f"""IDS = {_literal(document_ids)}
+RESULT = {{}}
+for i in IDS:
+    e = anara("entities.get", {{"id": i, "withIngestion": True}})
+    ingestion = (e or {{}}).get("ingestion")
+    RESULT[i] = ingestion.get("status") if ingestion else "unknown"
+"""
     return _client().execute(code) or {}
 
 
