@@ -1,0 +1,3 @@
+locust>=2.32
+pymongo>=4.10
+requests>=2.32
