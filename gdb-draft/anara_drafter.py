@@ -65,8 +65,14 @@ Some passages are tables whose columns have run together. Read them row by row (
 pest, product, dose, waiting period or interval in days) and use the figures of the row for the
 crop asked.
 
-Passages:
+{notes}Passages:
 {passages}
+"""
+
+NOTES_TEMPLATE = """Findings from the library agent, which read the library for this question. [P#] marks the passage
+holding each fact. Use them to find the right passages and figures, but write only what the passages below support.
+{notes}
+
 """
 
 
@@ -171,7 +177,7 @@ def _format_passages(passages: list[dict[str, Any]]) -> str:
 
 def draft_answer(
     question: str, passages: list[dict[str, Any]], crop: str | None = None, domain: str | None = None,
-    rules: bool | None = None,
+    rules: bool | None = None, notes: str | None = None,
 ) -> dict[str, Any]:
     """Return the draft plus the passages it cites, with document and page for each.
 
@@ -189,7 +195,8 @@ def draft_answer(
     )
     def ask(shape: str, attempts: int) -> dict[str, Any]:
         prompt = PROMPT_TEMPLATE.format(
-            question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape
+            question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape,
+            notes=NOTES_TEMPLATE.format(notes=notes) if notes else "",
         )
         return call_llm(
             prompt,

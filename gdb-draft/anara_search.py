@@ -74,6 +74,24 @@ def state_scope_ids(state: str | None) -> list[str] | None:
     return ids if ids and left_out else None
 
 
+def other_state_notice(citations: list[dict[str, Any]], state: str | None) -> str:
+    """A warning for the reviewer when the cited documents belong to other states than the record's.
+    Empty when there is no state, or every cited document is the record's own state's or names no state."""
+    wanted = canonical_state(state)
+    if not wanted:
+        return ""
+    cited = {canonical_state(str(c.get("documentName") or "").split("~")[0]) for c in citations}
+    cited.discard(None)
+    others = sorted(cited - {wanted})
+    if not others:
+        return ""
+    names = ", ".join(others)
+    if wanted not in cited:
+        return (f"No cited document is specific to {wanted}; the advice comes from {names} documents and may not "
+                f"apply there. Check it before accepting.")
+    return f"Some cited documents are from other states ({names}); check that they apply to {wanted}."
+
+
 def enabled() -> bool:
     return os.getenv("DRAFT_SEARCH", "anara").strip().lower() != "local"
 
@@ -215,6 +233,12 @@ def search(question: str, crop: str | None = None, state: str | None = None) -> 
     except Exception as error:  # sign-in expired, usage limit, network
         logger.warning("Anara search unavailable, using the local search: %s", error)
         return None
+    return finish_hits(hits)
+
+
+def finish_hits(hits: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Make passages ready to cite: record files under their own names, no document the reviewer cannot
+    open, the full document name, and no repeated page."""
     for hit in hits:
         uploaded = _RECORD_SOURCE_NAME.match(str(hit.get("documentName") or ""))
         if uploaded:  # a file uploaded for some record: its PDF is fetched from Zoho again when it is opened
