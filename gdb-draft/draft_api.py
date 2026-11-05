@@ -200,6 +200,14 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
                 notes = [reason[:900]]
         if draft.get("answer"):
             notes.append(anara_search.other_state_notice(draft.get("citations") or [], request.state))
+        if draft.get("answer"):
+            openable = library_files.openable_document_ids()
+            closed = sorted({
+                str(c.get("documentName")) for c in draft.get("citations") or []
+                if c.get("documentId") not in openable and not str(c.get("documentId")).startswith("src-")
+            })
+            if closed:  # in Anara's library but not among the files this service can show
+                notes.append("These cited documents are in the Anara library but cannot be opened from here: " + "; ".join(closed) + ".")
         if problems:  # a source file that could not be read must not be silently ignored
             notes.append("Source files not used: " + "; ".join(problems) + ".")
         draft["note"] = " ".join(note for note in notes if note).strip()

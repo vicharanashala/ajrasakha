@@ -21,7 +21,7 @@ class ThePrompt(unittest.TestCase):
         prompt = anara_agent.build_prompt("seed rate?", "Mustard", "Rajasthan", "Agronomy", ["src-1__POP.pdf"])
         for part in ("seed rate?", "Crop: Mustard", "State of the record: Rajasthan", "Topic area: Agronomy", "src-1__POP.pdf"):
             self.assertIn(part, prompt)
-        self.assertIn("If no document covers Rajasthan, say so plainly", prompt)
+        self.assertIn("never present another state's advice as Rajasthan's", prompt)
         self.assertIn("Use only my library", prompt)
 
     def test_a_bare_question_still_makes_a_prompt(self):
@@ -62,6 +62,40 @@ class TheNotes(unittest.TestCase):
 
     def test_plain_notes_have_no_tags(self):
         self.assertEqual(anara_agent.plain_notes(self.NOTES), "Sow in October. Use 1.5 kg.")
+
+
+class TheAgentRun(unittest.TestCase):
+    def test_narration_before_the_first_heading_is_dropped(self):
+        self.assertEqual(anara_agent._drop_narration("Let me check.## Findings\nA"), "## Findings\nA")
+        self.assertEqual(anara_agent._drop_narration("No heading here"), "No heading here")
+
+    def test_the_prompt_asks_for_farmer_words_and_other_states(self):
+        prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
+        self.assertIn("white grubs, termites", prompt)
+        self.assertIn("name its state", prompt)
+
+    def test_a_quick_failure_is_tried_once_more(self):
+        from unittest.mock import patch
+
+        import anara_search
+
+        calls = []
+
+        def run(prompt):
+            calls.append(1)
+            if len(calls) == 1:
+                raise RuntimeError("connection reset")
+            return {"text": "## Findings\nx", "citations": []}
+
+        async def fake_run(prompt):
+            return run(prompt)
+
+        with patch.object(anara_search, "prepare"), patch.object(anara_agent, "_run", fake_run), patch.object(
+            anara_search, "within", lambda seconds, fn: fn()
+        ), patch.object(anara_search, "finish_hits", lambda hits, keep_unopenable=False: hits):
+            result = anara_agent.research("q?")
+        self.assertEqual(len(calls), 2)
+        self.assertEqual(result["notes"], "## Findings\nx")
 
 
 class TheWriterLaysOutTheFindings(unittest.TestCase):
