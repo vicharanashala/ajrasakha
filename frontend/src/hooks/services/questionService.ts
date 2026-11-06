@@ -70,6 +70,52 @@ export type RespectiveFeedbackItem = QueueQuestionItem & {
   approverName: string;
 };
 
+/** RDQA question structure for review - flattened for frontend consumption */
+export type RdqaQuestion = {
+  _id: string;
+  questionId: string;
+  authorId: string;
+  authorIdEmail: string | null;
+  context: string | null;
+  question: {
+    _id: string;
+    question: string; // The actual question text
+    userId: string;
+    details: {
+      crop?: string;
+      state?: string;
+      district?: string;
+    };
+    closedAt: string;
+  };
+  answer: {
+    _id: string;
+    answer: string; // The actual answer text
+    isFinalAnswer: boolean;
+    modifiedBy: string | null;
+    approvedBy: string;
+    approvedByEmail: string | null;
+  };
+  approvedBy: string;
+  closedAt: string;
+};
+
+/** Backend response structure for RDQA endpoint */
+export type RdqaQuestionsResponse = {
+  date: string;
+  limit: number;
+  totalModerators: number;
+  questionsPerModerator: number;
+  totalQuestions: number;
+  moderatorDistribution: Array<{
+    approvedBy: string;
+    approvedByEmail?: string;
+    totalAvailable: number;
+    selectedCount: number;
+  }>;
+  questions: RdqaQuestion[];
+};
+
 /** Data for the dedicated Feedback tab. */
 export type FeedbackQueueDetailsResponse = {
   waitingAuto: { count: number; items: QueueQuestionItem[] };
@@ -1194,6 +1240,20 @@ export class QuestionService {
 
   async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
+  /** RDQA review - fetch finalized questions from a specific date */
+  async getRdqaQuestions(date?: string, limit?: number): Promise<RdqaQuestion[]> {
+    const params = new URLSearchParams();
+    if (date) params.append("date", date);
+    if (limit) params.append("limit", String(limit));
+    const queryString = params.toString();
+    const url = queryString
+      ? `${this._baseUrl}/list/rdqa?${queryString}`
+      : `${this._baseUrl}/list/rdqa`;
+    const response = await apiFetch<{ success: boolean; data: RdqaQuestionsResponse }>(url);
+    // Extract the questions array from the response object
+    return response?.data?.questions ?? [];
   }
 
   /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.

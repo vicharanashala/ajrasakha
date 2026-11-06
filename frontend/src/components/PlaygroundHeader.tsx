@@ -186,6 +186,15 @@ export function PlaygroundHeader({
                 </TabsTrigger>
               )}
 
+              {user && user.role === "admin" && (
+                <TabsTrigger
+                  value="rdqa"
+                  className={tabTriggerClassName}
+                >
+                  <span>RDQA</span>
+                </TabsTrigger>
+              )}
+
               {user && user.role !== "call_agent" && (
                 <TabsTrigger
                   value="closed_answers"
