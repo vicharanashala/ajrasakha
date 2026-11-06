@@ -161,9 +161,16 @@ deploy/restart - language polishing is unaffected either way.
 ## Known behavior and limitations
 
 - **Latency**: one `/polish-draft` call makes several sequential LLM calls
-  (domain classification, one coverage check per expected step, the rewrite
-  itself, a meaning-preservation second opinion) - 10-90+ seconds on a long
-  draft is normal, not a hang.
+  (domain classification, one coverage check per expected step - 3x
+  majority-voted - the rewrite itself, a meaning-preservation second
+  opinion). Against the self-hosted model (the current default), each
+  individual call is live-measured at 2-7s typical (median 3.4s across a
+  real 10-case sample), so a full request is usually well under a minute
+  even with 20-30 sequential calls; against the public-API fallback
+  (`MINIMAX_MODEL=MiniMax-M3`), each call can take 10-90+ seconds instead -
+  that's a different serving stack, not a regression. Either way, a rare
+  single call taking the full configured timeout before failing is a known,
+  occasional reasoning-model behavior, not a hang to debug.
 - **Determinism is per-process, not global**: the result cache lives in
   memory on the running instance. It resets on a redeploy/restart, and (if
   ever scaled beyond one instance) is not shared across instances.
@@ -196,6 +203,7 @@ Copy `.env.example` to `.env` and fill in:
 | `REFERENCE_DATA_DIR` | — | Only for `local`. Local path to the four Golden Database CSVs. Never commit the real files or this path. |
 | `MINIMAX_BASE_URL` / `MINIMAX_CHAT_PATH` / `MINIMAX_API_KEY` / `MINIMAX_MODEL` | — | Same names used elsewhere in this repo. See `.env.example` for the self-hosted-model (tailnet) vs. public-API values. |
 | `MINIMAX_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. |
+| `MINIMAX_TIMEOUT_SECONDS` | `20` | Per-call budget, tuned for the self-hosted model (live-measured 2-7s typical). Override to `90` if using the public-API fallback instead - that path is much slower. |
 | `TAILSCALE_AUTHKEY` / `TAILSCALE_HOSTNAME` | — / `writing-assistant` | Only needed when `MINIMAX_BASE_URL` is the self-hosted tailnet model. Leave unset to use the public MiniMax API instead - the container boots fine either way (see Deployment below). |
 | `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. |
 

@@ -26,14 +26,31 @@ REFERENCE_RELEASE_ID = os.getenv("REFERENCE_RELEASE_ID")
 MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL")
 MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
 MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
-# 90s, not 60s: a real re-test report hit 8 real "read operation timed
-# out" failures at the 60s budget under normal production load (not a
-# synthetic worst case) - 60s was itself an evidence-based bump from 30s
-# (Revision 11) that's no longer enough. Each /polish-draft request makes
-# several sequential calls (one per expected step, plus selection, the
-# rewrite, and the second opinion), so this is a per-call budget, not the
-# whole request's latency (Writing Assistant Build Plan, Revision 18).
-MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "90"))
+# 20s, not 90s, as of the switch to the self-hosted model (team
+# requirement: response time under 20s). The 90s figure was tuned for
+# MiniMax's public API (M3) - the only path ever live-tested before this
+# - which routinely took 10-90+s per call. The self-hosted model
+# (MiniMax-M2.7, reached directly over the tailnet) is a different
+# serving stack entirely and was live-measured at 2-7s per call,
+# typical, across 3 real test batches (a 10-case classify_step_coverage
+# sample, median 3.4s/max 4.4s; two full end-to-end /polish-draft runs,
+# ~33 sequential calls each, all but one well under 10s). One of those
+# ~66 real calls did hang for the full old 90s budget before failing -
+# a known behavior of reasoning models occasionally over-thinking a
+# prompt, not a connectivity problem - so a 20s cap doesn't make that
+# case succeed, it just fails it faster (consistent with this service's
+# fail-closed design: a timeout is still reported as unavailable /
+# needs_clarification, never a silent pass).
+#
+# This is a per-call budget, not the whole request's latency - each
+# /polish-draft request makes several sequential calls (selection, one
+# per expected step, the rewrite, the second opinion).
+#
+# If MINIMAX_BASE_URL is ever pointed back at the public API instead of
+# the self-hosted tailnet model, override this back up (90 is the
+# evidence-based value for that path) - this default is tuned for the
+# self-hosted model specifically, not universal.
+MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
 # The self-hosted production model (per ai/ajrasakha/agents/config.py's
 # get_minimax_chat_model) speaks the standard OpenAI-compatible path. The
 # official public MiniMax API (used as a fallback for testing when the
