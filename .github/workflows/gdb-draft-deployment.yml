@@ -4,13 +4,16 @@
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID
 #   GDB_DRAFT_TOKEN          shared secret; the backend sends it as x-draft-token
-#   GEMINI_API_KEY           key for Gemini 3.5 Flash, which writes the draft when this secret exists
+#   GEMINI_API_KEY           key for Gemini Flash, which writes the draft when this secret exists
 #   DRAFT_MINIMAX_API_KEY    key for MiniMax, used when GEMINI_API_KEY does not exist
 #   ANARA_TOKENS_B64         optional; the Anara sign-in file, base64 encoded (see gdb-draft/anara_search.py);
 #                            without it the service searches its own copy of the documents
 #
 # Optional repository variables:
 #   POP_API_URL              the POP API (default below)
+#   GDB_DRAFT_GEMINI_MODEL   the Gemini model that writes the draft (default gemini-3.8-flash, the newest flash)
+#   ANARA_TOKEN_SECRET       where the service keeps its renewed Anara sign-in (default: the secret "anara-tokens"
+#                            in this project, which the step below creates and opens to the service)
 #
 # The backend needs the service address and the same token: set the repository secrets
 # GDB_DRAFT_URL (the Cloud Run URL of this service) and GDB_DRAFT_TOKEN, which
@@ -73,6 +76,27 @@ jobs:
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
 
+      - name: Set up gcloud
+        uses: google-github-actions/setup-gcloud@v2
+
+      # Anara replaces the refresh token on every renewal, so the service must keep the newest pair somewhere that
+      # survives a restart. Without this, each deploy starts from the spent pair in ANARA_TOKENS_B64 and Anara
+      # answers "sign in again". The step creates the secret and lets the service read and add versions to it.
+      - name: Keep the Anara sign-in in Secret Manager
+        continue-on-error: true
+        run: |
+          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          gcloud secrets describe anara-tokens --project "$PROJECT" >/dev/null 2>&1             || gcloud secrets create anara-tokens --project "$PROJECT" --replication-policy=automatic
+          ACCOUNT=$(gcloud run services describe "${{ env.GCP_SERVICE }}" --region "${{ env.GCP_REGION }}" --project "$PROJECT"             --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || true)
+          if [ -z "$ACCOUNT" ]; then
+            NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
+            ACCOUNT="${NUMBER}-compute@developer.gserviceaccount.com"
+          fi
+          for ROLE in roles/secretmanager.secretAccessor roles/secretmanager.secretVersionAdder; do
+            gcloud secrets add-iam-policy-binding anara-tokens --project "$PROJECT"               --member "serviceAccount:${ACCOUNT}" --role "$ROLE" >/dev/null
+          done
+          echo "The Anara sign-in is kept in projects/${PROJECT}/secrets/anara-tokens for ${ACCOUNT}"
+
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
         with:
@@ -85,12 +109,12 @@ jobs:
             GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
             DRAFT_MINIMAX_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.DRAFT_MINIMAX_API_KEY }}
             DRAFT_MINIMAX_URL=${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' || 'https://api.minimax.io/v1/chat/completions' }}
-            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && 'gemini-3.5-flash' || 'MiniMax-M3' }}
+            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && (vars.GDB_DRAFT_GEMINI_MODEL || 'gemini-3.8-flash') || 'MiniMax-M3' }}
             POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south1.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
-            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || 'none' }}
+            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || format('projects/{0}/secrets/anara-tokens', secrets.GCP_PROJECT_ID) }}
             ANARA_KEEPALIVE_HOURS=6
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
