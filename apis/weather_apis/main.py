@@ -1377,9 +1377,9 @@ def _diag_headers(meta: Dict[str, Any]) -> Dict[str, str]:
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
-@app.api_route(
+@app.head("/weather-live", include_in_schema=False)  # HEAD works but is not listed in /docs
+@app.get(
     "/weather-live",
-    methods=["GET", "HEAD"],
     response_model=LiveWeatherResponse,
     tags=["Weather"],
     summary="Get live weather observation",
@@ -1460,9 +1460,9 @@ async def get_live_weather_endpoint(
     return response
 
 
-@app.api_route(
+@app.head("/weather-forecast", include_in_schema=False)  # HEAD works but is not listed in /docs
+@app.get(
     "/weather-forecast",
-    methods=["GET", "HEAD"],
     response_model=ForecastResponse,
     tags=["Weather"],
     summary="Get 7-day weather forecast",
@@ -1509,9 +1509,9 @@ async def get_forecast_endpoint(
     return response
 
 
-@app.api_route(
+@app.head("/health", include_in_schema=False)  # HEAD works but is not listed in /docs
+@app.get(
     "/health",
-    methods=["GET", "HEAD"],
     tags=["Diagnostics"],
     summary="API Health & Diagnostics",
     description="Check service health, cache statistics, and upstream configuration.",
