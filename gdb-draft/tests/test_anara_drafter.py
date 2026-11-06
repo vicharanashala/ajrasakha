@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import sys
 import unittest
+import unittest.mock
 from pathlib import Path
 from unittest.mock import patch
 
@@ -26,6 +27,42 @@ class DraftAnswer(unittest.TestCase):
         self.assertGreaterEqual(kwargs["max_completion_tokens"], 6000)
         self.assertEqual(kwargs["max_retries"], anara_drafter.DRAFT_ATTEMPTS - 1)
         self.assertEqual(kwargs["timeout"], anara_drafter.DRAFT_ATTEMPT_TIMEOUT_SECONDS)
+        self.assertEqual(kwargs["extra"], {"thinking": {"type": "disabled"}})  # unless DRAFT_THINKING=on
+
+    def test_an_empty_reply_to_the_outline_prompt_is_retried_once_in_the_plain_format(self):
+        reply = {"answer": "x [P1]", "used_passages": [1]}
+        failed = anara_drafter.LLMCallFailed("'content'")
+        with patch.object(anara_drafter, "call_llm", side_effect=[failed, reply]) as call:
+            result = anara_drafter.draft_answer("q", PASSAGES, domain="Weed Management")
+        self.assertEqual(result["answer"], "x [P1]")
+        self.assertEqual([c.kwargs["max_retries"] for c in call.call_args_list], [0, anara_drafter.DRAFT_ATTEMPTS - 2])
+        self.assertIn(anara_drafter.GENERIC_SHAPE, call.call_args_list[1].args[0])
+
+    def test_the_writing_rules_are_in_every_prompt_and_can_be_switched_off(self):
+        reply = {"answer": "x [P1]", "used_passages": [1]}
+        with patch.object(anara_drafter, "call_llm", return_value=reply) as call:
+            anara_drafter.draft_answer("q", PASSAGES, domain="Weed Management")
+            anara_drafter.draft_answer("q", PASSAGES)
+            with patch.object(anara_drafter, "WRITING_RULES_ON", False):
+                anara_drafter.draft_answer("q", PASSAGES)
+        with_outline, plain, without = (c.args[0] for c in call.call_args_list)
+        for prompt in (with_outline, plain):
+            self.assertIn("dose and waiting period of ITS OWN table row", prompt)
+            self.assertIn("never mention \"the passages\"", prompt)
+        self.assertIn("The usual sections", with_outline)
+        self.assertNotIn("Rules for writing the answer", without)
+
+    def test_the_request_to_google_has_no_minimax_only_field(self):
+        import llm_client
+
+        response = unittest.mock.MagicMock(ok=True)
+        response.json.return_value = {"choices": [{"message": {"content": "{}"}}]}
+        with patch.object(llm_client.requests, "post", return_value=response) as post:
+            llm_client.call_llm_once("p", url="https://generativelanguage.googleapis.com/v1beta/openai/chat/completions", api_key="k")
+            llm_client.call_llm_once("p", url="https://api.minimax.io/v1/chat/completions", api_key="k")
+        google, minimax = (c.kwargs["json"] for c in post.call_args_list)
+        self.assertNotIn("reasoning_split", google)
+        self.assertTrue(minimax["reasoning_split"])
 
     def test_citations_follow_the_passages_the_answer_used(self):
         reply = {"answer": "a [P2][P1]", "used_passages": [2, 1, 9, "x"], "note": ""}

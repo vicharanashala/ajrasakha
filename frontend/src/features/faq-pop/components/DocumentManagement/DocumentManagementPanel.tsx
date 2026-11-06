@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { useTranslateSettings } from "@/stores/translate-settings-store";
 import {
   getDashboardConfig,
   getStats,
@@ -37,6 +38,7 @@ import UploadQueuePanel from "./UploadQueuePanel";
 import TranslationQueuePanel from "./TranslationQueuePanel";
 import ResizableSplitPanel from "./ResizableSplitPanel";
 import DocumentDetailModal from "./DocumentDetailModal";
+import TranslateSettingsToggle from "./TranslateSettingsToggle";
 import { DOCUMENT_METADATA_FIELDS } from "./fields";
 
 const MODES = [
@@ -277,11 +279,12 @@ export default function DocumentManagementPanel({
   // Success means the job goes back to queued/running, which arrives over SSE like any other
   // translation update (handled below), so no local state update is needed here beyond busy
   // tracking and surfacing a 409 ("already in progress") if it somehow races another trigger.
-  async function handleRedoTranslationJob(job, mode) {
+  async function handleRedoTranslationJob(job) {
+    const { mode, pipeline, model } = useTranslateSettings.getState();
     const docId = job.document_id || job.unique_document_id;
     setRedoingJobIds((prev) => new Set(prev).add(job.id));
     try {
-      await translateUniqueDocument(docId, currentUserName, mode || job.mode);
+      await translateUniqueDocument(docId, currentUserName, mode, pipeline, model || undefined);
       toast.success("Translation queued");
     } catch (err) {
       toast.error(err.message || "Failed to retry translation");
@@ -799,13 +802,16 @@ export default function DocumentManagementPanel({
             </button>
           ))}
         </div>
-        {stats && (
-          <span className="text-[11px] text-muted-foreground">
-            {stats.documents?.toLocaleString?.() ?? stats.documents} placements ·{" "}
-            {stats.files?.toLocaleString?.() ?? stats.files} documents · {stats.states} states ·{" "}
-            {stats.crops} crops · {stats.translated} translated · {stats.reviewed} reviewed
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          {isAdmin && <TranslateSettingsToggle />}
+          {stats && (
+            <span className="text-[11px] text-muted-foreground">
+              {stats.documents?.toLocaleString?.() ?? stats.documents} placements ·{" "}
+              {stats.files?.toLocaleString?.() ?? stats.files} documents · {stats.states} states ·{" "}
+              {stats.crops} crops · {stats.translated} translated · {stats.reviewed} reviewed
+            </span>
+          )}
+        </div>
       </div>
 
       <div className={activeMode === "add-document" ? "" : "hidden"}>
