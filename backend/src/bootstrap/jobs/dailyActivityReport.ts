@@ -27,7 +27,8 @@ import { appConfig } from '#root/config/app.js';
  * Can also run via Cloud Run Job `daily-activity-report` (src/jobs/daily-activity-report/run.ts).
  */
 
-if (!appConfig.isDevelopment) {
+let start = false
+if (start ) {
   // ┌────────────────────────────────────────────────────────────────────────┐
   // │  MORNING SHIFT REPORT                                                   │
   // │  Runs every day at 2:55 PM Asia/Kolkata (IST)                          │
