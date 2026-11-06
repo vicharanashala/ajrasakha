@@ -271,27 +271,9 @@ export const RdqaPage = () => {
                 <div className="rounded-lg bg-muted/50 p-4 space-y-3">
                   {selectedQuestion.answer.sources.map((source: any, index: number) => (
                     <div key={index} className="border-b border-border/50 last:border-0 pb-2 last:pb-0">
-                      {source.title && <p className="font-medium text-sm">{source.title}</p>}
-                      {source.url && <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline break-all">{source.url}</a>}
-                      {source.snippet && <p className="text-xs text-muted-foreground mt-1">{source.snippet}</p>}
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {selectedQuestion.answer?.modifications && selectedQuestion.answer.modifications.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Modification History</h3>
-                <div className="rounded-lg bg-muted/50 p-4 space-y-3">
-                  {selectedQuestion.answer.modifications.map((mod: any, index: number) => (
-                    <div key={index} className="border-b border-border/50 last:border-0 pb-2 last:pb-0">
-                      <div className="flex justify-between items-start gap-2 mb-1">
-                        <span className="text-xs font-medium">Modified By: {mod.modifiedBy}</span>
-                        <span className="text-xs text-muted-foreground">{mod.modifiedAt ? new Date(mod.modifiedAt).toLocaleString() : ""}</span>
-                      </div>
-                      {mod.oldAnswer && <div className="mb-2"><span className="text-xs text-muted-foreground">Previous:</span><p className="text-xs mt-0.5 bg-red-50 dark:bg-red-900/20 p-2 rounded"><FormattedText text={mod.oldAnswer} /></p></div>}
-                      {mod.newAnswer && <div><span className="text-xs text-muted-foreground">New:</span><p className="text-xs mt-0.5 bg-green-50 dark:bg-green-900/20 p-2 rounded"><FormattedText text={mod.newAnswer} /></p></div>}
+                      {source.sourceName && <p className="font-medium text-sm">{source.sourceName}</p>}
+                      {source.source && <a href={source.source} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline break-all block">{source.source}</a>}
+                      {source.page && <p className="text-xs text-muted-foreground mt-1">Page: {source.page}</p>}
                     </div>
                   ))}
                 </div>
