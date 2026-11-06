@@ -91,16 +91,15 @@ export const RdqaPage = () => {
               <h1 className="text-lg font-semibold">RDQA Review</h1>
               <p className="text-sm text-muted-foreground">Review finalized questions from a specific date</p>
             </div>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowDetailsModal(true)}
-              className="shrink-0"
-            >
-              <BarChart3 className="h-4 w-4 mr-1" />
-              Details
-            </Button>
             <div className="flex items-center gap-3">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDetailsModal(true)}
+              >
+                <BarChart3 className="h-4 w-4 mr-1" />
+                Details
+              </Button>
               <Popover>
                 <PopoverTrigger asChild>
                   <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal">
