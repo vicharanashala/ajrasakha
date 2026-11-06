@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { FarmerDetails, type FarmerDetailsRef } from "./FarmerDetails";
@@ -60,6 +60,8 @@ import {
   AccordionTrigger,
 } from "./atoms/accordion";
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
+import { AiDraftModal } from "./atoms/AiDraftModal";
+import type { AnaraDraftResponse } from "@/hooks/services/anaraService";
 import { Input } from "./atoms/input";
 import { Textarea } from "./atoms/textarea";
 import { Label } from "./atoms/label";
@@ -609,8 +611,31 @@ export const CallInterface = () => {
     village: string;
     domain: string[];
     isGenerated?: boolean;
+    aiDraft?: AnaraDraftResponse | null;
   }>>([]);
   const [activeQueryIndex, setActiveQueryIndex] = useState(0);
+  const [isAiDraftModalOpen, setIsAiDraftModalOpen] = useState(false);
+  const [fallbackAiDraft, setFallbackAiDraft] = useState<AnaraDraftResponse | null>(null);
+
+  const currentCardDraft =
+    queryCards[activeQueryIndex]?.aiDraft || (queryCards.length === 0 ? fallbackAiDraft : null);
+
+  const handleSaveDraft = (draft: AnaraDraftResponse) => {
+    setQueryCards((prev) => {
+      if (prev.length === 0) return prev;
+      const copy = [...prev];
+      if (copy[activeQueryIndex]) {
+        copy[activeQueryIndex] = {
+          ...copy[activeQueryIndex],
+          aiDraft: draft,
+        };
+      }
+      return copy;
+    });
+    if (queryCards.length === 0) {
+      setFallbackAiDraft(draft);
+    }
+  };
 
   const handleToggleDomain = (domain: string) => {
     const newDomains = editableDomain.includes(domain)
@@ -2366,12 +2391,26 @@ export const CallInterface = () => {
                   <div className="space-y-3">
                     <div className="space-y-3">
                       <div>
-                        <Label
-                          htmlFor="queryText"
-                          className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 mb-1 block"
-                        >
-                          Extracted Query
-                        </Label>
+                        <div className="mb-1">
+                          <Label
+                            htmlFor="queryText"
+                            className="text-xs font-semibold text-zinc-700 dark:text-zinc-300 block"
+                          >
+                            Extracted Query
+                          </Label>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {}}
+                            disabled={!editableQuery.trim()}
+                            className="hidden"
+                            title="" aria-hidden="true"
+                          >
+                            <Sparkles className="h-3 w-3 text-emerald-600 dark:text-emerald-400" />
+                            <span>{currentCardDraft?.answer ? "View AI Draft" : "AI Draft"}</span>
+                          </Button>
+                        </div>
                         <Textarea
                           id="queryText"
                           value={editableQuery}
@@ -2589,6 +2628,29 @@ export const CallInterface = () => {
                         className="h-10 px-4 text-xs font-semibold border-zinc-300 dark:border-zinc-700 hover:bg-zinc-100 dark:hover:bg-zinc-800 text-zinc-700 dark:text-zinc-300 rounded-xl transition-all cursor-pointer"
                       >
                         Cancel
+                      </Button>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setIsAiDraftModalOpen(true)}
+                        disabled={!editableQuery.trim()}
+                        className="ml-auto h-10 px-3.5 text-xs md:text-sm font-bold border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                        title={
+                          currentCardDraft?.answer
+                            ? "View generated AI draft (cached for this query)"
+                            : "Draft grounded answer from Package of Practices library"
+                        }
+                      >
+                        {currentCardDraft?.answer ? (
+                          <span className="relative flex h-2 w-2 mr-0.5">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                          </span>
+                        ) : (
+                          <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                        )}
+                        <span>{currentCardDraft?.answer ? "View AI Draft" : "AI Draft"}</span>
                       </Button>
                       <Button
                         onClick={handleApproveAndResume}
@@ -2934,6 +2996,15 @@ export const CallInterface = () => {
           </Card>
         </div>
       </div>
+      <AiDraftModal
+        isOpen={isAiDraftModalOpen}
+        onClose={() => setIsAiDraftModalOpen(false)}
+        query={editableQuery}
+        crop={editableCrop}
+        domain={editableDomain?.[0]}
+        initialDraft={currentCardDraft}
+        onDraftChange={handleSaveDraft}
+      />
     </div>
   );
 };

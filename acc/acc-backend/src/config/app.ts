@@ -55,5 +55,9 @@ export const appConfig = {
     variableKey: env('BSNL_VARIABLE_KEY') || 'advisory',
     isUnicode: env('BSNL_IS_UNICODE') || '1',
   },
+  anara: {
+    draftUrl: env('ANARA_DRAFT_URL') || 'https://gdb-draft-239934307367.asia-south1.run.app',
+    draftToken: env('ANARA_DRAFT_TOKEN') || '',
+  },
 };
 
