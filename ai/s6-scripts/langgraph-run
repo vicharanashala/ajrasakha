@@ -23,8 +23,7 @@ if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
     fi
 fi
 
-# Start LangGraph API
+# Start LangGraph API using aegra serve
 cd /app
 source .venv/bin/activate
-cd ajrasakha
-exec python app.py
+exec aegra serve
