@@ -122,6 +122,12 @@ class LanguagePolishingStatus(str, Enum):
     SUGGESTED = "suggested"
     REJECTED = "rejected"
     UNAVAILABLE = "unavailable"
+    # Not attempted at all - distinct from UNAVAILABLE (a check that ran but
+    # couldn't be completed). Team requirement: polish is only offered once
+    # structural validation finds every step covered; a draft missing or
+    # partially covering steps gets the step report, never a polish
+    # suggestion, so running the LLM rewrite for it would be wasted latency.
+    SKIPPED = "skipped"
 
 
 class LanguagePolishingResult(CamelModel):
