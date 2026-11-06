@@ -1,85 +1,29 @@
 #!/bin/bash
-# =============================================================================
-# langgraph-run - s6 service script for AjraSakha LangGraph API
-# =============================================================================
-# This script:
-# 1. Waits for Tailscale SOCKS5 proxy to be ready
-# 2. Logs environment variables
-# 3. Starts the LangGraph API (aegra serve)
-#
-# Uses bash explicitly since we use process substitution and other bash features.
-# =============================================================================
+# Starts LangGraph API after Tailscale is ready
 
-set -x
-
-BOOT_LOG=/tmp/ajrasakha-langgraph-boot.log
-
-# Redirect all output to both stdout and boot log
-exec > >(tee -a "$BOOT_LOG") 2>&1
-
-echo "============================================================="
-echo "  AjraSakha LangGraph API — boot sequence"
-echo "  $(date -Iseconds)"
-echo "============================================================="
-
-# -----------------------------------------------------------------------
-# Tailscale readiness check
-# -----------------------------------------------------------------------
+# Skip Tailscale check if requested
 if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
-    echo "----- Tailscale status check -----" | tee -a "$BOOT_LOG"
     i=0
     while [ $i -lt 20 ]; do
         if [ -S /var/run/tailscale/tailscaled.sock ] && \
            tailscale status >/dev/null 2>&1; then
-            echo "  tailscaled is up and authenticated after ${i}s" | tee -a "$BOOT_LOG"
             break
         fi
         i=$((i + 1))
-        echo "  waiting for tailscaled... (${i}/20)" | tee -a "$BOOT_LOG"
         sleep 1
     done
 
     if [ $i -ge 20 ]; then
-        echo "!!! Tailscale NOT ready after 20s — proceeding anyway" | tee -a "$BOOT_LOG"
+        echo "WARNING: Tailscale not ready, proceeding anyway"
     fi
 
-    # Quick SOCKS5 probe
-    echo "----- SOCKS5 smoke test -----" | tee -a "$BOOT_LOG"
-    timeout 5 curl \
-        --max-time 4 \
-        --proxy "socks5h://127.0.0.1:1055" \
-        "https://api.tailscale.com/api/v2/device" \
-        -o /dev/null \
-        -w "  [SOCKS] probe http_code=%{http_code} time=%{time_total}s\n" \
-        2>&1 | tee -a "$BOOT_LOG" || echo "[SOCKS] probe done" | tee -a "$BOOT_LOG"
-else
-    echo "----- SKIP_TAILSCALE_STATUS=true, skipping tailscale checks -----" | tee -a "$BOOT_LOG"
+    # Wait for SOCKS5 proxy
+    if [ -f /app/s6-scripts/wait-for-socks5.py ]; then
+        python3 /app/s6-scripts/wait-for-socks5.py || true
+    fi
 fi
 
-# -----------------------------------------------------------------------
-# Python SOCKS5 readiness probe
-# -----------------------------------------------------------------------
-echo "----- waiting for SOCKS5 proxy to be ready -----" | tee -a "$BOOT_LOG"
-if [ -f /app/s6-scripts/wait-for-socks5.py ]; then
-    python3 /app/s6-scripts/wait-for-socks5.py || echo "SOCKS5 wait script exited non-zero, continuing"
-fi
-
-# -----------------------------------------------------------------------
-# Env validation
-# -----------------------------------------------------------------------
-echo "----- environment summary -----" | tee -a "$BOOT_LOG"
-echo "  OPENAI_BASE_URL=${OPENAI_BASE_URL:-not set}" | tee -a "$BOOT_LOG"
-echo "  TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY:+set (length: ${#TAILSCALE_AUTHKEY})}" | tee -a "$BOOT_LOG"
-echo "  TS_HOSTNAME=${TS_HOSTNAME:-ajrasakha-langgraph}" | tee -a "$BOOT_LOG"
-echo "  TS_DERP_REGION=${TS_DERP_REGION:-auto}" | tee -a "$BOOT_LOG"
-
-# -----------------------------------------------------------------------
-# Start the LangGraph API
-# -----------------------------------------------------------------------
-echo "============================================================="
-echo "  Starting AjraSakha LangGraph API"
-echo "=============================================================" | tee -a "$BOOT_LOG"
-
+# Start LangGraph API
 cd /app
 source .venv/bin/activate
 cd ajrasakha
