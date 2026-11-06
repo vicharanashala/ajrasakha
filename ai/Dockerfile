@@ -33,10 +33,11 @@ ARG S6_OVERLAY_VERSION=3.2.3.0
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     ca-certificates \
+    xz-utils \
     && curl -sL https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-noarch.tar.xz -o /tmp/s6-overlay-noarch.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-overlay-noarch.tar.xz \
+    && tar -C / -Jxf /tmp/s6-overlay-noarch.tar.xz \
     && curl -sL https://github.com/just-containers/s6-overlay/releases/download/v${S6_OVERLAY_VERSION}/s6-overlay-x86_64.tar.xz -o /tmp/s6-overlay-x86_64.tar.xz \
-    && tar -C / -Jxpf /tmp/s6-overlay-x86_64.tar.xz \
+    && tar -C / -Jxf /tmp/s6-overlay-x86_64.tar.xz \
     && rm -rf /tmp/s6-overlay-*.tar.xz \
     && mkdir -p /etc/services.d/tailscale /etc/services.d/langgraph
 
