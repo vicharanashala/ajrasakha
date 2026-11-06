@@ -10738,41 +10738,59 @@ export class QuestionRepository implements IQuestionRepository {
     const rerouteDocs = await this.ReRouteCollection.find({
       reroutes: {
         $elemMatch: {
-          reroutedBy: userObjectId,
+          reroutedBy: { $in: [userObjectId, userId] },
           reroutedAt: { $gte: startDate, $lte: endDate },
         },
       },
     }).toArray();
 
+    const rerouteQuestionIds = rerouteDocs
+      .map((d: any) => d.questionId)
+      .filter((id: any) => id && ObjectId.isValid(id))
+      .map((id: any) => (id instanceof ObjectId ? id : new ObjectId(id)));
+
+    const rerouteQuestions = rerouteQuestionIds.length > 0
+      ? await this.QuestionCollection.find({ _id: { $in: rerouteQuestionIds } }).toArray()
+      : [];
+    const rerouteQuestionMap = new Map(rerouteQuestions.map((q: any) => [q._id.toString(), q]));
+
     for (const doc of rerouteDocs) {
       const reroutes: any[] = (doc as any).reroutes || [];
+      const q = doc.questionId ? rerouteQuestionMap.get(doc.questionId.toString()) : null;
+
       for (const r of reroutes) {
         const reroutedBy = typeof r.reroutedBy === 'string' ? r.reroutedBy : r.reroutedBy?.toString();
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
         if (reroutedBy === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
           reroutedCount++;
-          // Calculate duration from first reroute entry time to this reroute time
-          const firstEntry = reroutes.find((entry: any) => {
-            const entryReroutedBy = typeof entry.reroutedBy === 'string' ? entry.reroutedBy : entry.reroutedBy?.toString();
-            return entryReroutedBy === userId && entry.reroutedAt;
-          });
-          if (firstEntry && firstEntry.reroutedAt) {
-            const startAt = new Date(firstEntry.reroutedAt);
+
+          // Moderator handling duration: from when the moderator was assigned to when they rerouted
+          const assignedAt = q?.moderatorAssignedAt ? new Date(q.moderatorAssignedAt) : null;
+          const startAt = assignedAt && assignedAt <= reroutedAt
+            ? assignedAt
+            : doc.createdAt
+              ? new Date(doc.createdAt)
+              : reroutedAt;
+
+          if (startAt && reroutedAt && reroutedAt > startAt) {
             reroutingIntervals.push(...getActiveOverlapIntervals(startAt, reroutedAt));
           }
         }
       }
     }
 
-    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) received a rerouted question in date range
+    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) received / completed a rerouted question in date range
     let expertReroutedCount = 0;
     const expertReroutingIntervals: TimeInterval[] = [];
 
     const expertRerouteDocs = await this.ReRouteCollection.find({
       reroutes: {
         $elemMatch: {
-          reroutedTo: userObjectId,
-          reroutedAt: { $gte: startDate, $lte: endDate },
+          reroutedTo: { $in: [userObjectId, userId] },
+          $or: [
+            { reroutedAt: { $gte: startDate, $lte: endDate } },
+            { updatedAt: { $gte: startDate, $lte: endDate } },
+          ],
         },
       },
     }).toArray();
@@ -10781,13 +10799,23 @@ export class QuestionRepository implements IQuestionRepository {
       const reroutes: any[] = (doc as any).reroutes || [];
       for (const r of reroutes) {
         const reroutedTo = typeof r.reroutedTo === 'string' ? r.reroutedTo : r.reroutedTo?.toString();
+        if (reroutedTo !== userId) continue;
+
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
-        if (reroutedTo === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
+        const updatedAt = r.updatedAt ? new Date(r.updatedAt) : null;
+
+        // Check if the expert's review action completed in the date range, or was assigned in the date range
+        const isCompletedInRange =
+          r.status !== 'pending' && updatedAt && updatedAt >= startDate && updatedAt <= endDate;
+        const isAssignedInRange =
+          reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate;
+
+        if (isCompletedInRange || isAssignedInRange) {
           expertReroutedCount++;
-          // Duration: from reroutedAt (when expert was assigned) to updatedAt (last status change / completion)
-          const updatedAt = (doc as any).updatedAt ? new Date((doc as any).updatedAt) : null;
-          if (updatedAt) {
-            expertReroutingIntervals.push(...getActiveOverlapIntervals(reroutedAt, updatedAt));
+          const startAt = reroutedAt || updatedAt;
+          const endAt = isCompletedInRange ? updatedAt : (updatedAt || endDate);
+          if (startAt && endAt && endAt > startAt) {
+            expertReroutingIntervals.push(...getActiveOverlapIntervals(startAt, endAt));
           }
         }
       }
