@@ -3263,8 +3263,41 @@ export class QuestionService extends BaseService implements IQuestionService {
         {
           $project: {
             _id: 1,
-            answer: '$$ROOT',
-            question: '$questionDoc',
+            approvedBy: 1,
+            questionId: 1,
+            authorId: 1,
+            answerIteration: 1,
+            isFinalAnswer: 1,
+            answer: 1,
+            sources: 1,
+            status: 1,
+            remarks: 1,
+            modifications: 1,
+            threshold: 1,
+            approvalCount: 1,
+            createdAt: 1,
+            updatedAt: 1,
+            question: {
+              _id: '$questionDoc._id',
+              question: '$questionDoc.question',
+              status: '$questionDoc.status',
+              details: '$questionDoc.details',
+              userId: '$questionDoc.userId',
+              context: '$questionDoc.context',
+              source: '$questionDoc.source',
+              closedAt: '$questionDoc.closedAt',
+              passedAt: '$questionDoc.passedAt',
+              isClosed: '$questionDoc.isClosed',
+              isAutoAllocate: '$questionDoc.isAutoAllocate',
+              saved_to_draft: '$questionDoc.saved_to_draft',
+              pae_review: '$questionDoc.pae_review',
+              createdAt: '$questionDoc.createdAt',
+              updatedAt: '$questionDoc.updatedAt',
+              totalAnswersCount: '$questionDoc.totalAnswersCount',
+              priority: '$questionDoc.priority',
+              metrics: '$questionDoc.metrics',
+              text: '$questionDoc.text',
+            },
           },
         },
       ];
@@ -3272,9 +3305,58 @@ export class QuestionService extends BaseService implements IQuestionService {
       const pairs = await this.answerRepo.aggregate(answerPipeline);
 
       for (const pair of pairs) {
-        questionAnswerPairs.push({
-          question: pair.question,
+        // Convert Buffer ObjectId fields to strings
+        const processedQuestion = pair.question
+          ? {
+              _id: pair.question._id?.toString(),
+              question: pair.question.question,
+              status: pair.question.status,
+              details: pair.question.details,
+              userId: pair.question.userId?.toString(),
+              context: pair.question.context?.toString(),
+              source: pair.question.source,
+              closedAt: pair.question.closedAt,
+              passedAt: pair.question.passedAt,
+              isClosed: pair.question.isClosed,
+              isAutoAllocate: pair.question.isAutoAllocate,
+              saved_to_draft: pair.question.saved_to_draft,
+              pae_review: pair.question.pae_review,
+              createdAt: pair.question.createdAt,
+              updatedAt: pair.question.updatedAt,
+              totalAnswersCount: pair.question.totalAnswersCount,
+              priority: pair.question.priority,
+              metrics: pair.question.metrics,
+              text: pair.question.text,
+            }
+          : null;
+
+        // Process answer: convert buffer fields and remove embedding
+        const processedAnswer = {
+          _id: pair._id?.toString(),
+          approvedBy: pair.approvedBy?.toString() || null,
+          questionId: pair.questionId?.toString(),
+          authorId: pair.authorId?.toString(),
+          answerIteration: pair.answerIteration,
+          isFinalAnswer: pair.isFinalAnswer,
           answer: pair.answer,
+          sources: pair.sources,
+          status: pair.status,
+          remarks: pair.remarks,
+          modifications: pair.modifications?.map((mod: any) => ({
+            modifiedBy: mod.modifiedBy?.toString(),
+            oldAnswer: mod.oldAnswer,
+            newAnswer: mod.newAnswer,
+            modifiedAt: mod.modifiedAt,
+          })),
+          threshold: pair.threshold,
+          approvalCount: pair.approvalCount,
+          createdAt: pair.createdAt,
+          updatedAt: pair.updatedAt,
+        };
+
+        questionAnswerPairs.push({
+          question: processedQuestion,
+          answer: processedAnswer,
         });
       }
 

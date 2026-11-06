@@ -58,11 +58,49 @@ describe('RDQA List Service - Core Logic', () => {
       }));
 
       // Mock 8 question-answer pairs for each moderator (4 moderators × 8 = 32 total)
+      // Now the pipeline returns individual fields, not 'question' and 'answer' as full objects
       const questionAnswerPairs = moderatorGroups.flatMap((mod) =>
-        mod.answerIds.slice(0, 8).map((answerId: ObjectId, idx: number) => ({
-          question: { _id: mod.questionIds[idx], question: 'Test', status: 'closed' },
-          answer: { _id: answerId, answer: 'Test answer', isFinalAnswer: true },
-        })),
+        mod.answerIds.slice(0, 8).map((answerId: ObjectId, idx: number) => {
+          const questionId = mod.questionIds[idx];
+          return {
+            _id: answerId,
+            approvedBy: new ObjectId(),
+            questionId: questionId,
+            authorId: new ObjectId(),
+            answerIteration: 1,
+            isFinalAnswer: true,
+            answer: 'Test answer',
+            sources: [],
+            status: 'approved',
+            remarks: '',
+            modifications: [],
+            threshold: 0.5,
+            approvalCount: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            question: {
+              _id: questionId,
+              question: 'Test',
+              status: 'closed',
+              details: { state: 'Maharashtra', district: 'Pune', crop: 'Wheat', season: 'Rabi', domain: [] },
+              userId: new ObjectId(),
+              context: new ObjectId(),
+              source: 'whatsapp',
+              closedAt: new Date(),
+              passedAt: null,
+              isClosed: true,
+              isAutoAllocate: false,
+              saved_to_draft: false,
+              pae_review: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              totalAnswersCount: 1,
+              priority: { level: 'normal', score: 0 },
+              metrics: null,
+              text: 'Test question text',
+            },
+          };
+        }),
       );
 
       const service = createMockService(moderatorGroups, questionAnswerPairs);
@@ -134,11 +172,50 @@ describe('RDQA List Service - Core Logic', () => {
       ];
 
       // Need to provide 4 question-answer pairs for each moderator (3 x 4 = 12 total)
+      // Now the pipeline returns individual fields, not 'question' and 'answer' as full objects
       const allPairs = moderatorGroups.flatMap((mod) => {
-        return Array.from({ length: 4 }, (_, idx) => ({
-          question: { _id: new ObjectId(), question: 'Test', status: 'closed' },
-          answer: { _id: new ObjectId(), answer: 'Test answer', isFinalAnswer: true },
-        }));
+        return Array.from({ length: 4 }, (_, idx) => {
+          const questionId = new ObjectId();
+          const answerId = new ObjectId();
+          return {
+            _id: answerId,
+            approvedBy: new ObjectId(),
+            questionId: questionId,
+            authorId: new ObjectId(),
+            answerIteration: 1,
+            isFinalAnswer: true,
+            answer: 'Test answer',
+            sources: [],
+            status: 'approved',
+            remarks: '',
+            modifications: [],
+            threshold: 0.5,
+            approvalCount: 0,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            question: {
+              _id: questionId,
+              question: 'Test',
+              status: 'closed',
+              details: { state: 'Maharashtra', district: 'Pune', crop: 'Wheat', season: 'Rabi', domain: [] },
+              userId: new ObjectId(),
+              context: new ObjectId(),
+              source: 'whatsapp',
+              closedAt: new Date(),
+              passedAt: null,
+              isClosed: true,
+              isAutoAllocate: false,
+              saved_to_draft: false,
+              pae_review: false,
+              createdAt: new Date(),
+              updatedAt: new Date(),
+              totalAnswersCount: 1,
+              priority: { level: 'normal', score: 0 },
+              metrics: null,
+              text: 'Test question text',
+            },
+          };
+        });
       });
 
       const service = createMockService(moderatorGroups, allPairs);
