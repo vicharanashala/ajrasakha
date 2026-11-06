@@ -3192,6 +3192,8 @@ export class QuestionService extends BaseService implements IQuestionService {
           questionIds: { $push: '$questionId' },
         },
       },
+      // Sort by moderator _id for deterministic order
+      { $sort: { _id: 1 } },
     ];
 
     const moderatorGroups = await this.answerRepo.aggregate(pipeline);
