@@ -20,6 +20,23 @@ from .models import LLMUnavailableError, QuestionType, SelectionClassification, 
 
 log = logging.getLogger("writing_assistant.llm_client")
 
+# The self-hosted reasoning model sometimes wraps its answer in a markdown
+# code fence even when the prompt asks for plain JSON or plain text -
+# live-confirmed (a real classify_and_select response broke json.loads
+# with "Expecting value: line 3 column 1", the exact signature of
+# content starting "\n\n```json\n{...}"). M3 (public API) never needed
+# this. Anchored to the WHOLE response (after trimming whitespace) on
+# purpose - a fence wrapping only part of the content is a different,
+# unconfirmed failure shape, not this one, and a loose match risks
+# silently mangling a legitimate answer that merely contains backticks.
+_MARKDOWN_FENCE_RE = re.compile(r"^```(?:json)?\s*\n?(.*?)\n?```$", re.DOTALL)
+
+
+def _strip_markdown_fence(content: str) -> str:
+    match = _MARKDOWN_FENCE_RE.match(content.strip())
+    return match.group(1).strip() if match else content
+
+
 # Tailscale's userspace-networking mode (see scripts/start.sh) creates no
 # network interface, so a 100.x address is only reachable through the
 # local SOCKS5 proxy tailscaled exposes. Mirrors
@@ -283,35 +300,66 @@ def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs)
         headers["Authorization"] = f"Bearer {config.MINIMAX_API_KEY}"
 
     payload = {"model": config.MINIMAX_MODEL, "messages": messages, "seed": config.MINIMAX_SEED, **kwargs}
-    proxy = _TAILNET_SOCKS_PROXY if _is_tailnet_host(urlparse(config.MINIMAX_BASE_URL).hostname or "") else None
+    needs_proxy = config.MINIMAX_USE_TAILNET_PROXY and _is_tailnet_host(
+        urlparse(config.MINIMAX_BASE_URL).hostname or ""
+    )
+    proxy = _TAILNET_SOCKS_PROXY if needs_proxy else None
     # Input size, not output - what we send, to correlate a slow/timed-out
     # call with how much the model had to read. Logged on failure only, so
     # this costs nothing on the normal path.
     content_chars = sum(len(m.get("content", "")) for m in messages)
 
-    t0 = time.monotonic()
-    try:
-        response = httpx.post(
-            url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
-        )
-        response.raise_for_status()
-        data = response.json()
-        # MiniMax's own official API reports some failures via base_resp
-        # inside an HTTP 200 rather than an HTTP error status (confirmed by
-        # a live probe against the real API) - the self-hosted/OpenAI-
-        # compatible path doesn't send this field at all, hence .get().
-        base_resp = data.get("base_resp")
-        if base_resp and base_resp.get("status_code") not in (None, 0):
-            raise LLMUnavailableError(f"MiniMax reported an error: {base_resp}")
-        return data["choices"][0]["message"]["content"]
-    except (httpx.HTTPError, KeyError, IndexError, ValueError) as exc:
-        # The one thing every past timeout report (including this
-        # session's own investigation) has been missing: how long it
-        # actually ran and how big the input was, server-side, so the
-        # next real failure is diagnosable instead of a black box.
-        elapsed = time.monotonic() - t0
-        log.error(
-            "%s failed after %.1fs (budget %.0fs, input %d chars, model %s): %s",
-            call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
-        )
-        raise LLMUnavailableError(f"MiniMax call failed: {exc}") from exc
+    # The self-hosted reasoning model occasionally over-thinks a prompt and
+    # stalls for the full timeout before failing - live-confirmed (not a
+    # connectivity problem, the same request succeeds normally on a retry).
+    # With the 20s budget tuned for its typical 2-7s latency, and a full
+    # /polish-draft request making ~25-30 sequential calls (step coverage
+    # alone is 3x-voted per step), one retry on a genuine network-level
+    # failure meaningfully cuts how often a single rare stall turns an
+    # otherwise-good request into needs_clarification/unavailable - without
+    # weakening the majority vote or raising the per-call budget back up.
+    # Scoped to httpx.HTTPError only: a KeyError/IndexError/ValueError means
+    # a response DID come back, just not shaped as expected - retrying the
+    # identical request won't fix a parsing problem, only reattempting a
+    # genuinely failed/timed-out one is worth it.
+    last_exc: Exception | None = None
+    for attempt in range(2):
+        t0 = time.monotonic()
+        try:
+            response = httpx.post(
+                url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
+            )
+            response.raise_for_status()
+            data = response.json()
+            # MiniMax's own official API reports some failures via base_resp
+            # inside an HTTP 200 rather than an HTTP error status (confirmed
+            # by a live probe against the real API) - the self-hosted/
+            # OpenAI-compatible path doesn't send this field at all, hence
+            # .get().
+            base_resp = data.get("base_resp")
+            if base_resp and base_resp.get("status_code") not in (None, 0):
+                raise LLMUnavailableError(f"MiniMax reported an error: {base_resp}")
+            return _strip_markdown_fence(data["choices"][0]["message"]["content"])
+        except httpx.HTTPError as exc:
+            last_exc = exc
+            elapsed = time.monotonic() - t0
+            if attempt == 0:
+                log.warning(
+                    "%s failed after %.1fs on attempt 1/2 (budget %.0fs, input %d chars, model %s): %s - retrying once",
+                    call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+                )
+                continue
+            log.error(
+                "%s failed after %.1fs on attempt 2/2 (budget %.0fs, input %d chars, model %s): %s",
+                call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+            )
+        except (KeyError, IndexError, ValueError) as exc:
+            # Not retried - see the comment above the loop.
+            elapsed = time.monotonic() - t0
+            log.error(
+                "%s got a malformed response after %.1fs (budget %.0fs, input %d chars, model %s): %s",
+                call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+            )
+            raise LLMUnavailableError(f"MiniMax call failed: {exc}") from exc
+
+    raise LLMUnavailableError(f"MiniMax call failed: {last_exc}") from last_exc
