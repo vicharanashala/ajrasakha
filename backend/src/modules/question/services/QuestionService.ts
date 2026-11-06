@@ -3125,6 +3125,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     totalQuestions: number;
     moderatorDistribution: Array<{
       approvedBy: string;
+      approvedByEmail?: string;
       totalAvailable: number;
       selectedCount: number;
     }>;
@@ -3230,9 +3231,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     const distributedCount = Math.min(effectiveLimit, totalPotentialQuestions);
     const questionsPerModerator = Math.max(1, Math.floor(distributedCount / validModerators.length));
 
-    // Build moderator distribution info
+    // Build moderator distribution info with user emails
+    const moderatorIds = validModerators.map(m => m._id.toString()).filter(Boolean);
+    const moderatorUsers = moderatorIds.length
+      ? await this.userRepo.getUsersByIds(moderatorIds, undefined, { email: 1 })
+      : [];
+    const moderatorEmailMap = new Map(moderatorUsers.map(u => [u._id.toString(), u.email]));
+
     const moderatorDistribution = validModerators.map(m => ({
       approvedBy: m._id.toString(),
+      approvedByEmail: moderatorEmailMap.get(m._id.toString()) || undefined,
       totalAvailable: m.totalAvailable,
       selectedCount: Math.min(questionsPerModerator, m.totalAvailable),
     }));
@@ -3374,6 +3382,30 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (remainingLimit <= 0) break;
     }
 
+    // Look up user emails for all user IDs in selected questions
+    const allUserIds = new Set<string>();
+    for (const { question: q, answer: a } of selectedQuestions) {
+      if (a?.approvedBy) allUserIds.add(a.approvedBy);
+      if (a?.authorId) allUserIds.add(a.authorId);
+      if (q?.userId) allUserIds.add(q.userId);
+    }
+
+    const userIdArray = [...allUserIds].filter(Boolean);
+    const users = userIdArray.length
+      ? await this.userRepo.getUsersByIds(userIdArray, undefined, { email: 1 })
+      : [];
+    const userEmailMap = new Map(users.map(u => [u._id.toString(), u.email]));
+
+    // Inject email fields into selected questions
+    const questionsWithEmails = selectedQuestions.map(({ question: q, answer: a }) => ({
+      question: q,
+      answer: {
+        ...a,
+        approvedByEmail: a?.approvedBy ? userEmailMap.get(a.approvedBy) || null : null,
+      },
+      authorIdEmail: a?.authorId ? userEmailMap.get(a.authorId) || null : null,
+    }));
+
     return {
       date: dateString,
       limit: effectiveLimit,
@@ -3381,7 +3413,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       questionsPerModerator,
       totalQuestions: selectedQuestions.length,
       moderatorDistribution,
-      questions: selectedQuestions,
+      questions: questionsWithEmails,
     };
   }
 }
