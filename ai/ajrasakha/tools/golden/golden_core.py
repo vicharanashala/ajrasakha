@@ -346,7 +346,7 @@ async def vector_rag_search(
     q_k = QUESTIONS_TOP_K
     a_k = ANSWERS_TOP_K
     
-    filters: dict[str, Any] = {"status": "closed"}
+    filters: dict[str, Any] = {"status": {"$in": ["closed", "duplicate_closed"]}}
     if crop != "all":
         if use_keyword_crop_match:
             # Use regex to match crop as substring (case-insensitive)
@@ -527,7 +527,7 @@ async def strict_exact_search(
         crop,
         state,
     )
-    meta_filter: dict = {"status": "closed"}
+    meta_filter: dict = {"status": {"$in": ["closed", "duplicate_closed"]}}
     if crop != "all":
         if use_keyword_crop_match:
             # Use regex to match crop as substring (case-insensitive)
