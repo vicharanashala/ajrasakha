@@ -75,10 +75,16 @@ LAYOUT_TEMPLATE = """You are laying out an agricultural answer for a farmer-faci
 written by a library agent from the passages listed after it; [P#] marks the passage holding each fact.
 
 Do not summarise, shorten or drop anything. Every method, product, dose, figure, timing, specification and
-condition in the write-up stays in the answer, arranged in the layout below. Remove only: statements about what the
-library lacks, mentions of other states' documents or of another crop, talk about the searching, and repeated facts.
+condition in the write-up stays in the answer, arranged in the layout below. Remove only: mentions of another
+crop, talk about the searching, and repeated facts.
+Many questions ask about something the documents do not recommend (a product, a practice). Reviewers write those
+answers in the same way: the first paragraph states plainly, naming the document (for example "The Punjab Package of
+Practices does not specify a recommendation for X"), and the answer then gives what the documents DO recommend on that
+topic, in full, with the reasoning. Write such an answer whenever the write-up holds related guidance, and cite it.
+If another state's document is the source of a fact, name that state next to the fact.
 Keep each fact's passage numbers (one to three per sentence) and add no fact that neither the write-up nor the
-passages hold. {crop_rule}If the write-up holds nothing that answers the question, return an empty answer and say so in "note".
+passages hold. {crop_rule}Return an empty answer, with the reason in "note", only if the write-up holds nothing at all
+that bears on the question.
 
 {shape}
 Return only JSON in this form:
@@ -123,7 +129,7 @@ WRITING_RULES = """Rules for writing the answer:
 - Name the disease, pest or subject in the first sentence.
 - If a title in the list names a crop, disease, pest or chemical other than the one asked, give it a plain title for the one asked.
 - For chemicals, give the products the passages list for this crop, each with the dose and waiting period of ITS OWN table row. Never mix figures from different rows. If a waiting period is missing or not credible (for example over 100 days), leave it out. When products with different modes of action are given, suggest rotating them.
-- Never write that a passage lacks something, and never mention "the passages". Leave that point out.
+- Never mention "the passages" or "the write-up". When the documents do not cover what was asked, say so once, naming the document (for example "The Punjab Package of Practices does not specify ..."), and then give what they do recommend.
 - After each sentence put only the one to three passage numbers that hold its facts, never a long run of numbers.
 - Mark advice that is optional or depends on the farmer's case.
 

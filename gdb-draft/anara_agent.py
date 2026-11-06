@@ -201,4 +201,6 @@ def number_notes(notes: str, passages: list[dict[str, Any]]) -> str:
 
 def plain_notes(notes: str) -> str:
     """The findings with the passage tags removed, for showing to the reviewer."""
-    return re.sub(r" \{[^}]+\}", "", notes).strip()
+    text = re.sub(r" \{[^}]+\}", "", notes)
+    text = re.sub(r"(?m)^#{1,6}\s*", "", text).replace("**", "")  # the toast shows plain text, not markdown
+    return text.strip()
