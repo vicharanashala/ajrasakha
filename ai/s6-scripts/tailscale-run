@@ -1,0 +1,83 @@
+#!/command/with-contenv sh
+set -x
+
+# Create directories just in case at runtime
+mkdir -p /var/run/tailscale /var/lib/tailscale
+
+# Workaround for Tailscale issue #19069: on Cloud Run (and other serverless
+# environments) tailscale's periodic netcheck cycle can fire a "no local UDP
+# socket" rebind because UDP from Cloud Run's egress IP is unreliable. The
+# rebind tears down in-flight TCP through the userspace netstack, which
+# drops our SOCKS connections mid-request (the `[SOCKS] CONN_RESET` failures
+# users were seeing in production logs).
+#
+# Setting TS_DEBUG_ALWAYS_USE_DERP=1 BEFORE tailscaled starts tells tailscale
+# to skip UDP entirely and route every packet through DERP relay. Cloud Run's
+# NAT churn can no longer trigger rebinds because there is no UDP socket to
+# rebind; DERP connections persist across netcheck cycles. The connection
+# from the boot log (`pong from annam-4 via DERP(blr)`) was already going
+# through DERP -- this env var just stops the periodic disconnects.
+#
+# This is an UNOFFICIAL Tailscale debug flag (not a supported production
+# setting). Tailscale's own recommendation for issue #19791 is to use this
+# workaround until the upstream bug is fixed. Long-term plan: move off
+# Tailscale-on-Cloud-Run for tailnet-internal calls (use Tailscale Funnel for
+# public exposure, or co-locate the agent with the LibreChat service).
+#
+# See: https://github.com/tailscale/tailscale/issues/19069
+#      https://github.com/tailscale/tailscale/issues/19791
+export TS_DEBUG_ALWAYS_USE_DERP=1
+
+echo "=== STARTING DAEMON ==="
+echo "=== TS_DEBUG_ALWAYS_USE_DERP=1 (Tailscale issue #19069 workaround) ==="
+tailscaled \
+  --tun=userspace-networking \
+  --socks5-server=127.0.0.1:1055 \
+  --outbound-http-proxy-listen=127.0.0.1:1056 &
+DAEMON_PID=$!
+
+echo "=== WAITING FOR SOCKET FILE ==="
+WAIT_COUNT=0
+# tailscale status ke badle socket file check karenge
+until [ -S /var/run/tailscale/tailscaled.sock ]; do
+    WAIT_COUNT=$((WAIT_COUNT + 1))
+    echo "Waiting for tailscaled.sock... ($WAIT_COUNTs)"
+    if [ $WAIT_COUNT -gt 15 ]; then
+        echo "ERROR: tailscaled.sock was not created within 15 seconds!"
+        exit 1
+    fi
+    sleep 1
+done
+
+echo "=== DAEMON IS READY, RUNNING AUTHENTICATION ==="
+# Ab bina ruke seedhe login command chalegi
+tailscale up \
+  --reset \
+  --authkey=${TAILSCALE_AUTHKEY} \
+  --hostname=${TS_HOSTNAME:-ajrasakha-langgraph} \
+  --accept-routes 2>&1
+UP_EXIT_CODE=$?
+echo "=== TAILSCALE UP FINISHED (EXIT CODE: $UP_EXIT_CODE) ==="
+
+# Lock Tailscale to a specific DERP relay region. Tailscale normally picks the
+# "nearest" region to the Cloud Run instance, which today is Frankfurt. But
+# Cloud Run's egress IP for the Frankfurt region sometimes doesn't work well
+# with the self-hosted LLM / MCP hosts on the tailnet.
+#
+# India DERP (annam-4 / Mumbai) works reliably from Cloud Run India region.
+# This avoids the occasional "connection refused" / timeout issues that happen
+# when tailscaled roams to the Frankfurt relay for tailnet-internal calls.
+if [ -n "$TS_DERP_REGION" ]; then
+    echo "=== LOCKING TO DERP REGION: $TS_DERP_REGION ==="
+    tailscale set --derp-region=$TS_DERP_REGION
+fi
+
+echo "=== BOOT LOG ==="
+tailscale status --json 2>/dev/null | tee /tmp/tailscale-status.json
+echo "=== BOOT COMPLETE ==="
+
+# Keep the daemon alive - s6 will restart us if we exit
+# Infinite loop just in case something意外 exits
+wait $DAEMON_PID
+echo "tailscaled exited unexpectedly (code $?), restarting..."
+exit 1

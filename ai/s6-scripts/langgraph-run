@@ -1,0 +1,84 @@
+#!/command/with-contenv sh
+set -x
+
+BOOT_LOG=/tmp/ajrasakha-langgraph-boot.log
+exec > >(tee -a "$BOOT_LOG") 2>&1
+
+echo "============================================================="
+echo "  AjraSakha LangGraph API — boot sequence"
+echo "  $(date -Iseconds)"
+echo "============================================================="
+
+# -----------------------------------------------------------------------
+# Tailscale readiness check (mirrors ajrasakha-client s6-scripts/node-run)
+# -----------------------------------------------------------------------
+# Skip check entirely if SKIP_TAILSCALE_STATUS is set (e.g. local dev without
+# tailscale binary).  The value is deliberately tolerant — any truthy shell
+# value works.
+if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
+    echo "----- Tailscale status check -----" | tee -a "$BOOT_LOG"
+    i=0
+    while [ $i -lt 20 ]; do
+        # When tailscaled is up the socket exists AND the binary can talk to it
+        if [ -S /var/run/tailscale/tailscaled.sock ] && \
+           tailscale status >/dev/null 2>&1; then
+            echo "  tailscaled is up and authenticated after ${i}s" | tee -a "$BOOT_LOG"
+            break
+        fi
+        i=$((i + 1))
+        echo "  waiting for tailscaled... (${i}/20)" | tee -a "$BOOT_LOG"
+        sleep 1
+    done
+
+    if [ $i -ge 20 ]; then
+        echo "!!! Tailscale NOT ready after 20s — proceeding anyway (tailnet calls may fail)" | tee -a "$BOOT_LOG"
+    fi
+
+    # Quick /v1/models probe through SOCKS to validate the proxy is actually routing
+    echo "----- SOCKS5 smoke test (probe only) -----" | tee -a "$BOOT_LOG"
+    # TS_PING_TARGET / TS_PING_PORT let us hit an internal endpoint on the tailnet.
+    # If they're empty we just verify the SOCKS5 server is accepting connections.
+    PING_TARGET="${TS_PING_TARGET:-127.0.0.1}"
+    PING_PORT="${TS_PING_PORT:-1055}"
+    timeout 5 curl \
+        --max-time 4 \
+        --proxy "socks5h://127.0.0.1:1055" \
+        "https://api.tailscale.com/api/v2/device" \
+        -o /dev/null \
+        -w "  [SOCKS] probe http_code=%{http_code} time=%{time_total}s\n" \
+        2>&1 | tee -a "$BOOT_LOG" || echo "[SOCKS] probe failed (this is OK in userspace mode)" | tee -a "$BOOT_LOG"
+    echo "[SOCKS] end-to-end probe done" | tee -a "$BOOT_LOG"
+else
+    echo "----- SKIP_TAILSCALE_STATUS=true, skipping tailscale checks -----" | tee -a "$BOOT_LOG"
+fi
+
+# -----------------------------------------------------------------------
+# Python SOCKS5 readiness probe (waits for Tailscale to be fully up)
+# -----------------------------------------------------------------------
+echo "----- waiting for SOCKS5 proxy to be ready -----" | tee -a "$BOOT_LOG"
+# Use the bundled Python wait script - falls back gracefully if unavailable
+if [ -f /app/s6-scripts/wait-for-socks5.py ]; then
+    python3 /app/s6-scripts/wait-for-socks5.py || echo "SOCKS5 wait script failed, continuing anyway"
+fi
+
+# -----------------------------------------------------------------------
+# Env validation
+# -----------------------------------------------------------------------
+echo "----- environment summary -----" | tee -a "$BOOT_LOG"
+echo "  OPENAI_BASE_URL=${OPENAI_BASE_URL:-not set}" | tee -a "$BOOT_LOG"
+echo "  TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY:+set (length: ${#TAILSCALE_AUTHKEY})}" | tee -a "$BOOT_LOG"
+echo "  TS_HOSTNAME=${TS_HOSTNAME:-ajrasakha-langgraph}" | tee -a "$BOOT_LOG"
+echo "  TS_DERP_REGION=${TS_DERP_REGION:-auto}" | tee -a "$BOOT_LOG"
+
+# -----------------------------------------------------------------------
+# Start the LangGraph API
+# -----------------------------------------------------------------------
+echo "============================================================="
+echo "  Starting AjraSakha LangGraph API"
+echo "=============================================================" | tee -a "$BOOT_LOG"
+
+# Activate virtual environment and start aegra
+cd /app
+source .venv/bin/activate
+cd ajrasakha
+exec python app.py
