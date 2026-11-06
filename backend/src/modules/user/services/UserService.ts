@@ -1931,6 +1931,51 @@ export class UserService extends BaseService {
         continue;
       }
 
+      // 3. User must have checked in on the target day
+      if (!user.lastCheckInAt) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): User has no check-in record.`,
+        );
+        skipped++;
+        continue;
+      }
+
+      const lastCheckInTime = new Date(user.lastCheckInAt).getTime();
+      const targetStartTime = new Date(startDateStr).getTime();
+      const targetEndTime = new Date(endDateStr).getTime();
+
+      let checkedInOnTargetDay =
+        lastCheckInTime >= targetStartTime && lastCheckInTime <= targetEndTime;
+
+      // In case lastCheckInAt has already progressed past target day (e.g. user checked in after midnight
+      // before 12:05 AM, or targetDateStr was provided for an earlier date), check if the user had an active
+      // session on the target day.
+      if (!checkedInOnTargetDay && lastCheckInTime > targetEndTime) {
+        const history = await this.userRepo.getUserHistory({
+          userId,
+          startDateTime: startDateStr,
+          endDateTime: endDateStr,
+        });
+        const hasSession = (history.roleHistory || []).some(
+          (item: any) =>
+            item.isBlocked !== true &&
+            item.from &&
+            new Date(item.from).getTime() <= targetEndTime &&
+            (!item.to || new Date(item.to).getTime() >= targetStartTime),
+        );
+        if (hasSession) {
+          checkedInOnTargetDay = true;
+        }
+      }
+
+      if (!checkedInOnTargetDay) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): User was not checked in on ${dateStr} (lastCheckInAt: ${new Date(user.lastCheckInAt).toISOString()}).`,
+        );
+        skipped++;
+        continue;
+      }
+
       try {
         await this.exportUserActivityReport(userId, {
           startDate: startDateStr,
