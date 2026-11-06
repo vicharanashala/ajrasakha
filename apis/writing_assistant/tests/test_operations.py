@@ -1,5 +1,37 @@
+import pytest
+
 from assistant import chemical_matcher, guardrails, llm_client, operations
-from assistant.models import LanguagePolishingStatus, LLMUnavailableError
+from assistant.models import (
+    LanguagePolishingStatus,
+    LLMUnavailableError,
+    StepCoverage,
+    StepCoverageResult,
+    StructuralValidationResult,
+    StructuralValidationStatus,
+)
+
+
+def test_skipped_due_to_incomplete_structure_names_the_gap_steps():
+    structural_result = StructuralValidationResult(
+        status=StructuralValidationStatus.INCOMPLETE,
+        steps=[
+            StepCoverageResult(sl_no=1, step="Diagnose", coverage=StepCoverage.COVERED, example="ex"),
+            StepCoverageResult(sl_no=2, step="Apply treatment", coverage=StepCoverage.MISSING, example="ex2"),
+        ],
+    )
+
+    result = operations.skipped_due_to_incomplete_structure(structural_result)
+
+    assert result.status == LanguagePolishingStatus.SKIPPED
+    assert result.suggested_text is None
+    assert "Apply treatment" in result.reason
+    assert "Diagnose" not in result.reason  # only the gap is named, not the covered step
+
+
+def test_skipped_due_to_incomplete_structure_rejects_a_complete_result():
+    structural_result = StructuralValidationResult(status=StructuralValidationStatus.COMPLETE, steps=[])
+    with pytest.raises(ValueError):
+        operations.skipped_due_to_incomplete_structure(structural_result)
 
 
 def test_polish_draft_suggests_on_clean_grammar_fix(monkeypatch):

@@ -6,10 +6,40 @@ service, in the backend) changes it.
 """
 
 from . import guardrails, llm_client
-from .models import LanguagePolishingResult, LanguagePolishingStatus, LLMUnavailableError
+from .models import (
+    LanguagePolishingResult,
+    LanguagePolishingStatus,
+    LLMUnavailableError,
+    StructuralValidationResult,
+    StructuralValidationStatus,
+)
 from .result_cache import ResultCache
 
 _cache = ResultCache()
+
+
+def skipped_due_to_incomplete_structure(structural_result: StructuralValidationResult) -> LanguagePolishingResult:
+    """Team requirement: for every request, only offer a polish suggestion
+    once structural validation says every step is covered - otherwise skip
+    the rewrite entirely (not just withhold it) and let the step report be
+    the whole answer."""
+    if structural_result.status == StructuralValidationStatus.COMPLETE:
+        raise ValueError("structural validation is complete - polishing should not be skipped")
+
+    if structural_result.steps:
+        gaps = [s.step for s in structural_result.steps if s.coverage.value != "covered"]
+        reason = "Structural validation found missing or partial step(s), so a polish suggestion " \
+            "was not generated: " + "; ".join(gaps) + "."
+    else:
+        reason = "Structural validation did not confirm every step is covered, so a polish " \
+            "suggestion was not generated."
+
+    return LanguagePolishingResult(
+        status=LanguagePolishingStatus.SKIPPED,
+        suggested_text=None,
+        reason=reason,
+        guardrail=None,
+    )
 
 
 def polish_draft_cached(draft_text: str) -> LanguagePolishingResult:

@@ -7,18 +7,23 @@ workflow. Called by the backend while the expert is still editing; nothing
 here ever changes the stored draft - the author decides whether to accept a
 suggestion.
 
-Two independent checks run on every request:
+Two checks run on every request, always as two separate objects in the
+response - never merged into one verdict:
 
-- **Language polishing** - an LLM rewrite, verified by a technical-content
-  guardrail (numbers/units, chemical names, crop names, certainty, negation,
-  timing, conditions, treatment identity) before it's ever shown. A rewrite
-  is only returned if the guardrail passes.
 - **Structural validation** - matches the question to a Golden Database
   reference structure (one of 19 domains x Broad/Narrow, a handful of named
   topics, or a crop-specific variant) and scores the draft's coverage of
-  each expected step.
-
-The two results are always separate objects in the response - never merged.
+  each expected step. Runs first.
+- **Language polishing** - an LLM rewrite, verified by a technical-content
+  guardrail (numbers/units, chemical names, crop names, certainty, negation,
+  timing, conditions, treatment identity) before it's ever shown. A rewrite
+  is only returned if the guardrail passes - and, per a team requirement,
+  only attempted at all once structural validation finds every step
+  `covered` (`structuralValidation.status: "complete"`). A draft missing or
+  partially covering a step gets `languagePolishing.status: "skipped"`
+  instead - the step report is the whole answer in that case, so the
+  (slower) rewrite+guardrail call is skipped rather than computed and
+  discarded.
 
 Port `8004`.
 
@@ -68,26 +73,10 @@ Response:
 {
   "requestId": "e92083db-...",
   "languagePolishing": {
-    "status": "suggested",
-    "suggestedText": "Sheath blight is a disease of paddy. Farmers should spray fungicide when needed.",
-    "reason": null,
-    "guardrail": {
-      "status": "passed",
-      "checkedTokens": {
-        "numbersAndUnits": "n/a",
-        "chemicalNames": "n/a",
-        "certaintyLanguage": "n/a",
-        "negation": "n/a",
-        "cropNames": "n/a",
-        "treatmentIdentity": "n/a",
-        "timing": "n/a",
-        "conditions": "n/a",
-        "sentenceAlignment": "unchanged"
-      },
-      "confirmedChange": false,
-      "details": [],
-      "disclaimer": "These checks reduce the risk of an unintended technical change; they do not prove complete semantic equivalence."
-    }
+    "status": "skipped",
+    "suggestedText": null,
+    "reason": "Structural validation found missing or partial step(s), so a polish suggestion was not generated: Introduction.",
+    "guardrail": null
   },
   "structuralValidation": {
     "status": "incomplete",
@@ -123,6 +112,7 @@ Response:
 | `suggested` | A rewrite passed every guardrail check - safe to show the author. |
 | `rejected` | A check **found** a difference that could change the meaning. `reason` and `guardrail.details` say what. |
 | `unavailable` | A check **could not be completed** (LLM outage, a dependency down, an uncertain rewrite) - nothing was found wrong, it just couldn't be verified. |
+| `skipped` | **Not attempted** - `structuralValidation.status` was not `complete` (a step was `missing`/`partial`, or validation itself couldn't resolve a reference), so no rewrite was requested. `reason` names the gap steps. Distinct from `unavailable`: this check never ran at all, rather than running and failing. |
 
 `guardrail.checkedTokens.*` is one of `unchanged` / `changed` / `n/a`
 (nothing of that kind was present to compare) / `not_run` (that layer
@@ -156,7 +146,8 @@ body instead of branching on HTTP status.
 
 `referenceDataLoaded: false` means `/polish-draft` will always return
 `structuralValidation.status: "reference_data_unavailable"` until the next
-deploy/restart - language polishing is unaffected either way.
+deploy/restart - and, since that's not `complete`, `languagePolishing.status:
+"skipped"` too (see the polish-gating rule above).
 
 ## Known behavior and limitations
 
