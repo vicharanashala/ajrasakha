@@ -100,6 +100,12 @@ Passages:
 """
 
 
+EMPTY_REPLY_REMINDER = """
+Your previous reply was empty, but the research write-up above holds findings that bear on the question. Write the
+answer now: if the documents do not specify what was asked, say so in the first sentence, naming the document, and then
+give everything the write-up holds on the topic, cited, in the layout above. Do not return an empty answer.
+"""
+
 STRUCTURES_PATH = Path(__file__).resolve().parent / "answer_structures.json"
 
 GENERIC_SHAPE = (
@@ -230,11 +236,11 @@ def draft_answer(
         f"The question is about the crop: {crop}. A passage about a different crop does not answer it.\n"
         if crop else ""
     )
-    def ask(shape: str, attempts: int) -> dict[str, Any]:
+    def ask(shape: str, attempts: int, extra: str = "") -> dict[str, Any]:
         template = LAYOUT_TEMPLATE if notes else PROMPT_TEMPLATE
         prompt = template.format(
             question=question, passages=_format_passages(chosen), crop_rule=crop_rule, shape=shape, notes=notes or "",
-        )
+        ) + extra
         return call_llm(
             prompt,
             validate=lambda r: isinstance(r, dict) and "answer" in r,
@@ -258,6 +264,16 @@ def draft_answer(
             result = ask(shape, 1)
         except LLMCallFailed:
             result = ask(plain, DRAFT_ATTEMPTS - 1)
+
+    if notes and not result.get("answer") and len(re.findall(r"\[P\d+\]", notes)) >= 2:
+        # the writer sometimes judges that nothing answers the question word for word and returns nothing, although
+        # the research found related guidance, which is what reviewers write such answers from: ask it once more, firmly
+        try:
+            again = ask(shape, 1, EMPTY_REPLY_REMINDER)
+        except LLMCallFailed:
+            again = {}
+        if again.get("answer"):
+            result = again
 
     if notes and result.get("answer"):
         # the writer sometimes lays out only a few of the agent's findings; try again and keep the fullest answer
