@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from "react";
-import { Calendar, Eye, X, ChevronLeft, ChevronRight } from "lucide-react";
+import { Calendar, Eye, X, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Button } from "@/components/atoms/button";
@@ -7,11 +7,13 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popo
 import { Calendar as CalendarComponent } from "@/components/atoms/calendar";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import Spinner from "@/components/atoms/spinner";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogClose } from "@/components/atoms/dialog";
+import { Card, CardContent } from "@/components/atoms/card";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 
 const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
-const ITEMS_PER_PAGE = 10;
+const ITEMS_PER_PAGE = 12;
 const API_LIMIT = 50;
 
 function formatDateStr(date: Date | undefined): string {
@@ -41,6 +43,7 @@ export const RdqaPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
 
   const { data: rdqaResponse, isLoading, error } = useRdqaQuestions(formatDateStr(selectedDate), API_LIMIT);
   const debouncedSearch = useDebounce(search, 300);
@@ -88,6 +91,15 @@ export const RdqaPage = () => {
               <h1 className="text-lg font-semibold">RDQA Review</h1>
               <p className="text-sm text-muted-foreground">Review finalized questions from a specific date</p>
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowDetailsModal(true)}
+              className="shrink-0"
+            >
+              <BarChart3 className="h-4 w-4 mr-1" />
+              Details
+            </Button>
             <div className="flex items-center gap-3">
               <Popover>
                 <PopoverTrigger asChild>
@@ -291,6 +303,79 @@ export const RdqaPage = () => {
           </div>
         </div>
       )}
+
+      {/* Details Modal */}
+      <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
+        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>RDQA Distribution Details</DialogTitle>
+            <DialogDescription>
+              Overview of question distribution for {selectedDate ? format(selectedDate, 'PPP') : 'selected date'}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Stats Cards */}
+          <div className="grid grid-cols-3 gap-4 mb-6">
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-primary">{rdqaResponse?.totalModerators ?? 0}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total Moderators</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-primary">{rdqaResponse?.questionsPerModerator ?? 0}</p>
+                <p className="text-sm text-muted-foreground mt-1">Questions/Moderator</p>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="pt-6 text-center">
+                <p className="text-3xl font-bold text-primary">{rdqaResponse?.totalQuestions ?? 0}</p>
+                <p className="text-sm text-muted-foreground mt-1">Total Questions</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Moderator Distribution */}
+          <div>
+            <h3 className="text-sm font-semibold mb-3">Moderator Distribution</h3>
+            <div className="space-y-3">
+              {rdqaResponse?.moderatorDistribution?.map((moderator, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+                      <span className="text-sm font-medium text-primary">{index + 1}</span>
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{moderator.approvedByEmail || moderator.approvedBy}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {moderator.totalAvailable} available · {moderator.selectedCount} selected
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                      <div
+                        className="h-full bg-primary rounded-full"
+                        style={{ width: `${Math.min(100, (moderator.selectedCount / moderator.totalAvailable) * 100)}%` }}
+                      />
+                    </div>
+                    <span className="text-xs text-muted-foreground w-12 text-right">
+                      {Math.round((moderator.selectedCount / moderator.totalAvailable) * 100)}%
+                    </span>
+                  </div>
+                </div>
+              ))}
+              {(!rdqaResponse?.moderatorDistribution || rdqaResponse.moderatorDistribution.length === 0) && (
+                <p className="text-sm text-muted-foreground text-center py-4">No moderator data available</p>
+              )}
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 };
