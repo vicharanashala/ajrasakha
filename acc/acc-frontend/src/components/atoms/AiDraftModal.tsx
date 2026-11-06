@@ -23,7 +23,6 @@ import {
   Loader2,
   Pencil,
   X,
-  HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { IncomingCallBox } from "./IncomingCallBox";
 import type { CallTranscript } from "./IncomingCallBox";
 import { FarmerDetails, type FarmerDetailsRef } from "./FarmerDetails";
@@ -520,7 +520,7 @@ const renderWeatherInsights = (weatherInput: any) => {
 };
 
 export const CallInterface = () => {
-  const { undeliveredCallAlert, clearUndeliveredCallAlert } = usePlivo();
+  const { undeliveredCallAlert, clearUndeliveredCallAlert, resetCallState } = usePlivo();
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callUuid, setCallUuid] = useState<string | null>(null);
@@ -873,6 +873,8 @@ export const CallInterface = () => {
   const handleResetConversation = () => {
     isAtBottomRef.current = true;
     isProgrammaticScrollRef.current = false;
+    resetCallState?.();
+    farmerDetailsRef.current?.reset?.();
     setCallUuid(null);
     setLastCallUuid(null);
     callUuidRef.current = null;
@@ -1909,11 +1911,11 @@ export const CallInterface = () => {
 
                   <Button
                     onClick={handleResetConversation}
-                    disabled={transcriptsList.length === 0}
+                    disabled={transcriptsList.length === 0 && !callUuid && !lastCallUuid && !callPhoneNumber && !lastCallPhoneNumber && !isSimulatingMode}
                     size="sm"
                     variant="outline"
                     className="h-7 px-2.5 text-xs border-zinc-300 hover:bg-zinc-100 dark:border-zinc-800 dark:hover:bg-zinc-900 rounded-lg flex items-center gap-1 font-medium"
-                    title="Reset conversation transcript"
+                    title="Reset conversation transcript and farmer details"
                   >
                     <RotateCcw className="h-3 w-3" />
                     <span>Reset</span>

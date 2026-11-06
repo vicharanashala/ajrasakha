@@ -45,6 +45,12 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
   onProfileUpdated,
 }, ref) => {
   const [farmer, setFarmer] = useState<FarmerProfile | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const lastFetchedPhoneRef = useRef<string | null>(null);
+  const lastFetchedCallUuidRef = useRef<string | null>(null);
+  const lastAppliedExtractedProfileRef = useRef<any>(null);
+  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useImperativeHandle(ref, () => ({
     getProfile: () => farmer,
@@ -52,30 +58,31 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
       setFarmer(null);
       lastFetchedPhoneRef.current = null;
       lastFetchedCallUuidRef.current = null;
+      lastAppliedExtractedProfileRef.current = null;
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+        autoSaveTimerRef.current = null;
+      }
+      setSaveStatus("idle");
     },
-      fetchDetails: async (phone?: string | null) => {
-        const p = (phone || phoneNo || "").trim();
-        const isValid = Boolean(
-          p &&
-          p !== "Unknown" &&
-          p !== "Unknown Caller" &&
-          !p.startsWith("sip:") &&
-          p !== "+919999999999"
-        );
-        if (isValid) {
-          lastFetchedPhoneRef.current = p;
-          if (callUuid) {
-            lastFetchedCallUuidRef.current = callUuid;
-          }
-          await fetchFarmerDetails(p);
+    fetchDetails: async (phone?: string | null) => {
+      const p = (phone || phoneNo || "").trim();
+      const isValid = Boolean(
+        p &&
+        p !== "Unknown" &&
+        p !== "Unknown Caller" &&
+        !p.startsWith("sip:") &&
+        p !== "+919999999999"
+      );
+      if (isValid) {
+        lastFetchedPhoneRef.current = p;
+        if (callUuid) {
+          lastFetchedCallUuidRef.current = callUuid;
         }
-      },
+        await fetchFarmerDetails(p);
+      }
+    },
   }), [farmer, phoneNo, callUuid]);
-  const [loading, setLoading] = useState(false);
-  const [saveStatus, setSaveStatus] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const lastFetchedPhoneRef = useRef<string | null>(null);
-  const lastFetchedCallUuidRef = useRef<string | null>(null);
-  const autoSaveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const normalizeProfile = (raw: any, activePhone?: string): FarmerProfile => {
     if (!raw) return {};
@@ -144,26 +151,7 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
 
   const persistFarmerProfile = useCallback(async (profileToSave: FarmerProfile, targetPhone?: string) => {
     const phoneKey = (targetPhone || profileToSave.phoneNo || phoneNo || "").trim();
-    if (!phoneKey) {
-      return;
-    }
-
-    // Must have at least some data to save
-    const hasData = Boolean(
-      profileToSave.farmerName ||
-      profileToSave.villageName ||
-      profileToSave.primaryCrop ||
-      profileToSave.state ||
-      profileToSave.district ||
-      profileToSave.blockName ||
-      profileToSave.age !== undefined ||
-      profileToSave.yearsOfExperience !== undefined ||
-      profileToSave.numberOfSmartphones !== undefined ||
-      profileToSave.gender ||
-      profileToSave.highestEducatedPerson ||
-      profileToSave.languagePreference
-    );
-    if (!hasData) {
+    if (!phoneKey || phoneKey === "Unknown" || phoneKey === "Unknown Caller" || phoneKey.startsWith("sip:")) {
       return;
     }
 
@@ -208,8 +196,8 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
   const handleManualSave = async () => {
     if (disabled) return;
     const currentPhone = (farmer?.phoneNo || phoneNo || "").trim();
-    if (!currentPhone) {
-      toast.error("Please provide a farmer phone number to save details.");
+    if (!currentPhone || currentPhone === "Unknown" || currentPhone === "Unknown Caller" || currentPhone.startsWith("sip:")) {
+      toast.error("Please provide a valid farmer phone number to save details.");
       return;
     }
     const currentProfile: FarmerProfile = {
@@ -245,9 +233,8 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
         !callUuid.startsWith("testing_")
       );
       const isNewPhone = cleanPhone !== lastFetchedPhoneRef.current;
-      const isProfileMissing = !farmer;
 
-      if (isNewCallSession || isNewPhone || isProfileMissing) {
+      if (isNewCallSession || isNewPhone) {
         lastFetchedPhoneRef.current = cleanPhone;
         if (callUuid) {
           lastFetchedCallUuidRef.current = callUuid;
@@ -259,6 +246,11 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
 
   useEffect(() => {
     if (extractedProfile && Object.keys(extractedProfile).length > 0) {
+      if (lastAppliedExtractedProfileRef.current === extractedProfile) {
+        return;
+      }
+      lastAppliedExtractedProfileRef.current = extractedProfile;
+
       const normalized = normalizeProfile(extractedProfile, phoneNo);
       setFarmer((prev) => {
         // NON-DESTRUCTIVE MERGE:
@@ -300,20 +292,20 @@ export const FarmerDetails = forwardRef<FarmerDetailsRef, FarmerDetailsProps>(({
         const merged: FarmerProfile = { ...normalizedDb };
         // Only if a field was completely undefined in DB and prev has a non-empty value:
         if (prevForSamePhone) {
-            for (const [k, v] of Object.entries(prevForSamePhone)) {
-              if (v !== undefined && v !== null && v !== "") {
-                const dbVal = (merged as any)[k];
-                if (dbVal === undefined) {
-                  (merged as any)[k] = v;
-                }
+          for (const [k, v] of Object.entries(prevForSamePhone)) {
+            if (v !== undefined && v !== null && v !== "") {
+              const dbVal = (merged as any)[k];
+              if (dbVal === undefined) {
+                (merged as any)[k] = v;
               }
             }
           }
-          if (onProfileUpdated && Object.keys(merged).length > 0) {
-            onProfileUpdated(merged);
-          }
-          return Object.keys(merged).length > 0 ? merged : null;
-        });
+        }
+        if (onProfileUpdated && Object.keys(merged).length > 0) {
+          onProfileUpdated(merged);
+        }
+        return Object.keys(merged).length > 0 ? merged : null;
+      });
     } catch (error) {
       console.error(`Failed to fetch farmer details for ${queryPhone}:`, error);
     } finally {

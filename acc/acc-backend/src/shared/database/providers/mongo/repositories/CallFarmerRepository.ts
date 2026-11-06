@@ -90,12 +90,12 @@ export class CallFarmerRepository implements ICallFarmerRepository {
         return null;
       }
       const profile = rawDoc.profile || rawDoc;
-      const farmerName = profile.farmerName || profile.extracted_name || profile.name || profile.fullName || profile.FarmerName || rawDoc.farmerName || rawDoc.name || rawDoc.fullName || rawDoc.FarmerName || '';
-      const blockName = profile.blockName || profile.block || profile.extracted_block || profile.address?.block || rawDoc.blockName || rawDoc.block || '';
-      const villageName = profile.villageName || profile.village || profile.extracted_village || profile.address?.village || rawDoc.villageName || rawDoc.village || '';
-      const districtName = profile.district || profile.extracted_district || profile.address?.district || rawDoc.district || '';
-      const stateName = profile.state || profile.extracted_state || profile.address?.state || rawDoc.state || '';
-      const cropName = profile.primaryCrop || profile.crop || profile.extracted_primary_crop || rawDoc.primaryCrop || rawDoc.crop || '';
+      const farmerName = (profile.farmerName !== undefined && profile.farmerName !== null) ? profile.farmerName : (profile.extracted_name || profile.name || profile.fullName || profile.FarmerName || rawDoc.farmerName || rawDoc.name || rawDoc.fullName || rawDoc.FarmerName || '');
+      const blockName = (profile.blockName !== undefined && profile.blockName !== null) ? profile.blockName : (profile.block || profile.extracted_block || profile.address?.block || rawDoc.blockName || rawDoc.block || '');
+      const villageName = (profile.villageName !== undefined && profile.villageName !== null) ? profile.villageName : (profile.village || profile.extracted_village || profile.address?.village || rawDoc.villageName || rawDoc.village || '');
+      const districtName = (profile.district !== undefined && profile.district !== null) ? profile.district : (profile.extracted_district || profile.address?.district || rawDoc.district || '');
+      const stateName = (profile.state !== undefined && profile.state !== null) ? profile.state : (profile.extracted_state || profile.address?.state || rawDoc.state || '');
+      const cropName = (profile.primaryCrop !== undefined && profile.primaryCrop !== null) ? profile.primaryCrop : (profile.crop || profile.extracted_primary_crop || rawDoc.primaryCrop || rawDoc.crop || '');
 
       return {
         _id: rawDoc._id?.toString(),
