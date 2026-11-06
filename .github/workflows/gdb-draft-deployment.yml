@@ -35,6 +35,8 @@ permissions:
 env:
   DOCKER_IMAGE: gdb-draft
   GCP_REGION: asia-south1
+  # used when the GCP_PROJECT_ID secret is empty in this workflow
+  GCP_PROJECT: vibe-5b35a
   GCP_SERVICE: gdb-draft
 
 jobs:
@@ -85,7 +87,7 @@ jobs:
       - name: Keep the Anara sign-in in Secret Manager
         continue-on-error: true
         run: |
-          PROJECT="${{ secrets.GCP_PROJECT_ID }}"
+          PROJECT="${{ secrets.GCP_PROJECT_ID || env.GCP_PROJECT }}"
           gcloud secrets describe anara-tokens --project "$PROJECT" >/dev/null 2>&1             || gcloud secrets create anara-tokens --project "$PROJECT" --replication-policy=automatic
           ACCOUNT=$(gcloud run services describe "${{ env.GCP_SERVICE }}" --region "${{ env.GCP_REGION }}" --project "$PROJECT"             --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || true)
           if [ -z "$ACCOUNT" ]; then
@@ -114,7 +116,7 @@ jobs:
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
-            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || format('projects/{0}/secrets/anara-tokens', secrets.GCP_PROJECT_ID) }}
+            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || format('projects/{0}/secrets/anara-tokens', secrets.GCP_PROJECT_ID || env.GCP_PROJECT) }}
             ANARA_KEEPALIVE_HOURS=6
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
