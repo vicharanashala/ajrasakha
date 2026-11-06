@@ -9,12 +9,17 @@
 # - s6-overlay for process supervision (tailscale + langgraph as separate services)
 # - Waits for Tailscale to be ready before starting the LangGraph API
 #
-# Required environment variables:
+# Build args (set during docker build):
 #   TAILSCALE_AUTHKEY  - Auth key (tskey-auth-...) from Tailscale admin console
+#
+# Runtime environment variables:
 #   TS_HOSTNAME        - Optional hostname for this instance (default: ajrasakha-langgraph)
 #   TS_DERP_REGION     - Optional DERP region to lock to (default: auto)
 #   SKIP_TAILSCALE_STATUS - Set to "true" to skip Tailscale checks (for local dev)
 # =============================================================================
+
+ARG TAILSCALE_AUTHKEY
+ENV TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY}
 
 FROM python:3.12-slim-bookworm AS base
 
