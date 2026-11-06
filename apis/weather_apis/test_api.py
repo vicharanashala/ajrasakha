@@ -306,10 +306,12 @@ def test_forecast_bad_values_cleaned():
     assert body["forecast"][1]["maxTemperature"] is None
 
 
-def test_forecast_too_far_returns_404():
-    with _with_rows([_forecast_row(lat="28.6", lon="77.2")]):  # Delhi row, Hyderabad request
+def test_forecast_far_station_still_served_with_warning():
+    with _with_rows([_forecast_row(lat="28.6", lon="77.2")]):  # Delhi row, Hyderabad request (~1,250 km)
         resp = client.get("/weather-forecast?lat=17.385&lon=78.4867")
-    assert resp.status_code == 404
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["station_distance_km"] > 1000 and "far_station" in body["warnings"]
 
 
 def test_forecast_upstream_down_no_cache_503():
@@ -372,16 +374,23 @@ def _annam(**over):
     return d
 
 
-def test_radius_is_a_constant_not_env(monkeypatch):
-    assert main_module.MAX_STATION_DISTANCE_KM == 10.0
-    assert not hasattr(main_module, "WS_MAX_DISTANCE_KM") and not hasattr(main_module, "FALLBACK_MAX_DISTANCE_KM")
+def test_no_live_distance_limit_constants():
+    for name in ("MAX_STATION_DISTANCE_KM", "WS_MAX_DISTANCE_KM", "FORECAST_MAX_DISTANCE_KM", "FALLBACK_MAX_DISTANCE_KM"):
+        assert not hasattr(main_module, name)
+    assert main_module.STALE_FALLBACK_RADIUS_KM == 50.0   # outage-only cache sanity radius, not configurable
 
 
-def test_imd_station_beyond_10km_is_rejected():
-    # station ~111 km north of the request (1 degree of latitude)
-    with pytest.raises(Exception) as exc:
-        _live(wx_rows=[_imd_wx_row("1")], coords={"1": (18.4, 78.5, "Far City")})
-    assert getattr(exc.value, "status_code", None) in (404, 503)
+def test_imd_nearest_station_used_even_when_far():
+    # ~111 km north: no limit any more, the nearest station is used and its real distance is reported
+    payload, meta = _live(wx_rows=[_imd_wx_row("1")], coords={"1": (18.4, 78.5, "Far City")})
+    assert meta["source"] == "imd" and 100 < meta["station_distance_km"] < 125
+
+
+def test_imd_picks_the_nearest_of_several():
+    rows = [_imd_wx_row("1", Station="Far"), _imd_wx_row("2", Station="Nearer"), _imd_wx_row("3", Station="Farthest")]
+    coords = {"1": (19.4, 78.5, "Far"), "2": (17.9, 78.5, "Nearer"), "3": (24.0, 78.5, "Farthest")}
+    _, meta = _live(wx_rows=rows, coords=coords)
+    assert meta["station_name"] == "Nearer"
 
 
 def test_imd_station_within_10km_is_used():
@@ -406,10 +415,14 @@ def test_annam_missing_humidity_filled_from_nearby_imd():
     assert payload["humidity"] == 60.0 and meta["source"] == "aws+imd"
 
 
-def test_annam_only_label_when_imd_out_of_range():
+def test_annam_with_far_imd_uses_nearest_imd_for_feels_like_and_condition():
     payload, meta = _live(annam=_annam(), wx_rows=[_imd_wx_row("1")], coords={"1": (18.4, 78.5, "Far City")})
+    assert meta["source"] == "aws+imd" and payload["feelsLikeTemperature"] == 33.0 and payload["weatherCondition"] == "Haze"
+
+
+def test_annam_only_label_when_there_is_no_imd_data():
+    payload, meta = _live(annam=_annam())
     assert meta["source"] == "aws"
-    assert payload["feelsLikeTemperature"] != 33.0  # not taken from the far IMD station
 
 
 def test_dead_annam_sensor_ignored():
@@ -420,27 +433,27 @@ def test_dead_annam_sensor_ignored():
         assert main_module.weather_client.fetch_annam_ws(17.4, 78.5) is None
 
 
-def test_stale_cache_strict_10km_and_24h():
+def test_stale_cache_50km_and_24h():
     cm = cache_manager
     cm._persistent_cache.clear(); cm._hot_cache.clear()
     cm.put(17.4, 78.5, {"liveTemperature": 31.0, "humidity": 50.0, "rainfall": 0.0, "windSpeed": 3.0, "weatherCondition": "Clear",
                         "feelsLikeTemperature": 31.0, "source": "aws", "station_name": "S", "station_distance_km": 1.0, "recorded_at": "x"})
-    assert cm.get_stale_fallback(17.43, 78.5) is not None      # ~3 km: ok
-    assert cm.get_stale_fallback(17.7, 78.5) is None           # ~33 km: too far
+    assert cm.get_stale_fallback(17.43, 78.5) is not None      # ~3 km
+    assert cm.get_stale_fallback(17.7, 78.5) is not None       # ~33 km: inside the outage-only 50 km radius
+    assert cm.get_stale_fallback(18.0, 78.5) is None           # ~66 km: too far for a cached reading
     for rec in cm._persistent_cache.values():
         rec["timestamp_epoch"] -= 25 * 3600
     assert cm.get_stale_fallback(17.4, 78.5) is None           # older than 24 h
 
 
-def test_no_station_nearby_is_404_when_upstreams_healthy():
-    with patch.object(main_module.weather_client, "imd_loaded", return_value=True), \
-         patch.object(main_module, "get_live_weather_sync", side_effect=main_module.get_live_weather_sync):
+def test_no_station_with_data_is_404_when_upstreams_healthy():
+    with patch.object(main_module.weather_client, "imd_loaded", return_value=True):
         cache_manager._hot_cache.clear(); cache_manager._persistent_cache.clear()
         with patch.object(main_module.weather_client, "fetch_annam_ws", return_value=None), \
              patch.object(main_module.weather_client, "fetch_imd_wx", return_value=None):
             resp = client.get("/weather-live?lat=26.9&lon=70.9")
     assert resp.status_code == 404
-    assert "within 10 km" in resp.json()["message"]
+    assert "No weather station" in resp.json()["message"]
 
 
 def test_great_nicobar_is_inside_india_box():
@@ -548,29 +561,27 @@ def test_malformed_disk_cache_records_are_ignored():
     assert cm.get_stale_fallback(17.4, 78.5) is None  # no crash
 
 
-def test_hot_cache_recomputes_station_distance_and_enforces_radius():
-    # station ~9.8 km north of (17.400, 78.500): inside the radius for the first user, outside for the second
+def test_hot_cache_recomputes_station_distance_per_request():
     ann = _annam(Latitude="17.488", Longitude="78.5", _calculated_dist_km=9.34)
     cache_manager._hot_cache.clear(); cache_manager._persistent_cache.clear()
     with patch.object(main_module.weather_client, "fetch_annam_ws", return_value=ann), \
          patch.object(main_module.weather_client, "fetch_imd_wx", return_value=None):
         _, m1 = main_module.get_live_weather_sync(17.404, 78.5)
-    assert 9.0 < m1["station_distance_km"] <= 10.0
-    near = main_module._serve_hot(17.403, 78.5)               # same cell, still inside: distance recomputed
-    assert near is not None and near[1]["station_distance_km"] != m1["station_distance_km"]
-    assert main_module._serve_hot(17.396, 78.5) is None        # same cell but now > 10 km: not served from cache
+    near = main_module._serve_hot(17.396, 78.5)               # same cell, ~0.9 km further from the station
+    assert near is not None and near[1]["station_distance_km"] > m1["station_distance_km"]
 
 
-def test_stale_cache_station_must_be_within_10km_of_request():
+def test_stale_response_reports_distance_to_the_requesting_point():
     cm = cache_manager
     cm._persistent_cache.clear(); cm._hot_cache.clear()
     cm.put(17.4, 78.5, {"liveTemperature": 31.0, "humidity": 50.0, "rainfall": 0.0, "windSpeed": 3.0, "weatherCondition": "Clear",
                         "feelsLikeTemperature": 31.0, "source": "aws", "station_name": "S", "station_distance_km": 9.0,
                         "recorded_at": "x", "_station_lat": 17.488, "_station_lon": 78.5})
+    cm._hot_cache.clear()  # put() also fills the hot cache; force the stale path
     with patch.object(main_module.weather_client, "fetch_annam_ws", return_value=None), \
          patch.object(main_module.weather_client, "fetch_imd_wx", return_value=None):
-        with pytest.raises(Exception):
-            main_module.get_live_weather_sync(17.396, 78.5)   # cache record is <10 km away, its STATION is 10.2 km away
+        payload, meta = main_module.get_live_weather_sync(17.396, 78.5)
+    assert meta["source"] == "stale_fallback" and meta["station_distance_km"] > 10
 
 
 def test_internal_station_fields_never_leak_into_response():
@@ -640,33 +651,24 @@ def test_condition_mapping_edge_phrases(text, expected):
     assert main_module.classify_condition(text) == expected
 
 
-def test_legacy_stale_record_with_far_station_is_never_served():
-    """Regression: a record cached by the old code (no station coords, station 21 km away) must not be served."""
+def test_legacy_stale_record_without_station_coordinates_is_served():
     cm = cache_manager
     cm._persistent_cache.clear(); cm._hot_cache.clear()
     cm.put(26.27, 90.44, {"liveTemperature": 25.0, "humidity": 83.0, "rainfall": 0.0, "windSpeed": 0.0, "weatherCondition": "Clear Sky",
                           "feelsLikeTemperature": 25.0, "source": "imd", "station_name": "Goalpara", "station_distance_km": 21.37,
-                          "recorded_at": "05 Nov 2026, 12:45 PM IST"})   # no _station_lat/_station_lon, like the old cache entries
+                          "recorded_at": "05 Nov 2026, 12:45 PM IST"})
     with patch.object(main_module.weather_client, "fetch_annam_ws", return_value=None), \
-         patch.object(main_module.weather_client, "fetch_imd_wx", return_value=None), \
-         patch.object(main_module.weather_client, "imd_loaded", return_value=True):
+         patch.object(main_module.weather_client, "fetch_imd_wx", return_value=None):
         resp = client.get("/weather-live?lat=26.274075&lon=90.443161")
-    assert resp.status_code == 404, resp.text
+    assert resp.status_code == 200 and resp.json()["station_name"] == "Goalpara"
 
 
-def test_legacy_record_close_station_still_served_and_far_ones_purged_on_load():
-    cm = cache_manager
-    cm._persistent_cache.clear(); cm._hot_cache.clear()
-    cm.put(17.4, 78.5, {"liveTemperature": 31.0, "humidity": 50.0, "rainfall": 0.0, "windSpeed": 3.0, "weatherCondition": "Clear",
-                        "feelsLikeTemperature": 31.0, "source": "imd", "station_name": "Near", "station_distance_km": 4.0,
-                        "recorded_at": "x"})
-    assert cm.get_stale_fallback(17.4, 78.5) is not None
+def test_all_valid_disk_records_load_regardless_of_station_distance():
     f = Path(tempfile.mkdtemp()) / "legacy.json"
     now = __import__("time").time()
     rec = lambda d: {"lat": 1, "lon": 1, "timestamp_iso": "x", "timestamp_epoch": now, "data": {"station_distance_km": d}}
     f.write_text(json.dumps({"26.27,90.44": rec(21.37), "26.0,91.0": rec(42.02), "17.4,78.5": rec(4.0)}))
-    loaded = main_module.WeatherCacheManager(f)
-    assert list(loaded._persistent_cache) == [(17.4, 78.5)]
+    assert len(main_module.WeatherCacheManager(f)._persistent_cache) == 3
 
 
 # -----------------------------------------------------------------------------
@@ -681,14 +683,16 @@ def _km_north(km):  # latitude offset giving ~km north of lat 17.385
     return f"{17.385 + km / 111.195:.6f}"
 
 
-def test_forecast_radius_boundary_is_10km():
-    assert _fc([_forecast_row(lat=_km_north(9.8), lon="78.4867")]).status_code == 200
-    r = _fc([_forecast_row(lat=_km_north(10.3), lon="78.4867")])
-    assert r.status_code == 404 and "within 10 km" in r.json()["message"]
+def test_forecast_uses_nearest_station_at_any_distance():
+    assert _fc([_forecast_row(lat=_km_north(10.3), lon="78.4867")]).status_code == 200      # no 10 km cut-off any more
+    rows = [_forecast_row(code="far", lat=_km_north(80), lon="78.4867"), _forecast_row(code="near", lat=_km_north(30), lon="78.4867")]
+    body = _fc(rows).json()
+    assert body["station_name"] == "Station near" and 29 < body["station_distance_km"] < 31
+    assert "far_station" not in body["warnings"] or body["station_distance_km"] > 50
+    assert "far_station" in _fc([_forecast_row(lat=_km_north(80), lon="78.4867")]).json()["warnings"]
 
 
-def test_forecast_no_far_station_warning_exists_and_radius_not_configurable():
-    assert not hasattr(main_module, "FORECAST_MAX_DISTANCE_KM")
+def test_forecast_no_far_station_warning_for_nearby_station():
     body = _fc([_forecast_row(lat=_km_north(9.0), lon="78.4867")]).json()
     assert "far_station" not in body["warnings"] and body["station_distance_km"] <= 10.0
 
@@ -843,3 +847,55 @@ def test_forecast_outage_then_recovery_uses_fresh_data_after_cooldown():
     main_module._forecast_retry_after = 0.0                       # cooldown elapsed
     with patch.object(main_module.http_session, "get", return_value=ok):
         assert client.get("/weather-forecast?lat=17.385&lon=78.4867").status_code == 200
+
+
+# -----------------------------------------------------------------------------
+# IMD stations that are missing from the live coordinate directory (e.g. Goalpara 42407)
+# -----------------------------------------------------------------------------
+def _reset_imd_caches():
+    wc = main_module.weather_client
+    wc._imd_coords_cache, wc._imd_coords_time, wc._imd_coords_retry_after = {}, 0.0, 0.0
+    wc._imd_wx_list_cache, wc._imd_wx_list_time, wc._imd_wx_retry_after = [], 0.0, 0.0
+
+
+def _directory_response(rows):
+    resp = MagicMock(); resp.raise_for_status.return_value = None; resp.json.return_value = rows
+    return resp
+
+
+def test_bundled_station_coordinates_file_is_sane():
+    coords = main_module._load_static_station_coords()
+    assert len(coords) > 1000
+    lat, lon, name = coords["42407"]
+    assert name == "Goalpara" and 6.7 <= lat <= 37.1 and 68.1167 <= lon <= 97.4167
+
+
+def test_station_missing_from_live_directory_is_found_via_bundled_coordinates():
+    _reset_imd_caches()
+    wc = main_module.weather_client
+    directory = [{"Station_Code": "42403", "Station_Name": "Coochbehar", "Latitude": "26.33", "Longitude": "89.47"}]  # no Goalpara
+    with patch.object(main_module.http_session, "get", return_value=_directory_response(directory)), \
+         patch.object(wc, "_get_imd_wx_list", return_value=[_imd_wx_row("42407", Station="Goalpara"), _imd_wx_row("42403", Station="Coochbehar")]):
+        result = wc.fetch_imd_wx(26.2741, 90.4432)
+    _reset_imd_caches()
+    assert result["station_name"] == "Goalpara" and 20 < result["distance_km"] < 23   # not Cooch Behar at ~97 km
+
+
+def test_bundled_coordinates_keep_imd_fallback_working_when_directory_is_down():
+    _reset_imd_caches()
+    wc = main_module.weather_client
+    with patch.object(main_module.http_session, "get", side_effect=ConnectionError("401/down")), \
+         patch.object(wc, "_get_imd_wx_list", return_value=[_imd_wx_row("42407", Station="Goalpara")]):
+        result = wc.fetch_imd_wx(26.2741, 90.4432)
+    _reset_imd_caches()
+    assert result is not None and result["station_name"] == "Goalpara"
+
+
+def test_live_directory_coordinates_win_over_bundled_ones():
+    _reset_imd_caches()
+    wc = main_module.weather_client
+    directory = [{"Station_Code": "42407", "Station_Name": "Goalpara", "Latitude": "26.2741", "Longitude": "90.4432"}]  # moved to the request point
+    with patch.object(main_module.http_session, "get", return_value=_directory_response(directory)):
+        coords = wc._get_imd_station_coords(26.27, 90.44)
+    _reset_imd_caches()
+    assert coords["42407"][:2] == (26.2741, 90.4432)

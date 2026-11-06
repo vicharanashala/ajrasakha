@@ -5,7 +5,7 @@ Production-ready FastAPI service delivering real-time weather observations.
 
 Data Source Priority:
   1. Annam Weather Station (WS Nearest Sensors) - prioritized for hyper-local live sensors
-     (liveTemperature, humidity, rainfall, windSpeed) when station is within range (<= 10km).
+     (liveTemperature, humidity, rainfall, windSpeed) from the nearest station (no distance limit).
   2. India Meteorological Department (IMD) - prioritized for 'feelsLikeTemperature' and
      'weatherCondition', and acts as full fallback when Annam is out of range or unavailable.
 
@@ -68,9 +68,9 @@ WS_BASE_URL = os.getenv(
 ).rstrip("/")
 WS_NEARBY_PATH = "/nearby/WS_Nearest_Sensors"
 WS_TIMEOUT_SECONDS = float(os.getenv("WS_TIMEOUT_SECONDS", "6.0"))
-# Strict station radius for EVERY data source (Annam, IMD, stale cache).
-# Deliberately a code constant: it must NOT be configurable through .env / environment variables.
-MAX_STATION_DISTANCE_KM = 10.0
+# Live data always comes from the NEAREST Annam / IMD station (no distance limit).
+# Outage-only stale cache: only a cached reading taken within this radius of the request is reused.
+STALE_FALLBACK_RADIUS_KM = 50.0
 # Observations older than this are ignored (a dead sensor must not look "live").
 ANNAM_MAX_OBS_AGE = timedelta(hours=6)
 IMD_MAX_OBS_AGE = timedelta(hours=12)
@@ -97,6 +97,10 @@ IMD_TIMEOUT_SECONDS = float(os.getenv("IMD_TIMEOUT_SECONDS", "6.0"))
 WEATHER_CACHE_TTL_SECONDS = float(os.getenv("WEATHER_CACHE_TTL_SECONDS", "300.0"))  # 5 min
 CACHE_DIR = Path(os.getenv("WEATHER_CACHE_DIR", str(Path(__file__).resolve().parent / "cache")))
 CACHE_FILE = CACHE_DIR / "weather_cache.json"
+# Bundled IMD station coordinates (station id -> [lat, lon, name]). The live IMD directory (cityweather_loc.php) is
+# missing a few hundred stations that DO appear in the current-weather feed (e.g. Goalpara 42407); without
+# coordinates such a station can never be chosen as "nearest", so this file fills the gaps.
+STATION_COORDS_FILE = Path(__file__).resolve().parent / "data" / "imd_station_coords.json"
 
 # In-memory IMD station location cache TTL (coordinates rarely change)
 IMD_LOC_CACHE_TTL = 3600.0  # 1 hour
@@ -384,7 +388,6 @@ class WeatherCacheManager:
                                 and isinstance(val.get("data"), dict)
                                 and isinstance(val.get("timestamp_epoch"), (int, float))
                                 and isinstance(val.get("timestamp_iso"), str)
-                                and not (safe_float(val["data"].get("station_distance_km")) or 0.0) > MAX_STATION_DISTANCE_KM
                             ):
                                 self._persistent_cache[key] = val
             logger.info("Loaded %d cached observations from %s", len(self._persistent_cache), self.cache_file)
@@ -474,7 +477,7 @@ class WeatherCacheManager:
             if self._dirty:
                 self._flush_locked()
 
-    def get_stale_fallback(self, lat: float, lon: float, max_radius_km: float = MAX_STATION_DISTANCE_KM) -> Optional[Dict[str, Any]]:
+    def get_stale_fallback(self, lat: float, lon: float, max_radius_km: float = STALE_FALLBACK_RADIUS_KM) -> Optional[Dict[str, Any]]:
         """
         Look up the closest cached observation when external APIs are offline.
         Searches exact grid key first, then any record within max_radius_km.
@@ -586,6 +589,21 @@ def _create_http_session(retries: int = 2) -> requests.Session:
 http_session = _create_http_session()
 
 
+def _load_static_station_coords() -> Dict[str, Tuple[float, float, str]]:
+    try:
+        with open(STATION_COORDS_FILE, "r", encoding="utf-8") as f:
+            raw = json.load(f)
+        out: Dict[str, Tuple[float, float, str]] = {}
+        for sid, v in raw.items():
+            lat_, lon_ = safe_float(v[0]), safe_float(v[1])
+            if lat_ is not None and lon_ is not None:
+                out[str(sid).strip()] = (lat_, lon_, str(v[2]).strip())
+        return out
+    except Exception as exc:
+        logger.warning("Could not load bundled station coordinates from %s: %s", STATION_COORDS_FILE, exc)
+        return {}
+
+
 class WeatherClient:
     """Manages concurrent fetching and normalization from Annam WS and IMD."""
     
@@ -597,6 +615,9 @@ class WeatherClient:
         self._annam_retry_after: float = 0.0
         self._imd_coords_retry_after: float = 0.0
         self._imd_wx_retry_after: float = 0.0
+
+        # Bundled coordinates: used for stations missing from the live directory, and when it is unreachable
+        self._static_coords: Dict[str, Tuple[float, float, str]] = _load_static_station_coords()
 
         # Cached IMD station directory
         self._imd_coords_cache: Dict[str, Tuple[float, float, str]] = {}
@@ -610,7 +631,7 @@ class WeatherClient:
     def fetch_annam_ws(self, lat: float, lon: float) -> Optional[Dict[str, Any]]:
         """
         Fetch nearest Annam Weather Station sensor data.
-        Returns station dict if found within the strict 10 km radius; otherwise None.
+        Returns the nearest station with a valid, fresh observation (no distance limit); None if there is none.
         """
         url = f"{WS_BASE_URL}{WS_NEARBY_PATH}"
         if time.monotonic() < self._annam_retry_after:
@@ -657,16 +678,7 @@ class WeatherClient:
             return None
 
         valid_candidates.sort(key=lambda s: s["_calculated_dist_km"])
-        best = valid_candidates[0]
-
-        if best["_calculated_dist_km"] > MAX_STATION_DISTANCE_KM:
-            logger.info(
-                "Nearest Annam station (%s) is %.2f km away (exceeds %.1f km threshold)",
-                best.get("DeviceId"), best["_calculated_dist_km"], MAX_STATION_DISTANCE_KM
-            )
-            return None
-
-        return best
+        return valid_candidates[0]  # nearest station with a valid, fresh observation
 
     def upstream_down(self) -> bool:
         """True while an upstream circuit breaker is open (distinguishes an outage from 'no station nearby')."""
@@ -675,7 +687,7 @@ class WeatherClient:
 
     def imd_loaded(self) -> bool:
         """True once the IMD station directory and current-weather list have been fetched at least once."""
-        return bool(self._imd_coords_cache and self._imd_wx_list_cache)
+        return bool((self._imd_coords_cache or self._static_coords) and self._imd_wx_list_cache)
 
     def _get_imd_station_coords(self, lat: float, lon: float) -> Dict[str, Tuple[float, float, str]]:
         """Fetch/cache station coordinates from cityweather_loc.php."""
@@ -684,7 +696,7 @@ class WeatherClient:
             if self._imd_coords_cache and now - self._imd_coords_time < IMD_LOC_CACHE_TTL:
                 return self._imd_coords_cache
             if now < self._imd_coords_retry_after:
-                return self._imd_coords_cache
+                return self._imd_coords_cache or self._static_coords
 
         url = f"{IMD_CITY_BASE}/cityweather_loc.php"
         coords_map = {}
@@ -715,9 +727,10 @@ class WeatherClient:
 
         with self._imd_coords_lock:
             if coords_map:
-                self._imd_coords_cache = coords_map
+                # live directory wins; bundled list only fills stations the directory does not have
+                self._imd_coords_cache = {**self._static_coords, **coords_map}
                 self._imd_coords_time = now
-            return self._imd_coords_cache or coords_map
+            return self._imd_coords_cache or self._static_coords
 
     def _get_imd_wx_list(self) -> List[Dict[str, Any]]:
         """Fetch/cache the nationwide current weather list from current_wx_api.php."""
@@ -774,13 +787,6 @@ class WeatherClient:
         if not best:
             return None
 
-        if best[0] > MAX_STATION_DISTANCE_KM:
-            logger.info(
-                "Nearest IMD station (%s) is %.2f km away (exceeds the strict %.0f km radius)",
-                best[4], best[0], MAX_STATION_DISTANCE_KM,
-            )
-            return None
-
         dist, row, slat, slon, sname = best
         station_id = str(row.get("Station Id") or row.get("Station_Id") or "").strip()
 
@@ -834,11 +840,8 @@ def _source_result(future: Any, name: str, err_attr: str) -> Optional[Dict[str, 
 
 
 def _serve_hot(lat: float, lon: float) -> Optional[Tuple[Dict[str, Any], Dict[str, Any]]]:
-    """Serve from the hot cache if fresh AND the cached station is still within the strict radius of THIS point.
-
-    The cache cell is ~1.1 km wide, so a cached station that was 9.9 km from the first user can be farther than
-    10 km from the next one; the distance is recomputed per request for that reason.
-    """
+    """Serve from the hot cache if fresh. The cache cell is ~1.1 km wide, so the reported
+    station distance is recomputed for each requesting point."""
     cached = cache_manager.get_hot(lat, lon)
     if not cached:
         return None
@@ -851,12 +854,7 @@ def _serve_hot(lat: float, lon: float) -> Optional[Tuple[Dict[str, Any], Dict[st
     slat = cached.pop("_station_lat", None)
     slon = cached.pop("_station_lon", None)
     if slat is not None and slon is not None:
-        dist = haversine_km(lat, lon, slat, slon)
-        if dist > MAX_STATION_DISTANCE_KM:
-            return None  # cell-edge user: fetch fresh instead of serving a station that is too far for them
-        cached["station_distance_km"] = round(dist, 2)
-    elif (safe_float(cached.get("station_distance_km")) or 0.0) > MAX_STATION_DISTANCE_KM:
-        return None
+        cached["station_distance_km"] = round(haversine_km(lat, lon, slat, slon), 2)
     meta = {
         "source": cached.get("source", "cached"),
         "station_name": cached.get("station_name"),
@@ -874,7 +872,7 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
     Core orchestrator:
       1. Check Hot Cache.
       2. Concurrently fetch Annam WS and IMD.
-      3. Priority: Annam WS (if <= 10km) for live metrics + IMD for feels-like and condition.
+      3. Priority: nearest Annam WS for live metrics + IMD for feels-like and condition.
       4. Fallback: IMD for all fields when Annam is absent.
       5. Offline Fallback: Stale persistent cache if both upstream APIs fail.
       6. Returns (response_payload, metadata).
@@ -907,7 +905,7 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
     station_lon: Optional[float] = None
 
     if annam_result:
-        # Priority 1: Annam Weather Station (IMD only ever contributes if it is also within 10 km)
+        # Priority 1: Annam Weather Station (IMD contributes the nearest IMD station)
         source_used = "aws+imd" if imd_result else "aws"
         live_temp = plausible(annam_result.get("Temperature"), *TEMP_RANGE_C)
         humidity = plausible(annam_result.get("Humidity"), *HUMIDITY_RANGE)
@@ -967,19 +965,9 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
         stale = cache_manager.get_stale_fallback(lat, lon)
         if stale:
             s_lat, s_lon = stale.pop("_station_lat", None), stale.pop("_station_lon", None)
-            record_offset = stale.pop("_fallback_distance_km", 1.6)  # request point -> cached point (<= 1.6 km in-cell)
+            stale.pop("_fallback_distance_km", None)
             if s_lat is not None and s_lon is not None:
-                d = haversine_km(lat, lon, s_lat, s_lon)
-                if d > MAX_STATION_DISTANCE_KM:
-                    stale = None  # the cached station itself is outside the strict radius of this point
-                else:
-                    stale["station_distance_km"] = round(d, 2)
-            else:
-                # Legacy record without station coordinates: the station can be at most
-                # (its recorded distance + how far the cached point is from here) away from THIS point.
-                recorded = safe_float(stale.get("station_distance_km"))
-                if recorded is None or recorded + record_offset > MAX_STATION_DISTANCE_KM:
-                    stale = None
+                stale["station_distance_km"] = round(haversine_km(lat, lon, s_lat, s_lon), 2)
         if stale:
             cache_type = stale.pop("_cache_type", "stale_fallback")
             age = stale.pop("_cache_age_seconds", 0.0)
@@ -998,7 +986,7 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
             }
             return stale, meta
 
-        # No cache available either. Distinguish "no station within 10 km" from "upstreams are down".
+        # No cache available either. Distinguish "no station has data" from "upstreams are down".
         upstream_failed = (
             weather_client.annam_last_error >= fetch_started
             or weather_client.imd_last_error >= fetch_started
@@ -1007,7 +995,7 @@ def get_live_weather_sync(lat: float, lon: float) -> Tuple[Dict[str, Any], Dict[
         if not upstream_failed and weather_client.imd_loaded():
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"No weather station within {MAX_STATION_DISTANCE_KM:g} km of this location.",
+                detail="No weather station with a recent observation was found for this location.",
             )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -1213,7 +1201,7 @@ def _drop_past_days(days: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
 
 
 def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
-    """Forecast from the nearest IMD station within the strict 10 km radius (same rule as /weather-live)."""
+    """Forecast from the nearest IMD station that has forecast data (no distance limit)."""
     rows, fresh = _fetch_imd_forecast_rows()
 
     candidates: List[Tuple[float, float, float, Dict[str, Any]]] = []
@@ -1221,9 +1209,7 @@ def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
         slat, slon = safe_float(r.get("Latitude")), safe_float(r.get("Longitude"))
         if slat is None or slon is None or not r.get("Station_Code"):
             continue
-        dist = haversine_km(lat, lon, slat, slon)
-        if dist <= MAX_STATION_DISTANCE_KM:
-            candidates.append((dist, slat, slon, r))
+        candidates.append((haversine_km(lat, lon, slat, slon), slat, slon, r))
     candidates.sort(key=lambda c: c[0])
 
     for dist, slat, slon, r in candidates:
@@ -1233,6 +1219,8 @@ def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
             continue  # no forecast values (or all in the past): try the next nearest station
         if len(days) < 7:
             warnings.append(f"partial_forecast:{len(days)}_of_7_days")
+        if dist > 50:
+            warnings.append("far_station")
         code = str(r.get("Station_Code")).strip()
         meta = {
             "station_name": str(r.get("Station_Name") or code).strip(),
@@ -1247,7 +1235,7 @@ def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
             _forecast_result_cache[code] = (time.time(), days, meta, slat, slon)
         return {**meta, "days_available": len(days), "is_cached": stale, "warnings": warnings, "forecast": days}
 
-    # IMD unreachable (or its rows unusable): serve the last good forecast of a station within 10 km, if recent.
+    # IMD unreachable (or its rows unusable): serve the last good forecast of the nearest cached station, if recent.
     if not rows or not fresh:
         best: Optional[Tuple[float, List[Dict[str, Any]], Dict[str, Any]]] = None
         with _forecast_result_lock:
@@ -1255,7 +1243,7 @@ def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
                 if time.time() - ts > FORECAST_STALE_MAX_SECONDS:
                     continue
                 dist = haversine_km(lat, lon, slat, slon)
-                if dist > MAX_STATION_DISTANCE_KM:
+                if dist > STALE_FALLBACK_RADIUS_KM:
                     continue
                 if best is None or dist < best[0]:
                     best = (dist, days, meta)
@@ -1274,7 +1262,7 @@ def get_forecast_sync(lat: float, lon: float) -> Dict[str, Any]:
 
     raise HTTPException(
         status_code=status.HTTP_404_NOT_FOUND,
-        detail=f"No forecast station within {MAX_STATION_DISTANCE_KM:g} km of this location.",
+        detail="No forecast station with data was found for this location.",
     )
 
 
@@ -1293,7 +1281,7 @@ app = FastAPI(
     title="Ajrasakha Live Weather API",
     description=(
         "Production-ready weather API providing real-time meteorological observations.\n\n"
-        "- **Priority 1**: Annam Weather Station (hyper-local live sensors within 10km)\n"
+        "- **Priority 1**: Annam Weather Station (hyper-local live sensors, nearest station)\n"
         "- **Priority 2**: India Meteorological Department (IMD) for Feels-Like & general fallback\n"
         "- **High Availability**: Hot in-memory cache + persistent fallback cache during outages"
     ),
@@ -1400,9 +1388,9 @@ def _diag_headers(meta: Dict[str, Any]) -> Dict[str, str]:
         "**Coverage: India only.** `lat` must be 6.7–37.1 °N and `lon` "
         "must be 68.1167–97.4167 °E. Coordinates outside this box return `400`.\n\n"
         "Priority order:\n"
-        "1. **Annam Weather Station (AWS)** (within 10 km) for `liveTemperature`, `humidity`, `rainfall`, and `windSpeed`.\n"
-        "2. **IMD API** for `feelsLikeTemperature` and `weatherCondition`.\n"
-        "3. Full fallback to **IMD** when AWS is out of range or offline.\n"
+        "1. **Nearest Annam Weather Station (AWS)** for `liveTemperature`, `humidity`, `rainfall`, and `windSpeed`.\n"
+        "2. **Nearest IMD station** for `feelsLikeTemperature` and `weatherCondition`.\n"
+        "3. Full fallback to the nearest **IMD** station when no AWS station has a valid reading.\n"
         "4. Stale-while-revalidate fallback cache when upstream APIs are unreachable."
     ),
 )
@@ -1541,7 +1529,6 @@ async def health_check():
         },
         "upstream": {
             "annam_ws_base": WS_BASE_URL,
-            "annam_max_distance_km": MAX_STATION_DISTANCE_KM,
             "imd_city_base": IMD_CITY_BASE,
         },
     }

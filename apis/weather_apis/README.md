@@ -38,7 +38,7 @@ flowchart TD
     ParallelFetch -->|"Fetch Annam WS"| AnnamAPI["Annam Weather Station\n(/nearby/WS_Nearest_Sensors)"]
     ParallelFetch -->|"Fetch IMD"| ImdAPI["India Meteorological Dept\n(current_wx_api.php)"]
     
-    AnnamAPI --> AnnamCheck{"Station within 10 km?"}
+    AnnamAPI --> AnnamCheck{"Nearest Annam station\nwith a fresh valid reading?"}
     
     AnnamCheck -- "Yes" --> CombineAnnam["Primary Source: Annam\n• liveTemperature (Annam)\n• humidity (Annam)\n• rainfall (Annam)\n• windSpeed (Annam m/s * 3.6)\n• feelsLikeTemperature (IMD)\n• weatherCondition (IMD)"]
     AnnamCheck -- "No / Offline" --> CombineIMD["Fallback Source: IMD\n• liveTemperature (IMD)\n• humidity (IMD)\n• rainfall (IMD)\n• windSpeed (IMD km/h)\n• feelsLikeTemperature (IMD)\n• weatherCondition (IMD)"]
@@ -52,28 +52,31 @@ flowchart TD
     
     SaveCache --> ReturnResponse["Return JSON Response + Headers"]
     
-    ParallelFetch -. "Both Upstream APIs Fail" .-> FallbackStore{"Persistent Cache\nwithin 10 km, under 24 h old?"}
+    ParallelFetch -. "Both Upstream APIs Fail" .-> FallbackStore{"Persistent Cache\nwithin 50 km, under 24 h old?"}
     FallbackStore -- "Found" --> StaleReturn["Return Stale Fallback Cache\n(X-Cache-Status: stale_fallback)"]
     FallbackStore -- "None" --> Error503["HTTP 503 Service Unavailable"]
 ```
 
-### Strict 10 km radius (not configurable)
+### Nearest station, no distance limit
 
-Every data source is limited to **10 km** from the requested point: the Annam sensor, the IMD station (used as the fallback and for feels-like / condition) and the stale cache. The radius is a constant in `main.py` and is deliberately **not** an environment variable. If nothing is within 10 km the API returns `404` ("No weather station within 10 km of this location.") when the upstreams are healthy, or `503` when they are down.
+`/weather-live` and `/weather-forecast` always use the **nearest** station, however far it is: the nearest Annam sensor with a valid, fresh reading, and the nearest IMD station. The real distance is reported in `station_distance_km` (and `X-Station-Distance-KM`), so clients can decide how much to trust it. `/weather-forecast` also adds a `far_station` warning when the station is over 50 km away.
 
-Other rules: Annam observations older than 6 h and IMD observations older than 12 h are ignored; stale-cache answers older than 24 h are never served and are sent with `Cache-Control: no-cache`; when an Annam sensor has no humidity it is filled from an IMD station within 10 km.
+Only the outage-only stale cache has a limit: it reuses a reading taken within **50 km** of the request and less than 24 h old (a constant in `main.py`, not an environment variable). If no station has data at all the API returns `404` when the upstreams are healthy, or `503` when they are down.
+
+Other rules: Annam observations older than 6 h and IMD observations older than 12 h are ignored; stale-cache answers are sent with `Cache-Control: no-cache`; when an Annam sensor has no humidity it is filled from the nearest IMD station.
 
 ### Data-quality and resilience rules
 
-- **Sensor faults are dropped, not served.** Values outside these ranges are treated as missing: temperature -50..60 °C, humidity 0..100 %, wind 0..200 km/h (Annam 0..55 m/s), rainfall 0..1500 mm, feels-like -70..80 °C. A missing Annam value is filled from an IMD station within 10 km when possible.
+- **Sensor faults are dropped, not served.** Values outside these ranges are treated as missing: temperature -50..60 °C, humidity 0..100 %, wind 0..200 km/h (Annam 0..55 m/s), rainfall 0..1500 mm, feels-like -70..80 °C. A missing Annam value is filled from the nearest IMD station when possible.
+- **IMD station coordinates are completed from a bundled list.** IMD's live coordinate directory is missing some stations that do report current weather (for example Goalpara, `42407`). `data/imd_station_coords.json` (1,259 stations, taken from `ai/ajrasakha/tools/weather/station_id.json`) fills those gaps and keeps the IMD fallback working if the directory is unreachable. Live coordinates win when both exist.
 - **One source failing never fails the request.** If Annam or IMD crashes or times out, the other is used.
 - **Failing upstreams are skipped for 30 s** (circuit breaker) so an outage does not make every request wait for a timeout.
-- **Cache hits recompute `station_distance_km`** for the requesting point and are not served if the cached station is more than 10 km from it.
+- **Cache hits recompute `station_distance_km`** for the requesting point.
 - **All errors** (including unknown routes and wrong methods) use `{"status": "error", "message": ...}`. `HEAD` is supported on the GET endpoints. `If-None-Match` accepts weak ETags (`W/"..."`), lists and `*`.
 
 ### Source Prioritization Rules
 
-| Metric | Source Priority 1: Annam Weather Station (<= 10 km) | Source Priority 2: IMD (Fallback, also <= 10 km) |
+| Metric | Source Priority 1: nearest Annam Weather Station | Source Priority 2: nearest IMD station (fallback) |
 |---|---|---|
 | **`liveTemperature`** | Annam sensor observation (`Temperature` in °C) | IMD city station observation (`temperature_c` in °C) |
 | **`humidity`** | Annam sensor observation (`Humidity` %) | IMD city station observation (`humidity_pct` %) |
@@ -99,7 +102,7 @@ To guarantee sub-millisecond responses and 99.99% uptime during external API out
 
 ### 2. Persistent Fallback Cache (Last Known Good)
 - Stored permanently on disk at `cache/weather_cache.json`.
-- **Zero-Downtime Guarantee**: If upstream weather APIs experience downtime, timeouts, or network loss, the service locates the nearest cached observation within **10 km** that is **less than 24 hours old** and returns it with `X-Cache-Status: stale_fallback` instead of returning a 500/503 error.
+- **Zero-Downtime Guarantee**: If upstream weather APIs experience downtime, timeouts, or network loss, the service locates the nearest cached observation within **50 km** that is **less than 24 hours old** and returns it with `X-Cache-Status: stale_fallback` instead of returning a 500/503 error.
 
 ---
 
@@ -241,8 +244,8 @@ Main production endpoint returning the exact required weather observation format
 - **Not available from IMD:** forecast rainfall amount, humidity, wind and rain probability. They are not returned. `rainPossible` is derived from the IMD text.
 - **Days:** IMD often publishes 6 days instead of 7. Use `days_available`; days are never invented. `sunrise`/`sunset` are given on the first day only.
 - **`conditionCode`:** `clear`, `partly_cloudy`, `cloudy`, `haze`, `fog`, `rain`, `thunderstorm`, `duststorm`, `snow`, `windy`, `hot`, `heat_wave`, `cold_wave`, `unknown`. Negations ("no rain") are not rain. "Possibility of rain" keeps the sky code and sets `rainPossible`.
-- **`warnings`:** `partial_forecast:N_of_7_days`, `stale_upstream` (IMD issue date is in the past), `served_from_stale_cache`.
-- **Errors:** `400` outside India, `422` missing/invalid `lat`/`lon`, `404` no IMD station with forecast data within **10 km** (same strict, non-configurable radius as `/weather-live`), `503` IMD down and no forecast cached in the last 48 h for a station within 10 km. Days before today are never returned.
+- **`warnings`:** `partial_forecast:N_of_7_days`, `far_station` (station over 50 km away), `stale_upstream` (IMD issue date is in the past), `served_from_stale_cache`.
+- **Errors:** `400` outside India, `422` missing/invalid `lat`/`lon`, `404` no IMD station has forecast data, `503` IMD down and no forecast cached in the last 48 h within 50 km. Days before today are never returned.
 - **Caching:** the IMD list is cached 1 hour (`FORECAST_CACHE_TTL_SECONDS`); the last good forecast per station is kept for stale fallback (`FORECAST_STALE_MAX_SECONDS`, default 48 h, in memory only).
 
 ---
@@ -306,7 +309,7 @@ Every response carries diagnostic and cache headers:
 |---|---|---|
 | `400 Bad Request` | Outside India | `{"status": "error", "message": "Coordinates are outside India..."}` |
 | `422 Unprocessable` | Latitude/Longitude outside geographical limits | `{"status": "error", "message": "Invalid query parameters", "detail": [...]}` |
-| `404 Not Found` | No station within 10 km while the upstreams are healthy | `{"status": "error", "message": "No weather station within 10 km of this location."}` |
+| `404 Not Found` | No station has a recent observation while the upstreams are healthy | `{"status": "error", "message": "No weather station with a recent observation was found for this location."}` |
 | `503 Service Unavailable` | Upstream APIs down AND no fallback cache | `{"status": "error", "message": "Live weather services are currently unreachable and no cached observation is available..."}` |
 | `500 Internal Error` | Unexpected runtime error | `{"status": "error", "message": "An internal server error occurred..."}` |
 
@@ -423,6 +426,8 @@ Your live API will be instantly deployed at `https://ajrasakha-live-weather.onre
 ```
 apis/weather_apis/
 ├── main.py               # Complete FastAPI application & business logic
+├── data/
+│   └── imd_station_coords.json  # Bundled IMD station coordinates (fills gaps in IMD's live directory)
 ├── requirements.txt      # Production dependencies
 ├── Dockerfile            # Container configuration with Tailscale support
 ├── docker-compose.yml    # Docker compose specification
