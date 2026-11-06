@@ -1243,7 +1243,7 @@ export class QuestionService {
   }
 
   /** RDQA review - fetch finalized questions from a specific date */
-  async getRdqaQuestions(date?: string, limit?: number): Promise<RdqaQuestion[]> {
+  async getRdqaQuestions(date?: string, limit?: number): Promise<RdqaQuestionsResponse> {
     const params = new URLSearchParams();
     if (date) params.append("date", date);
     if (limit) params.append("limit", String(limit));
@@ -1252,8 +1252,16 @@ export class QuestionService {
       ? `${this._baseUrl}/list/rdqa?${queryString}`
       : `${this._baseUrl}/list/rdqa`;
     const response = await apiFetch<{ success: boolean; data: RdqaQuestionsResponse }>(url);
-    // Extract the questions array from the response object
-    return response?.data?.questions ?? [];
+    // Return the full response object including metadata
+    return response?.data ?? {
+      date: date || "",
+      limit: limit || 12,
+      totalModerators: 0,
+      questionsPerModerator: 0,
+      totalQuestions: 0,
+      moderatorDistribution: [],
+      questions: [],
+    };
   }
 
   /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
