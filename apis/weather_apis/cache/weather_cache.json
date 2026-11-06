@@ -3,19 +3,19 @@
     "lat": 17.385,
     "lon": 78.4867,
     "data": {
-      "liveTemperature": 30.3,
-      "humidity": 61.1,
+      "liveTemperature": 30.9,
+      "humidity": 60.8,
       "rainfall": 0.0,
-      "windSpeed": 1.8,
+      "windSpeed": 4.7,
       "weatherCondition": "Haze",
-      "feelsLikeTemperature": 30.7,
+      "feelsLikeTemperature": 28.9,
       "source": "aws+imd",
       "station_name": "Bandlaguda (Annam AWS: #20)",
       "station_distance_km": 4.4,
-      "recorded_at": "05 Nov 2026, 01:13 PM IST"
+      "recorded_at": "06 Nov 2026, 10:50 AM IST"
     },
-    "timestamp_iso": "2026-11-05T07:44:09.491907+00:00",
-    "timestamp_epoch": 1793864649.4919062
+    "timestamp_iso": "2026-11-06T05:21:13.926591+00:00",
+    "timestamp_epoch": 1793942473.926288
   },
   "28.61,77.21": {
     "lat": 28.6139,

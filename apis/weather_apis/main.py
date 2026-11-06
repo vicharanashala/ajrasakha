@@ -913,12 +913,14 @@ async def get_grid_lock(key: Tuple[float, float]) -> asyncio.Lock:
 # Endpoints
 # -----------------------------------------------------------------------------
 @app.get(
-    "/live",
+    "/weather-live",
     response_model=LiveWeatherResponse,
     tags=["Weather"],
     summary="Get live weather observation",
     description=(
         "Fetch real-time weather data for a location specified by latitude and longitude.\n\n"
+        "**Coverage: India only.** `lat` must be 8.0667–37.1 °N and `lon` "
+        "must be 68.1167–97.4167 °E. Coordinates outside this box return `400`.\n\n"
         "Priority order:\n"
         "1. **Annam Weather Station (AWS)** (within 10 km) for `liveTemperature`, `humidity`, `rainfall`, and `windSpeed`.\n"
         "2. **IMD API** for `feelsLikeTemperature` and `weatherCondition`.\n"
@@ -930,29 +932,18 @@ async def get_live_weather_endpoint(
     request: Request,
     lat: float = Query(
         ...,
-        description="Latitude in decimal degrees (-90.0 to 90.0)",
+        description="Latitude in decimal degrees. Only locations inside India are served: 8.0667 to 37.1 (°N).",
         ge=-90.0,
         le=90.0,
+        json_schema_extra={"minimum": 8.0667, "maximum": 37.1, "example": 17.385},
     ),
-    lon: Optional[float] = Query(
-        None,
-        description="Longitude in decimal degrees (-180.0 to 180.0)",
-        ge=-180.0,
-        le=180.0,
-    ),
-    long: Optional[float] = Query(
-        None,
-        description="Longitude alias in decimal degrees (-180.0 to 180.0)",
-        ge=-180.0,
-        le=180.0,
+    lon: float = Query(
+        ...,
+        description="Longitude in decimal degrees. Only locations inside India are served: 68.1167 to 97.4167 (°E).",
+        json_schema_extra={"minimum": 68.1167, "maximum": 97.4167, "example": 78.4867},
     ),
 ):
-    longitude = lon if lon is not None else long
-    if longitude is None:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Longitude parameter is required. Provide either 'lon' or 'long'.",
-        )
+    longitude = lon
 
     # Validate coordinates are within mainland India's bounding box
     # Latitude: 8.0667°N to 37.1000°N, Longitude: 68.1167°E to 97.4167°E

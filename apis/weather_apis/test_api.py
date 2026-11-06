@@ -45,15 +45,15 @@ def test_health_check():
 
 
 def test_validation_missing_longitude():
-    """Verify 400 when longitude is omitted."""
-    resp = client.get("/live?lat=17.3850")
-    assert resp.status_code == 400
-    assert "Longitude parameter is required" in resp.json()["message"]
+    """Verify 422 when longitude is omitted (lat and lon are both required)."""
+    resp = client.get("/weather-live?lat=17.3850")
+    assert resp.status_code == 422
+    assert resp.json()["status"] == "error"
 
 
 def test_validation_invalid_latitude():
     """Verify 422 when latitude is out of bounds."""
-    resp = client.get("/live?lat=150.0&lon=78.4867")
+    resp = client.get("/weather-live?lat=150.0&lon=78.4867")
     assert resp.status_code == 422
     assert resp.json()["status"] == "error"
 
@@ -65,7 +65,7 @@ def test_live_weather_annam_priority_hyderabad():
     Should use Annam for temperature/humidity/rainfall/wind, and IMD for feels-like and condition.
     """
     cache_manager.clear()
-    resp = client.get("/live?lat=17.3850&lon=78.4867")
+    resp = client.get("/weather-live?lat=17.3850&lon=78.4867")
     assert resp.status_code == 200
     data = resp.json()
 
@@ -102,7 +102,7 @@ def test_live_weather_imd_fallback_delhi():
     No Annam sensors within 10km. Should fall back completely to IMD.
     """
     cache_manager.clear()
-    resp = client.get("/live?lat=28.6139&long=77.2090")
+    resp = client.get("/weather-live?lat=28.6139&lon=77.2090")
     assert resp.status_code == 200
     data = resp.json()
 
@@ -127,33 +127,33 @@ def test_live_weather_imd_fallback_delhi():
 def test_hot_cache_hit():
     """Verify that a second request to the same coordinates hits the hot cache and includes Cache-Control & ETag."""
     # First call
-    resp1 = client.get("/live?lat=17.3850&lon=78.4867")
+    resp1 = client.get("/weather-live?lat=17.3850&lon=78.4867")
     assert resp1.status_code == 200
     assert "Cache-Control" in resp1.headers
     assert "ETag" in resp1.headers
 
     # Second call
-    resp2 = client.get("/live?lat=17.3850&lon=78.4867")
+    resp2 = client.get("/weather-live?lat=17.3850&lon=78.4867")
     assert resp2.status_code == 200
     assert resp2.headers.get("ETag") == resp1.headers.get("ETag")
 
 
 def test_conditional_get_304_not_modified():
     """Verify that passing If-None-Match with matching ETag returns 304 Not Modified with empty body."""
-    resp1 = client.get("/live?lat=17.3850&lon=78.4867")
+    resp1 = client.get("/weather-live?lat=17.3850&lon=78.4867")
     assert resp1.status_code == 200
     etag = resp1.headers.get("ETag")
     assert etag is not None
 
     # Conditional GET
-    resp2 = client.get("/live?lat=17.3850&lon=78.4867", headers={"If-None-Match": etag})
+    resp2 = client.get("/weather-live?lat=17.3850&lon=78.4867", headers={"If-None-Match": etag})
     assert resp2.status_code == 304
     assert resp2.headers.get("ETag") == etag
 
 
 def test_validation_out_of_bounds_india():
     """Verify that coordinates outside mainland India return 400 Bad Request."""
-    resp = client.get("/live?lat=0.0&lon=0.0")
+    resp = client.get("/weather-live?lat=0.0&lon=0.0")
     assert resp.status_code == 400
     assert "outside India" in resp.json()["message"]
 
@@ -191,7 +191,7 @@ def test_stale_fallback_cache_when_apis_down():
     with patch("main.weather_client.fetch_annam_ws", return_value=None), \
          patch("main.weather_client.fetch_imd_wx", return_value=None):
 
-        resp = client.get(f"/live?lat={test_lat}&lon={test_lon}")
+        resp = client.get(f"/weather-live?lat={test_lat}&lon={test_lon}")
         assert resp.status_code == 200
         data = resp.json()
 

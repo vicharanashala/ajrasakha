@@ -10,8 +10,8 @@ A high-performance, production-ready REST microservice built with **FastAPI** to
 - [Multi-Tier Caching & High Availability](#-multi-tier-caching--high-availability)
 - [Website Visitor & Traffic Reduction Solutions](#-website-visitor--traffic-reduction-solutions)
 - [API Endpoints & Schema](#-api-endpoints--schema)
-  - [1. GET /live](#1-get-live-or-get-weatherlive)
-  - [2. GET /live/details](#2-get-livedetails)
+  - [1. GET /weather-live](#1-get-weather-live)
+  - [2. GET /weather-live/details](#2-get-weather-livedetails)
   - [3. GET /health](#3-get-health)
   - [4. POST /cache/clear](#4-post-cacheclear)
 - [Diagnostic HTTP Headers](#-diagnostic-http-headers)
@@ -29,7 +29,7 @@ The service implements a hybrid meteorological data model designed to maximize s
 
 ```mermaid
 flowchart TD
-    Client["Client / Web Browser / App"] -->|"GET /live?lat=...&lon=..."| CacheCheck{"Hot In-Memory Cache Hit?"}
+    Client["Client / Web Browser / App"] -->|"GET /weather-live?lat=...&lon=..."| CacheCheck{"Hot In-Memory Cache Hit?"}
     
     CacheCheck -- "Yes (<5 min)" --> ReturnCache["Return Cached Data (0ms latency)"]
     CacheCheck -- "No" --> InFlightLock["In-Flight Singleflight Lock\n(Deduplicates simultaneous queries)"]
@@ -133,7 +133,7 @@ async function getLiveWeather(lat, lon) {
   }
 
   // Fetch from API
-  const response = await fetch(`/live?lat=${gridLat}&lon=${gridLon}`);
+  const response = await fetch(`/weather-live?lat=${gridLat}&lon=${gridLon}`);
   if (!response.ok) throw new Error("Weather API request failed");
   const data = await response.json();
 
@@ -152,7 +152,7 @@ export function useLiveWeather(lat, lon) {
 
   return useQuery({
     queryKey: ["live-weather", gridLat, gridLon],
-    queryFn: () => fetch(`/live?lat=${gridLat}&lon=${gridLon}`).then(r => r.json()),
+    queryFn: () => fetch(`/weather-live?lat=${gridLat}&lon=${gridLon}`).then(r => r.json()),
     enabled: !!(gridLat && gridLon),
     staleTime: 5 * 60 * 1000,    // 5 minutes
     gcTime: 30 * 60 * 1000,       // 30 minutes
@@ -165,18 +165,17 @@ export function useLiveWeather(lat, lon) {
 
 ## 📡 API Endpoints & Schema
 
-### 1. `GET /live` (or `GET /weather/live`)
+### 1. `GET /weather-live`
 
 Main production endpoint returning the exact required weather observation format.
 
 #### Query Parameters:
 | Parameter | Type | Required | Description | Range |
 |---|---|---|---|---|
-| `lat` | `float` | Yes | Latitude in decimal degrees | `-90.0` to `90.0` |
-| `lon` | `float` | Yes* | Longitude in decimal degrees | `-180.0` to `180.0` |
-| `long` | `float` | Yes* | Longitude alias (can pass `lon` or `long`) | `-180.0` to `180.0` |
+| `lat` | `float` | Yes | Latitude in decimal degrees | `8.0667` to `37.1` (India) |
+| `lon` | `float` | Yes | Longitude in decimal degrees | `68.1167` to `97.4167` (India) |
 
-*\*Provide either `lon` or `long`.*
+**Coverage:** India only. Coordinates outside `lat 8.0667–37.1 °N` / `lon 68.1167–97.4167 °E` return `400 Bad Request`.
 
 #### Response (`200 OK`):
 ```json
@@ -192,7 +191,7 @@ Main production endpoint returning the exact required weather observation format
 
 ---
 
-### 2. `GET /live/details`
+### 2. `GET /weather-live/details`
 
 Returns the exact same live observation plus diagnostic metadata.
 
@@ -274,7 +273,7 @@ Every response carries diagnostic and cache headers:
 
 | HTTP Status | Reason | JSON Response Format |
 |---|---|---|
-| `400 Bad Request` | Missing longitude parameter | `{"status": "error", "message": "Longitude parameter is required. Provide either 'lon' or 'long'."}` |
+| `400 Bad Request` | Outside India | `{"status": "error", "message": "Coordinates are outside India..."}` |
 | `422 Unprocessable` | Latitude/Longitude outside geographical limits | `{"status": "error", "message": "Invalid query parameters", "detail": [...]}` |
 | `503 Service Unavailable` | Upstream APIs down AND no fallback cache | `{"status": "error", "message": "Live weather services are currently unreachable and no cached observation is available..."}` |
 | `500 Internal Error` | Unexpected runtime error | `{"status": "error", "message": "An internal server error occurred..."}` |
@@ -292,27 +291,27 @@ Open your browser to:
 
 #### Hyderabad (Annam Sensor Priority + IMD Feels-Like):
 ```bash
-curl -s "http://localhost:8085/live?lat=17.3850&lon=78.4867"
+curl -s "http://localhost:8085/weather-live?lat=17.3850&lon=78.4867"
 ```
 
 #### Delhi (IMD Fallback):
 ```bash
-curl -s "http://localhost:8085/live?lat=28.6139&lon=77.2090"
+curl -s "http://localhost:8085/weather-live?lat=28.6139&lon=77.2090"
 ```
 
 #### Detailed Metadata:
 ```bash
-curl -s "http://localhost:8085/live/details?lat=17.3850&lon=78.4867"
+curl -s "http://localhost:8085/weather-live/details?lat=17.3850&lon=78.4867"
 ```
 
 #### Inspect Response Headers:
 ```bash
-curl -i "http://localhost:8085/live?lat=17.3850&lon=78.4867"
+curl -i "http://localhost:8085/weather-live?lat=17.3850&lon=78.4867"
 ```
 
 #### Test Conditional GET (304 Not Modified):
 ```bash
-curl -i -H 'If-None-Match: "1b0922883a45c364c6df7318ecf518e1"' "http://localhost:8085/live?lat=17.3850&lon=78.4867"
+curl -i -H 'If-None-Match: "1b0922883a45c364c6df7318ecf518e1"' "http://localhost:8085/weather-live?lat=17.3850&lon=78.4867"
 ```
 
 #### Health Check:
@@ -388,7 +387,7 @@ Render offers a 100% free tier for web services with automated SSL and GitHub de
 5. Under **Advanced** > **Health Check Path**, enter: `/health`.
 6. Click **Create Web Service**.
 
-Your live API will be instantly deployed at `https://ajrasakha-live-weather.onrender.com/live?lat=17.3850&lon=78.4867`.
+Your live API will be instantly deployed at `https://ajrasakha-live-weather.onrender.com/weather-live?lat=17.3850&lon=78.4867`.
 
 ---
 
