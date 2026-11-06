@@ -10779,7 +10779,7 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
-    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) received / completed a rerouted question in date range
+    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) completed a rerouted question review in date range
     let expertReroutedCount = 0;
     const expertReroutingIntervals: TimeInterval[] = [];
 
@@ -10787,10 +10787,8 @@ export class QuestionRepository implements IQuestionRepository {
       reroutes: {
         $elemMatch: {
           reroutedTo: { $in: [userObjectId, userId] },
-          $or: [
-            { reroutedAt: { $gte: startDate, $lte: endDate } },
-            { updatedAt: { $gte: startDate, $lte: endDate } },
-          ],
+          status: { $ne: 'pending' },
+          updatedAt: { $gte: startDate, $lte: endDate },
         },
       },
     }).toArray();
@@ -10804,16 +10802,11 @@ export class QuestionRepository implements IQuestionRepository {
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
         const updatedAt = r.updatedAt ? new Date(r.updatedAt) : null;
 
-        // Check if the expert's review action completed in the date range, or was assigned in the date range
-        const isCompletedInRange =
-          r.status !== 'pending' && updatedAt && updatedAt >= startDate && updatedAt <= endDate;
-        const isAssignedInRange =
-          reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate;
-
-        if (isCompletedInRange || isAssignedInRange) {
+        // An expert's review is an action completed by the expert
+        if (r.status !== 'pending' && updatedAt && updatedAt >= startDate && updatedAt <= endDate) {
           expertReroutedCount++;
-          const startAt = reroutedAt || updatedAt;
-          const endAt = isCompletedInRange ? updatedAt : (updatedAt || endDate);
+          const startAt = reroutedAt && reroutedAt <= updatedAt ? reroutedAt : updatedAt;
+          const endAt = updatedAt;
           if (startAt && endAt && endAt > startAt) {
             expertReroutingIntervals.push(...getActiveOverlapIntervals(startAt, endAt));
           }
@@ -10884,19 +10877,44 @@ export class QuestionRepository implements IQuestionRepository {
       console.error('[getUserActivityMetrics] Failed to fetch hold metrics:', err?.message);
     }
 
-    // Clean and merge hold intervals first
+    // 1. Clean and merge hold intervals first
     const cleanHoldIntervals = mergeIntervals(holdIntervals);
     const totalHoldingMs = sumIntervals(cleanHoldIntervals);
 
-    // Deduct overlapping hold intervals from primary review / screening / audit intervals
-    // so time spent reviewing a question to place it on hold is not double-counted as completed work
-    const totalAuthoringMs = sumIntervals(subtractIntervals(authoringIntervals, cleanHoldIntervals));
-    const totalReviewingMs = sumIntervals(subtractIntervals(reviewingIntervals, cleanHoldIntervals));
-    const totalModeratingMs = sumIntervals(subtractIntervals(moderatingIntervals, cleanHoldIntervals));
-    const totalAuditingMs = sumIntervals(subtractIntervals(auditingIntervals, cleanHoldIntervals));
-    const totalGatekeepingMs = sumIntervals(subtractIntervals(gatekeepingIntervals, cleanHoldIntervals));
-    const totalReroutingMs = sumIntervals(subtractIntervals(reroutingIntervals, cleanHoldIntervals));
-    const totalExpertReroutingMs = sumIntervals(subtractIntervals(expertReroutingIntervals, cleanHoldIntervals));
+    // 2. Clean and merge primary role intervals, deducting hold intervals so time spent
+    // reviewing a question to place it on hold is not double-counted as completed work
+    const cleanGatekeepingIntervals = subtractIntervals(mergeIntervals(gatekeepingIntervals), cleanHoldIntervals);
+    const cleanAuditingIntervals = subtractIntervals(mergeIntervals(auditingIntervals), cleanHoldIntervals);
+    const cleanModeratingIntervals = subtractIntervals(mergeIntervals(moderatingIntervals), cleanHoldIntervals);
+    const cleanAuthoringIntervals = subtractIntervals(mergeIntervals(authoringIntervals), cleanHoldIntervals);
+
+    // 3. Deduct prior overlapping activities from secondary / reroute intervals so no time is double-counted:
+    // - Moderator Rerouting: deduct moderating and hold intervals
+    const cleanReroutingIntervals = subtractIntervals(mergeIntervals(reroutingIntervals), [
+      ...cleanModeratingIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    // - Reviewing: deduct authoring and hold intervals
+    const cleanReviewingIntervals = subtractIntervals(mergeIntervals(reviewingIntervals), [
+      ...cleanAuthoringIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    // - Expert Rerouting: deduct authoring, reviewing, and hold intervals
+    const cleanExpertReroutingIntervals = subtractIntervals(mergeIntervals(expertReroutingIntervals), [
+      ...cleanAuthoringIntervals,
+      ...cleanReviewingIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    const totalAuthoringMs = sumIntervals(cleanAuthoringIntervals);
+    const totalReviewingMs = sumIntervals(cleanReviewingIntervals);
+    const totalModeratingMs = sumIntervals(cleanModeratingIntervals);
+    const totalAuditingMs = sumIntervals(cleanAuditingIntervals);
+    const totalGatekeepingMs = sumIntervals(cleanGatekeepingIntervals);
+    const totalReroutingMs = sumIntervals(cleanReroutingIntervals);
+    const totalExpertReroutingMs = sumIntervals(cleanExpertReroutingIntervals);
 
     return {
       authoredCount,

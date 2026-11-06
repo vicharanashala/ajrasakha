@@ -541,21 +541,15 @@ export async function buildUserActivityPdfReport(
     data.expertReroutedCount +
     (data.heldCount || 0);
 
-  const rawActionHours =
-    (data.totalAuthoringMs +
-      data.totalReviewingMs +
-      data.totalModeratingMs +
-      data.totalAuditingMs +
-      data.totalGatekeepingMs +
-      data.totalReroutingMs +
-      data.totalExpertReroutingMs +
-      (data.totalHoldingMs || 0)) /
-    (1000 * 60 * 60);
+  const sumTableHours = tableRows.reduce((acc, row) => {
+    const val = parseFloat(row.hours);
+    return acc + (isNaN(val) ? 0 : val);
+  }, 0);
 
   const totalActionHours =
     data.totalHoursInRevCycle > 0
-      ? Math.min(rawActionHours, data.totalHoursInRevCycle)
-      : rawActionHours;
+      ? Math.min(sumTableHours, data.totalHoursInRevCycle)
+      : sumTableHours;
 
   doc.rect(pageMargin, currentY, contentWidth, rowH).fill('#ECFDF5');
 
