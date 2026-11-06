@@ -5,4 +5,4 @@ __pycache__/
 *.pyc
 .pytest_cache/
 cache/*.tmp
-
+cache/*.json
