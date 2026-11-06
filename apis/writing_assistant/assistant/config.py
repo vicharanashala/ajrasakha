@@ -51,6 +51,17 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 # evidence-based value for that path) - this default is tuned for the
 # self-hosted model specifically, not universal.
 MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
+# scripts/start.sh's tailscaled runs --tun=userspace-networking, which has
+# no real network interface - a 100.x address is only reachable through
+# the local SOCKS5 proxy it exposes, so llm_client.py routes through it
+# automatically for the self-hosted model. That's wrong on a host that's
+# ALREADY tailnet-joined at the OS level instead (a dev machine with the
+# Tailscale client installed, confirmed live: the proxy assumption there
+# makes a working direct connection fail with "connection refused" since
+# nothing listens on the proxy port) - set this to "false" there to skip
+# the proxy and connect directly. Mirrors backend/src/config/ai.ts's own
+# USE_TAILNET_PROXY flag, which exists for the identical reason.
+MINIMAX_USE_TAILNET_PROXY = os.getenv("MINIMAX_USE_TAILNET_PROXY", "true").lower() != "false"
 # The self-hosted production model (per ai/ajrasakha/agents/config.py's
 # get_minimax_chat_model) speaks the standard OpenAI-compatible path. The
 # official public MiniMax API (used as a fallback for testing when the
