@@ -3245,7 +3245,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       selectedCount: Math.min(questionsPerModerator, m.totalAvailable),
     }));
 
-    // Fetch and randomly select questions for each moderator
+    // Fetch and select questions for each moderator (sorted by closedAt for consistency)
     const selectedQuestions: Array<{ question: any; answer: any }> = [];
     let remainingLimit = distributedCount;
 
@@ -3259,6 +3259,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       // Fetch question-answer pairs for this moderator
       const answerPipeline = [
         { $match: { _id: { $in: moderator.answerIds } } },
+        // Sort by question's closedAt (descending) then by _id for deterministic order
         {
           $lookup: {
             from: 'questions',
@@ -3268,6 +3269,7 @@ export class QuestionService extends BaseService implements IQuestionService {
           },
         },
         { $unwind: '$questionDoc' },
+        { $sort: { 'questionDoc.closedAt': 1, _id: 1 } },
         {
           $project: {
             _id: 1,
@@ -3366,12 +3368,6 @@ export class QuestionService extends BaseService implements IQuestionService {
           question: processedQuestion,
           answer: processedAnswer,
         });
-      }
-
-      // Fisher-Yates shuffle
-      for (let i = questionAnswerPairs.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [questionAnswerPairs[i], questionAnswerPairs[j]] = [questionAnswerPairs[j], questionAnswerPairs[i]];
       }
 
       // Take the limited number of items
