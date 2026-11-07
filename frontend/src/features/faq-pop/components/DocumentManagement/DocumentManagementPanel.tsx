@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { RefreshCw } from "lucide-react";
 import { useAuthStore } from "@/stores/auth-store";
+import { useTranslateSettings } from "@/stores/translate-settings-store";
 import {
   getDashboardConfig,
   getStats,
@@ -23,6 +24,8 @@ import {
   getDashboardUniqueDocuments,
   getDashboardUploadsHistory,
   getPendingUploads,
+  submitPendingUpload,
+  getDashboardStates,
 } from "../../api";
 import { subscribeDashboardEvents } from "../../dashboardEvents";
 import { NotificationService } from "@/hooks/services/notificationService";
@@ -35,6 +38,8 @@ import UploadQueuePanel from "./UploadQueuePanel";
 import TranslationQueuePanel from "./TranslationQueuePanel";
 import ResizableSplitPanel from "./ResizableSplitPanel";
 import DocumentDetailModal from "./DocumentDetailModal";
+import TranslateSettingsToggle from "./TranslateSettingsToggle";
+import { DOCUMENT_METADATA_FIELDS } from "./fields";
 
 const MODES = [
   { id: "add-document", label: "Add Document" },
@@ -274,11 +279,12 @@ export default function DocumentManagementPanel({
   // Success means the job goes back to queued/running, which arrives over SSE like any other
   // translation update (handled below), so no local state update is needed here beyond busy
   // tracking and surfacing a 409 ("already in progress") if it somehow races another trigger.
-  async function handleRedoTranslationJob(job, mode) {
+  async function handleRedoTranslationJob(job) {
+    const { mode, pipeline, model } = useTranslateSettings.getState();
     const docId = job.document_id || job.unique_document_id;
     setRedoingJobIds((prev) => new Set(prev).add(job.id));
     try {
-      await translateUniqueDocument(docId, currentUserName, mode || job.mode);
+      await translateUniqueDocument(docId, currentUserName, mode, pipeline, model || undefined);
       toast.success("Translation queued");
     } catch (err) {
       toast.error(err.message || "Failed to retry translation");
@@ -338,6 +344,7 @@ export default function DocumentManagementPanel({
   const [historyItems, setHistoryItems] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [pendingItems, setPendingItems] = useState([]);
+  const [reuploading, setReuploading] = useState(false);
   const [pendingLoading, setPendingLoading] = useState(false);
   const viewRef = useRef("queue");
   viewRef.current = view;
@@ -689,6 +696,77 @@ export default function DocumentManagementPanel({
     }
   }
 
+  // The person who uploaded the item swapping its file (uploader, approver or admin — gated on
+  // can_remove, which PoP only sets for the item's own uploader at the level they uploaded it). No replace-file endpoint exists, so it's the existing two calls in order: queue
+  // the new file with this item's metadata/placements/language as a fresh upload (GridFS → queue,
+  // same path as the upload form), and only once that's accepted, DELETE the old item. Upload
+  // first, so a failed upload (network, duplicate 409) leaves the old item untouched. The upload
+  // form's button stays disabled meanwhile (`reuploading`), same as during a normal upload.
+  async function handleReuploadUpload(item, file) {
+    setBusyUploadId(item.id);
+    setReuploading(true);
+    try {
+      const metadata = item.metadata || {};
+      const fields = {};
+      for (const f of DOCUMENT_METADATA_FIELDS) {
+        const value = metadata[f.key];
+        if (f.type === "multiselect" ? (value || []).length > 0 : value !== "" && value != null) fields[f.key] = value;
+      }
+      // Same month/year derivation as AddDocumentForm's handleSubmit.
+      if (fields.date_of_release) {
+        const [y, m] = fields.date_of_release.split("-");
+        fields.month_of_release = m;
+        fields.year_of_release = y;
+      }
+      if (fields.date_of_collection) {
+        const [y, m] = fields.date_of_collection.split("-");
+        fields.month_of_collection = m;
+        fields.year_of_collection = y;
+      }
+      const uploadedBy = metadata.uploaded_by || item.uploaded_by || currentUserName;
+      if (uploadedBy) fields.uploaded_by = uploadedBy;
+      if (metadata.district_id) fields.district_id = metadata.district_id;
+      if (metadata.kvk_id) fields.kvk_id = metadata.kvk_id;
+
+      // item.placements is one row per state/folder pair keyed by state NAME — regroup into the
+      // upload form's { state_id, crop_ids, organization_ids } shape, resolving ids the same way.
+      const states = (await getDashboardStates()) || [];
+      const byState = new Map();
+      for (const p of item.placements || []) {
+        const stateId = p.state_id || states.find((s) => s.name === p.state)?.id;
+        if (!stateId) continue;
+        if (!byState.has(stateId)) byState.set(stateId, { state_id: stateId });
+        const g = byState.get(stateId);
+        const key = p.crop_kind === "organization" ? "organization_ids" : "crop_ids";
+        const id = p.crop_id || p.organization_id;
+        if (id) (g[key] ||= []).push(id);
+      }
+      const placements = [...byState.values()].filter((g) => g.crop_ids || g.organization_ids);
+      const language = metadata.language || item.language;
+      if (placements.length === 0 || !language) {
+        toast.error("This item's placements/language couldn't be read — edit it, then try again");
+        return;
+      }
+
+      const result = await submitPendingUpload(file, fields, placements, language);
+      if (result?.warning) toast.warning(result.warning);
+      try {
+        await removeDashboardUpload(item.id);
+        setQueueItems((prev) => prev.filter((it) => it.id !== item.id));
+        toast.success("File re-uploaded");
+      } catch (err) {
+        toast.error(`New file queued, but the old item couldn't be removed — remove it manually (${err.message || "error"})`);
+      }
+      refetchUploads();
+      if (viewRef.current === "pending") refetchPending();
+    } catch (err) {
+      toast.error(err.message || "Re-upload failed");
+    } finally {
+      setReuploading(false);
+      setBusyUploadId(null);
+    }
+  }
+
   // Real cancellation, confirmed asynchronously by the backend — don't optimistically remove the
   // row, just mark it "stopping" and let a poll (the scheduled quick follow-up, or the shared
   // interval/manual refresh) discover it's actually gone from the active list.
@@ -724,19 +802,22 @@ export default function DocumentManagementPanel({
             </button>
           ))}
         </div>
-        {stats && (
-          <span className="text-[11px] text-muted-foreground">
-            {stats.documents?.toLocaleString?.() ?? stats.documents} placements ·{" "}
-            {stats.files?.toLocaleString?.() ?? stats.files} documents · {stats.states} states ·{" "}
-            {stats.crops} crops · {stats.translated} translated · {stats.reviewed} reviewed
-          </span>
-        )}
+        <div className="flex items-center gap-4">
+          {isAdmin && <TranslateSettingsToggle />}
+          {stats && (
+            <span className="text-[11px] text-muted-foreground">
+              {stats.documents?.toLocaleString?.() ?? stats.documents} placements ·{" "}
+              {stats.files?.toLocaleString?.() ?? stats.files} documents · {stats.states} states ·{" "}
+              {stats.crops} crops · {stats.translated} translated · {stats.reviewed} reviewed
+            </span>
+          )}
+        </div>
       </div>
 
       <div className={activeMode === "add-document" ? "" : "hidden"}>
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-4 items-start">
           <div className="w-full min-w-0">
-            <AddDocumentForm onUploadQueued={handleUploadQueued} />
+            <AddDocumentForm onUploadQueued={handleUploadQueued} disabled={reuploading} />
           </div>
           <div className="w-full min-w-0 flex flex-col gap-2">
             <div className="flex items-center justify-end">
@@ -762,6 +843,7 @@ export default function DocumentManagementPanel({
                   onResubmit={handleResubmitUpload}
                   onDiscard={handleDiscardUpload}
                   onRemove={handleRemoveUpload}
+                  onReupload={handleReuploadUpload}
                   onOpenDetail={openDetail}
                   busyId={busyUploadId}
                   processingIds={processingUploadIds}

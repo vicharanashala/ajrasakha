@@ -21,6 +21,7 @@ import React, { useCallback, useState } from "react";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCount } from "./utils/dashboardHelpers";
 
 type ClosedQuestionsCardProps = {
   closedQuestions: number;
@@ -145,7 +146,16 @@ export function ClosedQuestionsCard({
                       </button>
                     </div>
                     <span className="text-[10px] text-muted-foreground">
-                      {(totalQuestions ?? 0).toLocaleString()} total questions
+                      {(totalQuestions ?? 0) >= 10000 ? (
+                        <span
+                          className="cursor-help"
+                          title={`${(totalQuestions ?? 0).toLocaleString()} total questions`}
+                        >
+                          {formatCount(totalQuestions ?? 0)} total questions
+                        </span>
+                      ) : (
+                        `${(totalQuestions ?? 0).toLocaleString()} total questions`
+                      )}
                     </span>
                   </div>
                 </div>
@@ -510,17 +520,33 @@ function StatTile({
               {label}
             </span>
           </div>
-          <span className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
-            <CountUp end={count} duration={1.2} preserveValue />
+          <span
+            className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground"
+            title={count >= 10000 ? count.toLocaleString() : undefined}
+          >
+            <CountUp
+              end={count}
+              duration={1.2}
+              preserveValue
+              formattingFn={formatCount}
+            />
           </span>
         </motion.button>
       </TooltipTrigger>
       <TooltipContent
         side="top"
-        className={cn(showInfo ? "min-w-[200px] rounded-lg p-3" : "")}
+        className={cn(showInfo ? "min-w-[200px] rounded-lg p-3 z-[9999]" : "z-[9999]")}
       >
         {showInfo ? (
           <div className="space-y-1.5 text-xs">
+            {count >= 10000 && (
+              <div className="flex justify-between pb-1 mb-1 border-b border-border/50 font-semibold">
+                <span className="text-muted-foreground">Exact Total</span>
+                <span className="tabular-nums font-bold text-foreground">
+                  {count.toLocaleString()}
+                </span>
+              </div>
+            )}
             {(() => {
               const statusesObj = statusBreakup?.statuses ?? {};
               let entriesToShow: [string, number][] = [];
@@ -553,13 +579,22 @@ function StatTile({
                       .replace(/\b\w/g, (c) => c.toUpperCase())}
                   </span>
 
-                  <span className="font-medium">{String(value)}</span>
+                  <span className="font-medium" title={value >= 10000 ? value.toLocaleString() : undefined}>{formatCount(value)}</span>
                 </div>
               ));
             })()}
           </div>
         ) : (
-          <p className="text-xs">{tooltip}</p>
+          <div className="space-y-0.5">
+            {count >= 10000 && (
+              <div className="font-bold tabular-nums text-xs">
+                {count.toLocaleString()}
+              </div>
+            )}
+            <p className={cn("text-xs", count >= 10000 && "text-[11px] text-muted-foreground")}>
+              {tooltip}
+            </p>
+          </div>
         )}
       </TooltipContent>
     </Tooltip>

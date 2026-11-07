@@ -6,22 +6,21 @@ import { appConfig } from '#root/config/app.js';
 
 /**
  * Daily Activity Report Cron:
- * Runs every day at 12:00 AM (00:00) Asia/Kolkata (IST).
+ * Runs every day at 12:05 AM (00:05) Asia/Kolkata (IST).
  *
  * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST activity report
- * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
+ * for active review staff who have sendDailyReport enabled (Experts, Moderators, Gatekeepers, Auditors).
  * Primary recipient ('To'): user's email (the concern person).
  * Multiple CC recipients ('CC'): configured via ACTIVITY_REPORT_CC.
  *
- * Can run in-process or via Cloud Run Job `daily-activity-report` (src/jobs/daily-activity-report/run.ts).
+ * Can also run via Cloud Run Job `daily-activity-report` (src/jobs/daily-activity-report/run.ts).
  */
-// const ENABLE_INPROCESS_CRON = appConfig.enableDailyActivityReportCron;
 
 if (!appConfig.isDevelopment&& false) {
   cron.schedule(
-    '0 0 * * *',
+    '5 0 * * *',
     async () => {
-      console.log('📊 [CRON] Daily Activity Report Job Started (12:00 AM Asia/Kolkata)...');
+      console.log('📊 [CRON] Daily Activity Report Job Started (12:05 AM Asia/Kolkata)...');
       try {
         const container = getContainer();
         const userService = container.get<UserService>(GLOBAL_TYPES.UserService);

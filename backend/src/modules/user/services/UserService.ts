@@ -272,6 +272,7 @@ export class UserService extends BaseService {
         'mobile',
         'university',
         'kvkCovered',
+        'sendDailyReport',
       ] as const;
 
       const sanitizedData: Partial<IUser> = {};
@@ -1669,6 +1670,7 @@ export class UserService extends BaseService {
     });
 
     const sessions: UserSessionLog[] = [];
+    const activeIntervals: Array<{ start: number; end: number }> = [];
     let totalRevCycleMs = 0;
     const nowMs = Date.now();
     const startLimitMs = startDate.getTime();
@@ -1707,6 +1709,7 @@ export class UserService extends BaseService {
       const end = Math.min(toTime, endLimitMs);
 
       if (end > start) {
+        activeIntervals.push({ start, end });
         const sessionMs = end - start;
         totalRevCycleMs += sessionMs;
 
@@ -1736,6 +1739,7 @@ export class UserService extends BaseService {
       userId,
       startDate,
       endDate,
+      activeIntervals,
     );
 
     // Build PDF buffer
@@ -1758,6 +1762,12 @@ export class UserService extends BaseService {
       gatekeepedCount: metrics.gatekeepedCount,
       totalGatekeepingMs: metrics.totalGatekeepingMs,
       gdbPushedCount: metrics.gdbPushedCount,
+      reroutedCount: metrics.reroutedCount,
+      totalReroutingMs: metrics.totalReroutingMs,
+      expertReroutedCount: metrics.expertReroutedCount,
+      totalExpertReroutingMs: metrics.totalExpertReroutingMs,
+      heldCount: metrics.heldCount,
+      totalHoldingMs: metrics.totalHoldingMs,
       sessions,
     });
 
@@ -1845,7 +1855,7 @@ export class UserService extends BaseService {
   }
 
   /**
-   * Daily 12:00 AM IST batch job:
+   * Daily 12:05 AM IST batch job:
    * Generates and emails the previous day's [12:00 AM - 11:59 PM] IST Activity Report
    * for all active, non-blocked review staff (Experts, Moderators, Gatekeepers, Auditors).
    * Primary 'To' is the user's email (the concern person), and 'CC' contains configured CC recipients.
@@ -1877,7 +1887,7 @@ export class UserService extends BaseService {
     const endDateStr = `${dateStr}T23:59:59.999+05:30`;
 
     console.log(
-      `[sendDailyUserActivityReports] Generating reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
+      `[sendDailyUserActivityReports] Generating daily activity reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
     );
 
     // 2. Fetch all active review staff (excluding deactivated accounts and PAE users)
@@ -1905,9 +1915,62 @@ export class UserService extends BaseService {
         user.email ||
         'User';
 
+      if (user.sendDailyReport !== true) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): sendDailyReport is false or not set.`,
+        );
+        skipped++;
+        continue;
+      }
+
       if (!user.email || !user.email.includes('@')) {
         console.warn(
           `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): No valid email address.`,
+        );
+        skipped++;
+        continue;
+      }
+
+      // 3. User must have checked in on the target day
+      if (!user.lastCheckInAt) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): User has no check-in record.`,
+        );
+        skipped++;
+        continue;
+      }
+
+      const lastCheckInTime = new Date(user.lastCheckInAt).getTime();
+      const targetStartTime = new Date(startDateStr).getTime();
+      const targetEndTime = new Date(endDateStr).getTime();
+
+      let checkedInOnTargetDay =
+        lastCheckInTime >= targetStartTime && lastCheckInTime <= targetEndTime;
+
+      // In case lastCheckInAt has already progressed past target day (e.g. user checked in after midnight
+      // before 12:05 AM, or targetDateStr was provided for an earlier date), check if the user had an active
+      // session on the target day.
+      if (!checkedInOnTargetDay && lastCheckInTime > targetEndTime) {
+        const history = await this.userRepo.getUserHistory({
+          userId,
+          startDateTime: startDateStr,
+          endDateTime: endDateStr,
+        });
+        const hasSession = (history.roleHistory || []).some(
+          (item: any) =>
+            item.isBlocked !== true &&
+            item.from &&
+            new Date(item.from).getTime() <= targetEndTime &&
+            (!item.to || new Date(item.to).getTime() >= targetStartTime),
+        );
+        if (hasSession) {
+          checkedInOnTargetDay = true;
+        }
+      }
+
+      if (!checkedInOnTargetDay) {
+        console.log(
+          `[sendDailyUserActivityReports] Skipping user ${userName} (${userId}): User was not checked in on ${dateStr} (lastCheckInAt: ${new Date(user.lastCheckInAt).toISOString()}).`,
         );
         skipped++;
         continue;

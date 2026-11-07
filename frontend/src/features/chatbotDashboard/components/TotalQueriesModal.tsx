@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
@@ -55,8 +55,6 @@ const tabs: Array<{ label: string; value: QueryGranularity }> = [
   { label: "Weekly", value: "weekly" },
   { label: "Daily", value: "daily" },
 ];
-
-const fallbackFilterDate = new Date();
 
 function formatDateRangeDate(date: Date) {
   return date.toLocaleDateString("en-IN", {
@@ -139,32 +137,12 @@ function formatPeriod(period: string, granularity: QueryGranularity) {
   return formatWeeklyPeriod(period);
 }
 
-function parsePeriodDate(period: string, granularity: QueryGranularity) {
-  if (granularity === "weekly") {
-    return getWeekRange(period)?.weekStart ?? null;
-  }
-
-  const date =
-    granularity === "monthly"
-      ? new Date(`${period}-01T00:00:00`)
-      : new Date(`${period}T00:00:00`);
-
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getLatestFilterDate(
-  rows: AnalyticsEntry[],
-  granularity: QueryGranularity,
-) {
-  for (let index = rows.length - 1; index >= 0; index -= 1) {
-    const parsed = parsePeriodDate(rows[index].period, granularity);
-
-    if (parsed) {
-      return parsed;
-    }
-  }
-
-  return fallbackFilterDate;
+// Always open on the current month (current year for the monthly view).
+// Don't derive this from the analytics rows: the API returns them newest-first,
+// so "the last row" was actually the oldest period.
+function getDefaultFilterDate() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), 1);
 }
 
 function addMonths(date: Date, amount: number) {
@@ -249,22 +227,14 @@ export function TotalQueriesModal({
   icon,
   label,
   value,
-  analytics,
   source = "vicharanashala",
   userType = "all",
   summaries,
   renderChart,
 }: TotalQueriesModalProps) {
   const pageSize = 10;
-  const rows = useMemo(
-    () => analytics?.[granularity] ?? [],
-    [analytics, granularity],
-  );
-  const [selectedDate, setSelectedDate] = useState(() =>
-    getLatestFilterDate(rows, granularity),
-  );
+  const [selectedDate, setSelectedDate] = useState(getDefaultFilterDate);
   const [page, setPage] = useState(1);
-  const initialPageSet = useRef(false);
   const columns = useMemo(() => getColumns(granularity), [granularity]);
   const filterParam =
     granularity === "monthly"
@@ -321,25 +291,11 @@ export function TotalQueriesModal({
     },
   });
 
+  // Switching Daily / Weekly / Monthly goes back to the current period, first page.
   useEffect(() => {
-    setSelectedDate(getLatestFilterDate(rows, granularity));
-  }, [granularity, rows]);
-
-  useEffect(() => {
+    setSelectedDate(getDefaultFilterDate());
     setPage(1);
-    initialPageSet.current = false;
-  }, [granularity, selectedDate]);
-
-  useEffect(() => {
-    if (
-      queryAnalytics?.totalPages &&
-      queryAnalytics.totalPages > 0 &&
-      !initialPageSet.current
-    ) {
-      setPage(queryAnalytics.totalPages);
-      initialPageSet.current = true;
-    }
-  }, [queryAnalytics]);
+  }, [granularity]);
 
   const stepFilter = (direction: -1 | 1) => {
     setSelectedDate((current) =>
@@ -347,6 +303,8 @@ export function TotalQueriesModal({
         ? addYears(current, direction)
         : addMonths(current, direction),
     );
+    // Reset together with the period so we never request page N of a different month.
+    setPage(1);
   };
 
   const activeSummary = summaries?.[granularity];
@@ -565,7 +523,7 @@ export function TotalQueriesModal({
                       ? "Loading query analytics..."
                       : "No query analytics available for this period."
                   }
-                  className="max-h-[38vh]"
+                  className="max-h-[38vh] overflow-auto"
                 />
               </motion.div>
             </AnimatePresence>

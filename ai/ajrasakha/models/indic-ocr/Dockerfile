@@ -1,85 +1,59 @@
 # ============================================================
-# IndicOCR — Dockerfile
-# Multi-stage build that downloads model weights at build time
-# so the runtime image is self-contained.
-#
-# IMPORTANT: This model is gated. You need to:
-# 1. Accept the license at https://huggingface.co/bodhan-ai/indic-ocr
-# 2. Create a HF token at https://huggingface.co/settings/tokens
-# 3. Set HF_TOKEN secret in GitHub Actions
+# IndicOCR — Dockerfile (vLLM on CUDA 12)
 # ============================================================
 
-# ---- Build stage ----
+# ---- Build stage: fetch the gated model repo (code + weights) ----
 FROM python:3.11-slim AS builder
 
-ARG HF_TOKEN
+RUN pip install --no-cache-dir huggingface_hub
 
-WORKDIR /app
-
-# Install build dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        git curl ca-certificates git-lfs build-essential \
-    && rm -rf /var/lib/apt/lists/* \
-    && git lfs install
-
-# Create netrc for HuggingFace authentication
-RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
-    chmod 600 ~/.netrc
-
-# Set HF token env var
-ENV HF_TOKEN=${HF_TOKEN}
-
-# Clone and install the model package
-RUN git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
-    cd /tmp/indic-ocr && \
-    chmod +x install.sh && \
-    ./install.sh --extras all-ocr
-
-# Download model weights
-RUN python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr')"
+# Download repo using BuildKit secret
+RUN --mount=type=secret,id=hf_token \
+    export HF_TOKEN=$(cat /run/secrets/hf_token) && \
+    python -c "from huggingface_hub import snapshot_download; snapshot_download('bodhan-ai/indic-ocr', local_dir='/tmp/indic-ocr')"
 
 # ---- Runtime stage ----
-FROM nvidia/cuda:12.4.1-runtime-ubuntu22.04
+# The target GPU VM's driver supports CUDA 12.7 (torch reports "found version 12070"), and a CUDA 13
+# build fails on it with "NVIDIA driver on your system is too old". vLLM 0.32.0 is the last release
+# with a CUDA 12 build (0.33 is CUDA 13 only), and a 12.9 build runs on a 12.7 driver through
+# NVIDIA's minor version compatibility. Do not bump this tag until the driver is upgraded.
+#
+# This official image already has matching vllm, torch (cu129) and torchvision, plus transformers,
+# fastapi, uvicorn and pillow. Do not pip install torch or vllm on top of it.
+FROM vllm/vllm-openai:v0.32.0-cu129
 
-ARG HF_TOKEN
-
-ENV DEBIAN_FRONTEND=noninteractive \
-    PYTHONUNBUFFERED=1 \
+ENV PYTHONUNBUFFERED=1 \
     CUDA_VISIBLE_DEVICES=0 \
-    HF_HOME=/root/.cache/huggingface \
-    PYTHONPATH=/tmp/indic-ocr:$PYTHONPATH
+    PYTHONPATH=/tmp/indic-ocr \
+    VLLM_WORKER_MULTIPROC_METHOD=spawn
 
 WORKDIR /app
 
-# Install Python and runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-        python3.11 python3.11-dev python3.11-distutils \
-        libpython3.11 libgomp1 \
-        curl git git-lfs \
-    && rm -rf /var/lib/apt/lists/* \
-    && ln -sf /usr/bin/python3.11 /usr/bin/python \
-    && curl -LsSf https://astral.sh/uv/install.sh | sh
-
-ENV PATH="/root/.local/bin:${PATH}"
-
-# Clone and install the model package
-RUN printf "machine huggingface.co\nlogin user\npassword %s\n" "$HF_TOKEN" > ~/.netrc && \
-    chmod 600 ~/.netrc && \
-    git clone https://huggingface.co/bodhan-ai/indic-ocr /tmp/indic-ocr && \
-    cd /tmp/indic-ocr && \
-    chmod +x install.sh && \
-    ./install.sh --extras all-ocr
-
-# Copy pre-downloaded model weights
-COPY --from=builder /root/.cache/huggingface /root/.cache/huggingface
+# Copy model repo
+COPY --from=builder /tmp/indic-ocr /tmp/indic-ocr
 
 # Copy server
-COPY server.py /app/server.py
+COPY server.py vllm_recognizer.py /app/
+
+# The torchcodec in this image fails to load without CUDA 13's libnvrtc.so.13, and vLLM imports it
+# for audio even when it is never used. vLLM treats a missing torchcodec as "no audio decoder", but
+# does not catch the OSError from a broken one. OCR uses neither audio nor video.
+RUN python3 -m pip uninstall -y torchcodec
+
+# Fail the build, not the deployment, if the image stops providing what the server needs.
+# `import vllm` alone is lazy and proves nothing: it has to be the same import the server does.
+RUN command -v curl \
+    && python3 -c "import fastapi, uvicorn, python_multipart, PIL, torch, torchvision, transformers, vllm; \
+from vllm import LLM, SamplingParams; \
+assert torch.version.cuda.startswith('12.'), f'expected a CUDA 12 torch, got {torch.version.cuda}'; \
+print('torch', torch.__version__, 'cuda', torch.version.cuda, 'vllm', vllm.__version__, 'transformers', transformers.__version__)"
 
 EXPOSE 8000
 
-# Health check - model takes ~2-3 min to load
+# Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=180s --retries=3 \
     CMD curl -sf http://localhost:8000/health || exit 1
 
-CMD ["python", "/app/server.py"]
+# The base image's entrypoint is `vllm serve`.
+ENTRYPOINT []
+CMD ["python3", "/app/server.py"]

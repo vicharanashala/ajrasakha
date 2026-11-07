@@ -96,6 +96,7 @@ import { useAddUser } from "./hooks/useAddUser";
 import { useExportUserDetails } from "./hooks/useExportUserDetails";
 import { motion, AnimatePresence } from "framer-motion";
 import CountUp from "react-countup";
+import { formatCount } from "./utils/dashboardHelpers";
 import { Badge } from "@/components/atoms/badge";
 import { useDebounce } from "@/hooks/ui/useDebounce";
 import { useVerifyUserAnalytics } from "@/hooks/api/user/useVerifyUserAnalytics";
@@ -686,12 +687,13 @@ export function UserDetailsView({
                             <span className="text-muted-foreground">
                               Queries
                             </span>
-                            <span className="font-semibold tabular-nums text-primary">
+                            <span className="font-semibold tabular-nums text-primary" title={data.totalQueries >= 10000 ? data.totalQueries.toLocaleString() : undefined}>
                               <CountUp
                                 end={data.totalQueries}
                                 duration={1.2}
                                 separator=","
                                 preserveValue
+                                formattingFn={formatCount}
                               />
                             </span>
                           </div>

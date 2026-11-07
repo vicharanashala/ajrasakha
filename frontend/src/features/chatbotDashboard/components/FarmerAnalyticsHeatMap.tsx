@@ -36,6 +36,7 @@ import {
   type FarmerHeatMapResponse,
 } from "../hooks/useFarmerHeatMapAnalytics";
 import CountUp from "react-countup";
+import { formatCount } from "../utils/dashboardHelpers";
 import { QuestionActivityModal } from "./QuestionActivityModal";
 
 interface FarmerAnalyticsHeatMapProps {
@@ -903,11 +904,13 @@ export function FarmerAnalyticsHeatMap({
               initial={{ opacity: 0, y: -3 }}
               animate={{ opacity: 1, y: 0 }}
               className="tabular-nums"
+              title={selectedMetricTotal != null && selectedMetricTotal >= 10000 ? selectedMetricTotal.toLocaleString() : undefined}
             >
               <CountUp
                 end={selectedMetricTotal ?? 0}
                 duration={1.5}
                 preserveValue
+                formattingFn={formatCount}
               />
               {/* {formatValue(metric, selectedMetricTotal)} */}
             </motion.span>

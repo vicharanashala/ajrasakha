@@ -92,7 +92,13 @@ if (feedbackFilter && feedbackFilter !== 'all') {
 }
 
 
-  caseInsensitive("status", status);
+  // --- Status filter with special handling for static_dynamic ---
+  // When status is 'static_dynamic', filter by tag field instead of status field
+  if (status && status.toLowerCase() === 'static_dynamic') {
+    filter.tag = { $regex: '^static_dynamic$', $options: 'i' };
+  } else {
+    caseInsensitive("status", status);
+  }
   caseInsensitive("source", source);
   caseInsensitive("priority", priority);
 

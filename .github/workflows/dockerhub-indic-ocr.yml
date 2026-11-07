@@ -2,6 +2,12 @@ name: Dockerhub IndicOCR Model Deployment
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - feat/indic-ocr/driver-issue
+    paths:
+      - 'ai/ajrasakha/models/indic-ocr/**'
+      - '.github/workflows/dockerhub-indic-ocr.yml'
 
 permissions:
   contents: read
@@ -29,8 +35,20 @@ jobs:
           sudo rm -rf /opt/ghc
           sudo rm -rf "/usr/local/share/boost"
           sudo rm -rf "$AGENT_TOOLSDIRECTORY"
+          # The vLLM base image is about 11 GB compressed, so free as much as the runner allows
+          sudo rm -rf /usr/local/.ghcup /usr/local/share/powershell /usr/local/share/chromium /usr/local/lib/node_modules /usr/share/swift
           # Remove any existing Docker images to free space
           docker rmi $(docker images -q) || true
+          df -h
+
+      - name: Check HF_TOKEN secret
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN secret is not set (or not available to this run). It needs read access to bodhan-ai/indic-ocr."
+            exit 1
+          fi
 
       - name: Checkout
         uses: actions/checkout@v4
@@ -54,8 +72,9 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          build-args: |
-            HF_TOKEN=${{ secrets.HF_TOKEN }}
-          # Enable cache to speed up rebuilds
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # Passed as a BuildKit secret (not a build-arg) so it never lands in a layer or the GHA cache
+          secrets: |
+            hf_token=${{ secrets.HF_TOKEN }}
+          # Disable cache to force fresh build (important after Dockerfile changes)
+          # cache-from: type=gha
+          # cache-to: type=gha,mode=max
