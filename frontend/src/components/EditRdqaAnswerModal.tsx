@@ -25,7 +25,7 @@ import type { SourceItem } from "@/types";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
 import { toast } from "sonner";
 import { format } from "date-fns";
-import { BookOpen, ExternalLink, Pencil, Save, Loader2, X } from "lucide-react";
+import { BookOpen, ExternalLink, Pencil, Save, Loader2, X, Maximize2, Minimize2 } from "lucide-react";
 import type { RdqaQuestion } from "@/hooks/services/questionService";
 
 interface EditRdqaAnswerModalProps {
@@ -43,6 +43,7 @@ export const EditRdqaAnswerModal = ({
 }: EditRdqaAnswerModalProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [isAnswerExpanded, setIsAnswerExpanded] = useState(false);
   const [editedAnswer, setEditedAnswer] = useState(question?.answer?.answer ?? "");
   const [editedSources, setEditedSources] = useState<SourceItem[]>(
     question?.answer?.sources ?? []
@@ -126,7 +127,7 @@ export const EditRdqaAnswerModal = ({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+      <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col overflow-hidden">
         <DialogHeader className="flex-shrink-0">
           <DialogTitle className="flex items-center gap-2">
             <Pencil className="w-4 h-4" />
@@ -151,8 +152,8 @@ export const EditRdqaAnswerModal = ({
           </div>
         </div>
 
-        <ScrollArea className="flex-1 min-h-0 px-1">
-          <div className="space-y-6 py-2">
+        <ScrollArea className="flex-1 min-h-0 flex flex-col px-1">
+          <div className="space-y-6 py-2 flex-1">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <label className="text-sm font-medium text-foreground flex items-center gap-2">
@@ -168,13 +169,27 @@ export const EditRdqaAnswerModal = ({
               </div>
 
               {isEditing ? (
-                <Textarea
-                  value={editedAnswer}
-                  onChange={(e) => setEditedAnswer(e.target.value)}
-                  placeholder="Enter the corrected answer..."
-                  rows={8}
-                  className="w-full resize-none"
-                />
+                <div className="relative">
+                  <Textarea
+                    value={editedAnswer}
+                    onChange={(e) => setEditedAnswer(e.target.value)}
+                    placeholder="Enter the corrected answer..."
+                    rows={isAnswerExpanded ? 15 : 10}
+                    className="w-full resize-none pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setIsAnswerExpanded(!isAnswerExpanded)}
+                    className="absolute right-2 top-2 p-1.5 rounded-md hover:bg-muted transition-colors text-muted-foreground hover:text-foreground"
+                    title={isAnswerExpanded ? "Collapse" : "Expand"}
+                  >
+                    {isAnswerExpanded ? (
+                      <Minimize2 className="w-4 h-4" />
+                    ) : (
+                      <Maximize2 className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
               ) : (
                 <div className="rounded-lg border bg-card p-4">
                   <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed">
