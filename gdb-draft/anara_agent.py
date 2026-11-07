@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # a plain question takes the agent about 10 seconds, a broad one over 100; past this it is cancelled and the weaker
 # plain search is used. The backend waits 240 seconds, and the writer needs about 30 after the agent.
-AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "150"))
+AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "190"))
 POLL_SECONDS = 3
 # empty means Anara's own default ("Auto"), the model its web interface uses
 AGENT_MODEL = os.getenv("ANARA_AGENT_MODEL", "").strip()
