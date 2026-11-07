@@ -44,6 +44,13 @@ MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
 # multiplies total request latency far more than a once-per-request call
 # would.
 MINIMAX_COVERAGE_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_COVERAGE_TIMEOUT_SECONDS", "30"))
+# generate_polish and check_meaning_preserved (the rewrite + its second-
+# opinion check) get the same bump as classify_step_coverage, for the
+# identical reason - live-confirmed both failing at the shared 20s budget
+# on a similar-sized input (~4700-5000 chars). Each runs only once per
+# request (not 3x like step coverage), so raising this budget costs far
+# less total latency than raising MINIMAX_COVERAGE_TIMEOUT_SECONDS would.
+MINIMAX_POLISH_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_POLISH_TIMEOUT_SECONDS", "30"))
 # scripts/start.sh's tailscaled runs --tun=userspace-networking, which has
 # no real network interface - a 100.x address is only reachable through
 # the local SOCKS5 proxy it exposes, so llm_client.py routes through it

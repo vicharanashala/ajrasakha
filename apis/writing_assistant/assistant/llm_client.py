@@ -95,7 +95,9 @@ def generate_polish(draft_text: str) -> str:
         {"role": "system", "content": _POLISH_SYSTEM_PROMPT},
         {"role": "user", "content": draft_text},
     ]
-    content = _chat_completion(messages, temperature=0.0, call_name="generate_polish")
+    content = _chat_completion(
+        messages, temperature=0.0, call_name="generate_polish", timeout=config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    )
     return content.strip()
 
 
@@ -109,7 +111,9 @@ def check_meaning_preserved(original_text: str, rewrite_text: str) -> tuple[bool
         {"role": "system", "content": _SEMANTIC_CHECK_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
-    content = _chat_completion(messages, temperature=0.0, call_name="check_meaning_preserved")
+    content = _chat_completion(
+        messages, temperature=0.0, call_name="check_meaning_preserved", timeout=config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    )
     try:
         parsed = json.loads(content)
         return bool(parsed["changed"]), str(parsed.get("explanation", ""))
