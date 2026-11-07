@@ -6,8 +6,10 @@ import { persist } from "zustand/middleware";
 interface FestiveThemeStore {
   hiddenSeasonId: string | null;
   lastCelebratedOn: string | null;
+  greetingSeenSeasonId: string | null;
   setDecorationsHidden: (seasonId: string, hidden: boolean) => void;
   markCelebrated: (dateKey: string) => void;
+  markGreetingSeen: (seasonId: string) => void;
 }
 
 export const useFestiveThemeStore = create<FestiveThemeStore>()(
@@ -15,9 +17,11 @@ export const useFestiveThemeStore = create<FestiveThemeStore>()(
     (set) => ({
       hiddenSeasonId: null,
       lastCelebratedOn: null,
+      greetingSeenSeasonId: null,
       setDecorationsHidden: (seasonId, hidden) =>
         set({ hiddenSeasonId: hidden ? seasonId : null }),
       markCelebrated: (dateKey) => set({ lastCelebratedOn: dateKey }),
+      markGreetingSeen: (seasonId) => set({ greetingSeenSeasonId: seasonId }),
     }),
     { name: "festive-theme" },
   ),
