@@ -74,6 +74,16 @@ class TheAgentRun(unittest.TestCase):
         self.assertIn("white grubs, termites", prompt)
         self.assertIn("name its state", prompt)
 
+    def test_the_prompt_prefers_the_newest_edition(self):
+        prompt = anara_agent.build_prompt("wheat sprays?", "Wheat", "Punjab", None)
+        self.assertIn("newest edition", prompt)
+        self.assertIn("Never mix doses or products of different editions", prompt)
+
+    def test_the_prompt_falls_back_to_national_documents_when_the_state_gives_no_measure(self):
+        prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
+        self.assertIn("gives no control measure", prompt)
+        self.assertIn("NIPHM", prompt)
+
     def test_a_quick_failure_is_tried_once_more(self):
         from unittest.mock import patch
 

@@ -13,7 +13,10 @@
 #   POP_API_URL              the POP API (default below)
 #   GDB_DRAFT_GEMINI_MODEL   the Gemini model that writes the draft (default gemini-3.8-flash, the newest flash)
 #   ANARA_TOKEN_SECRET       where the service keeps its renewed Anara sign-in (default: the secret "anara-tokens"
-#                            in this project, which the step below creates and opens to the service)
+#                            in this project). Anara replaces its refresh key at every renewal, so the key in
+#                            ANARA_TOKENS_B64 goes stale; the service saves each new pair in this secret and starts
+#                            from the newer of the two. Create it once in Secret Manager (value {}) and give the
+#                            Cloud Run service account the roles Secret Manager Secret Accessor and Secret Version Adder.
 #
 # The backend needs the service address and the same token: set the repository secrets
 # GDB_DRAFT_URL (the Cloud Run URL of this service) and GDB_DRAFT_TOKEN, which
@@ -77,27 +80,6 @@ jobs:
         uses: google-github-actions/auth@v2
         with:
           credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
-
-      - name: Set up gcloud
-        uses: google-github-actions/setup-gcloud@v2
-
-      # Anara replaces the refresh token on every renewal, so the service must keep the newest pair somewhere that
-      # survives a restart. Without this, each deploy starts from the spent pair in ANARA_TOKENS_B64 and Anara
-      # answers "sign in again". The step creates the secret and lets the service read and add versions to it.
-      - name: Keep the Anara sign-in in Secret Manager
-        continue-on-error: true
-        run: |
-          PROJECT="${{ secrets.GCP_PROJECT_ID || env.GCP_PROJECT }}"
-          gcloud secrets describe anara-tokens --project "$PROJECT" >/dev/null 2>&1             || gcloud secrets create anara-tokens --project "$PROJECT" --replication-policy=automatic
-          ACCOUNT=$(gcloud run services describe "${{ env.GCP_SERVICE }}" --region "${{ env.GCP_REGION }}" --project "$PROJECT"             --format='value(spec.template.spec.serviceAccountName)' 2>/dev/null || true)
-          if [ -z "$ACCOUNT" ]; then
-            NUMBER=$(gcloud projects describe "$PROJECT" --format='value(projectNumber)')
-            ACCOUNT="${NUMBER}-compute@developer.gserviceaccount.com"
-          fi
-          for ROLE in roles/secretmanager.secretAccessor roles/secretmanager.secretVersionAdder; do
-            gcloud secrets add-iam-policy-binding anara-tokens --project "$PROJECT"               --member "serviceAccount:${ACCOUNT}" --role "$ROLE" >/dev/null
-          done
-          echo "The Anara sign-in is kept in projects/${PROJECT}/secrets/anara-tokens for ${ACCOUNT}"
 
       - name: Deploy to Cloud Run
         uses: google-github-actions/deploy-cloudrun@v1
