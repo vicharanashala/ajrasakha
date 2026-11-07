@@ -178,6 +178,9 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
             passages = from_sources + [p for p in library if p.get("passageId") not in taken]
             if not passages:  # the agent looked and found nothing: its own explanation is the best note
                 reason = anara_agent.plain_notes(researched["notes"]) or "The library has nothing for this question."
+                if researched.get("other_states"):
+                    reason = (f"The library has no {request.state} or national document that answers this. Documents of "
+                              f"other states were found ({', '.join(researched['other_states'])}) and not used.")
                 return {"answer": "", "citations": [], "note": " ".join([reason[:900]] + (["Source files not used: " + "; ".join(problems) + "."] if problems else []))}
             limit = anara_agent.MAX_PASSAGES  # the agent already chose which passages matter, so all of them are read
             passages = passages[:limit]

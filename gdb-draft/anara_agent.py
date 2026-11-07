@@ -170,9 +170,46 @@ def research(
             if attempt == 2 or time.time() - started > RETRY_ONLY_IF_FAILED_WITHIN:
                 logger.warning("using the plain library search instead")
                 return None
+    passages, other_states, dropped = _keep_state(passages, state)
     keep = {passage.get("passageId") for passage in passages}
-    notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", result.get("text") or "")
-    return {"passages": passages, "notes": _drop_narration(notes.strip())}
+    text = _drop_lines_of(result.get("text") or "", dropped)
+    notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", text)
+    return {"passages": passages, "notes": _drop_narration(notes.strip()), "other_states": other_states}
+
+
+def _keep_state(passages: list[dict[str, Any]], state: str | None) -> tuple[list[dict[str, Any]], list[str], set[str]]:
+    """The passages of the record's own state and of documents that name no state. The prompt asks the agent to
+    keep to these, but it does not always, so the rule is enforced here too: (kept, states left out, ids left out)."""
+    import anara_search
+
+    wanted = anara_search.canonical_state(state)
+    if not wanted:
+        return passages, [], set()
+    kept, other_states, dropped = [], set(), set()
+    for passage in passages:
+        found = anara_search.canonical_state(str(passage.get("documentName") or "").split("~")[0])
+        if found and found != wanted:
+            other_states.add(found)
+            dropped.add(passage.get("passageId"))
+        else:
+            kept.append(passage)
+    return kept, sorted(other_states), dropped
+
+
+NL = chr(10)
+
+
+def _drop_lines_of(text: str, dropped: set[str]) -> str:
+    """The text without the lines whose only sources are passages that were left out."""
+    if not dropped:
+        return text
+    lines = []
+    for line in text.split(NL):
+        ids = _TAG.findall(line)
+        if ids and all(i in dropped for i in ids):
+            continue
+        lines.append(line)
+    return NL.join(lines)
 
 
 RETRY_ONLY_IF_FAILED_WITHIN = 30

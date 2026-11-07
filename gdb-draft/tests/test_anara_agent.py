@@ -84,6 +84,24 @@ class TheAgentRun(unittest.TestCase):
         self.assertIn("gives no control measure", prompt)
         self.assertIn("NIPHM", prompt)
 
+    def test_passages_of_other_states_are_left_out_and_their_lines_dropped(self):
+        passages = [
+            {"passageId": "a", "documentName": "Andhra Pradesh__ANGRAU__Panchagam.pdf"},
+            {"passageId": "b", "documentName": "English__General__PACKAGE OF PRACTICES FOR CROPS.pdf"},
+            {"passageId": "c", "documentName": "Punjab__PAU__Rabi.pdf"},
+        ]
+        kept, others, dropped = anara_agent._keep_state(passages, "Rajasthan")
+        self.assertEqual([p["passageId"] for p in kept], ["b"])
+        self.assertEqual(others, ["Andhra Pradesh", "Punjab"])
+        self.assertEqual(dropped, {"a", "c"})
+        tag = lambda i: '<source type="passage">%s</source>' % i
+        text = "Kept fact " + tag("b") + "\nOther state fact " + tag("a") + "\nPlain line"
+        self.assertEqual(anara_agent._drop_lines_of(text, dropped), "Kept fact " + tag("b") + "\nPlain line")
+
+    def test_nothing_is_left_out_without_a_state(self):
+        passages = [{"passageId": "a", "documentName": "Andhra Pradesh__ANGRAU__Panchagam.pdf"}]
+        self.assertEqual(anara_agent._keep_state(passages, None), (passages, [], set()))
+
     def test_a_quick_failure_is_tried_once_more(self):
         from unittest.mock import patch
 
