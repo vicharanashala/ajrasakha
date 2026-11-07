@@ -41,7 +41,7 @@ How to work:
 - Cite every fact with the library passage it comes from.
 - The library can hold several editions of one package of practices (for example Rabi 2022-23 and Rabi 2025-26). Take the figures from the newest edition; use an older edition only for a point the newest does not cover, and name its year. Never mix doses or products of different editions.
 - Questions come in a farmer's words, the documents in technical ones. Before concluding that the library has nothing, search the technical names too: "ground worms" or "soil pests" also means white grubs, termites, cutworms, root weevils, root-feeding larvae and nematodes, and pests that pupate in the soil; "birds" also means parrots, sparrows and scaring or netting methods.
-- When the state's own package of practices gives no control measure for the pest or problem asked about (for example it only describes the pest), do not stop there. Search the national and other documents in the library (NIPHM or DPPQS integrated pest management packages, ICAR, university and TNAU pages) for what they recommend, and report it with the name of its document and state.
+- When the state's own package of practices gives no control measure for the pest or problem asked about (for example it only describes the pest), do not stop there. Search the national and other documents in the library (NIPHM or DPPQS integrated pest management packages, ICAR and other all-India documents; never another state's document) for what they recommend, and report it with the name of its document.
 - Use only my library. Do not use the web or papers, and add nothing from general knowledge.
 - Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
 - If the library has nothing for this crop in this state, say so plainly and say what it does have.
@@ -56,9 +56,8 @@ def build_prompt(
         lines.append(f"Crop: {crop}. A document about another crop does not answer this.")
     if state:
         lines.append(
-            f"State of the record: {state}. Prefer documents of this state and national documents. Another state's "
-            f"document may be used when none of this state's covers the point; name its state, and never present "
-            f"another state's advice as {state}'s."
+            f"State of the record: {state}. Use only documents of {state} and national (central government or "
+            f"all-India) documents. Never use a document of another state, even when it covers the point."
         )
     if domain:
         lines.append(f"Topic area: {domain}.")

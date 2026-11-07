@@ -137,6 +137,7 @@ WRITING_RULES = """Rules for writing the answer:
 - For chemicals, give the products the passages list for this crop, each with the dose and waiting period of ITS OWN table row. Never mix figures from different rows. If a waiting period is missing or not credible (for example over 100 days), leave it out. When products with different modes of action are given, suggest rotating them.
 - Never mention "the passages" or "the write-up". When the documents do not cover what was asked, say so once, naming the document (for example "The Punjab Package of Practices does not specify ..."), and then give what they do recommend.
 - When passages come from different editions or years of the same document, use the newest edition's figures; name the year when an older edition is used, and never mix figures of different editions.
+- Never name an individual person (officer, staff member, scientist or author), and give no personal phone number or e-mail; name the office or post instead.
 - After each sentence put only the one to three passage numbers that hold its facts, never a long run of numbers.
 - Mark advice that is optional or depends on the farmer's case.
 

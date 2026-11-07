@@ -21,7 +21,7 @@ class ThePrompt(unittest.TestCase):
         prompt = anara_agent.build_prompt("seed rate?", "Mustard", "Rajasthan", "Agronomy", ["src-1__POP.pdf"])
         for part in ("seed rate?", "Crop: Mustard", "State of the record: Rajasthan", "Topic area: Agronomy", "src-1__POP.pdf"):
             self.assertIn(part, prompt)
-        self.assertIn("never present another state's advice as Rajasthan's", prompt)
+        self.assertIn("Use only documents of Rajasthan and national", prompt)
         self.assertIn("Use only my library", prompt)
 
     def test_a_bare_question_still_makes_a_prompt(self):
@@ -69,10 +69,10 @@ class TheAgentRun(unittest.TestCase):
         self.assertEqual(anara_agent._drop_narration("Let me check.## Findings\nA"), "## Findings\nA")
         self.assertEqual(anara_agent._drop_narration("No heading here"), "No heading here")
 
-    def test_the_prompt_asks_for_farmer_words_and_other_states(self):
+    def test_the_prompt_asks_for_farmer_words_and_keeps_to_the_state(self):
         prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
         self.assertIn("white grubs, termites", prompt)
-        self.assertIn("name its state", prompt)
+        self.assertIn("Never use a document of another state", prompt)
 
     def test_the_prompt_prefers_the_newest_edition(self):
         prompt = anara_agent.build_prompt("wheat sprays?", "Wheat", "Punjab", None)
