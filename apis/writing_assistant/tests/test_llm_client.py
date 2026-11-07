@@ -259,3 +259,43 @@ def test_classify_step_coverage_uses_its_own_timeout_budget(monkeypatch):
     llm_client.classify_step_coverage("draft text", "a step", "an example")
     assert seen["timeout"] == config.MINIMAX_COVERAGE_TIMEOUT_SECONDS
     assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+# generate_polish and check_meaning_preserved each run once per request
+# (not 3x like step coverage) - live-confirmed both failing at the shared
+# 20s budget on a similar-sized (~4700-5000 char) input, so they share a
+# dedicated budget, same reasoning as classify_step_coverage's.
+def test_generate_polish_uses_the_polish_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "polished text"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.generate_polish("draft text")
+    assert seen["timeout"] == config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+def test_check_meaning_preserved_uses_the_polish_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"changed": false}'}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.check_meaning_preserved("original", "rewrite")
+    assert seen["timeout"] == config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS

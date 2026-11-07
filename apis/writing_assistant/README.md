@@ -204,6 +204,7 @@ Copy `.env.example` to `.env` and fill in:
 | `MINIMAX_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. |
 | `MINIMAX_TIMEOUT_SECONDS` | `20` | Per-call budget, tuned for the self-hosted model (live-measured 2-7s typical). Override to `90` if using the public-API fallback instead - that path is much slower. |
 | `MINIMAX_COVERAGE_TIMEOUT_SECONDS` | `30` | Budget just for `classify_step_coverage` - live-confirmed a larger-than-typical draft can exceed the shared 20s budget on both the initial attempt and the retry. Kept conservative rather than raised further: this call runs up to 3x per expected step, so raising it multiplies total request latency far more than a once-per-request call would. |
+| `MINIMAX_POLISH_TIMEOUT_SECONDS` | `30` | Budget for `generate_polish` and `check_meaning_preserved` - live-confirmed both failing at the shared 20s budget on a similar-sized input. Each runs once per request, so this costs far less total latency than raising `MINIMAX_COVERAGE_TIMEOUT_SECONDS` would. |
 | `TAILSCALE_AUTHKEY` / `TAILSCALE_HOSTNAME` | — / `writing-assistant` | Only needed when `MINIMAX_BASE_URL` is the self-hosted tailnet model. Leave unset to use the public MiniMax API instead - the container boots fine either way (see Deployment below). |
 | `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. |
 
