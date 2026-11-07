@@ -242,7 +242,7 @@ export class GdbCleaningService implements IGdbCleaningService {
     const sources = (current.sources ?? [])
       .filter(item => item.source)
       .map(item => ({url: item.source, name: item.sourceName ?? ''}));
-    return draftFromLibrary(current.question, current.crop, sources, current.domain ?? null);
+    return draftFromLibrary(current.question, current.crop, sources, current.domain ?? null, current.state ?? null);
   }
 
   // The PDF a citation points to, so a reviewer can open the cited page.

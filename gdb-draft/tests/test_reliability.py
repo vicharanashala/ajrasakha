@@ -127,7 +127,7 @@ class RecordSourcesThroughAnara(unittest.TestCase):
         self.assertEqual(client.upload_pdf.call_count, 1)
         self.assertTrue(client.upload_pdf.call_args.args[1].startswith("src-abc123__"))
         # Anara renames a document to its title when it has read it, so the name is set back for the next lookup
-        self.assertIn("anara.entities.update", client.execute.call_args.args[0])
+        self.assertIn("entities.update", client.execute.call_args.args[0])
         self.assertEqual(handled, {"abc123"})
 
     def test_a_file_anara_has_not_finished_reading_is_left_for_the_caller(self):

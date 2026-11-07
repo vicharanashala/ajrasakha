@@ -1,0 +1,23 @@
+services:
+  - type: web
+    name: ajrasakha-live-weather-api
+    runtime: python
+    rootDir: apis/weather_apis
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.9
+      - key: WS_NEAREST_SENSORS_BASE_URL
+        value: https://5mqwg03znl.execute-api.us-east-1.amazonaws.com
+      - key: WS_MAX_DISTANCE_KM
+        value: "10.0"
+      - key: IMD_CITY_BASE
+        value: http://100.100.108.101:18080/city/api
+      - key: WEATHER_CACHE_TTL_SECONDS
+        value: "300.0"
+      - key: FALLBACK_MAX_DISTANCE_KM
+        value: "50.0"
+
