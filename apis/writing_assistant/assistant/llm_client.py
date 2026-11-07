@@ -282,7 +282,9 @@ def classify_step_coverage(
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
-    content = _chat_completion(messages, temperature=0.0, call_name="classify_step_coverage")
+    content = _chat_completion(
+        messages, temperature=0.0, call_name="classify_step_coverage", timeout=config.MINIMAX_COVERAGE_TIMEOUT_SECONDS
+    )
     try:
         parsed = json.loads(content)
         coverage = StepCoverage(parsed["coverage"])

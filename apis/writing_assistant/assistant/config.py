@@ -63,6 +63,16 @@ MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
 # the other, lighter, much-more-frequent calls (classify_step_coverage is
 # called 3x per step) are tuned against.
 MINIMAX_SELECTION_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_SELECTION_TIMEOUT_SECONDS", "40"))
+# classify_step_coverage also gets its own budget, slightly above the
+# shared default rather than matching classify_and_select's - live-
+# confirmed it can fail both the initial attempt and the retry at 20s on
+# a larger-than-typical input (a longer draft and/or step list pushes it
+# past 20s, observed failing at ~21s both times). Kept more conservative
+# than MINIMAX_SELECTION_TIMEOUT_SECONDS on purpose: this call runs up to
+# 3x per expected step (majority vote) - often 15-30 calls per request -
+# so raising its budget multiplies total request latency far more than
+# raising classify_and_select's (called once per request) did.
+MINIMAX_COVERAGE_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_COVERAGE_TIMEOUT_SECONDS", "30"))
 # scripts/start.sh's tailscaled runs --tun=userspace-networking, which has
 # no real network interface - a 100.x address is only reachable through
 # the local SOCKS5 proxy it exposes, so llm_client.py routes through it
