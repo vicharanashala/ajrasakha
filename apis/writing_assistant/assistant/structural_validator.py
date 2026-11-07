@@ -1,23 +1,27 @@
-"""Structural validation: resolve the right reference (reference_selector),
-score per-step coverage against the draft, and summarize into one of the
-five statuses. Never generates new agricultural content and never fills a
-missing step - it only identifies coverage, using the reference's own
-Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
-"Separate responsibilities").
+"""Structural validation: score the draft's coverage of one fixed,
+domain-neutral checklist of expected steps (FIXED_STEPS below), using LLM
+reasoning to judge real content validity per step - not just presence.
+Never generates new agricultural content and never fills a missing step,
+only identifies coverage (Writing Assistant Build Plan, "Separate
+responsibilities").
+
+Simplified by explicit team decision: no CSV-based domain/topic/crop
+matching - the same fixed checklist is used for every request, regardless
+of subject. The Golden Database CSVs this project used to match against
+(reference_data.py, reference_selector.py - both removed) were only ever
+an EXAMPLE of the shape of a human-approved full written answer, used to
+design the checklist and system prompt below - never meant to be a live,
+per-question reference lookup.
 """
 
 import logging
 from collections import Counter
 
-from . import llm_client, reference_data, reference_selector, text_checks
+from . import llm_client, text_checks
 from .result_cache import ResultCache
 from .models import (
     LLMUnavailableError,
-    MatchedReference,
-    ReferenceDataset,
     ReferenceStep,
-    ReferenceStructure,
-    SourceType,
     StepCoverage,
     StepCoverageResult,
     StructuralValidationResult,
@@ -26,21 +30,13 @@ from .models import (
 
 log = logging.getLogger("writing_assistant.structural_validator")
 
-# Team requirement: a question/answer pair from a domain the Golden
-# Database doesn't cover must still get a real structural check, not just
-# needs_clarification - but only when nothing matched at all (reference_
-# selector.SelectionOutcome.no_match), never for a genuine conflict
-# between two real candidates or a failed classification call (see that
-# module's docstring - neither of those means "this topic isn't covered").
-# One fixed, domain-neutral template, not a per-topic one: reused as-is
-# for every unmatched question regardless of subject, by explicit team
-# decision. Wording is deliberately generalized off a concrete pest-
-# management example the team gave (Introduction / major-or-minor /
-# identification / severity / action threshold / escalating response
-# options / safety / conclusion) rather than reusing pest-specific terms
-# (e.g. "chemical control") that wouldn't fit a non-pest topic like a
-# scheme or soil-health question.
-_GENERIC_FALLBACK_STEPS = [
+# One fixed, domain-neutral checklist, used for every request regardless
+# of subject (explicit team decision, not a per-topic template). Wording
+# is generalized off a concrete pest-management example the team gave
+# (Introduction / major-or-minor / identification / severity / action
+# threshold / escalating response options / safety / conclusion) so it
+# reads sensibly for any agricultural advisory topic, not just pests.
+FIXED_STEPS = [
     ReferenceStep(
         sl_no=1, step="Introduction",
         example="States the specific problem or question being addressed and gives a brief overview of "
@@ -48,48 +44,48 @@ _GENERIC_FALLBACK_STEPS = [
         suggestion_1="Name the specific issue or topic directly instead of opening with generic background.",
     ),
     ReferenceStep(
-        sl_no=2, step="Severity or Importance",
+        sl_no=2, step="Is this a major or minor problem",
         example="Explains how significant, urgent, or widespread this issue typically is, so the reader "
         "understands how much it matters.",
         suggestion_1="State plainly whether this is generally a major or minor concern.",
     ),
     ReferenceStep(
-        sl_no=3, step="Confirm the Specifics First",
+        sl_no=3, step="Confirm the identification first",
         example="Helps the reader confirm exactly what they are dealing with (the specific pest, disease, "
         "situation, or eligibility condition) before acting on the rest of the answer.",
         suggestion_1="Give concrete signs or criteria the reader can check to confirm this applies to them.",
     ),
     ReferenceStep(
-        sl_no=4, step="Impact if Not Addressed",
+        sl_no=4, step="Severity - impact if uncontrolled",
         example="Describes the concrete consequences of leaving the issue unaddressed.",
         suggestion_1="State the specific downside of not acting, not just that it 'should be addressed'.",
     ),
     ReferenceStep(
-        sl_no=5, step="Decision Point - When to Act",
-        example="Gives a clear threshold or trigger for when the reader should actually take action, "
-        "rather than acting on every small occurrence.",
+        sl_no=5, step="Decision point - when to move to chemical control",
+        example="Gives a clear threshold or trigger for when the reader should actually take the strongest "
+        "action, rather than acting on every small occurrence.",
         suggestion_1="State a specific threshold, condition, or signal, not just 'if needed'.",
     ),
     ReferenceStep(
-        sl_no=6, step="Lower-Intervention Options First",
+        sl_no=6, step="Cultural control",
         example="Describes the least invasive, lowest-cost, or most preventive measures appropriate to "
         "this specific topic, to try before anything stronger.",
         suggestion_1="Name at least one concrete preventive or low-intervention measure for this topic.",
     ),
     ReferenceStep(
-        sl_no=7, step="Supporting or Alternative Measures",
+        sl_no=7, step="Biological control",
         example="Describes additional measures beyond the lowest-intervention option - alternative "
         "approaches or supporting actions appropriate to the topic.",
         suggestion_1="Name a specific supporting measure, distinct from the previous step.",
     ),
     ReferenceStep(
-        sl_no=8, step="Direct or Strongest Action (Once Warranted)",
+        sl_no=8, step="Chemical control (once threshold crossed)",
         example="Describes the strongest or most direct action to take once the decision threshold from "
         "the earlier step is actually crossed.",
         suggestion_1="Make clear this is conditional on the threshold being crossed, and name the action.",
     ),
     ReferenceStep(
-        sl_no=9, step="Safety, Compliance, or Precautions",
+        sl_no=9, step="Safety and PHI",
         example="States any safety precautions, compliance requirements, or official rules the reader "
         "must follow while carrying out the recommended action.",
         suggestion_1="Name a concrete precaution or compliance requirement specific to this action.",
@@ -101,19 +97,6 @@ _GENERIC_FALLBACK_STEPS = [
         suggestion_1="End with an explicit, concrete closing recommendation, distinct from the introduction.",
     ),
 ]
-
-
-def _generic_fallback_structure(question: str) -> ReferenceStructure:
-    # question (the author's own, real question) stands in for a matched
-    # reference's own canonical question - there's no single curated
-    # "subject" here by design, so classify_step_coverage's off-topic
-    # check is grounded in the actual question instead.
-    return ReferenceStructure(
-        source_type=SourceType.GENERIC_FALLBACK,
-        question=question,
-        full_written_answer="",
-        steps=_GENERIC_FALLBACK_STEPS,
-    )
 
 # Deliberately low bar: only overrides toward "missing" when a step's own
 # topic shares fewer than this many significant words with *any single*
@@ -173,12 +156,12 @@ def _vote_step_coverage(
     draft_text: str,
     step: ReferenceStep,
     all_step_names: list[str],
-    reference_subject: str,
+    question: str,
 ) -> tuple[StepCoverage, int | None]:
     """One failed vote no longer fails the whole step (or, previously, the
     whole request) - live-confirmed the self-hosted model's rare per-call
     stall becomes near-certain to hit AT LEAST ONE of the ~30 coverage
-    calls a longer draft needs (10 steps x 3 votes), so a single call's
+    calls a full request needs (10 steps x 3 votes), so a single call's
     retry-exhausted failure must degrade gracefully, not abort everything.
     Only when every one of this step's votes fails is there truly nothing
     to go on - that step alone becomes NOT_ASSESSED; every other step
@@ -187,7 +170,7 @@ def _vote_step_coverage(
     for _ in range(_COVERAGE_VOTES):
         try:
             votes.append(
-                llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, reference_subject)
+                llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, question)
             )
         except LLMUnavailableError as exc:
             log.warning("a coverage vote for step %r failed, continuing with the remaining votes: %s", step.step, exc)
@@ -234,12 +217,12 @@ def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[
     return False
 
 
-def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list[StepCoverageResult], list[int | None]]:
+def score_coverage(draft_text: str, question: str) -> tuple[list[StepCoverageResult], list[int | None]]:
     results = []
     section_indices: list[int | None] = []
-    all_step_names = [s.step for s in structure.steps]
-    for step in structure.steps:
-        coverage, section_index = _vote_step_coverage(draft_text, step, all_step_names, structure.question)
+    all_step_names = [s.step for s in FIXED_STEPS]
+    for step in FIXED_STEPS:
+        coverage, section_index = _vote_step_coverage(draft_text, step, all_step_names, question)
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only
         # ever downgrades toward "missing", never promotes away from it.
@@ -249,7 +232,7 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
         # avoid.
         if (
             coverage not in (StepCoverage.MISSING, StepCoverage.NOT_ASSESSED)
-            and not _has_textual_evidence(step, draft_text, structure.steps)
+            and not _has_textual_evidence(step, draft_text, FIXED_STEPS)
         ):
             coverage = StepCoverage.MISSING
             section_index = None
@@ -309,40 +292,10 @@ def _order_warnings(steps: list[StepCoverageResult], section_indices: list[int |
     return warnings
 
 
-def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset | None) -> StructuralValidationResult:
-    if dataset is None:
-        return StructuralValidationResult(
-            status=StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE,
-            clarification_reason="Reference data could not be loaded or failed validation. "
-            "Structural validation was not performed.",
-        )
-
-    outcome = reference_selector.select_reference(question, dataset)
-    if outcome.structure is None:
-        if not outcome.no_match:
-            # A real conflict between candidates, or the classification
-            # call itself failing - neither means "this topic isn't
-            # covered", so neither gets the generic fallback.
-            return StructuralValidationResult(status=outcome.status, clarification_reason=outcome.reason)
-        structure = _generic_fallback_structure(question)
-    else:
-        structure = outcome.structure
-    # score_coverage() no longer raises LLMUnavailableError - a step whose
-    # every vote fails becomes NOT_ASSESSED instead (see
-    # _vote_step_coverage), so one bad call can no longer abort the whole
-    # validation the way it used to.
-    steps, section_indices = score_coverage(draft_text, structure)
-
-    matched_reference = MatchedReference(
-        source_type=structure.source_type,
-        domain=structure.domain,
-        code=structure.code,
-        question_type=structure.question_type,
-        crop=structure.crop,
-    )
+def validate_structure(question: str, draft_text: str) -> StructuralValidationResult:
+    steps, section_indices = score_coverage(draft_text, question)
     return StructuralValidationResult(
         status=_summarize(steps),
-        matched_reference=matched_reference,
         steps=steps,
         order_warnings=_order_warnings(steps, section_indices),
     )
@@ -359,29 +312,22 @@ def validate_structure_cached(question: str, draft_text: str) -> StructuralValid
     ISS-04/ISS-11) for the literal repeated-request case the real test
     report exercised (RL-01/02/03, QT-01 vs AS-01 vs AG-02 with the same
     text). Not a staleness risk - (question, draft) is the cache key, so
-    a changed draft is a cache miss by construction; a reference-data
-    reload still requires a process restart regardless (unaffected -
-    see 'Production release consistency'). Does not and cannot make the
-    model's judgment on two *different*-but-similar drafts consistent
-    with each other.
+    a changed draft is a cache miss by construction. Does not and cannot
+    make the model's judgment on two *different*-but-similar drafts
+    consistent with each other.
 
-    Only complete/partial/incomplete are cached - needs_clarification and
-    reference_data_unavailable can both stem from a transient failure
-    (an LLM call erroring, not a genuine "no match"), and caching that
-    would permanently stick a bad answer to this input until the next
-    restart (Revision 18). A result with any NOT_ASSESSED step is the
-    same kind of transient failure wearing a "partial"/"incomplete"
-    status - also excluded from caching for the identical reason, even
-    though every *other* step in it may be a perfectly good, stable
-    judgment. Tests must clear this between cases - see conftest.py."""
+    A result with any NOT_ASSESSED step is excluded from caching - it's a
+    transient failure (an LLM call erroring, not a genuine judgment)
+    wearing a "partial"/"incomplete" status, and caching it would
+    permanently stick a bad answer to this input until the next restart
+    (Revision 18), even though every *other* step in it may be a
+    perfectly good, stable judgment. Tests must clear this between cases
+    - see conftest.py."""
     def _compute():
-        dataset = reference_data.get_cached_dataset()
-        return validate_structure(question, draft_text, dataset)
+        return validate_structure(question, draft_text)
 
     def _is_stable(r: StructuralValidationResult) -> bool:
-        if r.status in (StructuralValidationStatus.NEEDS_CLARIFICATION, StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE):
-            return False
-        return not any(s.coverage == StepCoverage.NOT_ASSESSED for s in r.steps or [])
+        return not any(s.coverage == StepCoverage.NOT_ASSESSED for s in r.steps)
 
     return _cache.get_or_compute((question, draft_text), _compute, _is_stable)
 
