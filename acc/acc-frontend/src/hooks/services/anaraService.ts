@@ -26,12 +26,22 @@ export class AnaraService {
    * Drafts an answer grounded in the POP library with passage citations.
    * Timeout set to 180s to accommodate LLM reasoning and retrieval.
    */
-  async draft(question: string, crop?: string | null, domain?: string | null): Promise<AnaraDraftResponse> {
+  async draft(
+    question: string,
+    crop?: string | null,
+    domain?: string | null,
+    state?: string | null,
+  ): Promise<AnaraDraftResponse> {
     const result = await apiFetch<AnaraDraftResponse>(
       `${this.baseUrl}/draft`,
       {
         method: "POST",
-        body: JSON.stringify({ question, crop: crop || null, domain: domain || null }),
+        body: JSON.stringify({
+          question,
+          crop: crop || null,
+          domain: domain || null,
+          state: state || null,
+        }),
       },
       180000
     );

@@ -102,17 +102,16 @@ const DOMAIN_OPTIONS = [
   "NA / Invalid Data",
 ];
 
-// Auto-select season based on current month
+// Auto-select season based on 3-season Indian agricultural calendar:
+// Kharif: Jun–Oct | Rabi: Nov–Feb | Zaid: Mar–May
 const getAutoSelectedSeason = (): string => {
   const currentMonth = new Date().getMonth() + 1; // 1-12
-  if (currentMonth >= 4 && currentMonth <= 8) {
+  if (currentMonth >= 6 && currentMonth <= 10) {
     return "Kharif";
-  } else if (currentMonth >= 9 && currentMonth <= 12) {
-    return "Rabi";
-  } else if (currentMonth >= 1 && currentMonth <= 3) {
+  } else if (currentMonth >= 11 || currentMonth <= 2) {
     return "Rabi";
   } else {
-    return "Kharif";
+    return "Zaid";
   }
 };
 
@@ -597,7 +596,7 @@ export const CallInterface = () => {
   const [editableBlock, setEditableBlock] = useState("");
   const [editableVillage, setEditableVillage] = useState("");
   const [editableDomain, setEditableDomain] = useState<string[]>([]);
-  const [editableSeason, setEditableSeason] = useState("");
+  const [editableSeason, setEditableSeason] = useState<string>(getAutoSelectedSeason);
 
   // Multiple extracted query cards state
   const [queryCards, setQueryCards] = useState<Array<{
@@ -750,7 +749,7 @@ export const CallInterface = () => {
     if (card) {
       setEditableQuery(card.query || "");
       setEditableCrop(card.crop || "");
-      setEditableSeason(card.season || "");
+      setEditableSeason(card.season || getAutoSelectedSeason());
       setEditableState(card.state || "");
       setEditableDistrict(card.district || "");
       setEditableBlock(card.block || "");
@@ -909,7 +908,7 @@ export const CallInterface = () => {
     setEditableBlock("");
     setEditableVillage("");
     setEditableDomain([]);
-    setEditableSeason("");
+    setEditableSeason(getAutoSelectedSeason());
     setQueryCards([]);
     setActiveQueryIndex(0);
     setIsSimulatingMode(false);
@@ -1035,7 +1034,7 @@ export const CallInterface = () => {
     setEditableBlock("Yavatmal");
     setEditableVillage("Arni");
     setEditableDomain([]);
-    setEditableSeason("");
+    setEditableSeason(getAutoSelectedSeason());
     setQueryCards([]);
     setActiveQueryIndex(0);
 
@@ -1782,7 +1781,7 @@ export const CallInterface = () => {
                 setEditableBlock("");
                 setEditableVillage("");
                 setEditableDomain([]);
-                setEditableSeason("");
+                setEditableSeason(getAutoSelectedSeason());
                 setQueryCards([]);
                 setActiveQueryIndex(0);
                 setIsSimulatingMode(false);
@@ -2636,10 +2635,12 @@ export const CallInterface = () => {
                         variant="outline"
                         size="sm"
                         onClick={() => setIsAiDraftModalOpen(true)}
-                        disabled={!editableQuery.trim()}
-                        className="ml-auto h-10 px-3.5 text-xs md:text-sm font-bold border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+                        disabled={!editableQuery.trim() || !editableCrop.trim()}
+                        className="ml-auto h-10 px-3.5 text-xs md:text-sm font-bold border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
                         title={
-                          currentCardDraft?.answer
+                          !editableQuery.trim() || !editableCrop.trim()
+                            ? "Both Query and Crop are mandatory to enable AI Draft"
+                            : currentCardDraft?.answer
                             ? "View generated AI draft (cached for this query)"
                             : "Draft grounded answer from Package of Practices library"
                         }
@@ -3004,6 +3005,16 @@ export const CallInterface = () => {
         query={editableQuery}
         crop={editableCrop}
         domain={editableDomain?.[0]}
+        state={
+          editableState?.trim() ||
+          activeProfileRef.current?.state ||
+          activeProfileRef.current?.stateName ||
+          extractedFarmerProfile?.state ||
+          extractedFarmerProfile?.stateName ||
+          farmerProfile?.state ||
+          farmerProfile?.stateName ||
+          null
+        }
         initialDraft={currentCardDraft}
         onDraftChange={handleSaveDraft}
       />

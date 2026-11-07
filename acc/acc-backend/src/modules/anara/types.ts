@@ -14,7 +14,12 @@ export interface AnaraDraftResponse {
 }
 
 export interface IAnaraService {
-  draft(question: string, crop?: string | null, domain?: string | null): Promise<AnaraDraftResponse>;
+  draft(
+    question: string,
+    crop?: string | null,
+    domain?: string | null,
+    state?: string | null,
+  ): Promise<AnaraDraftResponse>;
   getDocumentPdf(documentId: string): Promise<Buffer>;
 }
 

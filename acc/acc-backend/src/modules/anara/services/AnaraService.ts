@@ -19,7 +19,12 @@ export class AnaraService implements IAnaraService {
    * Drafts an answer from the Package of Practices (POP) library via Anara.
    * Calls POST /draft on the Anara service.
    */
-  async draft(question: string, crop?: string | null, domain?: string | null): Promise<AnaraDraftResponse> {
+  async draft(
+    question: string,
+    crop?: string | null,
+    domain?: string | null,
+    state?: string | null,
+  ): Promise<AnaraDraftResponse> {
     const trimmedQuestion = (question || '').trim();
     if (!trimmedQuestion) {
       throw new InternalServerError('Question cannot be empty for Anara draft');
@@ -27,10 +32,11 @@ export class AnaraService implements IAnaraService {
 
     const trimmedCrop = crop ? crop.trim() : null;
     const trimmedDomain = domain ? domain.trim() : undefined;
+    const trimmedState = state ? state.trim() : null;
     const url = `${this.baseUrl}/draft`;
 
     try {
-      console.log(`[AnaraService] Requesting draft from ${url} (crop: ${trimmedCrop || 'none'}, domain: ${trimmedDomain || 'none'})...`);
+      console.log(`[AnaraService] Requesting draft from ${url} (crop: ${trimmedCrop || 'none'}, state: ${trimmedState || 'none'}, domain: ${trimmedDomain || 'none'})...`);
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -45,6 +51,7 @@ export class AnaraService implements IAnaraService {
         body: JSON.stringify({
           question: trimmedQuestion,
           crop: trimmedCrop || null,
+          state: trimmedState || null,
           ...(trimmedDomain ? { domain: trimmedDomain } : {}),
         }),
         signal: AbortSignal.timeout(DRAFT_TIMEOUT_MS),

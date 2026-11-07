@@ -31,6 +31,7 @@ interface AiDraftModalProps {
   onClose: () => void;
   query: string;
   crop?: string | null;
+  state?: string | null;
   domain?: string | null;
   initialDraft?: AnaraDraftResponse | null;
   onDraftChange?: (draft: AnaraDraftResponse) => void;
@@ -42,6 +43,7 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
   onClose,
   query,
   crop,
+  state,
   domain,
   initialDraft,
   onDraftChange,
@@ -63,8 +65,8 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
   const isFetchingRef = useRef(false);
 
   const fetchDraft = async () => {
-    if (!query?.trim()) {
-      setError("Please enter or select a query to draft an answer.");
+    if (!query?.trim() || !crop?.trim()) {
+      setError("Both Query and Crop are required to generate an AI draft.");
       setLoading(false);
       return;
     }
@@ -83,7 +85,8 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
       const response = await anaraService.draft(
         query.trim(),
         crop?.trim() || null,
-        domain?.trim() || null
+        domain?.trim() || null,
+        state?.trim() || null
       );
       setData(response);
       setAnswerText(response.answer || "");
@@ -348,6 +351,11 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
               {crop}
             </Badge>
           )}
+          {state && (
+            <Badge variant="outline" className="text-xs bg-amber-50 dark:bg-amber-950/50 text-amber-700 dark:text-amber-300 border-amber-300 dark:border-amber-700 font-semibold px-2 py-0.5">
+              {state}
+            </Badge>
+          )}
         </div>
 
         {/* Main Body: Fixed to remaining viewport height, overflow-hidden on outer container */}
@@ -584,7 +592,7 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
               variant="outline"
               size="sm"
               onClick={fetchDraft}
-              disabled={loading || !query?.trim()}
+              disabled={loading || !query?.trim() || !crop?.trim()}
               className="h-8 text-xs cursor-pointer border-zinc-300 dark:border-zinc-700"
               title="Force re-generate draft from POP library"
             >

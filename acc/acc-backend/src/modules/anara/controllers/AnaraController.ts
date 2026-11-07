@@ -19,6 +19,7 @@ import type { IAnaraService, AnaraDraftResponse } from '../types.js';
 class DraftBodyDto {
   question!: string;
   crop?: string | null;
+  state?: string | null;
   domain?: string | null;
 }
 
@@ -48,7 +49,12 @@ export class AnaraController {
       throw new BadRequestError('Question is required');
     }
 
-    return await this.anaraService.draft(body.question, body.crop, body.domain);
+    return await this.anaraService.draft(
+      body.question,
+      body.crop,
+      body.domain,
+      body.state,
+    );
   }
 
   @Get('/documents/:documentId/pdf')
