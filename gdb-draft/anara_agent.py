@@ -39,6 +39,7 @@ How to work:
 - Read tables row by row (crop, pest or disease, product, dose, waiting period or interval) and take each product's dose and waiting period from its own row. Never mix the figures of different rows.
 - Report every relevant fact with its figures: doses, timings, intervals, waiting periods, conditions.
 - Cite every fact with the library passage it comes from.
+- The library can hold several editions of one package of practices (for example Rabi 2022-23 and Rabi 2025-26). Take the figures from the newest edition; use an older edition only for a point the newest does not cover, and name its year. Never mix doses or products of different editions.
 - Questions come in a farmer's words, the documents in technical ones. Before concluding that the library has nothing, search the technical names too: "ground worms" or "soil pests" also means white grubs, termites, cutworms, root weevils, root-feeding larvae and nematodes, and pests that pupate in the soil; "birds" also means parrots, sparrows and scaring or netting methods.
 - Use only my library. Do not use the web or papers, and add nothing from general knowledge.
 - Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
