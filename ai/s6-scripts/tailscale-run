@@ -1,10 +1,16 @@
 #!/bin/bash
 set -e
 
+# DEBUG: Print all environment variables to understand what's available
+echo "========== ENVIRONMENT DEBUG =========="
+echo "All env vars containing TAILSCALE:"
+env | grep -i tailscale || echo "No TAILSCALE env vars found"
+echo "========================================"
+
 # Check if TAILSCALE_AUTHKEY is provided - if not, skip Tailscale entirely
 # Tailscale is OPTIONAL: the LangGraph API can still work without it
 if [ -z "$TAILSCALE_AUTHKEY" ]; then
-    echo "TAILSCALE_AUTHKEY is not set - skipping Tailscale startup."
+    echo "TAILSCALE_AUTHKEY is empty (length: ${#TAILSCALE_AUTHKEY}) - skipping Tailscale startup."
     echo "The API will start without tailnet connectivity."
     # Sleep forever so s6-overlay keeps this service alive (but doing nothing)
     sleep infinity

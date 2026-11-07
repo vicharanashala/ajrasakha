@@ -11,6 +11,8 @@
 #
 # Build args (set during docker build):
 #   TAILSCALE_AUTHKEY  - Auth key (tskey-auth-...) from Tailscale admin console
+#                        Note: This is set at build time and CAN be overridden
+#                        at runtime by Cloud Run env vars (runtime takes precedence)
 #
 # Runtime environment variables:
 #   TS_HOSTNAME        - Optional hostname for this instance (default: ajrasakha-langgraph)
