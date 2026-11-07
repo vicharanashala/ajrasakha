@@ -182,13 +182,19 @@ def test_llm_missing_is_never_promoted_by_the_textual_check(monkeypatch, dataset
     assert all(s.coverage == StepCoverage.MISSING for s in result.steps)
 
 
-def test_coverage_scoring_unavailable_needs_clarification(monkeypatch, dataset):
+def test_coverage_scoring_unavailable_for_every_vote_marks_every_step_not_assessed(monkeypatch, dataset):
+    # Every single vote call fails - a single bad call no longer aborts
+    # the whole request (see _vote_step_coverage), so this now reports
+    # every step as NOT_ASSESSED rather than failing the whole response
+    # into needs_clarification.
     def _raise(draft, step, example, all_steps=None, subject=None):
         raise LLMUnavailableError("simulated outage")
 
     monkeypatch.setattr(llm_client, "classify_step_coverage", _raise)
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
-    assert result.status == StructuralValidationStatus.NEEDS_CLARIFICATION
+    assert result.status == StructuralValidationStatus.PARTIAL
+    assert all(s.coverage == StepCoverage.NOT_ASSESSED for s in result.steps)
+    assert result.matched_reference is not None  # selection itself still succeeded
 
 
 # Revision 16 (ISS-05, continued): confirmed live that a closing
@@ -243,11 +249,37 @@ def test_validate_structure_cached_does_not_cache_needs_clarification(monkeypatc
     from assistant import reference_data
 
     monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
+    monkeypatch.setattr(
+        llm_client, "classify_and_select",
+        lambda **kw: SelectionClassification(domain=None),  # unresolved -> needs_clarification
+    )
+
+    first = structural_validator.validate_structure_cached("q3", _REALISTIC_DRAFT)
+    second = structural_validator.validate_structure_cached("q3", _REALISTIC_DRAFT)
+
+    assert first.status == StructuralValidationStatus.NEEDS_CLARIFICATION
+    assert second.status == StructuralValidationStatus.NEEDS_CLARIFICATION
+    assert first is not second  # recomputed, not served from cache
+
+
+# A NOT_ASSESSED step is the same kind of transient failure wearing a
+# "partial" status - also must never be cached, or a bad answer sticks to
+# this input until restart even though a later identical request would
+# succeed cleanly.
+def test_validate_structure_cached_does_not_cache_a_not_assessed_step(monkeypatch, dataset):
+    from assistant import reference_data
+
+    monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
     calls = {"count": 0}
 
     def _classify_step_coverage(draft, step, example, all_steps=None, subject=None):
         calls["count"] += 1
-        if calls["count"] == 1:
+        # Every vote for "Correction" fails on the first computation only
+        # (calls 1-6 cover "Introduction" x3 + "Correction" x3, in
+        # whichever order score_coverage visits them) - the second
+        # validate_structure_cached call must recompute fresh, not reuse
+        # a stale NOT_ASSESSED result.
+        if step == "Correction" and calls["count"] <= 6:
             raise LLMUnavailableError("simulated transient timeout")
         return (StepCoverage.COVERED, 1)
 
@@ -256,9 +288,10 @@ def test_validate_structure_cached_does_not_cache_needs_clarification(monkeypatc
     first = structural_validator.validate_structure_cached("q2", _REALISTIC_DRAFT)
     second = structural_validator.validate_structure_cached("q2", _REALISTIC_DRAFT)
 
-    assert first.status == StructuralValidationStatus.NEEDS_CLARIFICATION
+    assert first.status == StructuralValidationStatus.PARTIAL
+    assert any(s.coverage == StepCoverage.NOT_ASSESSED for s in first.steps)
     assert second.status == StructuralValidationStatus.COMPLETE
-    assert calls["count"] > 1  # the failed first attempt was retried, not cached
+    assert first is not second  # not served from cache
 
 
 # ISS-04/11 mitigation: the underlying model is not fully reproducible
@@ -287,12 +320,30 @@ def test_vote_step_coverage_three_way_split_takes_the_most_cautious(monkeypatch)
     assert result == (StepCoverage.MISSING, None)
 
 
-def test_vote_step_coverage_single_dependency_failure_propagates(monkeypatch):
-    # No retrying-around a real outage here - one failed vote fails the
-    # whole step immediately, same as the pre-voting single-call behavior.
+# Live-confirmed on real traffic: a longer draft needs ~30 coverage calls
+# per request (10 steps x 3 votes), and the self-hosted model's rare
+# per-call stall becomes near-certain to hit at least one of them - so a
+# single failed vote must no longer fail the whole step (or request).
+def test_vote_step_coverage_one_failed_vote_still_uses_the_other_two(monkeypatch):
+    # 2 real votes agree, 1 fails; majority of the votes that actually
+    # came back wins.
+    calls = {"n": 0}
+
+    def _side_effect(*a, **kw):
+        calls["n"] += 1
+        if calls["n"] == 2:
+            raise LLMUnavailableError("simulated outage")
+        return (StepCoverage.COVERED, 1)
+
+    monkeypatch.setattr(llm_client, "classify_step_coverage", _side_effect)
+    result = structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    assert result == (StepCoverage.COVERED, 1)
+
+
+def test_vote_step_coverage_all_votes_failing_returns_not_assessed(monkeypatch):
     def _raise(*a, **kw):
         raise LLMUnavailableError("simulated outage")
 
     monkeypatch.setattr(llm_client, "classify_step_coverage", _raise)
-    with pytest.raises(LLMUnavailableError):
-        structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    result = structural_validator._vote_step_coverage("draft", _VOTE_STEP, ["Introduction"], "q")
+    assert result == (StepCoverage.NOT_ASSESSED, None)

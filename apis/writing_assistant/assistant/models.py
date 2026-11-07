@@ -171,6 +171,14 @@ class StepCoverage(str, Enum):
     COVERED = "covered"
     PARTIAL = "partial"
     MISSING = "missing"
+    # Every majority-vote call for this step failed (self-hosted model
+    # timeout) - distinct from MISSING on purpose, same reasoning as
+    # CheckStatus.NOT_RUN above: "could not verify" must never be
+    # reported as "confirmed absent" (Writing Assistant Build Plan,
+    # ISS-01/03's "never conflate" principle, applied here too). A draft
+    # that genuinely covers this step would otherwise be told it's
+    # missing just because the LLM stalled on it.
+    NOT_ASSESSED = "not_assessed"
 
 
 class StepCoverageResult(CamelModel):

@@ -34,6 +34,25 @@ def test_skipped_due_to_incomplete_structure_rejects_a_complete_result():
         operations.skipped_due_to_incomplete_structure(structural_result)
 
 
+# A NOT_ASSESSED step means a check failed, not that the step is actually
+# missing/partial - the reason text must say so distinctly, never lump it
+# in with a real gap (same "never conflate" principle NOT_ASSESSED exists
+# for in the first place).
+def test_skipped_due_to_incomplete_structure_distinguishes_unconfirmed_from_gaps():
+    structural_result = StructuralValidationResult(
+        status=StructuralValidationStatus.PARTIAL,
+        steps=[
+            StepCoverageResult(sl_no=1, step="Diagnose", coverage=StepCoverage.MISSING, example="ex"),
+            StepCoverageResult(sl_no=2, step="Apply treatment", coverage=StepCoverage.NOT_ASSESSED, example="ex2"),
+        ],
+    )
+
+    result = operations.skipped_due_to_incomplete_structure(structural_result)
+
+    assert "missing or partial step(s): Diagnose" in result.reason
+    assert "could not be checked due to a failed dependency: Apply treatment" in result.reason
+
+
 def test_polish_draft_suggests_on_clean_grammar_fix(monkeypatch):
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: "The treatment is effective when farmers apply it correctly.")
     monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
