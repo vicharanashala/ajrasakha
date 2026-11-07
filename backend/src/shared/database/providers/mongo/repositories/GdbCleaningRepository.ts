@@ -49,7 +49,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   private static toObjectId(id: string): ObjectId {
     if (!ObjectId.isValid(id)) {
-      throw new BadRequestError(`Invalid answer id "${id}"`);
+      throw new BadRequestError(`Invalid id "${id}"`);
     }
     return new ObjectId(id);
   }
@@ -177,6 +177,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   async saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
     pushedBefore?: string,
   ): Promise<IGdbCleaning | null> {
@@ -185,6 +186,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
       return await this.collection.findOneAndUpdate(
         {
           answerId: GdbCleaningRepository.toObjectId(answerId),
+          questionId: GdbCleaningRepository.toObjectId(questionId),
           status: {$in: ['todo', 'clean', 'fixed']},
         },
         {
@@ -226,6 +228,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
 
   async saveSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     originalSources: IGdbCleaningSource[],
     reviewerId: string,
@@ -233,7 +236,11 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
+        {
+          answerId: GdbCleaningRepository.toObjectId(answerId),
+          questionId: GdbCleaningRepository.toObjectId(questionId),
+          status: {$in: ['todo', 'clean']},
+        },
         {
           $set: {
             sources,

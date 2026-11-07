@@ -567,4 +567,34 @@ export class CropRepository implements ICropRepository {
       throw new InternalServerError(`Failed to find chemical by name or alias: ${error.message}`);
     }
   }
+
+  // ─── GET ALL NORMALISED CROPS (FOR DROPDOWN / REASSIGNMENT) ────────────────
+
+  async getAllNormalisedCrops(): Promise<ICrop[]> {
+    try {
+      if (!this.CropCollection) await this.init();
+
+      const crops = await this.CropCollection.find(
+        { $or: [{ type: 'crop' }, { type: { $exists: false } }] },
+        {
+          projection: {
+            _id: 1,
+            name: 1,
+            scientificName: 1,
+            aliases: 1,
+            type: 1,
+          },
+        },
+      )
+        .sort({ name: 1 })
+        .toArray();
+
+      return crops.map(crop => ({
+        ...crop,
+        _id: crop._id?.toString(),
+      })) as ICrop[];
+    } catch (error: any) {
+      throw new InternalServerError(`Failed to fetch normalised crops: ${error.message}`);
+    }
+  }
 }

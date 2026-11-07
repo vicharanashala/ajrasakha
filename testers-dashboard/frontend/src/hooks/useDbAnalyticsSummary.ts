@@ -18,6 +18,8 @@ export const useDbAnalyticsSummary = (
     dynamicSubTypes: string[] = [],
     typeBranch: string = "all",
     staticSubTypes: string[] = [],
+    customStartTime: string = "",
+    customEndTime: string = "",
 ) => {
     const query: IDbAnalyticsEntriesQuery = {
         dateRange: filters.dateRange,
@@ -30,6 +32,8 @@ export const useDbAnalyticsSummary = (
         severity: filters.severity,
         customStart: customStart || undefined,
         customEnd: customEnd || undefined,
+        customStartTime: customStartTime || undefined,
+        customEndTime: customEndTime || undefined,
         dynamicSubTypes: dynamicSubTypes.length > 0 ? dynamicSubTypes.join(",") : undefined,
         typeBranch,
         staticSubTypes: staticSubTypes.length > 0 ? staticSubTypes.join(",") : undefined,

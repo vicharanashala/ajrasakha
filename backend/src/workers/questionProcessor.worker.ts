@@ -88,7 +88,7 @@ const notificationRepo = new NotificationRepository(database);
 await (notificationRepo as any).init();
 const cropRepo = new CropRepository(database);
 await (cropRepo as any).init();
-const notificationService = new NotificationService(notificationRepo, database);
+const notificationService = new NotificationService(notificationRepo, userRepo, database);
 const aiService = new AiService();
 
 const {DuplicateQuestionRepository} =

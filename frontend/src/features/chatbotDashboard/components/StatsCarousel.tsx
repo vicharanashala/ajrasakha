@@ -5,16 +5,21 @@
 // by horizontal swipe/drag (native scroll + snap) or via the prev/next arrow
 // buttons; nothing is resized to force extra cards into the same row.
 import { Children, useCallback, useEffect, useRef, useState } from "react";
-import type { ReactNode } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type StatsCarouselProps = {
   children: ReactNode;
   className?: string;
+  visibleCount?: number;
 };
 
-export function StatsCarousel({ children, className }: StatsCarouselProps) {
+export function StatsCarousel({
+  children,
+  className,
+  visibleCount = 3,
+}: StatsCarouselProps) {
   const trackRef = useRef<HTMLDivElement>(null);
   const items = Children.toArray(children);
   const [canScrollPrev, setCanScrollPrev] = useState(false);
@@ -39,15 +44,16 @@ export function StatsCarousel({ children, className }: StatsCarouselProps) {
     const track = trackRef.current;
     if (!track) return;
     const card = track.children[0] as HTMLElement | undefined;
-    const step = (card?.offsetWidth ?? track.clientWidth / 3) + 24; // card width + gap-6
+    const step =
+      (card?.offsetWidth ?? track.clientWidth / visibleCount) + 24; // card width + gap-6
     track.scrollBy({ left: direction * step, behavior: "smooth" });
-  }, []);
+  }, [visibleCount]);
 
   if (items.length === 0) return null;
 
   return (
     <div className={cn("relative", className)}>
-      {items.length > 3 && (
+      {items.length > visibleCount && (
         <div className="mb-2 flex items-center justify-end gap-1.5">
           <button
             type="button"
@@ -73,12 +79,17 @@ export function StatsCarousel({ children, className }: StatsCarouselProps) {
       <div
         ref={trackRef}
         onScroll={updateScrollState}
+        style={
+          {
+            "--stats-card-width": `calc(${100 / visibleCount}% - ${((visibleCount - 1) * 1.5) / visibleCount}rem)`,
+          } as CSSProperties
+        }
         className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory pb-1 [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((child, index) => (
           <div
             key={index}
-            className="grid w-full shrink-0 snap-start lg:w-[calc(33.333%-1rem)]"
+            className="grid w-full shrink-0 snap-start lg:w-[var(--stats-card-width)]"
           >
             {child}
           </div>

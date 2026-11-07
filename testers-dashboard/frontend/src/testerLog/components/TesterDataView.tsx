@@ -8,6 +8,7 @@ import {
     ChevronsLeft,
     ChevronsRight,
     CircleCheckBig,
+    Clock,
     Download,
     FileText,
     Loader2,
@@ -149,6 +150,8 @@ export function TesterDataView() {
     const [datePreset, setDatePreset] = useState<DatePreset>(DEFAULT_DATE_PRESET);
     const [customStart, setCustomStart] = useState("");
     const [customEnd, setCustomEnd] = useState("");
+    const [customStartTime, setCustomStartTime] = useState("");
+    const [customEndTime, setCustomEndTime] = useState("");
     const [typeOfQuestion, setTypeOfQuestion] = useState(ALL);
     const [channelTested, setChannelTested] = useState(ALL);
     const [overallTestStatus, setOverallTestStatus] = useState(ALL);
@@ -179,6 +182,8 @@ export function TesterDataView() {
         testerId: testerId === ALL ? undefined : testerId,
         startDate,
         endDate,
+        startTime: datePreset === "custom" && customStartTime ? customStartTime : undefined,
+        endTime: datePreset === "custom" && customEndTime ? customEndTime : undefined,
         typeOfQuestion: typeOfQuestion === ALL ? undefined : typeOfQuestion,
         channelTested: channelTested === ALL ? undefined : channelTested,
         overallTestStatus: overallTestStatus === ALL ? undefined : overallTestStatus,
@@ -208,6 +213,8 @@ export function TesterDataView() {
         datePreset === DEFAULT_DATE_PRESET &&
         !customStart &&
         !customEnd &&
+        !customStartTime &&
+        !customEndTime &&
         typeOfQuestion === ALL &&
         channelTested === ALL &&
         overallTestStatus === ALL &&
@@ -218,6 +225,8 @@ export function TesterDataView() {
         setDatePreset(DEFAULT_DATE_PRESET);
         setCustomStart("");
         setCustomEnd("");
+        setCustomStartTime("");
+        setCustomEndTime("");
         setTypeOfQuestion(ALL);
         setChannelTested(ALL);
         setOverallTestStatus(ALL);
@@ -365,6 +374,24 @@ export function TesterDataView() {
                                 className="h-8 w-full text-sm border rounded-md px-2 bg-transparent"
                                 value={customEnd}
                                 onChange={(e) => { setCustomEnd(e.target.value); setPage(1); }}
+                            />
+                        </FilterField>
+                        <FilterField icon={Clock} label="Start Time" className="max-w-[240px]">
+                            <input
+                                type="time"
+                                step="1"
+                                className="h-8 w-full text-sm border rounded-md px-2 bg-transparent"
+                                value={customStartTime}
+                                onChange={(e) => { setCustomStartTime(e.target.value); setPage(1); }}
+                            />
+                        </FilterField>
+                        <FilterField icon={Clock} label="End Time" className="max-w-[240px]">
+                            <input
+                                type="time"
+                                step="1"
+                                className="h-8 w-full text-sm border rounded-md px-2 bg-transparent"
+                                value={customEndTime}
+                                onChange={(e) => { setCustomEndTime(e.target.value); setPage(1); }}
                             />
                         </FilterField>
                     </div>

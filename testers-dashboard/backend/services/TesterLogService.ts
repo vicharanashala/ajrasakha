@@ -20,6 +20,7 @@ import { getTodayIST } from '../testersDashboard/normalize.js';
 import {
     DAILY_TARGETS_PER_TESTER,
     calendarDaysBetween,
+    isOnHold,
     summarizeEntries,
     workingDaysFor,
 } from './adminSummaryTargets.js';
@@ -1066,6 +1067,8 @@ export class TesterLogService implements ITesterLogService {
         dateField?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
@@ -1080,6 +1083,8 @@ export class TesterLogService implements ITesterLogService {
             undefined,
             search,
             status,
+            startTime,
+            endTime,
         );
 
         const [entries, total] = await Promise.all([
@@ -1115,6 +1120,8 @@ export class TesterLogService implements ITesterLogService {
         defectSeverity?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Record<string, any> {
         const filter: Record<string, any> = testerId ? { submittedByUserId: testerId } : {};
         const dateFilter = buildDateFilter(startDate, endDate, dateField);
@@ -1127,6 +1134,34 @@ export class TesterLogService implements ITesterLogService {
         if (defectSeverity) filter.defectSeverity = defectSeverity;
 
         const extraConditions: any[] = [];
+        if (startTime || endTime) {
+            const timeConds: any[] = [];
+            if (startTime) {
+                const sFull = startTime.length === 5 ? `${startTime}:00` : startTime;
+                const sShort = startTime.slice(0, 5);
+                timeConds.push({
+                    $or: [
+                        { timeQuestionAsked: { $gte: sFull } },
+                        { $and: [{ timeQuestionAsked: { $gte: sShort } }, { timeQuestionAsked: { $regex: /^\d{2}:\d{2}$/ } }] },
+                    ],
+                });
+            }
+            if (endTime) {
+                const eFull = endTime.length === 5 ? `${endTime}:59` : endTime;
+                const eShort = endTime.slice(0, 5);
+                timeConds.push({
+                    $or: [
+                        { timeQuestionAsked: { $lte: eFull } },
+                        { $and: [{ timeQuestionAsked: { $lte: eShort } }, { timeQuestionAsked: { $regex: /^\d{2}:\d{2}$/ } }] },
+                    ],
+                });
+            }
+            if (timeConds.length === 1) {
+                extraConditions.push(timeConds[0]);
+            } else if (timeConds.length > 1) {
+                extraConditions.push({ $and: timeConds });
+            }
+        }
         if (status && status !== 'all') {
             const s = status.trim().toLowerCase();
             if (s === 'pass') {
@@ -1198,6 +1233,8 @@ export class TesterLogService implements ITesterLogService {
         defectSeverity?: string,
         search?: string,
         status?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<PaginatedTesterLogEntries> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
@@ -1212,6 +1249,8 @@ export class TesterLogService implements ITesterLogService {
             defectSeverity,
             search,
             status,
+            startTime,
+            endTime,
         );
 
         const [entries, total] = await Promise.all([
@@ -1259,6 +1298,8 @@ export class TesterLogService implements ITesterLogService {
         channelTested?: string,
         overallTestStatus?: string,
         defectSeverity?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterLogSummary> {
         await this.ensureIndexes();
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
@@ -1267,12 +1308,14 @@ export class TesterLogService implements ITesterLogService {
         const fullFilter = this.buildEntryFilter(
             testerId, startDate, endDate, dateField,
             typeOfQuestion, channelTested, overallTestStatus, defectSeverity,
+            undefined, undefined, startTime, endTime,
         );
         // Ignores any Overall Test Status filter - see TesterLogSummary's
         // passRate comment for why.
         const filterForPassRate = this.buildEntryFilter(
             testerId, startDate, endDate, dateField,
             typeOfQuestion, channelTested, undefined, defectSeverity,
+            undefined, undefined, startTime, endTime,
         );
 
         const [totalEntries, entriesInRange, passCount, statusRecordedCount, onHoldCount] = await Promise.all([
@@ -1282,7 +1325,7 @@ export class TesterLogService implements ITesterLogService {
             collection.countDocuments({ ...filterForPassRate, overallTestStatus: { $nin: [null, ''] } }),
             collection.countDocuments({
                 ...fullFilter,
-                $or: [{ overallTestStatus: 'On Hold' }, { status: 'On Hold' }],
+                $or: [{ overallTestStatus: { $in: ['On Hold', 'on hold', 'onhold', 'On-Hold'] } }, { status: { $in: ['On Hold', 'on hold', 'onhold', 'On-Hold'] } }],
             }),
         ]);
 
@@ -1375,9 +1418,24 @@ export class TesterLogService implements ITesterLogService {
         testerId?: string,
         startDate?: string,
         endDate?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterQuestionTypeSummaryResult> {
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
-        const filter = this.buildEntryFilter(testerId, startDate, endDate);
+        const filter = this.buildEntryFilter(
+            testerId,
+            startDate,
+            endDate,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            startTime,
+            endTime,
+        );
         const entries: TesterLogEntry[] = await collection.find(filter).toArray();
 
         const { rangeStart, rangeEnd } = await this.resolveSummaryRange(collection, startDate, endDate);
@@ -1387,8 +1445,8 @@ export class TesterLogService implements ITesterLogService {
         if (testerId) {
             // Single tester selected - entries are already scoped to them,
             // and no roster lookup is needed (active or not).
-            const { overall, webApp, whatsApp, byType, uncategorizedCount } = summarizeEntries(entries, workingDays, 1);
-            return { ...range, headcount: 1, overall, webApp, whatsApp, byType, uncategorizedCount, byTester: undefined };
+            const { overall, webApp, whatsApp, byType, uncategorizedCount, onHoldCount, totalLogged } = summarizeEntries(entries, workingDays, 1);
+            return { ...range, headcount: 1, overall, webApp, whatsApp, byType, uncategorizedCount, onHoldCount, totalLogged, byTester: undefined };
         }
 
         // Group by tester - for each row's counts and the informational
@@ -1398,7 +1456,7 @@ export class TesterLogService implements ITesterLogService {
             { testerName: string; testerNameAt: Date; rows: TesterLogEntry[] }
         >();
         for (const entry of entries) {
-            const id = entry.submittedByUserId;
+            const id = String(entry.submittedByUserId ?? '');
             const existing = byTesterId.get(id);
             const createdAt = entry.createdAt instanceof Date ? entry.createdAt : new Date(entry.createdAt);
             if (!existing) {
@@ -1426,25 +1484,29 @@ export class TesterLogService implements ITesterLogService {
             const fromEntries = byTesterId.get(id);
             const fromRoster = activeTesters.find((t) => t.id === id);
             const rows = fromEntries?.rows ?? [];
-            const { overall, counts } = summarizeEntries(rows, workingDays, 1);
+            const { overall, counts, onHoldCount, uncategorizedCount, totalLogged } = summarizeEntries(rows, workingDays, 1);
+            const activeRows = rows.filter((r) => !isOnHold(r));
             return {
                 testerId: id,
                 testerName: fromRoster?.name || fromEntries?.testerName || id,
                 // Informational only (distinct days this tester actually
                 // logged something) - not what the target scales by.
-                daysWorked: new Set(rows.map((r) => r.testDate).filter(Boolean)).size,
+                daysWorked: new Set(activeRows.map((r) => r.testDate).filter(Boolean)).size,
                 counts,
                 target: overall.target,
                 actual: overall.actual,
                 achievementPct: overall.achievementPct,
+                onHold: onHoldCount,
+                uncategorized: uncategorizedCount,
+                totalLogged,
             };
         }).sort((a, b) => a.testerName.localeCompare(b.testerName));
 
         // Headcount × the per-tester targets: the same as adding up each
         // row's own target above, since every tester shares workingDays.
         const headcount = testerRows.length;
-        const { overall, webApp, whatsApp, byType, uncategorizedCount } = summarizeEntries(entries, workingDays, headcount);
-        return { ...range, headcount, overall, webApp, whatsApp, byType, uncategorizedCount, byTester: testerRows };
+        const { overall, webApp, whatsApp, byType, uncategorizedCount, onHoldCount, totalLogged } = summarizeEntries(entries, workingDays, headcount);
+        return { ...range, headcount, overall, webApp, whatsApp, byType, uncategorizedCount, onHoldCount, totalLogged, byTester: testerRows };
     }
 
     async getMySummary(
@@ -1452,13 +1514,24 @@ export class TesterLogService implements ITesterLogService {
         startDate?: string,
         endDate?: string,
         dateField?: string,
+        startTime?: string,
+        endTime?: string,
     ): Promise<TesterLogSummaryResponse> {
         const collection = await this.db.getCollection<TesterLogEntry>(COLLECTION);
-        const filter: Record<string, any> = { submittedByUserId: userId };
-        const dateFilter = buildDateFilter(startDate, endDate, dateField);
-        if (dateFilter) {
-            Object.assign(filter, dateFilter);
-        }
+        const filter = this.buildEntryFilter(
+            userId,
+            startDate,
+            endDate,
+            dateField,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            startTime,
+            endTime,
+        );
 
         const entries: TesterLogEntry[] = await collection.find(filter).sort({ createdAt: -1 }).toArray();
 
@@ -1753,7 +1826,7 @@ export class TesterLogService implements ITesterLogService {
             const isWhatsApp = isBoth || ch.includes('whatsapp') || ch.includes('wa');
 
             if (targetType && categoryCounts[targetType]) {
-                categoryCounts[targetType].total += isBoth ? 2 : 1;
+                categoryCounts[targetType].total += 1;
                 if (isWebApp) categoryCounts[targetType].webApp++;
                 if (isWhatsApp) categoryCounts[targetType].whatsApp++;
             }

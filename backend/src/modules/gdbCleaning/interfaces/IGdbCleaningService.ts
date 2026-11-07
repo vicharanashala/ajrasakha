@@ -5,6 +5,7 @@ import {
   IGdbCleaningCheck,
   IGdbCleaningSource,
 } from '#root/shared/interfaces/models.js';
+import type {GdbDraft} from '../services/GdbLibraryDraft.js';
 
 export interface GdbCleaningListItem {
   id: string;
@@ -132,9 +133,16 @@ export interface IGdbCleaningService {
 
   saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
     reviewerId?: string,
   ): Promise<GdbCleaningItem>;
+
+  /** Drafts a suggested answer and its citations from the library. Saves nothing. */
+  draft(answerId: string): Promise<GdbDraft>;
+
+  /** The PDF of a library document that a draft citation points to. */
+  libraryPdf(documentId: string): Promise<Buffer>;
 
   /** A reviewer says a check is not a problem (PASS) or is one (FAIL). A comment is required. */
   editFlag(
@@ -149,6 +157,7 @@ export interface IGdbCleaningService {
   /** A reviewer corrects the sources of the answer. The pipeline's own are kept. */
   editSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<GdbCleaningItem>;

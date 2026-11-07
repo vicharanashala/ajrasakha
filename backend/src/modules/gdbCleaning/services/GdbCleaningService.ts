@@ -38,6 +38,12 @@ import {
   GdbHistoryResponse,
   IGdbCleaningService,
 } from '../interfaces/IGdbCleaningService.js';
+import {
+  draftFromLibrary,
+  fetchLibraryPdf,
+  GdbDraft,
+  GdbLibraryDocumentNotFound,
+} from './GdbLibraryDraft.js';
 
 const DEFAULT_LIMIT = 25;
 // each reviewer holds up to this many to-do answers
@@ -474,25 +480,56 @@ export class GdbCleaningService implements IGdbCleaningService {
     return toItem(doc, viewerId, await this.holderNames([doc]), live.get(doc.questionId.toString()));
   }
 
+  // The answer must exist and belong to the given question, or it is not found.
+  private async requireMatch(answerId: string, questionId: string): Promise<IGdbCleaning> {
+    const doc = await this.repository.getByAnswerId(answerId);
+    if (!doc || doc.questionId.toString() !== questionId) {
+      throw new NotFoundError(`Answer "${answerId}" not found for question "${questionId}"`);
+    }
+    return doc;
+  }
+
   async saveCorrection(
     answerId: string,
+    questionId: string,
     correctedAnswer: string,
     reviewerId?: string,
   ): Promise<GdbCleaningItem> {
     const text = correctedAnswer.trim();
     if (!text) throw new BadRequestError('The correction cannot be empty');
-    const current = await this.repository.getByAnswerId(answerId);
-    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    const current = await this.requireMatch(answerId, questionId);
     if (reviewerId) await this.assertHolder(current, reviewerId);
     // an older push did not record its text: it was the correction as it stood
     const pushedBefore =
       current.pushedAt && current.pushedAnswer === undefined
         ? current.correctedAnswer?.trim() || undefined
         : undefined;
-    const updated = await this.repository.saveCorrection(answerId, text, pushedBefore);
+    const updated = await this.repository.saveCorrection(answerId, questionId, text, pushedBefore);
     const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
     await this.record(answerId, reviewerId, 'correction_saved');
     return item;
+  }
+
+  // Drafts a suggested answer from the library. Nothing is saved: the reviewer decides what to keep.
+  async draft(answerId: string): Promise<GdbDraft> {
+    const current = await this.repository.getByAnswerId(answerId);
+    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    const sources = (current.sources ?? [])
+      .filter(item => item.source)
+      .map(item => ({url: item.source, name: item.sourceName ?? ''}));
+    return draftFromLibrary(current.question, current.crop, sources, current.domain ?? null, current.state ?? null);
+  }
+
+  // The PDF a citation points to, so a reviewer can open the cited page.
+  async libraryPdf(documentId: string): Promise<Buffer> {
+    try {
+      return await fetchLibraryPdf(documentId);
+    } catch (error) {
+      if (error instanceof GdbLibraryDocumentNotFound) {
+        throw new NotFoundError(`Library document "${documentId}" not found`);
+      }
+      throw error;
+    }
   }
 
   async editFlag(
@@ -549,23 +586,24 @@ export class GdbCleaningService implements IGdbCleaningService {
 
   async editSources(
     answerId: string,
+    questionId: string,
     sources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<GdbCleaningItem> {
-    const current = await this.repository.getByAnswerId(answerId);
-    if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
+    const current = await this.requireMatch(answerId, questionId);
     await this.assertHolder(current, reviewerId);
     if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const clean = sources.map(source => ({
-      sourceName: source.sourceName.trim(),
-      source: source.source.trim(),
-      page: source.page.trim(),
+      sourceName: source.sourceName?.trim(),
+      source: source.source?.trim(),
+      page: source.page?.trim(),
       ...(source.sourceType ? {sourceType: source.sourceType} : {}),
     }));
     // the first edit keeps the pipeline's sources, later edits keep those
     const original = current.originalSources ?? current.sources ?? [];
     const updated = await this.repository.saveSources(
       answerId,
+      questionId,
       clean,
       original,
       reviewerId,

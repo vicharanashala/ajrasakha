@@ -71,9 +71,9 @@ class FakeRepository implements IGdbCleaningRepository {
     return {states: [], crops: [], flags: []};
   }
 
-  async saveCorrection(answerId: string, correctedAnswer: string, pushedBefore?: string) {
+  async saveCorrection(answerId: string, questionId: string, correctedAnswer: string, pushedBefore?: string) {
     const doc = this.find(answerId);
-    if (!doc || !['todo', 'clean', 'fixed'].includes(doc.status)) return null;
+    if (!doc || doc.questionId.toString() !== questionId || !['todo', 'clean', 'fixed'].includes(doc.status)) return null;
     doc.correctedAnswer = correctedAnswer;
     if (pushedBefore !== undefined) doc.pushedAnswer = pushedBefore;
     return doc;
@@ -83,8 +83,17 @@ class FakeRepository implements IGdbCleaningRepository {
     return null;
   }
 
-  async saveSources() {
-    return null;
+  async saveSources(
+    answerId: string,
+    questionId: string,
+    sources: IGdbCleaning['sources'],
+    originalSources: IGdbCleaning['sources'],
+  ) {
+    const doc = this.find(answerId);
+    if (!doc || doc.questionId.toString() !== questionId || doc.status !== 'todo') return null;
+    doc.sources = sources;
+    doc.originalSources = originalSources;
+    return doc;
   }
 
   async markPushed() {
@@ -208,17 +217,47 @@ describe('GdbCleaningService', () => {
 
   it('refuses an empty correction', async () => {
     await expect(
-      service.saveCorrection(todo.answerId.toString(), '   '),
+      service.saveCorrection(todo.answerId.toString(), todo.questionId.toString(), '   '),
     ).rejects.toMatchObject({httpCode: 400});
   });
 
   it('saves a correction without closing the answer', async () => {
     const item = await service.saveCorrection(
       todo.answerId.toString(),
+      todo.questionId.toString(),
       '  Spray Chlorantraniliprole.  ',
     );
     expect(item.correctedAnswer).toBe('Spray Chlorantraniliprole.');
     expect(item.status).toBe('todo');
+  });
+
+  it('does not save a correction when the question does not match the answer', async () => {
+    await expect(
+      service.saveCorrection(todo.answerId.toString(), new ObjectId().toString(), 'Other text.'),
+    ).rejects.toMatchObject({httpCode: 404});
+    expect(todo.correctedAnswer).toBeNull();
+  });
+
+  it('replaces the whole list of sources and keeps the original ones', async () => {
+    const first = {sourceName: 'A', source: 'https://a.example', page: '1'};
+    const second = {sourceName: 'B', source: 'https://b.example', page: '2'};
+    todo.sources = [first, second];
+    const item = await service.editSources(
+      todo.answerId.toString(),
+      todo.questionId.toString(),
+      [{...second, sourceName: ' B2 '}],
+      reviewerId,
+    );
+    expect(item.sources).toEqual([{...second, sourceName: 'B2'}]);
+    expect(item.originalSources).toEqual([first, second]);
+    expect(item.answer).toBe('Spray Endosulfan.');
+  });
+
+  it('does not save sources when the question does not match the answer', async () => {
+    await expect(
+      service.editSources(todo.answerId.toString(), new ObjectId().toString(), [], reviewerId),
+    ).rejects.toMatchObject({httpCode: 404});
+    expect(todo.sources).toEqual([]);
   });
 
   it('cannot accept when there is no correction', async () => {
@@ -229,7 +268,7 @@ describe('GdbCleaningService', () => {
   });
 
   it('accepts the correction saved earlier', async () => {
-    await service.saveCorrection(todo.answerId.toString(), 'Fixed text.');
+    await service.saveCorrection(todo.answerId.toString(), todo.questionId.toString(), 'Fixed text.');
     const item = await service.decide(
       todo.answerId.toString(),
       {action: 'accept', comment: ' checked with the PoP '},
@@ -271,7 +310,7 @@ describe('GdbCleaningService', () => {
   });
 
   it('an accepted correction can still be edited, a dismissed answer cannot', async () => {
-    const item = await service.saveCorrection(decided.answerId.toString(), 'Better text.');
+    const item = await service.saveCorrection(decided.answerId.toString(), decided.questionId.toString(), 'Better text.');
     expect(item.correctedAnswer).toBe('Better text.');
     expect(item.status).toBe('fixed');
     const dismissed = makeDoc('dismissed');
@@ -285,7 +324,7 @@ describe('GdbCleaningService', () => {
       {} as IAuditTrailsService,
     );
     await expect(
-      closed.saveCorrection(dismissed.answerId.toString(), 'Text.'),
+      closed.saveCorrection(dismissed.answerId.toString(), dismissed.questionId.toString(), 'Text.'),
     ).rejects.toMatchObject({httpCode: 409});
   });
 
@@ -306,7 +345,7 @@ describe('GdbCleaningService', () => {
     );
     const id = pushed.answerId.toString();
     expect((await withPushed.get(id)).correctionChanged).toBe(false);
-    const edited = await withPushed.saveCorrection(id, 'Second.');
+    const edited = await withPushed.saveCorrection(id, pushed.questionId.toString(), 'Second.');
     expect(edited.correctionChanged).toBe(true);
   });
 
@@ -359,7 +398,7 @@ describe('GdbCleaningService assignment', () => {
       service.decide(id, {action: 'dismiss'}, new ObjectId().toString()),
     ).rejects.toMatchObject({httpCode: 403});
     await expect(
-      service.saveCorrection(id, 'Text.', new ObjectId().toString()),
+      service.saveCorrection(id, mine.questionId.toString(), 'Text.', new ObjectId().toString()),
     ).rejects.toMatchObject({httpCode: 403});
     expect(mine.status).toBe('todo');
     const item = await service.decide(id, {action: 'dismiss'}, reviewerId);

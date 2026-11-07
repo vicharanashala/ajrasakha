@@ -393,6 +393,17 @@ export function dbEntryDate(entry: Partial<TesterLogEntry>): string | null {
     return null;
 }
 
+export function normalizeTimeToSeconds(t?: string | null, isEnd: boolean = false): number | null {
+    if (!t || typeof t !== 'string') return null;
+    const parts = t.trim().split(':');
+    if (parts.length < 2) return null;
+    const h = parseInt(parts[0], 10);
+    const m = parseInt(parts[1], 10);
+    const s = parts[2] ? parseInt(parts[2], 10) : (isEnd ? 59 : 0);
+    if (isNaN(h) || isNaN(m) || isNaN(s)) return null;
+    return h * 3600 + m * 60 + s;
+}
+
 // Same windows as the Sheet's Date Range filter (IST calendar days):
 // today, last 7/30 days ending today, or an inclusive custom range. "Custom"
 // with neither date set behaves like "All Dates".
@@ -402,17 +413,28 @@ export function applyDbDateFilter<T extends Partial<TesterLogEntry>>(
     customStart: string | undefined,
     customEnd: string | undefined,
     now: Date = new Date(),
+    customStartTime?: string | undefined,
+    customEndTime?: string | undefined,
 ): T[] {
-    if (dateRange === 'all' || !dateRange || (dateRange === 'custom' && !customStart && !customEnd)) return entries;
+    if (dateRange === 'all' || !dateRange || (dateRange === 'custom' && !customStart && !customEnd && !customStartTime && !customEndTime)) return entries;
     const today = getTodayISTDate(now);
     const windowStart =
         dateRange === 'today' ? today : dateRange === '7days' ? addDays(today, -6) : dateRange === '30days' ? addDays(today, -29) : null;
+    const startSec = normalizeTimeToSeconds(customStartTime, false);
+    const endSec = normalizeTimeToSeconds(customEndTime, true);
+
     return entries.filter((e) => {
         const date = dbEntryDate(e);
         if (!date) return false;
         if (dateRange === 'custom') {
             if (customStart && date < customStart) return false;
             if (customEnd && date > customEnd) return false;
+            if (startSec !== null || endSec !== null) {
+                const entrySec = normalizeTimeToSeconds((e as any).timeQuestionAsked, false);
+                if (entrySec === null) return false;
+                if (startSec !== null && entrySec < startSec) return false;
+                if (endSec !== null && entrySec > endSec) return false;
+            }
             return true;
         }
         return windowStart !== null && date >= windowStart && date <= today;

@@ -28,6 +28,13 @@ export class GdbCleaningAnswerParam {
   answerId: string;
 }
 
+export class GdbLibraryDocumentParam {
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(100)
+  documentId: string;
+}
+
 export class GetGdbCleaningListQuery {
   @IsOptional()
   @IsString()
@@ -133,6 +140,10 @@ export class GetGdbHistoryQuery {
 export class SaveGdbCorrectionDto {
   @IsString()
   @IsNotEmpty()
+  questionId: string;
+
+  @IsString()
+  @IsNotEmpty()
   @MaxLength(20000)
   correctedAnswer: string;
 }
@@ -179,6 +190,7 @@ export class GdbSourceDto {
   @MaxLength(2000)
   source: string;
 
+  @IsOptional()
   @IsString()
   @MaxLength(100)
   page: string;
@@ -189,6 +201,11 @@ export class GdbSourceDto {
 }
 
 export class SaveGdbSourcesDto {
+  @IsString()
+  @IsNotEmpty()
+  questionId: string;
+
+  // the complete list of sources; an empty list is allowed and clears them
   @IsArray()
   @ArrayMaxSize(30)
   @ValidateNested({each: true})

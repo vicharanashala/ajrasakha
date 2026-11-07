@@ -1,7 +1,9 @@
 import { env } from "@/config/env";
+import { apiFetch } from "@/hooks/api/api-fetch";
 
 const FAQ_API = (env.faqApiUrl() || "").replace(/\/$/, "");
 const POP_API = (env.popApiUrl() || "").replace(/\/$/, "");
+const API_BASE_URL = env.apiBaseUrl().replace(/\/$/, "");
 
 // Set once (and kept in sync) from the signed-in user — see DataProcessingDashboard.tsx, which
 // calls this from a useEffect on useGetCurrentUser(). Every POP_API request (reads included) needs
@@ -841,6 +843,49 @@ export async function uploadDashboardDocument(
   return _handleResponse(res);
 }
 
+// Queues the upload on OUR OWN backend instead of posting straight to PoP — the browser's
+// connection only has to survive "upload bytes to our Cloud Run instance, write to Mongo
+// GridFS" (fast, same infra, no Tailscale hop), not the full forward through PoP's slow/flaky
+// tailnet link, which is what caused the earlier 503s on large files. Our backend forwards it to
+// PoP in the background (see backend/src/modules/popUploads) and retries once on failure.
+// Throws (via apiFetch, err.message only — no err.status, unlike the popFetch helpers below)
+// when a synchronous duplicate check (our own pending queue, or PoP's live queue) finds a match
+// and refuses the upload outright.
+export async function submitPendingUpload(
+  file: File,
+  fields: Record<string, unknown>,
+  placements: { state_id: string; crop_ids?: string[]; organization_ids?: string[] }[],
+  language: string,
+): Promise<{ id: string; status: "received"; warning?: string }> {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("fields_json", JSON.stringify(fields || {}));
+  fd.append("placements_json", JSON.stringify(placements));
+  fd.append("language", language);
+  const res = await apiFetch<{ id: string; status: "received"; warning?: string }>(
+    `${API_BASE_URL}/pop-uploads`,
+    { method: "POST", body: fd },
+  );
+  return res as { id: string; status: "received"; warning?: string };
+}
+
+export interface PendingPopUpload {
+  id: string;
+  filename: string;
+  status: "received" | "processing" | "succeeded" | "failed";
+  error?: string | null;
+  createdAt: string;
+}
+
+// This caller's own not-yet-forwarded uploads — fetched on demand (Pending tab opened, or a
+// manual refresh), same as the History tab, not polled/pushed. Once an item reaches `succeeded`
+// it stops showing up here at all (our backend deletes the pending doc's GridFS bytes and it
+// becomes a real item in PoP's own queue instead) — refresh the main Queue to see it there.
+export async function getPendingUploads(): Promise<PendingPopUpload[]> {
+  const res = await apiFetch<PendingPopUpload[]>(`${API_BASE_URL}/pop-uploads`);
+  return res || [];
+}
+
 // Not explicitly re-documented in docs/first_render_frontend.md (only `GET /uploads/{id}`
 // polling is shown there) — kept as a carried-over assumption since the multi-item Upload Queue
 // panel has no other data source and nothing suggests this list endpoint went away.
@@ -1066,7 +1111,18 @@ export async function deleteDashboardTranslationJob(jobId: string) {
 
 // Translate mode: "normal" (default, page-by-page) | "flex" (page-by-page, slower per page) |
 // "batch" (handed to Google as one batch job, can take up to 24h). Omitting mode means "normal".
+// `pipeline`: 1 = OCR transcribes each page, then Gemini 3.8 Flash translates it (normal mode only —
+// 400 with flex/batch); 0 = one Gemini 3.1 Pro call per page. Always sent, including on a restart.
 export type TranslateMode = "normal" | "flex" | "batch";
+// Gemini model for the translation call (either pipeline). Omitted = PoP's own default (pipeline 0:
+// the server's default model, pipeline 1: gemini-3.8-flash); anything outside this list is a 422.
+export const TRANSLATE_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
+] as const;
+export type TranslateModel = (typeof TRANSLATE_MODELS)[number];
 
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
@@ -1078,8 +1134,10 @@ export async function translateDashboardDocument(
   placementId: string,
   translatedBy?: string,
   mode?: TranslateMode,
+  pipeline?: 0 | 1,
+  model?: TranslateModel,
 ) {
-  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
+  const body = translatedBy || mode || pipeline != null || model ? { translated_by: translatedBy, mode, pipeline, model } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
     ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
@@ -1089,8 +1147,8 @@ export async function translateDashboardDocument(
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode) {
-  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
+export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode, pipeline?: 0 | 1, model?: TranslateModel) {
+  const body = translatedBy || mode || pipeline != null || model ? { translated_by: translatedBy, mode, pipeline, model } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
     ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),

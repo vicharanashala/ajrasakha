@@ -148,6 +148,22 @@ describe('TesterLogService date filtering', () => {
         expect(callArg.$or[0].testDate).toEqual({ $gte: '2026-09-01', $lte: '2026-09-07' });
     });
 
+    it('applies time range filter in getAllEntries', async () => {
+        await service.getAllEntries(
+            1, 20, 'tester-abc', '2026-09-01', '2026-09-07', undefined,
+            undefined, undefined, undefined, undefined, undefined, undefined,
+            '10:00:00', '14:30:00',
+        );
+
+        const callArg = mockFind.mock.calls[0][0];
+        expect(callArg.submittedByUserId).toBe('tester-abc');
+        expect(callArg.$and).toBeDefined();
+        const timeAnd = callArg.$and.find((c: any) => c.$and && c.$and.length === 2);
+        expect(timeAnd).toBeDefined();
+        expect(timeAnd.$and[0].$or[0].timeQuestionAsked).toEqual({ $gte: '10:00:00' });
+        expect(timeAnd.$and[1].$or[0].timeQuestionAsked).toEqual({ $lte: '14:30:00' });
+    });
+
     it('applies the 4 dropdown-backed filters in getAllEntries by exact match', async () => {
         await service.getAllEntries(
             1, 20, 'tester-abc', undefined, undefined, undefined,
@@ -813,6 +829,33 @@ describe('TesterLogService date filtering', () => {
         expect(summaryPast.targetVsAchieved.total.targetTotal).toBe(54 * summaryPast.targetVsAchieved.daysCount);
     });
 
+    it('counts a single test case with channel tested Both as 1 in total, 1 in webApp, and 1 in whatsApp for targetVsAchieved', async () => {
+        const mockEntries = [
+            {
+                testDate: '2026-09-24',
+                overallTestStatus: 'Pass',
+                typeOfQuestion: 'Weather Dynamic',
+                channelTested: 'Both',
+            },
+        ];
+        mockToArray.mockResolvedValue(mockEntries);
+
+        const summary = await service.getMySummary('user-1', '2026-09-24', '2026-09-24');
+        expect(summary.success).toBe(true);
+        expect(summary.targetVsAchieved).toBeDefined();
+
+        const weatherRow = summary.targetVsAchieved.rows.find((r: any) => r.questionType === 'Dynamic - Weather');
+        expect(weatherRow).toBeDefined();
+        expect(weatherRow.achievedTotal).toBe(1);
+        expect(weatherRow.achievedWebApp).toBe(1);
+        expect(weatherRow.achievedWhatsApp).toBe(1);
+
+        expect(summary.targetVsAchieved.total.achievedTotal).toBe(1);
+        expect(summary.targetVsAchieved.total.rawAchievedTotal).toBe(1);
+        expect(summary.targetVsAchieved.total.achievedWebApp).toBe(1);
+        expect(summary.targetVsAchieved.total.achievedWhatsApp).toBe(1);
+    });
+
     it('computes dbPersistence correctly with form dropdown values ("Saved", "Not Saved", "Partial Save")', async () => {
         const mockEntries = [
             {
@@ -1231,12 +1274,12 @@ describe('TesterLogService date filtering', () => {
         expect(summary.crossPlatformStats?.matchedAnswers).toBe(1);
         expect(summary.crossPlatformStats?.parityRate).toBe(50); // 1 / 2 = 50%
 
-        // Unique target: 1 WebApp test + 1 Both test => WebApp = 2, WhatsApp = 1, Total = 3
+        // Unique target: 1 WebApp test + 1 Both test => WebApp = 2, WhatsApp = 1, Total = 2 (Both counts as 1 in total)
         const uniqueRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Unique');
         expect(uniqueRow).toBeDefined();
         expect(uniqueRow?.achievedWebApp).toBe(2);
         expect(uniqueRow?.achievedWhatsApp).toBe(1);
-        expect(uniqueRow?.achievedTotal).toBe(3);
+        expect(uniqueRow?.achievedTotal).toBe(2);
     });
 
     it('excludes entries with NA or blank WhatsApp vs Web Answer Match from crossPlatformStats total', async () => {
@@ -1348,19 +1391,19 @@ describe('TesterLogService date filtering', () => {
         expect(summary.byQuestionType['Weather Dynamic']).toBe(2);
         expect(summary.byQuestionType['Static Dynamic']).toBe(1);
 
-        // Weather row: exactly 2 entries tested on 'Both' => 2 Web, 2 WhatsApp, Total 4 (NOT 3 Web / 3 WhatsApp)
+        // Weather row: exactly 2 entries tested on 'Both' => 2 Web, 2 WhatsApp, Total 2 (1 in total per test)
         const weatherRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Dynamic - Weather');
         expect(weatherRow).toBeDefined();
         expect(weatherRow?.achievedWebApp).toBe(2);
         expect(weatherRow?.achievedWhatsApp).toBe(2);
-        expect(weatherRow?.achievedTotal).toBe(4);
+        expect(weatherRow?.achievedTotal).toBe(2);
 
-        // Static Dynamic row: exactly 1 entry tested on 'Both' => 1 Web, 1 WhatsApp, Total 2
+        // Static Dynamic row: exactly 1 entry tested on 'Both' => 1 Web, 1 WhatsApp, Total 1
         const staticDynamicRow = summary.targetVsAchieved.rows.find(r => r.questionType === 'Static Dynamic');
         expect(staticDynamicRow).toBeDefined();
         expect(staticDynamicRow?.achievedWebApp).toBe(1);
         expect(staticDynamicRow?.achievedWhatsApp).toBe(1);
-        expect(staticDynamicRow?.achievedTotal).toBe(2);
+        expect(staticDynamicRow?.achievedTotal).toBe(1);
         expect(staticDynamicRow?.targetTotal).toBe(0);
     });
 

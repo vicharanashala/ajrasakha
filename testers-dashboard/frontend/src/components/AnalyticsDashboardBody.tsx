@@ -40,7 +40,19 @@ export function AnalyticsDashboardBody({
   optionDetails,
   typeTree,
 }: AnalyticsDashboardBodyProps) {
-  const { filters, setFilters, customStart, setCustomStart, customEnd, setCustomEnd, typeBranchState } = filterState;
+  const {
+    filters,
+    setFilters,
+    customStart,
+    setCustomStart,
+    customEnd,
+    setCustomEnd,
+    customStartTime,
+    setCustomStartTime,
+    customEndTime,
+    setCustomEndTime,
+    typeBranchState,
+  } = filterState;
   const {
     releaseHealthExpanded,
     setReleaseHealthExpanded,
@@ -272,6 +284,10 @@ export function AnalyticsDashboardBody({
         setCustomStart={setCustomStart}
         customEnd={customEnd}
         setCustomEnd={setCustomEnd}
+        customStartTime={customStartTime}
+        setCustomStartTime={setCustomStartTime}
+        customEndTime={customEndTime}
+        setCustomEndTime={setCustomEndTime}
         typeBranchState={typeBranchState}
         optionDetails={optionDetails}
         typeTree={typeTree}

@@ -79,6 +79,7 @@ export const ENTRY_DETAIL_GROUPS: IEntryDetailGroup[] = [
             { key: "translationQuality", label: "Translation Quality" },
             { key: "translationErrorType", label: "Translation Error Type" },
             { key: "tagging", label: "Tagging" },
+            { key: "metaDataCorrectlyFetched", label: "Meta Data Correctly Fetched?" },
         ],
     },
     {

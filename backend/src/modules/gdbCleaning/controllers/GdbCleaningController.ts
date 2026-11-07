@@ -10,6 +10,7 @@ import {
   Post,
   Put,
   QueryParams,
+  Res,
 } from 'routing-controllers';
 import {OpenAPI} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
@@ -20,6 +21,7 @@ import {
   EditGdbQuestionDto,
   GdbCleaningAnswerParam,
   GdbDecisionDto,
+  GdbLibraryDocumentParam,
   GetGdbCleaningListQuery,
   GetGdbCleaningSummaryQuery,
   GetGdbHistoryQuery,
@@ -151,6 +153,7 @@ export class GdbCleaningController {
   ) {
     return this.service.saveCorrection(
       params.answerId,
+      body.questionId,
       body.correctedAnswer,
       user._id.toString(),
     );
@@ -173,6 +176,36 @@ export class GdbCleaningController {
   }
 
   @OpenAPI({
+    summary: 'Draft a suggested answer from the library',
+    description:
+      'Searches the library for the question and drafts an answer with citations to the document and page. Nothing is saved; the reviewer keeps what they want.',
+  })
+  @Post('/:answerId/draft')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async draft(@Params() params: GdbCleaningAnswerParam) {
+    return this.service.draft(params.answerId);
+  }
+
+  @OpenAPI({
+    summary: 'Open the PDF of a library document that a draft cites',
+    description:
+      'Returns the uploaded PDF, so a reviewer can open it at the cited page. Needs the draft service to be configured.',
+  })
+  @Get('/library/:documentId/pdf')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async libraryPdf(
+    @Params() params: GdbLibraryDocumentParam,
+    @Res() response: any,
+  ) {
+    const pdf = await this.service.libraryPdf(params.documentId);
+    response.setHeader('Content-Type', 'application/pdf');
+    response.setHeader('Content-Disposition', 'inline');
+    return response.send(pdf);
+  }
+
+  @OpenAPI({
     summary: 'Change one flag: not a problem (PASS) or a problem (FAIL)',
     description:
       'A comment is required. The check keeps the result the system found, and the change is saved next to it with who made it and when. Only an answer that is still to do can change.',
@@ -191,7 +224,7 @@ export class GdbCleaningController {
   @OpenAPI({
     summary: 'Correct the sources of the answer',
     description:
-      'Replaces the list of sources on this row. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
+      'Replaces the whole list of sources on this row, matched by answer and question. The ones the pipeline saved are kept. Only an answer that is still to do can change.',
   })
   @Put('/:answerId/sources')
   @HttpCode(200)
@@ -203,6 +236,7 @@ export class GdbCleaningController {
   ) {
     return this.service.editSources(
       params.answerId,
+      body.questionId,
       body.sources,
       user._id.toString(),
     );

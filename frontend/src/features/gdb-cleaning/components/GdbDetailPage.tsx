@@ -7,11 +7,13 @@ import {
   useGdbDecision,
   useGdbItem,
   useReleaseGdbAnswer,
+  useGdbLibraryDraft,
   usePushToGdb,
   useSaveGdbCorrection,
 } from "@/hooks/api/gdbCleaning/useGdbCleaning";
 import { ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { gdbCleaningService } from "@/hooks/services/gdbCleaningService";
 import { GdbDetailView } from "./GdbDetailView";
 
 interface GdbDetailPageProps {
@@ -31,6 +33,8 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
   const release = useReleaseGdbAnswer(id);
   // the AI draft the author page uses: it returns an answer in the predefined structure
   const aiDraft = useFetchAnswer();
+  // the draft from the library: the answer with the passages and pages it cites
+  const libraryDraft = useGdbLibraryDraft(id);
 
   if (isLoading) {
     return <p className="text-sm text-muted-foreground">Loading the answer...</p>;
@@ -74,12 +78,35 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
           return null;
         }
       }}
+      libraryDrafting={libraryDraft.isPending}
+      onDraftFromLibrary={async () => {
+        try {
+          const result = await libraryDraft.mutateAsync();
+          if (!result.answer) {
+            toast.info(result.note || "The library had nothing for this question.");
+            return null;
+          }
+          // a draft can still carry a warning: another state's documents, or a source file that could not be read
+          if (result.note) toast.warning(result.note, { duration: 15000 });
+          return result;
+        } catch (error) {
+          toast.error((error as Error).message || "Failed to draft from the library.");
+          return null;
+        }
+      }}
+      onOpenLibraryDocument={async (documentId, page) => {
+        try {
+          await gdbCleaningService.openLibraryDocument(documentId, page);
+        } catch (error) {
+          toast.error((error as Error).message || "Could not open the document.");
+        }
+      }}
       onBack={onBack}
       onAccept={(comment) => decision.mutate({ action: "accept", comment })}
       onDismiss={(comment) => decision.mutate({ action: "dismiss", comment })}
-      onSaveCorrection={(text) => saveCorrection.mutateAsync(text)}
+      onSaveCorrection={(text) => saveCorrection.mutateAsync({ questionId: item.questionId, correctedAnswer: text })}
       onEditFlag={(parameter, result, comment) => editFlag.mutateAsync({ parameter, result, comment })}
-      onSaveSources={(sources) => editSources.mutateAsync(sources)}
+      onSaveSources={(sources) => editSources.mutateAsync({ questionId: item.questionId, sources })}
       onEditQuestion={(edit) => editQuestion.mutateAsync(edit)}
       onPush={() => push.mutateAsync()}
     />
