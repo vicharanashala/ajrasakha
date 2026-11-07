@@ -17,7 +17,7 @@ per-question reference lookup.
 import logging
 from collections import Counter
 
-from . import llm_client, text_checks
+from . import llm_client
 from .result_cache import ResultCache
 from .models import (
     LLMUnavailableError,
@@ -98,43 +98,6 @@ FIXED_STEPS = [
     ),
 ]
 
-# Deliberately low bar: only overrides toward "missing" when a step's own
-# topic shares fewer than this many significant words with *any single*
-# draft section - catches a step that's genuinely absent (its topic
-# merely name-dropped once, in passing, elsewhere) without second-
-# guessing a real different-wording rewrite that still uses some of the
-# same real nouns (crop/treatment/duration terms are rarely replaced with
-# a wildly different synonym in practice). Confirmed necessary live: the
-# tightened step-coverage prompt alone still gave partial credit to a
-# fully-removed section whose topic word appeared once in an unrelated
-# neighboring section (Writing Assistant Build Plan, Revision 15, ISS-05).
-_MIN_SHARED_TERMS_FOR_TRUST = 2
-
-# A section's overlap with this step only counts if no *other* step's own
-# example overlaps with that same section by more than this multiple -
-# otherwise the section is that other step's content, just restating a
-# fact this step also cares about, not genuine evidence for this step.
-# Confirmed necessary live: a draft's Introduction restating "major,
-# recurring disease" (step 1's own territory) kept crediting a removed
-# "is this major or minor" step (step 2) just because those same two
-# words are also in step 2's example - the Introduction section's
-# overlap with step 1 is far larger, so step 2's claim on it is spurious
-# (Writing Assistant Build Plan, Revision 17, ISS-05).
-_DOMINANCE_MARGIN = 1.5
-
-# "Exclusive ownership" of a section only makes sense when there are
-# enough sections for different steps to plausibly each have their own -
-# with only one or two sections, every step's content is legitimately
-# mixed together in the same block, and "step X's example overlaps that
-# block more than step Y's" is not evidence step Y is missing. Confirmed
-# live by an independent re-test report: a heading-stripped draft with
-# every step's content genuinely present as one block had 4 of 10
-# correctly-covered steps wrongly downgraded to missing, because each
-# one's content shared that single block with another step whose example
-# happened to overlap it more (Writing Assistant Build Plan, Revision 18,
-# ISS-05 regression).
-_MIN_SECTIONS_FOR_DOMINANCE_CHECK = 3
-
 # The underlying reasoning model is not fully reproducible even at
 # temperature=0 with a fixed seed - a known serving-stack property
 # (batch-size-dependent floating point reductions, MoE routing), not a
@@ -184,58 +147,24 @@ def _vote_step_coverage(
     return winning_coverage, section_index
 
 
-def _has_textual_evidence(step: ReferenceStep, draft_text: str, all_steps: list[ReferenceStep]) -> bool:
-    # The example's own text, not the step name - a step name like
-    # "Cultural control"/"Chemical control" shares the generic word
-    # "control" with several other steps in the same "X control"
-    # framework, which made every step look like it had evidence
-    # anywhere "control" appeared. The example is the specific,
-    # concrete description - confirmed by re-testing live after the
-    # step-name version failed to catch a real removed section.
-    step_terms = text_checks.significant_words(step.example)
-    if not step_terms:
-        return True  # nothing meaningful to check against - don't block on this
-
-    sections = text_checks.split_sections(draft_text)
-    check_dominance = len(sections) >= _MIN_SECTIONS_FOR_DOMINANCE_CHECK
-    other_terms_list = (
-        [text_checks.significant_words(s.example) for s in all_steps if s is not step]
-        if check_dominance
-        else []
-    )
-    for section in sections:
-        section_terms = text_checks.significant_words(section)
-        overlap = len(step_terms & section_terms)
-        if overlap < _MIN_SHARED_TERMS_FOR_TRUST:
-            continue
-        dominated_by_another_step = check_dominance and any(
-            len(other_terms & section_terms) > overlap * _DOMINANCE_MARGIN
-            for other_terms in other_terms_list
-        )
-        if not dominated_by_another_step:
-            return True
-    return False
-
-
 def score_coverage(draft_text: str, question: str) -> tuple[list[StepCoverageResult], list[int | None]]:
     results = []
     section_indices: list[int | None] = []
     all_step_names = [s.step for s in FIXED_STEPS]
     for step in FIXED_STEPS:
         coverage, section_index = _vote_step_coverage(draft_text, step, all_step_names, question)
-        # Deterministic safety net: never let the LLM credit a step whose
-        # topic has no real textual presence anywhere in the draft - only
-        # ever downgrades toward "missing", never promotes away from it.
-        # Never applied to NOT_ASSESSED - there's no LLM judgment here to
-        # second-guess, and doing so would silently turn "couldn't verify"
-        # into "confirmed missing", exactly what NOT_ASSESSED exists to
-        # avoid.
-        if (
-            coverage not in (StepCoverage.MISSING, StepCoverage.NOT_ASSESSED)
-            and not _has_textual_evidence(step, draft_text, FIXED_STEPS)
-        ):
-            coverage = StepCoverage.MISSING
-            section_index = None
+        # No deterministic textual-evidence override here (removed) - that
+        # safety net compared the draft against the STEP'S OWN example
+        # text, which worked when examples were curated, topic-specific
+        # reference content (e.g. "Sheath Blight (Rhizoctonia solani)...")
+        # that a matching real draft would naturally reuse vocabulary
+        # from. FIXED_STEPS' examples are deliberately abstract and
+        # domain-neutral instead (by design - the same checklist applies
+        # to any topic), so they share essentially no vocabulary with any
+        # real draft's topic-specific content - live-confirmed this wrongly
+        # downgraded 6 of 10 genuinely-covered steps on a real, complete
+        # draft to "missing". The majority-voted LLM judgment alone is the
+        # only coverage signal now.
         # Example/Suggestion text is "what's expected" explanation for a
         # gap - it must never appear on a step that's already covered, or
         # it reads as an invented issue on a correct draft (Writing
