@@ -9311,48 +9311,13 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {isDeleted: {$ne: true}}},
+            // Keep only the fields this pipeline needs (smaller documents through the lookup/group)
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                msgCount: {$sum: 1},
-              },
-            },
-            // Skip conversations with only 1 message — no gaps, nothing to measure
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9363,6 +9328,57 @@ async getAllUserMessageIds(
         `Failed to get avg session duration v2: ${error}`,
       );
     }
+  }
+
+  // Per-conversation active session time WITHOUT a global $sort / $setWindowFields.
+  // Collects each conversation's message timestamps, sorts that small array, and
+  // sums only the gaps <= 30 min (longer gaps = user was away). Conversations with
+  // a single message are skipped. Emits { _id, firstMsg, activeSessionMs }.
+  // Requires MongoDB 5.2+ ($sortArray).
+  private buildSessionDurationStages(): any[] {
+    return [
+      {$group: {_id: '$conversationId', times: {$push: '$createdAt'}}},
+      {$match: {$expr: {$gt: [{$size: '$times'}, 1]}}},
+      {
+        $project: {
+          firstMsg: {$min: '$times'},
+          activeSessionMs: {
+            $let: {
+              vars: {sorted: {$sortArray: {input: '$times', sortBy: 1}}},
+              in: {
+                $reduce: {
+                  input: {$range: [1, {$size: '$$sorted'}]},
+                  initialValue: 0,
+                  in: {
+                    $let: {
+                      vars: {
+                        gap: {
+                          $subtract: [
+                            {$arrayElemAt: ['$$sorted', '$$this']},
+                            {
+                              $arrayElemAt: [
+                                '$$sorted',
+                                {$subtract: ['$$this', 1]},
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                      in: {
+                        $add: [
+                          '$$value',
+                          {$cond: [{$lte: ['$$gap', 1800000]}, '$$gap', 0]},
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ];
   }
 
   // ── NEW: Inactivity-gap based weekly avg session duration (sparkline/delta) ──
@@ -9387,49 +9403,9 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {createdAt: {$gte: since}, isDeleted: {$ne: true}}},
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-                    window: {documents: ['unbounded', 'current']},
-                  },
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                firstMsg: {$min: '$firstMsgInConv'},
-                msgCount: {$sum: 1},
-              },
-            },
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {
               $addFields: {
                 week: {
@@ -9458,7 +9434,7 @@ async getAllUserMessageIds(
             },
             {$sort: {week: 1}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9493,92 +9469,11 @@ async getAllUserMessageIds(
                 isDeleted: {$ne: true},
               },
             },
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
 
             ...userTypeLookupStages,
 
-            {
-              $sort: {
-                conversationId: 1,
-                createdAt: 1,
-              },
-            },
-
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-
-                sortBy: {
-                  createdAt: 1,
-                },
-
-                output: {
-                  prevCreatedAt: {
-                    $shift: {
-                      output: '$createdAt',
-                      by: -1,
-                    },
-                  },
-
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-
-                    window: {
-                      documents: ['unbounded', 'current'],
-                    },
-                  },
-                },
-              },
-            },
-
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-
-                    {
-                      $subtract: ['$createdAt', '$prevCreatedAt'],
-                    },
-
-                    0,
-                  ],
-                },
-              },
-            },
-
-            // Ignore inactive gaps > 30 mins
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-
-            {
-              $group: {
-                _id: '$conversationId',
-
-                activeSessionMs: {
-                  $sum: '$activeGapMs',
-                },
-
-                firstMsg: {
-                  $min: '$firstMsgInConv',
-                },
-
-                msgCount: {
-                  $sum: 1,
-                },
-              },
-            },
-
-            // Ignore single-message conversations
-            {
-              $match: {
-                msgCount: {$gt: 1},
-              },
-            },
+            ...this.buildSessionDurationStages(),
 
             // MONTH GROUPING
             {
@@ -9626,7 +9521,7 @@ async getAllUserMessageIds(
               },
             },
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
