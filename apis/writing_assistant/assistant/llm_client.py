@@ -282,8 +282,16 @@ def classify_step_coverage(
         {"role": "system", "content": _STEP_COVERAGE_SYSTEM_PROMPT},
         {"role": "user", "content": user_content},
     ]
+    # step_description folded into call_name (not just "classify_step_coverage")
+    # so a timeout/failure log line says which expected step stalled - a
+    # live, reproducible stall on one draft needs this to tell "always the
+    # same step" apart from "any step, just unlucky" (see config.py's
+    # MINIMAX_COVERAGE_TIMEOUT_SECONDS comment).
     content = _chat_completion(
-        messages, temperature=0.0, call_name="classify_step_coverage", timeout=config.MINIMAX_COVERAGE_TIMEOUT_SECONDS
+        messages,
+        temperature=0.0,
+        call_name=f"classify_step_coverage[{step_description[:40]}]",
+        timeout=config.MINIMAX_COVERAGE_TIMEOUT_SECONDS,
     )
     try:
         parsed = json.loads(content)
