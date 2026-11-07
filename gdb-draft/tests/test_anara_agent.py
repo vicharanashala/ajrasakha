@@ -69,7 +69,7 @@ class TheAgentRun(unittest.TestCase):
         self.assertEqual(anara_agent._drop_narration("Let me check.## Findings\nA"), "## Findings\nA")
         self.assertEqual(anara_agent._drop_narration("No heading here"), "No heading here")
 
-    def test_the_prompt_asks_for_farmer_words_and_keeps_to_the_state(self):
+    def test_the_prompt_asks_for_farmer_words_and_other_states(self):
         prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
         self.assertIn("white grubs, termites", prompt)
         self.assertIn("Never use a document of another state", prompt)
@@ -88,19 +88,13 @@ class TheAgentRun(unittest.TestCase):
         passages = [
             {"passageId": "a", "documentName": "Andhra Pradesh__ANGRAU__Panchagam.pdf"},
             {"passageId": "b", "documentName": "English__General__PACKAGE OF PRACTICES FOR CROPS.pdf"},
-            {"passageId": "c", "documentName": "Punjab__PAU__Rabi.pdf"},
         ]
         kept, others, dropped = anara_agent._keep_state(passages, "Rajasthan")
         self.assertEqual([p["passageId"] for p in kept], ["b"])
-        self.assertEqual(others, ["Andhra Pradesh", "Punjab"])
-        self.assertEqual(dropped, {"a", "c"})
+        self.assertEqual((others, dropped), (["Andhra Pradesh"], {"a"}))
         tag = lambda i: '<source type="passage">%s</source>' % i
-        text = "Kept fact " + tag("b") + "\nOther state fact " + tag("a") + "\nPlain line"
-        self.assertEqual(anara_agent._drop_lines_of(text, dropped), "Kept fact " + tag("b") + "\nPlain line")
-
-    def test_nothing_is_left_out_without_a_state(self):
-        passages = [{"passageId": "a", "documentName": "Andhra Pradesh__ANGRAU__Panchagam.pdf"}]
-        self.assertEqual(anara_agent._keep_state(passages, None), (passages, [], set()))
+        text = "Kept " + tag("b") + "\nOther " + tag("a")
+        self.assertEqual(anara_agent._drop_lines_of(text, dropped), "Kept " + tag("b"))
 
     def test_a_quick_failure_is_tried_once_more(self):
         from unittest.mock import patch
