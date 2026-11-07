@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
 
 # a plain question takes the agent about 10 seconds, a broad one over 100; past this it is cancelled and the weaker
 # plain search is used. The backend waits 240 seconds, and the writer needs about 30 after the agent.
-AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "150"))
+AGENT_TIMEOUT_SECONDS = float(os.getenv("ANARA_AGENT_TIMEOUT", "190"))
 POLL_SECONDS = 3
 # empty means Anara's own default ("Auto"), the model its web interface uses
 AGENT_MODEL = os.getenv("ANARA_AGENT_MODEL", "").strip()
@@ -41,7 +41,7 @@ How to work:
 - Cite every fact with the library passage it comes from.
 - The library can hold several editions of one package of practices (for example Rabi 2022-23 and Rabi 2025-26). Take the figures from the newest edition; use an older edition only for a point the newest does not cover, and name its year. Never mix doses or products of different editions.
 - Questions come in a farmer's words, the documents in technical ones. Before concluding that the library has nothing, search the technical names too: "ground worms" or "soil pests" also means white grubs, termites, cutworms, root weevils, root-feeding larvae and nematodes, and pests that pupate in the soil; "birds" also means parrots, sparrows and scaring or netting methods.
-- When the state's own package of practices gives no control measure for the pest or problem asked about (for example it only describes the pest), do not stop there. Search the national and other documents in the library (NIPHM or DPPQS integrated pest management packages, ICAR, university and TNAU pages) for what they recommend, and report it with the name of its document and state.
+- When the state's own package of practices gives no control measure for the pest or problem asked about (for example it only describes the pest), do not stop there. Search the national and other documents in the library (NIPHM or DPPQS integrated pest management packages, ICAR and other all-India documents; never another state's document) for what they recommend, and report it with the name of its document.
 - Use only my library. Do not use the web or papers, and add nothing from general knowledge.
 - Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
 - If the library has nothing for this crop in this state, say so plainly and say what it does have.
@@ -56,9 +56,8 @@ def build_prompt(
         lines.append(f"Crop: {crop}. A document about another crop does not answer this.")
     if state:
         lines.append(
-            f"State of the record: {state}. Prefer documents of this state and national documents. Another state's "
-            f"document may be used when none of this state's covers the point; name its state, and never present "
-            f"another state's advice as {state}'s."
+            f"State of the record: {state}. Use only documents of {state} and national (central government or "
+            f"all-India) documents. Never use a document of another state, even when it covers the point."
         )
     if domain:
         lines.append(f"Topic area: {domain}.")
@@ -171,9 +170,46 @@ def research(
             if attempt == 2 or time.time() - started > RETRY_ONLY_IF_FAILED_WITHIN:
                 logger.warning("using the plain library search instead")
                 return None
+    passages, other_states, dropped = _keep_state(passages, state)
     keep = {passage.get("passageId") for passage in passages}
-    notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", result.get("text") or "")
-    return {"passages": passages, "notes": _drop_narration(notes.strip())}
+    text = _drop_lines_of(result.get("text") or "", dropped)
+    notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", text)
+    return {"passages": passages, "notes": _drop_narration(notes.strip()), "other_states": other_states}
+
+
+def _keep_state(passages: list[dict[str, Any]], state: str | None) -> tuple[list[dict[str, Any]], list[str], set[str]]:
+    """The passages of the record's own state and of documents that name no state. The prompt asks the agent to
+    keep to these, but it does not always, so the rule is enforced here too: (kept, states left out, ids left out)."""
+    import anara_search
+
+    wanted = anara_search.canonical_state(state)
+    if not wanted:
+        return passages, [], set()
+    kept, other_states, dropped = [], set(), set()
+    for passage in passages:
+        found = anara_search.canonical_state(str(passage.get("documentName") or "").split("~")[0])
+        if found and found != wanted:
+            other_states.add(found)
+            dropped.add(passage.get("passageId"))
+        else:
+            kept.append(passage)
+    return kept, sorted(other_states), dropped
+
+
+NL = chr(10)
+
+
+def _drop_lines_of(text: str, dropped: set[str]) -> str:
+    """The text without the lines whose only sources are passages that were left out."""
+    if not dropped:
+        return text
+    lines = []
+    for line in text.split(NL):
+        ids = _TAG.findall(line)
+        if ids and all(i in dropped for i in ids):
+            continue
+        lines.append(line)
+    return NL.join(lines)
 
 
 RETRY_ONLY_IF_FAILED_WITHIN = 30

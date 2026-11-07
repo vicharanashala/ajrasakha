@@ -21,7 +21,7 @@ class ThePrompt(unittest.TestCase):
         prompt = anara_agent.build_prompt("seed rate?", "Mustard", "Rajasthan", "Agronomy", ["src-1__POP.pdf"])
         for part in ("seed rate?", "Crop: Mustard", "State of the record: Rajasthan", "Topic area: Agronomy", "src-1__POP.pdf"):
             self.assertIn(part, prompt)
-        self.assertIn("never present another state's advice as Rajasthan's", prompt)
+        self.assertIn("Use only documents of Rajasthan and national", prompt)
         self.assertIn("Use only my library", prompt)
 
     def test_a_bare_question_still_makes_a_prompt(self):
@@ -72,7 +72,7 @@ class TheAgentRun(unittest.TestCase):
     def test_the_prompt_asks_for_farmer_words_and_other_states(self):
         prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
         self.assertIn("white grubs, termites", prompt)
-        self.assertIn("name its state", prompt)
+        self.assertIn("Never use a document of another state", prompt)
 
     def test_the_prompt_prefers_the_newest_edition(self):
         prompt = anara_agent.build_prompt("wheat sprays?", "Wheat", "Punjab", None)
@@ -83,6 +83,18 @@ class TheAgentRun(unittest.TestCase):
         prompt = anara_agent.build_prompt("ground worms?", "Paddy", "Punjab", None)
         self.assertIn("gives no control measure", prompt)
         self.assertIn("NIPHM", prompt)
+
+    def test_passages_of_other_states_are_left_out_and_their_lines_dropped(self):
+        passages = [
+            {"passageId": "a", "documentName": "Andhra Pradesh__ANGRAU__Panchagam.pdf"},
+            {"passageId": "b", "documentName": "English__General__PACKAGE OF PRACTICES FOR CROPS.pdf"},
+        ]
+        kept, others, dropped = anara_agent._keep_state(passages, "Rajasthan")
+        self.assertEqual([p["passageId"] for p in kept], ["b"])
+        self.assertEqual((others, dropped), (["Andhra Pradesh"], {"a"}))
+        tag = lambda i: '<source type="passage">%s</source>' % i
+        text = "Kept " + tag("b") + "\nOther " + tag("a")
+        self.assertEqual(anara_agent._drop_lines_of(text, dropped), "Kept " + tag("b"))
 
     def test_a_quick_failure_is_tried_once_more(self):
         from unittest.mock import patch

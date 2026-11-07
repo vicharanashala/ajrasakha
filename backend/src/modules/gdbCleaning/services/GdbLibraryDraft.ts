@@ -25,7 +25,7 @@ export interface GdbDraft {
 // the Anara search and the Minimax draft live in the gdb-quality-pipeline repo. On a server
 // the backend calls its draft service (GDB_DRAFT_URL); on a developer machine it can run the
 // bridge script directly with that repo's venv Python
-const DRAFT_TIMEOUT_MS = 240_000;
+const DRAFT_TIMEOUT_MS = 420_000;
 
 const draftUrl = () => process.env.GDB_DRAFT_URL;
 const draftToken = () => process.env.GDB_DRAFT_TOKEN;
