@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from "react";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "./atoms/ThemeToggle";
+import { DiwaliGreeting } from "@/components/festive/DiwaliGreeting";
+import { DiwaliLightString } from "@/components/festive/DiwaliLightString";
 import { BellIcon, ChevronLeft, ChevronRight } from "lucide-react";
 import { MobileSidebar } from "./mobile-sidebar";
 import { NotificationModal } from "./NotificationModal";
@@ -100,8 +102,9 @@ export function PlaygroundHeader({
           <img
             src="/annam-logo.png"
             alt="Annam Logo"
-            className="h-8 md:h-9 xl:h-10 w-auto object-contain"
+            className="h-9 md:h-11 xl:h-12 w-auto object-contain"
           />
+          <DiwaliGreeting className="hidden sm:inline-flex" />
         </div>
 
         <div className="flex-1 hidden md:flex items-center min-w-0 justify-center px-2">
@@ -340,6 +343,7 @@ export function PlaygroundHeader({
           />
         </div>
       </div>
+      <DiwaliLightString />
     </header>
   );
 }

@@ -405,3 +405,401 @@ code {
 .animate-badgePulse {
   animation: badgePulse 2.4s ease-in-out infinite;
 }
+
+/* Diwali festive theme. Decorative only: every element here ignores pointer
+   input and is switched off for users who prefer reduced motion. */
+:root {
+  --diwali-gold: oklch(0.74 0.14 78);
+  --diwali-marigold: oklch(0.74 0.17 58);
+  --diwali-flame: oklch(0.88 0.15 92);
+  --diwali-maroon: oklch(0.45 0.13 30);
+  --diwali-ink: oklch(0.47 0.12 55);
+  --diwali-ruby: oklch(0.58 0.2 22);
+}
+
+.dark {
+  --diwali-gold: oklch(0.8 0.13 82);
+  --diwali-marigold: oklch(0.76 0.16 62);
+  --diwali-flame: oklch(0.9 0.14 95);
+  --diwali-maroon: oklch(0.55 0.14 32);
+  --diwali-ink: oklch(0.86 0.12 85);
+  --diwali-ruby: oklch(0.66 0.2 22);
+}
+
+@theme inline {
+  --color-diwali-gold: var(--diwali-gold);
+  --color-diwali-marigold: var(--diwali-marigold);
+  --color-diwali-flame: var(--diwali-flame);
+  --color-diwali-maroon: var(--diwali-maroon);
+  --color-diwali-ink: var(--diwali-ink);
+  --color-diwali-ruby: var(--diwali-ruby);
+}
+
+/* Diya flame: two flame layers flicker at different speeds over a pulsing glow. */
+@keyframes diya-flicker-outer {
+  0%, 100% { transform: scale(1, 1) skewX(0deg); }
+  20% { transform: scale(0.9, 1.1) skewX(-4deg); }
+  40% { transform: scale(1.06, 0.93) skewX(3deg); }
+  60% { transform: scale(0.94, 1.12) skewX(-2deg); }
+  80% { transform: scale(1.03, 0.96) skewX(4deg); }
+}
+
+@keyframes diya-flicker-inner {
+  0%, 100% { transform: scale(1, 1); opacity: 1; }
+  30% { transform: scale(0.88, 1.12); opacity: 0.85; }
+  65% { transform: scale(1.08, 0.92); opacity: 1; }
+}
+
+@keyframes diya-halo {
+  0%, 100% { transform: scale(0.88); opacity: 0.55; }
+  50% { transform: scale(1.12); opacity: 1; }
+}
+
+.diya-animated .diya-flame-outer,
+.diya-animated .diya-flame-inner,
+.diya-animated .diya-halo {
+  transform-box: fill-box;
+  will-change: transform, opacity;
+}
+
+.diya-animated .diya-flame-outer {
+  transform-origin: 50% 100%;
+  animation: diya-flicker-outer 1.3s ease-in-out infinite;
+}
+
+.diya-animated .diya-flame-inner {
+  transform-origin: 50% 100%;
+  animation: diya-flicker-inner 0.9s ease-in-out infinite;
+}
+
+.diya-animated .diya-halo {
+  transform-origin: 50% 50%;
+  animation: diya-halo 1.8s ease-in-out infinite;
+}
+
+/* Greeting text with a slow gold light sweep. */
+@keyframes diwali-shimmer {
+  0% { background-position: 120% 0; }
+  60%, 100% { background-position: -20% 0; }
+}
+
+.diwali-shimmer-text {
+  background-image: linear-gradient(
+    100deg,
+    var(--diwali-ink) 0%,
+    var(--diwali-ink) 40%,
+    var(--diwali-flame) 50%,
+    var(--diwali-ink) 60%,
+    var(--diwali-ink) 100%
+  );
+  background-size: 250% 100%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: diwali-shimmer 5s ease-in-out infinite;
+}
+
+/* Hanging garland of glass bulbs below the header. Each bulb swings like a
+   pendulum in 3D, offset by its index so the string moves as a soft wave. */
+.diwali-garland {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  height: 24px;
+  display: flex;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.diwali-garland-segment {
+  position: relative;
+  flex: 1 1 0;
+  perspective: 120px;
+}
+
+.diwali-garland-wire {
+  position: absolute;
+  inset: 0 0 auto 0;
+  width: 100%;
+  height: 10px;
+  overflow: visible;
+}
+
+.diwali-garland-wire path {
+  fill: none;
+  stroke: color-mix(in oklch, var(--diwali-gold) 75%, transparent);
+  stroke-width: 1;
+}
+
+@keyframes diwali-swing {
+  0% { transform: rotateZ(8deg) rotateY(-25deg); }
+  100% { transform: rotateZ(-8deg) rotateY(25deg); }
+}
+
+@keyframes diwali-glow {
+  0%, 100% { opacity: 0.35; transform: scale(0.8); }
+  50% { opacity: 1; transform: scale(1.15); }
+}
+
+.diwali-bulb {
+  position: absolute;
+  top: 4px;
+  left: 50%;
+  width: 8px;
+  margin-left: -4px;
+  transform-origin: 50% 0;
+  /* No preserve-3d here: it breaks Chrome's hit-testing so the wrong bulb
+     receives hover. The parent's perspective still gives the 3D swing. */
+  animation: diwali-swing 2.8s cubic-bezier(0.45, 0, 0.55, 1) infinite alternate;
+  animation-delay: calc(var(--i) * -0.32s);
+  will-change: transform;
+}
+
+.diwali-bulb-cap {
+  display: block;
+  width: 4px;
+  height: 3px;
+  margin: 0 auto;
+  border-radius: 1px 1px 0 0;
+  background: linear-gradient(
+    var(--diwali-gold),
+    color-mix(in oklch, var(--diwali-gold) 55%, black)
+  );
+}
+
+.diwali-bulb-glass {
+  --bulb: var(--diwali-gold);
+  position: relative;
+  display: block;
+  width: 8px;
+  height: 10px;
+  border-radius: 50% 50% 50% 50% / 42% 42% 58% 58%;
+  background: radial-gradient(
+    circle at 35% 30%,
+    white 0 12%,
+    var(--bulb) 42%,
+    color-mix(in oklch, var(--bulb) 60%, black) 100%
+  );
+  box-shadow: 0 1px 4px color-mix(in oklch, var(--bulb) 55%, transparent);
+}
+
+.diwali-bulb-glass[data-tone="marigold"] { --bulb: var(--diwali-marigold); }
+.diwali-bulb-glass[data-tone="ruby"] { --bulb: var(--diwali-ruby); }
+
+.diwali-bulb-glass::after {
+  content: "";
+  position: absolute;
+  inset: -7px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    color-mix(in oklch, var(--bulb) 60%, transparent) 0%,
+    transparent 70%
+  );
+  animation: diwali-glow 2.4s ease-in-out infinite;
+  animation-delay: calc(var(--i) * -0.2s);
+}
+
+@keyframes diwali-rise {
+  0% {
+    transform: translate3d(0, 0, 0) scale(0.6);
+    opacity: 0;
+  }
+  15% {
+    opacity: 0.95;
+  }
+  70% {
+    opacity: 0.7;
+  }
+  100% {
+    transform: translate3d(var(--diwali-drift, 0px), -65vh, 0) scale(1);
+    opacity: 0;
+  }
+}
+
+.diwali-rising-light {
+  position: absolute;
+  bottom: -16px;
+  border-radius: 9999px;
+  opacity: 0;
+  background: radial-gradient(
+    circle,
+    var(--diwali-flame) 0%,
+    var(--diwali-marigold) 45%,
+    transparent 72%
+  );
+  box-shadow: 0 0 12px 2px
+    color-mix(in oklch, var(--diwali-marigold) 50%, transparent);
+  animation-name: diwali-rise;
+  animation-timing-function: cubic-bezier(0.22, 0.61, 0.36, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+
+/* Bulbs take pointer input so hovering can start the garland wave (see garlandWave.ts). */
+.diwali-bulb {
+  pointer-events: auto;
+}
+
+/* Slightly larger invisible hit area so the wave is easy to trigger. */
+.diwali-bulb::before {
+  content: "";
+  position: absolute;
+  inset: -4px -8px -6px;
+}
+
+.diwali-bulb-body,
+.diwali-bulb-glass {
+  display: block;
+  transform-origin: 50% 0;
+}
+
+/* Greeting card header: a Diwali dusk sky glowing over harvest fields. */
+.diwali-card-hero {
+  background:
+    radial-gradient(ellipse at 50% 85%, color-mix(in oklch, var(--diwali-flame) 45%, transparent) 0, transparent 55%),
+    linear-gradient(180deg, oklch(0.24 0.06 290) 0%, oklch(0.32 0.1 25) 55%, oklch(0.5 0.14 55) 100%);
+  border-bottom: 1px solid color-mix(in oklch, var(--diwali-gold) 45%, transparent);
+}
+
+@keyframes wheat-sway {
+  0%, 100% { transform: rotate(-3deg); }
+  50% { transform: rotate(3deg); }
+}
+
+.wheat-sway {
+  transform-box: fill-box;
+  transform-origin: 50% 100%;
+  animation: wheat-sway 3.6s ease-in-out infinite;
+}
+
+/* Diwali theme: a warm cream palette that sits between light and dark, with
+   deep brown text and saffron as the primary colour. It builds on light mode,
+   so components without dark: styles look right here too. */
+.diwali {
+  color-scheme: light;
+  --background: oklch(0.87 0.04 80);
+  --foreground: oklch(0.27 0.05 40);
+  --card: oklch(0.925 0.03 85);
+  --card-foreground: oklch(0.27 0.05 40);
+  --popover: oklch(0.94 0.028 85);
+  --popover-foreground: oklch(0.32 0.05 40);
+  --primary: oklch(0.56 0.16 45);
+  --primary-foreground: oklch(0.98 0.015 85);
+  --secondary: oklch(0.84 0.045 75);
+  --secondary-foreground: oklch(0.27 0.05 40);
+  --muted: oklch(0.835 0.04 78);
+  --muted-foreground: oklch(0.42 0.05 45);
+  --accent: oklch(0.82 0.06 70);
+  --accent-foreground: oklch(0.27 0.05 40);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 30);
+  --border: oklch(0.76 0.05 70);
+  --input: oklch(0.91 0.03 82);
+  --ring: oklch(0.62 0.15 55);
+  --chart-1: oklch(0.62 0.17 50);
+  --chart-2: oklch(0.48 0.15 25);
+  --chart-3: oklch(0.7 0.14 80);
+  --chart-4: oklch(0.55 0.13 150);
+  --chart-5: oklch(0.5 0.13 300);
+  --sidebar: oklch(0.87 0.04 80);
+  --sidebar-foreground: oklch(0.38 0.05 45);
+  --sidebar-primary: oklch(0.56 0.16 45);
+  --sidebar-primary-foreground: oklch(0.98 0.015 85);
+  --sidebar-accent: oklch(0.82 0.06 70);
+  --sidebar-accent-foreground: oklch(0.27 0.05 40);
+  --sidebar-border: oklch(0.76 0.05 70);
+  --sidebar-ring: oklch(0.62 0.15 55);
+  --tooltip-bg: oklch(0.3 0.05 40);
+  --tooltip-text: oklch(0.96 0.025 85);
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  /* Components hard-code white and near-white greys in many places. Retinting
+     those Tailwind colours turns them a soft cream in this theme only. */
+  --color-white: oklch(0.955 0.025 85);
+  --color-gray-50: oklch(0.94 0.028 82);
+  --color-gray-100: oklch(0.915 0.032 80);
+  --color-slate-50: oklch(0.94 0.028 82);
+  --color-zinc-50: oklch(0.94 0.028 82);
+
+  --diwali-gold: oklch(0.68 0.14 75);
+  --diwali-marigold: oklch(0.68 0.17 55);
+  --diwali-flame: oklch(0.86 0.15 90);
+  --diwali-maroon: oklch(0.45 0.13 30);
+  --diwali-ink: oklch(0.42 0.12 45);
+  --diwali-ruby: oklch(0.55 0.2 22);
+}
+
+/* Poppins for text and Rozha One for page headings, both from the Indian Type
+   Foundry. Rozha One has a single weight, so bold is not synthesised. */
+.diwali body {
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+}
+
+.diwali :is(h1, h2, h3) {
+  font-family: "Rozha One", Georgia, serif;
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
+}
+
+/* Active tabs sit on deep saffron here, so they need light text. Light mode
+   keeps its dark text on the pale mint highlight. */
+.diwali [data-slot="tabs-trigger"][data-state="active"] {
+  color: var(--primary-foreground);
+}
+
+/* Soft saffron and rose warmth in the screen corners, like lamps lit just out
+   of view. It ignores the pointer and leaves the centre untouched. */
+.diwali-ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  background:
+    radial-gradient(ellipse 35% 30% at 0% 0%, color-mix(in oklch, var(--diwali-marigold) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 35% 30% at 100% 0%, color-mix(in oklch, var(--diwali-gold) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 25% at 0% 100%, color-mix(in oklch, var(--diwali-ruby) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 25% at 100% 100%, color-mix(in oklch, var(--diwali-marigold) 16%, transparent), transparent 70%);
+}
+
+/* Bigger, brighter bulbs on the header garland in the Diwali theme. */
+.diwali .diwali-garland {
+  height: 28px;
+}
+
+.diwali .diwali-bulb {
+  width: 10px;
+  margin-left: -5px;
+}
+
+.diwali .diwali-bulb-cap {
+  width: 5px;
+}
+
+.diwali .diwali-bulb-glass {
+  width: 10px;
+  height: 13px;
+  box-shadow: 0 0 8px 1px color-mix(in oklch, var(--bulb) 70%, transparent);
+}
+
+.diwali .diwali-bulb-glass::after {
+  inset: -10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .diya-animated .diya-flame-outer,
+  .diya-animated .diya-flame-inner,
+  .diya-animated .diya-halo,
+  .diwali-shimmer-text,
+  .diwali-bulb,
+  .diwali-bulb-glass::after,
+  .wheat-sway {
+    animation: none;
+  }
+  .diwali-rising-light {
+    display: none;
+  }
+}
