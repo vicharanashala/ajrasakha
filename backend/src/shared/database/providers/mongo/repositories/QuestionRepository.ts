@@ -10437,6 +10437,120 @@ export class QuestionRepository implements IQuestionRepository {
     return { modifiedCount: result.modifiedCount };
   }
 
+  /**
+   * Find questions where details.normalised_crop matches a given crop name (case-insensitive).
+   */
+  async findQuestionsByNormalisedCrop(
+    cropName: string,
+    options?: { page?: number; limit?: number; search?: string },
+  ): Promise<{
+    questions: IQuestion[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    await this.init();
+
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const cropRegex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
+
+    const filter: any = { 'details.normalised_crop': cropRegex };
+
+    if (options?.search && options.search.trim()) {
+      const searchRegex = new RegExp(escapeRegex(options.search.trim()), 'i');
+      filter.$or = [
+        { question: searchRegex },
+        { 'details.crop': searchRegex },
+        { 'details.state': searchRegex },
+        { 'details.district': searchRegex },
+      ];
+    }
+
+    const page = Math.max(1, Number(options?.page) || 1);
+    const limit = Math.max(1, Math.min(100, Number(options?.limit) || 10));
+    const skip = (page - 1) * limit;
+
+    const [total, questions] = await Promise.all([
+      this.QuestionCollection.countDocuments(filter),
+      this.QuestionCollection.find(
+        filter,
+        {
+          projection: {
+            _id: 1,
+            question: 1,
+            'details.crop': 1,
+            'details.normalised_crop': 1,
+            'details.state': 1,
+            'details.district': 1,
+            status: 1,
+            createdAt: 1,
+          },
+        },
+      )
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .toArray(),
+    ]);
+
+    return {
+      questions: questions.map((q) => ({
+        ...q,
+        _id: q._id ? q._id.toString() : String(q._id),
+      })) as unknown as IQuestion[],
+      total,
+      page,
+      limit,
+      totalPages: Math.max(1, Math.ceil(total / limit)),
+    };
+  }
+
+  async countQuestionsByNormalisedCrop(cropName: string): Promise<number> {
+    await this.init();
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escapeRegex(cropName.trim())}\\s*$`, 'i');
+    return this.QuestionCollection.countDocuments({ 'details.normalised_crop': regex });
+  }
+
+  async reassignAllQuestionsByNormalisedCrop(
+    fromCropName: string,
+    toCropName: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+    const escapeRegex = (v: string) => v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const regex = new RegExp(`^\\s*${escapeRegex(fromCropName.trim())}\\s*$`, 'i');
+
+    const result = await this.QuestionCollection.updateMany(
+      { 'details.normalised_crop': regex },
+      { $set: { 'details.normalised_crop': toCropName, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
+  /**
+   * Bulk update details.normalised_crop for multiple questions by their IDs.
+   */
+  async updateQuestionsNormalisedCrop(
+    questionIds: string[],
+    normalisedCrop: string,
+  ): Promise<{ modifiedCount: number }> {
+    await this.init();
+
+    if (!questionIds || questionIds.length === 0) {
+      return { modifiedCount: 0 };
+    }
+
+    const objectIds = questionIds.map(id => new ObjectId(id));
+    const result = await this.QuestionCollection.updateMany(
+      { _id: { $in: objectIds } },
+      { $set: { 'details.normalised_crop': normalisedCrop, updatedAt: new Date() } },
+    );
+
+    return { modifiedCount: result.modifiedCount };
+  }
+
   async getUserActivityMetrics(
     userId: string,
     startDate: Date,
@@ -10738,41 +10852,57 @@ export class QuestionRepository implements IQuestionRepository {
     const rerouteDocs = await this.ReRouteCollection.find({
       reroutes: {
         $elemMatch: {
-          reroutedBy: userObjectId,
+          reroutedBy: { $in: [userObjectId, userId] },
           reroutedAt: { $gte: startDate, $lte: endDate },
         },
       },
     }).toArray();
 
+    const rerouteQuestionIds = rerouteDocs
+      .map((d: any) => d.questionId)
+      .filter((id: any) => id && ObjectId.isValid(id))
+      .map((id: any) => (id instanceof ObjectId ? id : new ObjectId(id)));
+
+    const rerouteQuestions = rerouteQuestionIds.length > 0
+      ? await this.QuestionCollection.find({ _id: { $in: rerouteQuestionIds } }).toArray()
+      : [];
+    const rerouteQuestionMap = new Map(rerouteQuestions.map((q: any) => [q._id.toString(), q]));
+
     for (const doc of rerouteDocs) {
       const reroutes: any[] = (doc as any).reroutes || [];
+      const q = doc.questionId ? rerouteQuestionMap.get(doc.questionId.toString()) : null;
+
       for (const r of reroutes) {
         const reroutedBy = typeof r.reroutedBy === 'string' ? r.reroutedBy : r.reroutedBy?.toString();
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
         if (reroutedBy === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
           reroutedCount++;
-          // Calculate duration from first reroute entry time to this reroute time
-          const firstEntry = reroutes.find((entry: any) => {
-            const entryReroutedBy = typeof entry.reroutedBy === 'string' ? entry.reroutedBy : entry.reroutedBy?.toString();
-            return entryReroutedBy === userId && entry.reroutedAt;
-          });
-          if (firstEntry && firstEntry.reroutedAt) {
-            const startAt = new Date(firstEntry.reroutedAt);
+
+          // Moderator handling duration: from when the moderator was assigned to when they rerouted
+          const assignedAt = q?.moderatorAssignedAt ? new Date(q.moderatorAssignedAt) : null;
+          const startAt = assignedAt && assignedAt <= reroutedAt
+            ? assignedAt
+            : doc.createdAt
+              ? new Date(doc.createdAt)
+              : reroutedAt;
+
+          if (startAt && reroutedAt && reroutedAt > startAt) {
             reroutingIntervals.push(...getActiveOverlapIntervals(startAt, reroutedAt));
           }
         }
       }
     }
 
-    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) received a rerouted question in date range
+    // 7. Expert Rerouting: reroute entries where the expert (reroutedTo) completed a rerouted question review in date range
     let expertReroutedCount = 0;
     const expertReroutingIntervals: TimeInterval[] = [];
 
     const expertRerouteDocs = await this.ReRouteCollection.find({
       reroutes: {
         $elemMatch: {
-          reroutedTo: userObjectId,
-          reroutedAt: { $gte: startDate, $lte: endDate },
+          reroutedTo: { $in: [userObjectId, userId] },
+          status: { $ne: 'pending' },
+          updatedAt: { $gte: startDate, $lte: endDate },
         },
       },
     }).toArray();
@@ -10781,13 +10911,18 @@ export class QuestionRepository implements IQuestionRepository {
       const reroutes: any[] = (doc as any).reroutes || [];
       for (const r of reroutes) {
         const reroutedTo = typeof r.reroutedTo === 'string' ? r.reroutedTo : r.reroutedTo?.toString();
+        if (reroutedTo !== userId) continue;
+
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
-        if (reroutedTo === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
+        const updatedAt = r.updatedAt ? new Date(r.updatedAt) : null;
+
+        // An expert's review is an action completed by the expert
+        if (r.status !== 'pending' && updatedAt && updatedAt >= startDate && updatedAt <= endDate) {
           expertReroutedCount++;
-          // Duration: from reroutedAt (when expert was assigned) to updatedAt (last status change / completion)
-          const updatedAt = (doc as any).updatedAt ? new Date((doc as any).updatedAt) : null;
-          if (updatedAt) {
-            expertReroutingIntervals.push(...getActiveOverlapIntervals(reroutedAt, updatedAt));
+          const startAt = reroutedAt && reroutedAt <= updatedAt ? reroutedAt : updatedAt;
+          const endAt = updatedAt;
+          if (startAt && endAt && endAt > startAt) {
+            expertReroutingIntervals.push(...getActiveOverlapIntervals(startAt, endAt));
           }
         }
       }
@@ -10856,19 +10991,44 @@ export class QuestionRepository implements IQuestionRepository {
       console.error('[getUserActivityMetrics] Failed to fetch hold metrics:', err?.message);
     }
 
-    // Clean and merge hold intervals first
+    // 1. Clean and merge hold intervals first
     const cleanHoldIntervals = mergeIntervals(holdIntervals);
     const totalHoldingMs = sumIntervals(cleanHoldIntervals);
 
-    // Deduct overlapping hold intervals from primary review / screening / audit intervals
-    // so time spent reviewing a question to place it on hold is not double-counted as completed work
-    const totalAuthoringMs = sumIntervals(subtractIntervals(authoringIntervals, cleanHoldIntervals));
-    const totalReviewingMs = sumIntervals(subtractIntervals(reviewingIntervals, cleanHoldIntervals));
-    const totalModeratingMs = sumIntervals(subtractIntervals(moderatingIntervals, cleanHoldIntervals));
-    const totalAuditingMs = sumIntervals(subtractIntervals(auditingIntervals, cleanHoldIntervals));
-    const totalGatekeepingMs = sumIntervals(subtractIntervals(gatekeepingIntervals, cleanHoldIntervals));
-    const totalReroutingMs = sumIntervals(subtractIntervals(reroutingIntervals, cleanHoldIntervals));
-    const totalExpertReroutingMs = sumIntervals(subtractIntervals(expertReroutingIntervals, cleanHoldIntervals));
+    // 2. Clean and merge primary role intervals, deducting hold intervals so time spent
+    // reviewing a question to place it on hold is not double-counted as completed work
+    const cleanGatekeepingIntervals = subtractIntervals(mergeIntervals(gatekeepingIntervals), cleanHoldIntervals);
+    const cleanAuditingIntervals = subtractIntervals(mergeIntervals(auditingIntervals), cleanHoldIntervals);
+    const cleanModeratingIntervals = subtractIntervals(mergeIntervals(moderatingIntervals), cleanHoldIntervals);
+    const cleanAuthoringIntervals = subtractIntervals(mergeIntervals(authoringIntervals), cleanHoldIntervals);
+
+    // 3. Deduct prior overlapping activities from secondary / reroute intervals so no time is double-counted:
+    // - Moderator Rerouting: deduct moderating and hold intervals
+    const cleanReroutingIntervals = subtractIntervals(mergeIntervals(reroutingIntervals), [
+      ...cleanModeratingIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    // - Reviewing: deduct authoring and hold intervals
+    const cleanReviewingIntervals = subtractIntervals(mergeIntervals(reviewingIntervals), [
+      ...cleanAuthoringIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    // - Expert Rerouting: deduct authoring, reviewing, and hold intervals
+    const cleanExpertReroutingIntervals = subtractIntervals(mergeIntervals(expertReroutingIntervals), [
+      ...cleanAuthoringIntervals,
+      ...cleanReviewingIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
+    const totalAuthoringMs = sumIntervals(cleanAuthoringIntervals);
+    const totalReviewingMs = sumIntervals(cleanReviewingIntervals);
+    const totalModeratingMs = sumIntervals(cleanModeratingIntervals);
+    const totalAuditingMs = sumIntervals(cleanAuditingIntervals);
+    const totalGatekeepingMs = sumIntervals(cleanGatekeepingIntervals);
+    const totalReroutingMs = sumIntervals(cleanReroutingIntervals);
+    const totalExpertReroutingMs = sumIntervals(cleanExpertReroutingIntervals);
 
     return {
       authoredCount,

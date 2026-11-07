@@ -126,6 +126,24 @@ class TheWriterLaysOutTheFindings(unittest.TestCase):
         self.assertEqual(llm.call_count, 2)
         self.assertEqual(len(result["citations"]), 4)
 
+    def test_an_empty_reply_is_asked_again_when_the_findings_hold_guidance(self):
+        empty = {"answer": "", "used_passages": [], "note": "nothing answers it"}
+        full = {"answer": "The document does not specify X. Use Y.", "used_passages": [1, 2], "note": ""}
+        result, llm = self.run_draft([empty, full, full, full])
+        self.assertIn("Use Y", result["answer"])
+        self.assertIn("Do not return an empty answer", llm.call_args_list[1].args[0])
+
+    def test_an_empty_reply_stays_empty_when_the_findings_cite_nothing(self):
+        from unittest.mock import patch
+
+        import anara_drafter
+
+        empty = {"answer": "", "used_passages": [], "note": "nothing"}
+        with patch.object(anara_drafter, "call_llm", return_value=empty) as llm:
+            result = anara_drafter.draft_answer("q?", self.PASSAGES, "Paddy", None, notes="No document covers it.")
+        self.assertEqual(result["answer"], "")
+        self.assertEqual(llm.call_count, 1)
+
     def test_a_full_answer_is_not_written_again(self):
         _, llm = self.run_draft([{"answer": "full", "used_passages": [1, 2, 3, 4], "note": ""}])
         self.assertEqual(llm.call_count, 1)

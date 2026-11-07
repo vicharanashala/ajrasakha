@@ -261,19 +261,30 @@ function transformApiResponse(
   const monthQueryTrend = result.monthlyQueries ?? [];
   const queryMonthlyDelta = calcMonthlyDelta(monthQueryTrend.map(q => ({ month: q.period, count: q.queryCount })));
   // Sparkline: use all-time weekly totals as data points
+  // The API returns these series newest-first, but a chart reads left → right,
+  // so plot them oldest → newest. Tables keep using the original (newest-first) arrays.
+  const byPeriodAsc = <T extends { period: string }>(rows: T[]): T[] =>
+    [...rows].sort((a, b) => a.period.localeCompare(b.period));
+  const queryTrendChartData = byPeriodAsc(queryTrend);
+
   const weeklyQueryData = result.weeklyQueries ?? [];
+  const weeklyQueryChartData = byPeriodAsc(weeklyQueryData);
   const querySparkPoints =
     weeklyQueryData.length > 0
-      ? weeklyQueryData.map((w) => w.queryCount)
+      ? weeklyQueryChartData.map((w) => w.queryCount)
       : (DASHBOARD_DATA.kpiRow1.find((c) => c.id === "queries")?.sparkPoints ??
         []);
 
   const monthlyQueryData = result.monthlyQueries ?? [];
 
-  const monthlyQuerySparkPoints =
-    monthlyQueryData.length > 0 ? monthlyQueryData.map((m) => m.queryCount) : [];
+  const monthlyQueryChartData = byPeriodAsc(monthlyQueryData);
 
-  const monthlyQueryLabels = monthlyQueryData.map((m) =>
+  const monthlyQuerySparkPoints =
+    monthlyQueryData.length > 0
+      ? monthlyQueryChartData.map((m) => m.queryCount)
+      : [];
+
+  const monthlyQueryLabels = monthlyQueryChartData.map((m) =>
     fmtMonthLabel(m.period),
   );
 
@@ -339,9 +350,9 @@ function transformApiResponse(
         monthlyDelta: queryMonthlyDelta.text,
         monthlyDeltaDir: queryMonthlyDelta.dir,
         sparkPoints: querySparkPoints,
-        sparkLabels: weeklyQueryData.map((w) => fmtWeekLabel(w.period)),
-        dailySparkPoints: queryTrend.map((d) => d.queryCount),
-        dailySparkLabels: queryTrend.map((d) => {
+        sparkLabels: weeklyQueryChartData.map((w) => fmtWeekLabel(w.period)),
+        dailySparkPoints: queryTrendChartData.map((d) => d.queryCount),
+        dailySparkLabels: queryTrendChartData.map((d) => {
           const date = parseDay(d.period);
           return date.toLocaleString("en-IN", {
             month: "short",

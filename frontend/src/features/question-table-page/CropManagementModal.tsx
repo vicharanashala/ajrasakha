@@ -40,6 +40,7 @@ import { CropSheetImportModal } from "./CropSheetImportModal";
 import { AgriTechAuditModal } from "./AgriTechAuditModal";
 import { AgriTechShortcutsDialog } from "./AgriTechShortcutsDialog";
 import { EntryDetailsDialog } from "./EntryDetailsDialog";
+import { DeleteCropModal } from "./DeleteCropModal";
 import { NewBadge } from "@/components/atoms/new-badge";
 import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import {
@@ -1669,6 +1670,7 @@ export const CropManagementModal = ({
   };
   // Row clicks open a read-only view; editing starts only from the pencil action.
   const [viewEntry, setViewEntry] = useState<ICropResponse | null>(null);
+  const [cropToDelete, setCropToDelete] = useState<ICropResponse | null>(null);
   const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
 
   const handleSave = async () => {
@@ -1929,6 +1931,17 @@ export const CropManagementModal = ({
                         >
                           <Pencil className="h-3.5 w-3.5" />
                         </button>
+                        {(activeTab === "crop" || item.type === "crop" || !item.type) && (
+                          <button
+                            type="button"
+                            className="p-1.5 rounded-md text-gray-400 dark:text-gray-500 hover:text-rose-600 dark:hover:text-rose-400 hover:bg-rose-50 dark:hover:bg-rose-500/10 transition-all"
+                            onClick={() => setCropToDelete(item)}
+                            title="Delete"
+                            aria-label={`Delete ${item.name}`}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </button>
+                        )}
                       </div>
                     </TableCell>
                   </MotionTableRow>
@@ -2936,6 +2949,12 @@ export const CropManagementModal = ({
         onClose={() => setBulkResultsOpen(false)}
         results={bulkResults}
         type={bulkResultsType}
+      />
+
+      <DeleteCropModal
+        crop={cropToDelete}
+        open={Boolean(cropToDelete)}
+        onClose={() => setCropToDelete(null)}
       />
     </MotionConfig>
   );
