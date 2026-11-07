@@ -95,6 +95,12 @@ export type RdqaQuestion = {
     modifiedBy: string | null;
     approvedBy: string;
     approvedByEmail: string | null;
+    sources: Array<{
+      source: string;
+      sourceType?: string;
+      sourceName?: string;
+      page?: string;
+    }>;
   };
   approvedBy: string;
   closedAt: string;

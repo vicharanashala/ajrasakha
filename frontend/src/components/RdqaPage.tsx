@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from "react";
-import { Calendar, Eye, X, ChevronLeft, ChevronRight, BarChart3 } from "lucide-react";
+import { Calendar, Eye, X, ChevronLeft, ChevronRight, BarChart3, Pencil } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Button } from "@/components/atoms/button";
@@ -11,6 +11,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { Card, CardContent } from "@/components/atoms/card";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { EditRdqaAnswerModal } from "./EditRdqaAnswerModal";
+import { useQueryClient } from "@tanstack/react-query";
 
 const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
 const ITEMS_PER_PAGE = 12;
@@ -44,6 +46,9 @@ export const RdqaPage = () => {
   const [search, setSearch] = useState("");
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [editQuestion, setEditQuestion] = useState<RdqaQuestion | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const queryClient = useQueryClient();
 
   const { data: rdqaResponse, isLoading, error } = useRdqaQuestions(formatDateStr(selectedDate), API_LIMIT);
   const debouncedSearch = useDebounce(search, 300);
@@ -168,9 +173,22 @@ export const RdqaPage = () => {
                           )}
                         </div>
                       </div>
-                      <Button variant="outline" size="sm" onClick={() => setSelectedQuestion(question)} className="shrink-0">
-                        <Eye className="h-4 w-4 mr-1" />View
-                      </Button>
+                      <div className="flex gap-2 shrink-0">
+                        <Button variant="outline" size="sm" onClick={() => setSelectedQuestion(question)} className="shrink-0">
+                          <Eye className="h-4 w-4 mr-1" />View
+                        </Button>
+                        <Button
+                          variant="default"
+                          size="sm"
+                          onClick={() => {
+                            setEditQuestion(question);
+                            setShowEditModal(true);
+                          }}
+                          className="shrink-0 bg-primary hover:bg-primary/90"
+                        >
+                          <Pencil className="h-4 w-4 mr-1" />Edit
+                        </Button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -375,6 +393,17 @@ export const RdqaPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit RDQA Answer Modal */}
+      <EditRdqaAnswerModal
+        question={editQuestion}
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        onSuccess={() => {
+          // Refresh the RDQA questions list
+          queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
+        }}
+      />
     </>
   );
 };
