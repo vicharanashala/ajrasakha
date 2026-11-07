@@ -33,6 +33,7 @@ export type GdbCleaningListRow = Pick<
   | 'notEvaluated'
   | 'status'
   | 'assignedTo'
+  | 'questionId'
 >;
 
 /** One line of a reviewer's history: what they did, on which answer, and when. */
@@ -69,10 +70,14 @@ export interface IGdbCleaningRepository {
     flags: string[];
   }>;
 
-  /** Saves the suggested or edited correction. Only an answer still to do can change. */
+  /**
+   * Saves the suggested or edited correction. An answer that is to do, has no flags or is accepted can change.
+   * `pushedBefore` is the text that was pushed, kept when an already pushed correction is edited.
+   */
   saveCorrection(
     answerId: string,
     correctedAnswer: string,
+    pushedBefore?: string,
   ): Promise<IGdbCleaning | null>;
 
   /** Saves the checks with a reviewer's changes and the flags worked out from them. Only an answer still to do can change. */
@@ -126,7 +131,11 @@ export interface IGdbCleaningRepository {
   ): Promise<{fixed: number; dismissed: number; pushed: number}>;
 
   /** Records that the accepted correction was pushed to the golden answer. Only a fixed answer that was not pushed yet. */
-  markPushed(answerId: string, reviewerId: string): Promise<IGdbCleaning | null>;
+  markPushed(
+    answerId: string,
+    reviewerId: string,
+    pushedAnswer: string,
+  ): Promise<IGdbCleaning | null>;
 
   /** Closes an answer as fixed or dismissed. Only an answer still to do can change. */
   decide(

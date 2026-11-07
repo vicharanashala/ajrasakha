@@ -2,6 +2,7 @@ import { Button } from "@/components/atoms/button";
 import { useFetchAnswer } from "@/hooks/api/answer/useGetAiInitialAnswer";
 import {
   useEditGdbFlag,
+  useEditGdbQuestion,
   useEditGdbSources,
   useGdbDecision,
   useGdbItem,
@@ -25,6 +26,7 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
   const decision = useGdbDecision(id);
   const editFlag = useEditGdbFlag(id);
   const editSources = useEditGdbSources(id);
+  const editQuestion = useEditGdbQuestion(id);
   const push = usePushToGdb(id);
   const release = useReleaseGdbAnswer(id);
   // the AI draft the author page uses: it returns an answer in the predefined structure
@@ -52,7 +54,7 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
     <GdbDetailView
       key={item.id}
       item={item}
-      busy={saveCorrection.isPending || decision.isPending || editFlag.isPending || editSources.isPending || push.isPending || release.isPending}
+      busy={saveCorrection.isPending || decision.isPending || editFlag.isPending || editSources.isPending || editQuestion.isPending || push.isPending || release.isPending}
       onRelease={() => release.mutate()}
       drafting={aiDraft.isPending}
       onDraftWithAi={async () => {
@@ -78,6 +80,7 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
       onSaveCorrection={(text) => saveCorrection.mutateAsync(text)}
       onEditFlag={(parameter, result, comment) => editFlag.mutateAsync({ parameter, result, comment })}
       onSaveSources={(sources) => editSources.mutateAsync(sources)}
+      onEditQuestion={(edit) => editQuestion.mutateAsync(edit)}
       onPush={() => push.mutateAsync()}
     />
   );

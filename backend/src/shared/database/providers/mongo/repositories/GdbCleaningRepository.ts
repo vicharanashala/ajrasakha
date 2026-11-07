@@ -80,7 +80,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
           },
         };
         query.$or = ObjectId.isValid(search) && search.length === 24
-          ? [{answerId: new ObjectId(search)}, byQuestion]
+          ? [{answerId: new ObjectId(search)}, {questionId: new ObjectId(search)}, byQuestion]
           : [byQuestion];
       }
 
@@ -97,6 +97,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
               notEvaluated: 1,
               status: 1,
               assignedTo: 1,
+              questionId: 1,
             },
           })
           .sort({_id: 1})
@@ -177,12 +178,21 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
   async saveCorrection(
     answerId: string,
     correctedAnswer: string,
+    pushedBefore?: string,
   ): Promise<IGdbCleaning | null> {
     try {
       if (!this.collection) await this.init();
       return await this.collection.findOneAndUpdate(
-        {answerId: GdbCleaningRepository.toObjectId(answerId), status: {$in: ['todo', 'clean']}},
-        {$set: {correctedAnswer}},
+        {
+          answerId: GdbCleaningRepository.toObjectId(answerId),
+          status: {$in: ['todo', 'clean', 'fixed']},
+        },
+        {
+          $set: {
+            correctedAnswer,
+            ...(pushedBefore !== undefined ? {pushedAnswer: pushedBefore} : {}),
+          },
+        },
         {returnDocument: 'after'},
       );
     } catch (error: any) {
@@ -457,6 +467,7 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
   async markPushed(
     answerId: string,
     reviewerId: string,
+    pushedAnswer: string,
   ): Promise<IGdbCleaning | null> {
     try {
       if (!this.collection) await this.init();
@@ -465,7 +476,13 @@ export class GdbCleaningRepository implements IGdbCleaningRepository {
           answerId: GdbCleaningRepository.toObjectId(answerId),
           status: 'fixed',
         },
-        {$set: {pushedAt: new Date(), pushedBy: new ObjectId(reviewerId)}},
+        {
+          $set: {
+            pushedAt: new Date(),
+            pushedBy: new ObjectId(reviewerId),
+            pushedAnswer,
+          },
+        },
         {returnDocument: 'after'},
       );
     } catch (error: any) {

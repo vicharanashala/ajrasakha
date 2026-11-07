@@ -73,6 +73,20 @@ export class GetGdbCleaningListQuery {
   limit?: number;
 }
 
+export class EditGdbQuestionDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  question?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  domain?: string;
+}
+
 export class ReleaseGdbReviewerDto {
   @IsMongoId()
   userId: string;
@@ -190,6 +204,8 @@ export const GDB_CLEANING_VALIDATORS = [
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,
+  EditGdbQuestionDto,
+  ReleaseGdbReviewerDto,
   GdbSourceDto,
   SaveGdbSourcesDto,
 ];

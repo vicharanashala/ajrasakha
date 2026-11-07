@@ -111,6 +111,18 @@ export const useEditGdbSources = (answerId: string) => {
   });
 };
 
+export const useEditGdbQuestion = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, { question?: string; domain?: string }>({
+    mutationFn: (edit) => gdbCleaningService.editQuestion(answerId, edit),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Question updated");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to update the question")),
+  });
+};
+
 export const useReleaseGdbAnswer = (answerId: string) => {
   const refresh = useRefreshAfterChange();
   return useMutation<IGdbCleaningItem, Error, void>({

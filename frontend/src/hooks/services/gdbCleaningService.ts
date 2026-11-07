@@ -109,6 +109,15 @@ class GdbCleaningService {
     return response;
   }
 
+  async editQuestion(answerId: string, edit: { question?: string; domain?: string }): Promise<IGdbCleaningItem> {
+    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/question`, {
+      method: "PUT",
+      body: JSON.stringify(edit),
+    });
+    if (!response) throw new Error("Failed to edit the question: No response received");
+    return response;
+  }
+
   async release(answerId: string): Promise<IGdbCleaningItem> {
     const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/release`, { method: "POST" });
     if (!response) throw new Error("Failed to release the answer: No response received");
