@@ -20,12 +20,27 @@ from .models import LLMUnavailableError, ReferenceDataset, ReferenceStructure, S
 
 class SelectionOutcome:
     """Either structure is set (a resolved match) or status/reason are set
-    (a terminal outcome - currently always NEEDS_CLARIFICATION)."""
+    (a terminal outcome - currently always NEEDS_CLARIFICATION).
 
-    def __init__(self, structure: ReferenceStructure | None = None, status=None, reason: str | None = None):
+    no_match distinguishes WHY there's no structure, which matters to the
+    caller: True only when nothing in the Golden Database applies at all
+    (genuinely out of scope - safe to fall back to the generic template).
+    False for a real conflict between two-or-more plausible candidates, or
+    for the classification call itself failing - neither means "this topic
+    isn't covered", so neither should silently get the generic fallback
+    treatment."""
+
+    def __init__(
+        self,
+        structure: ReferenceStructure | None = None,
+        status=None,
+        reason: str | None = None,
+        no_match: bool = False,
+    ):
         self.structure = structure
         self.status = status
         self.reason = reason
+        self.no_match = no_match
 
 
 def select_reference(question: str, dataset: ReferenceDataset) -> SelectionOutcome:
@@ -52,6 +67,7 @@ def select_reference(question: str, dataset: ReferenceDataset) -> SelectionOutco
         return SelectionOutcome(
             status=StructuralValidationStatus.NEEDS_CLARIFICATION,
             reason="No confident reference match found for this question.",
+            no_match=True,
         )
 
     # Crop-specific variant takes precedence outright when exactly one
@@ -96,4 +112,5 @@ def select_reference(question: str, dataset: ReferenceDataset) -> SelectionOutco
     return SelectionOutcome(
         status=StructuralValidationStatus.NEEDS_CLARIFICATION,
         reason="No confident reference match found for this question.",
+        no_match=True,
     )

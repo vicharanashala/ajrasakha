@@ -13,7 +13,13 @@ response - never merged into one verdict:
 - **Structural validation** - matches the question to a Golden Database
   reference structure (one of 19 domains x Broad/Narrow, a handful of named
   topics, or a crop-specific variant) and scores the draft's coverage of
-  each expected step. Runs first.
+  each expected step. Runs first. A question genuinely outside the Golden
+  Database entirely (no domain/topic/crop matches at all) still gets a
+  real check, against one fixed, domain-neutral generic step template
+  (`matchedReference.sourceType: "generic_fallback"`) - never silently
+  treated as a real curated reference. A genuine conflict between two
+  real candidates, or the classification call itself failing, is a
+  different problem and still reports `needs_clarification` instead.
 - **Language polishing** - an LLM rewrite, verified by a technical-content
   guardrail (numbers/units, chemical names, crop names, certainty, negation,
   timing, conditions, treatment identity) before it's ever shown. A rewrite
@@ -127,7 +133,7 @@ actually found a difference - that's what separates `rejected` from
 | `complete` | Every expected step is `covered`. |
 | `partial` | No step is `missing`, but at least one is `partial` or `not_assessed` (see below). |
 | `incomplete` | At least one expected step is `missing`. |
-| `needs_clarification` | No confident reference match for the question (out of scope, or genuinely ambiguous between two references) - see `clarificationReason`. |
+| `needs_clarification` | A real conflict between two-or-more plausible references, or the classification call itself failing - see `clarificationReason`. A question with NO match at all instead falls back to the generic template (above), so this status no longer covers that case. |
 | `reference_data_unavailable` | The Golden Database itself failed to load - a deploy/config problem, not a question about the draft. |
 
 Each step's `coverage` is `covered` / `partial` / `missing` / `not_assessed`.

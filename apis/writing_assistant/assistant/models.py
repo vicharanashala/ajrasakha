@@ -23,6 +23,13 @@ class SourceType(str, Enum):
     # never a live reference-selection candidate - reference_selector must
     # never return this source type as a match.
     TEAM_QUESTION = "team_question"
+    # Team requirement: a question genuinely outside the Golden Database's
+    # domains still gets a real structural check, against one fixed,
+    # domain-neutral step template - never silently treated as a real
+    # curated reference. Kept as its own distinct value so a reviewer can
+    # always tell "checked against real approved content" apart from
+    # "checked against the generic template" from matchedReference alone.
+    GENERIC_FALLBACK = "generic_fallback"
 
 
 class QuestionType(str, Enum):
