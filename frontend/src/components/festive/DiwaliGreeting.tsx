@@ -4,15 +4,18 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popo
 import { Switch } from "@/components/atoms/switch";
 import { Label } from "@/components/atoms/label";
 import { useFestiveSeason } from "@/hooks/ui/useFestiveSeason";
+import { useDiwaliTheme } from "@/hooks/ui/useDiwaliTheme";
 import { useFestiveThemeStore } from "@/stores/festive-theme-store";
 import { cn } from "@/lib/utils";
 import { DiyaIcon } from "./DiyaIcon";
 import { DiwaliGreetingCard } from "./DiwaliGreetingCard";
 
-// Header greeting chip for the festive season. Opens a card with a switch to turn
-// decorations off, and shows an unread dot until the card is first opened.
+// Header greeting chip for the festive season. Opens a card with switches for the
+// Diwali theme and the decorations, and shows an unread dot until first opened.
 export function DiwaliGreeting({ className }: { className?: string }) {
   const switchId = useId();
+  const themeSwitchId = useId();
+  const { isDiwaliTheme, applyDiwaliTheme, leaveDiwaliTheme } = useDiwaliTheme();
   const { season, decorationsEnabled, setDecorationsEnabled } = useFestiveSeason();
   const greetingSeenSeasonId = useFestiveThemeStore((state) => state.greetingSeenSeasonId);
   const markGreetingSeen = useFestiveThemeStore((state) => state.markGreetingSeen);
@@ -85,7 +88,21 @@ export function DiwaliGreeting({ className }: { className?: string }) {
         >
           <DiwaliGreetingCard seasonName={season.name} animated={decorationsEnabled} />
 
-          <div className="flex items-center justify-between gap-3 border-t border-diwali-gold/20 bg-diwali-gold/5 px-5 py-3">
+          <div className="flex items-center justify-between gap-3 border-t border-diwali-gold/20 bg-diwali-gold/5 px-5 pt-3 pb-2">
+            <Label htmlFor={themeSwitchId} className="flex-col items-start gap-0.5 text-xs font-medium text-foreground/80">
+              Diwali theme
+              <span className="text-[11px] font-normal text-muted-foreground">
+                Festive colours, fireworks and lights
+              </span>
+            </Label>
+            <Switch
+              id={themeSwitchId}
+              checked={isDiwaliTheme}
+              onCheckedChange={(checked) => (checked ? applyDiwaliTheme() : leaveDiwaliTheme())}
+              className="data-[state=checked]:bg-diwali-marigold data-[state=checked]:border-diwali-marigold"
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 bg-diwali-gold/5 px-5 pt-2 pb-3">
             <Label htmlFor={switchId} className="text-xs font-medium text-foreground/80">
               Show festive lights
             </Label>

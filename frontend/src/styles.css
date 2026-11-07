@@ -674,6 +674,121 @@ code {
   animation: wheat-sway 3.6s ease-in-out infinite;
 }
 
+/* Diwali theme: a warm cream palette that sits between light and dark, with
+   deep brown text and saffron as the primary colour. It builds on light mode,
+   so components without dark: styles look right here too. */
+.diwali {
+  color-scheme: light;
+  --background: oklch(0.87 0.04 80);
+  --foreground: oklch(0.27 0.05 40);
+  --card: oklch(0.925 0.03 85);
+  --card-foreground: oklch(0.27 0.05 40);
+  --popover: oklch(0.94 0.028 85);
+  --popover-foreground: oklch(0.32 0.05 40);
+  --primary: oklch(0.56 0.16 45);
+  --primary-foreground: oklch(0.98 0.015 85);
+  --secondary: oklch(0.84 0.045 75);
+  --secondary-foreground: oklch(0.27 0.05 40);
+  --muted: oklch(0.835 0.04 78);
+  --muted-foreground: oklch(0.42 0.05 45);
+  --accent: oklch(0.82 0.06 70);
+  --accent-foreground: oklch(0.27 0.05 40);
+  --destructive: oklch(0.55 0.2 25);
+  --destructive-foreground: oklch(0.98 0.01 30);
+  --border: oklch(0.76 0.05 70);
+  --input: oklch(0.91 0.03 82);
+  --ring: oklch(0.62 0.15 55);
+  --chart-1: oklch(0.62 0.17 50);
+  --chart-2: oklch(0.48 0.15 25);
+  --chart-3: oklch(0.7 0.14 80);
+  --chart-4: oklch(0.55 0.13 150);
+  --chart-5: oklch(0.5 0.13 300);
+  --sidebar: oklch(0.87 0.04 80);
+  --sidebar-foreground: oklch(0.38 0.05 45);
+  --sidebar-primary: oklch(0.56 0.16 45);
+  --sidebar-primary-foreground: oklch(0.98 0.015 85);
+  --sidebar-accent: oklch(0.82 0.06 70);
+  --sidebar-accent-foreground: oklch(0.27 0.05 40);
+  --sidebar-border: oklch(0.76 0.05 70);
+  --sidebar-ring: oklch(0.62 0.15 55);
+  --tooltip-bg: oklch(0.3 0.05 40);
+  --tooltip-text: oklch(0.96 0.025 85);
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+
+  /* Components hard-code white and near-white greys in many places. Retinting
+     those Tailwind colours turns them a soft cream in this theme only. */
+  --color-white: oklch(0.955 0.025 85);
+  --color-gray-50: oklch(0.94 0.028 82);
+  --color-gray-100: oklch(0.915 0.032 80);
+  --color-slate-50: oklch(0.94 0.028 82);
+  --color-zinc-50: oklch(0.94 0.028 82);
+
+  --diwali-gold: oklch(0.68 0.14 75);
+  --diwali-marigold: oklch(0.68 0.17 55);
+  --diwali-flame: oklch(0.86 0.15 90);
+  --diwali-maroon: oklch(0.45 0.13 30);
+  --diwali-ink: oklch(0.42 0.12 45);
+  --diwali-ruby: oklch(0.55 0.2 22);
+}
+
+/* Poppins for text and Rozha One for page headings, both from the Indian Type
+   Foundry. Rozha One has a single weight, so bold is not synthesised. */
+.diwali body {
+  font-family: "Poppins", ui-sans-serif, system-ui, sans-serif;
+}
+
+.diwali :is(h1, h2, h3) {
+  font-family: "Rozha One", Georgia, serif;
+  font-weight: 400;
+  font-synthesis: none;
+  letter-spacing: 0.01em;
+}
+
+/* Active tabs sit on deep saffron here, so they need light text. Light mode
+   keeps its dark text on the pale mint highlight. */
+.diwali [data-slot="tabs-trigger"][data-state="active"] {
+  color: var(--primary-foreground);
+}
+
+/* Soft saffron and rose warmth in the screen corners, like lamps lit just out
+   of view. It ignores the pointer and leaves the centre untouched. */
+.diwali-ambience {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  pointer-events: none;
+  mix-blend-mode: multiply;
+  background:
+    radial-gradient(ellipse 35% 30% at 0% 0%, color-mix(in oklch, var(--diwali-marigold) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 35% 30% at 100% 0%, color-mix(in oklch, var(--diwali-gold) 22%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 25% at 0% 100%, color-mix(in oklch, var(--diwali-ruby) 14%, transparent), transparent 70%),
+    radial-gradient(ellipse 45% 25% at 100% 100%, color-mix(in oklch, var(--diwali-marigold) 16%, transparent), transparent 70%);
+}
+
+/* Bigger, brighter bulbs on the header garland in the Diwali theme. */
+.diwali .diwali-garland {
+  height: 28px;
+}
+
+.diwali .diwali-bulb {
+  width: 10px;
+  margin-left: -5px;
+}
+
+.diwali .diwali-bulb-cap {
+  width: 5px;
+}
+
+.diwali .diwali-bulb-glass {
+  width: 10px;
+  height: 13px;
+  box-shadow: 0 0 8px 1px color-mix(in oklch, var(--bulb) 70%, transparent);
+}
+
+.diwali .diwali-bulb-glass::after {
+  inset: -10px;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .diya-animated .diya-flame-outer,
   .diya-animated .diya-flame-inner,

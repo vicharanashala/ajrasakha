@@ -7,13 +7,23 @@ export interface FestiveSeason {
   endsOn: string;
 }
 
+/** next-themes value for the festive theme. It builds on the light palette. */
+export const DIWALI_THEME = "diwali";
+
 /** "auto" follows the calendar, "off" disables the theme, "diwali" forces it on for previews. */
 export type FestiveThemeMode = "auto" | "off" | "diwali";
 
-// Diwali follows the lunar calendar, so each year is listed explicitly.
-// The window opens shortly before Dhanteras and closes after Bhai Dooj.
+// Diwali follows the lunar calendar, so each year is listed explicitly, in date order.
+// Each window starts on Dhanteras (two days before Lakshmi Puja) and ends four days
+// after Lakshmi Puja, covering Bhai Dooj. Lakshmi Puja dates were checked against
+// Drik Panchang, Dekho Panchang and AstroSage. Add the next year before this list runs out.
 export const DIWALI_SEASONS: readonly FestiveSeason[] = [
-  { id: "diwali-2026", name: "Diwali", startsOn: "2026-11-04", endsOn: "2026-11-12" },
+  { id: "diwali-2026", name: "Diwali", startsOn: "2026-11-06", endsOn: "2026-11-12" }, // Lakshmi Puja 8 Nov
+  { id: "diwali-2027", name: "Diwali", startsOn: "2027-10-27", endsOn: "2027-11-02" }, // Lakshmi Puja 29 Oct
+  { id: "diwali-2028", name: "Diwali", startsOn: "2028-10-15", endsOn: "2028-10-21" }, // Lakshmi Puja 17 Oct
+  { id: "diwali-2029", name: "Diwali", startsOn: "2029-11-03", endsOn: "2029-11-09" }, // Lakshmi Puja 5 Nov
+  { id: "diwali-2030", name: "Diwali", startsOn: "2030-10-24", endsOn: "2030-10-30" }, // Lakshmi Puja 26 Oct
+  { id: "diwali-2031", name: "Diwali", startsOn: "2031-11-12", endsOn: "2031-11-18" }, // Lakshmi Puja 14 Nov
 ];
 
 // Formats a date as YYYY-MM-DD in the user's local time zone.
