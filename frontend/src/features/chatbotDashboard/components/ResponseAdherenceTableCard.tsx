@@ -1009,7 +1009,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "tatMinutes",
       label: "TAT",
-      tooltip: "Total turnaround time calculated from all TAT lifecycle bifurcations",
+      tooltip: "Calculated by adding the average duration of each recorded lifecycle stage: authoring, review, moderation, gatekeeping, auditing, and rerouting.",
       type: "data",
       wa: formatMinutes(d.whatsappTatMinutes),
       as: formatMinutes(d.ajrasakhaTatMinutes),
@@ -1018,7 +1018,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageTimeToAuthorMinutes",
       label: "Average Time to Author",
-      tooltip: "Average time from first allocation to first answer submission",
+      tooltip: "Average time from first allocation (or question creation when unavailable) to the first submitted answer. Only records with both timestamps are included.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageTimeToAuthorMinutes),
       as: formatMinutes(d.ajrasakhaAverageTimeToAuthorMinutes),
@@ -1027,7 +1027,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageReviewAcceptMinutes",
       label: "Average Time for Reviewing + Accepting",
-      tooltip: "Average time taken for reviewing and accepting an answer",
+      tooltip: "Average time from a review item's creation to its approval, using completed review records.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageReviewAcceptMinutes),
       as: formatMinutes(d.ajrasakhaAverageReviewAcceptMinutes),
@@ -1036,7 +1036,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageReviewModifyMinutes",
       label: "Average Time for Reviewing + Modifying",
-      tooltip: "Average time taken for reviewing and modifying an answer",
+      tooltip: "Average time from a review item's creation to its modification, using completed review records.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageReviewModifyMinutes),
       as: formatMinutes(d.ajrasakhaAverageReviewModifyMinutes),
@@ -1045,7 +1045,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageReviewRejectReauthorMinutes",
       label: "Average Time for Reviewing + Rejecting + Re-Authoring",
-      tooltip: "Average time from review start through rejection to re-authoring",
+      tooltip: "Average time from a rejected review to the next submitted answer, for records that were re-authored.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageReviewRejectReauthorMinutes),
       as: formatMinutes(d.ajrasakhaAverageReviewRejectReauthorMinutes),
@@ -1054,7 +1054,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageModeratingMinutes",
       label: "Average Time for Moderating",
-      tooltip: "Average time taken for moderation",
+      tooltip: "Average time from moderator assignment to closure or passing, for completed moderation records.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageModeratingMinutes),
       as: formatMinutes(d.ajrasakhaAverageModeratingMinutes),
@@ -1063,7 +1063,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageGatekeepingMinutes",
       label: "Average Time to Gatekeeping",
-      tooltip: "Average time taken for gatekeeping",
+      tooltip: "Average time from gatekeeper assignment to gatekeeper completion, using records with both timestamps.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageGatekeepingMinutes),
       as: formatMinutes(d.ajrasakhaAverageGatekeepingMinutes),
@@ -1072,7 +1072,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageAuditingMinutes",
       label: "Average Time to Auditing",
-      tooltip: "Average time taken for auditing",
+      tooltip: "Average time from auditor assignment to audit completion, using records with both timestamps.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageAuditingMinutes),
       as: formatMinutes(d.ajrasakhaAverageAuditingMinutes),
@@ -1081,7 +1081,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageReroutedCompletionMinutes",
       label: "Average Time for Rerouted Questions to be Completed",
-      tooltip: "Average time from rerouting until completion",
+      tooltip: "Average time from each reroute event to its recorded update, using valid reroute records.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageReroutedCompletionMinutes),
       as: formatMinutes(d.ajrasakhaAverageReroutedCompletionMinutes),
@@ -1283,7 +1283,7 @@ export function ResponseAdherenceTableCard({
    {
       key: "averageEndToEndQnaCompletion",
       label: "Average Response Time for End to End QNA Completion",
-      tooltip: "Average end-to-end completion time for all completed questions",
+      tooltip: "Average time from question creation to operational completion across Closed, Pass, Dynamic Closed, and Duplicate Closed questions.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageEndToEndQnaCompletionMinutes),
       as: formatMinutes(d.ajrasakhaAverageEndToEndQnaCompletionMinutes),
@@ -1292,7 +1292,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageEndToEndUnique",
       label: "Average Response Time for End to End QNA Completion of Unique Questions",
-      tooltip: "Average end-to-end completion time for unique questions",
+      tooltip: "Average time from question creation to operational completion for questions that reached Closed status.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageEndToEndUniqueMinutes),
       as: formatMinutes(d.ajrasakhaAverageEndToEndUniqueMinutes),
@@ -1301,7 +1301,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageEndToEndDynamic",
       label: "Average Response Time for End to End QNA Completion of Dynamic Question",
-      tooltip: "Average end-to-end completion time for dynamic questions",
+      tooltip: "Average time from question creation to operational completion for questions that reached Dynamic Closed status.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageEndToEndDynamicMinutes),
       as: formatMinutes(d.ajrasakhaAverageEndToEndDynamicMinutes),
@@ -1310,7 +1310,7 @@ export function ResponseAdherenceTableCard({
     {
       key: "averageEndToEndDuplicate",
       label: "Average Response Time for End to End QNA Completion of Duplicate Question",
-      tooltip: "Average end-to-end completion time for duplicate questions",
+      tooltip: "Average time from question creation to operational completion for questions that reached Duplicate Closed status.",
       type: "data",
       wa: formatMinutes(d.whatsappAverageEndToEndDuplicateMinutes),
       as: formatMinutes(d.ajrasakhaAverageEndToEndDuplicateMinutes),
