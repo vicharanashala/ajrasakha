@@ -262,3 +262,26 @@ def test_classify_and_select_uses_its_own_longer_timeout_budget(monkeypatch):
     llm_client.classify_and_select("a question", [], [], [])
     assert seen["timeout"] == config.MINIMAX_SELECTION_TIMEOUT_SECONDS
     assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+# classify_step_coverage runs up to 3x per expected step (majority vote) -
+# often 15-30 calls per request - so it gets a more conservative bump than
+# classify_and_select (called once per request), but live testing still
+# showed it failing both the initial attempt and the retry at the shared
+# 20s budget on a larger-than-typical draft/step-list input.
+def test_classify_step_coverage_uses_its_own_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"coverage": "covered", "section_index": 1}'}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.classify_step_coverage("draft text", "a step", "an example")
+    assert seen["timeout"] == config.MINIMAX_COVERAGE_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
