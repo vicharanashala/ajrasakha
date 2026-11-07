@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/atoms/table";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { toast } from "sonner";
 import { useGdbFilterOptions, useGdbList } from "@/hooks/api/gdbCleaning/useGdbCleaning";
 import type { GdbStatus } from "../types";
 import { CHECK_NAMES, humanize } from "../utils";
@@ -47,9 +48,11 @@ export const StatusBadge = ({ status }: { status: GdbStatus }) => (
 
 interface GdbListViewProps {
   onOpen: (id: string) => void;
+  // "me" shows only the answers given to the reviewer
+  assignee?: "me";
 }
 
-export const GdbListView = ({ onOpen }: GdbListViewProps) => {
+export const GdbListView = ({ onOpen, assignee }: GdbListViewProps) => {
   const [search, setSearch] = useState("");
   const [typed, setTyped] = useState("");
   const [state, setState] = useState<string[]>([]);
@@ -75,6 +78,7 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
     crops: crop,
     flags: flag,
     statuses: status as GdbStatus[],
+    assignee,
     page,
     limit: pageSize,
   });
@@ -137,24 +141,25 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[90px]">ID</TableHead>
+              <TableHead className="w-[230px]">Question ID</TableHead>
               <TableHead>Question</TableHead>
               <TableHead>State</TableHead>
               <TableHead>Crop</TableHead>
               <TableHead>Flags</TableHead>
               <TableHead>Status</TableHead>
+              <TableHead>Held by</TableHead>
               <TableHead className="w-[90px]" />
             </TableRow>
           </TableHeader>
           <TableBody>
             {rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={7} className="text-center text-muted-foreground py-10">
+                <TableCell colSpan={8} className="text-center text-muted-foreground py-10">
                   {isLoading
                     ? "Loading answers..."
                     : error
                     ? `Could not load the answers: ${(error as Error).message}`
-                    : "No answers match these filters"}
+                    : assignee === "me" ? "No answers are assigned to you right now" : "No answers match these filters"}
                 </TableCell>
               </TableRow>
             )}
@@ -166,11 +171,23 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
                   className="cursor-pointer"
                   onClick={() => onOpen(item.id)}
                 >
-                  <TableCell className="text-xs text-muted-foreground" title={item.id}>
-                    {item.id.slice(-8)}
+                  <TableCell className="text-xs text-muted-foreground" title={`Answer ID: ${item.id}`}>
+                    <span className="font-mono">{item.questionId}</span>
+                    <button
+                      type="button"
+                      className="ml-1 underline-offset-2 hover:underline"
+                      onClick={(e) => {
+                        // copying must not open the answer
+                        e.stopPropagation();
+                        navigator.clipboard?.writeText(item.questionId).then(() => toast.success("Question ID copied"));
+                      }}
+                    >
+                      copy
+                    </button>
                   </TableCell>
                   <TableCell className="max-w-[360px] truncate" title={item.question}>
                     {item.question}
+                    {item.questionChanged && <span className="ml-2 text-xs text-amber-700 dark:text-amber-400">edited</span>}
                   </TableCell>
                   <TableCell>{item.state}</TableCell>
                   <TableCell>{item.crop}</TableCell>
@@ -199,6 +216,9 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
                   </TableCell>
                   <TableCell>
                     <StatusBadge status={item.status} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {item.assignedToMe ? "You" : item.assigned ? item.assignedToName ?? "Another reviewer" : "-"}
                   </TableCell>
                   <TableCell>
                     <Button variant="outline" size="sm" onClick={() => onOpen(item.id)}>

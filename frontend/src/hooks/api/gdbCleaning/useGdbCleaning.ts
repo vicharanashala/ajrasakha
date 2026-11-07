@@ -33,6 +33,19 @@ export const useGdbHistory = (params: IGdbHistoryParams) =>
     placeholderData: keepPreviousData,
   });
 
+// tops the reviewer up to 50 answers of their own, then the list shows them
+export const useRefillGdb = () => {
+  const queryClient = useQueryClient();
+  return useMutation<{ open: number; claimed: number }, Error, void>({
+    mutationFn: () => gdbCleaningService.refill(),
+    onSuccess: (result) => {
+      queryClient.invalidateQueries({ queryKey: [KEY, "list"] });
+      if (result.claimed > 0) toast.success(`${result.claimed} answers assigned to you`);
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to get your answers")),
+  });
+};
+
 export const useGdbFilterOptions = () =>
   useQuery({
     queryKey: [KEY, "filters"],
@@ -102,6 +115,30 @@ export const useEditGdbSources = (answerId: string) => {
       toast.success("Sources saved");
     },
     onError: (error) => toast.error(errorMessage(error, "Failed to save the sources")),
+  });
+};
+
+export const useEditGdbQuestion = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, { question?: string; domain?: string }>({
+    mutationFn: (edit) => gdbCleaningService.editQuestion(answerId, edit),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Question updated");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to update the question")),
+  });
+};
+
+export const useReleaseGdbAnswer = (answerId: string) => {
+  const refresh = useRefreshAfterChange();
+  return useMutation<IGdbCleaningItem, Error, void>({
+    mutationFn: () => gdbCleaningService.release(answerId),
+    onSuccess: (saved) => {
+      refresh(saved);
+      toast.success("Answer released");
+    },
+    onError: (error) => toast.error(errorMessage(error, "Failed to release the answer")),
   });
 };
 

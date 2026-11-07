@@ -8,6 +8,9 @@ import {
 import {IGdbCleaningRepository} from '#root/shared/database/interfaces/IGdbCleaningRepository.js';
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IQuestionService} from '#root/modules/question/interfaces/IQuestionService.js';
+import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
 import {GdbCleaningService} from '../services/GdbCleaningService.js';
 
@@ -68,10 +71,11 @@ class FakeRepository implements IGdbCleaningRepository {
     return {states: [], crops: [], flags: []};
   }
 
-  async saveCorrection(answerId: string, questionId: string, correctedAnswer: string) {
+  async saveCorrection(answerId: string, questionId: string, correctedAnswer: string, pushedBefore?: string) {
     const doc = this.find(answerId);
-    if (!doc || doc.questionId.toString() !== questionId || doc.status !== 'todo') return null;
+    if (!doc || doc.questionId.toString() !== questionId || !['todo', 'clean', 'fixed'].includes(doc.status)) return null;
     doc.correctedAnswer = correctedAnswer;
+    if (pushedBefore !== undefined) doc.pushedAnswer = pushedBefore;
     return doc;
   }
 
@@ -97,6 +101,40 @@ class FakeRepository implements IGdbCleaningRepository {
   }
 
   async addHistory() {}
+
+  // what the assignment tests set up and read back
+  open = 0;
+  claims: number[] = [];
+  assignees: string[] = [];
+  lastActivity: Date | null = null;
+  activity: Record<string, Date | null> = {};
+  released: [string, boolean][] = [];
+
+  async countOpenAssigned() {
+    return this.open;
+  }
+
+  async claimFree(_userId: string, limit: number) {
+    this.claims.push(limit);
+    return limit;
+  }
+
+  async release() {
+    return false;
+  }
+
+  async releaseOf(userId: string, onlyUntouched: boolean) {
+    this.released.push([userId, onlyUntouched]);
+    return 1;
+  }
+
+  async listAssignees() {
+    return this.assignees;
+  }
+
+  async lastActivityAt(userId: string) {
+    return this.activity[userId] ?? this.lastActivity;
+  }
 
   async listHistory() {
     return {rows: [], totalCount: 0, answers: 0};
@@ -143,6 +181,9 @@ describe('GdbCleaningService', () => {
       {} as IAnswerRepository,
       {} as IAnswerApprovalService,
       {} as IUserRepository,
+      {} as IQuestionRepository,
+      {} as IQuestionService,
+      {} as IAuditTrailsService,
     );
   });
 
@@ -260,15 +301,249 @@ describe('GdbCleaningService', () => {
     expect(item.comment).toBeNull();
   });
 
-  it('never changes an answer that is already decided', async () => {
+  it('never decides an answer that is already decided', async () => {
     const id = decided.answerId.toString();
     await expect(
       service.decide(id, {action: 'dismiss'}, reviewerId),
     ).rejects.toMatchObject({httpCode: 409});
-    await expect(
-      service.saveCorrection(id, decided.questionId.toString(), 'Something else.'),
-    ).rejects.toMatchObject({httpCode: 409});
     expect(decided.status).toBe('fixed');
-    expect(decided.correctedAnswer).toBe('Spray Chlorantraniliprole.');
+  });
+
+  it('an accepted correction can still be edited, a dismissed answer cannot', async () => {
+    const item = await service.saveCorrection(decided.answerId.toString(), decided.questionId.toString(), 'Better text.');
+    expect(item.correctedAnswer).toBe('Better text.');
+    expect(item.status).toBe('fixed');
+    const dismissed = makeDoc('dismissed');
+    const closed = new GdbCleaningService(
+      new FakeRepository([dismissed]),
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
+      {} as IUserRepository,
+      {} as IQuestionRepository,
+      {} as IQuestionService,
+      {} as IAuditTrailsService,
+    );
+    await expect(
+      closed.saveCorrection(dismissed.answerId.toString(), dismissed.questionId.toString(), 'Text.'),
+    ).rejects.toMatchObject({httpCode: 409});
+  });
+
+  it('says a pushed correction needs a new push once it is edited', async () => {
+    const pushed = makeDoc('fixed', {
+      correctedAnswer: 'First.',
+      pushedAt: new Date(),
+      pushedAnswer: 'First.',
+    });
+    const withPushed = new GdbCleaningService(
+      new FakeRepository([pushed]),
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
+      {} as IUserRepository,
+      {} as IQuestionRepository,
+      {} as IQuestionService,
+      {} as IAuditTrailsService,
+    );
+    const id = pushed.answerId.toString();
+    expect((await withPushed.get(id)).correctionChanged).toBe(false);
+    const edited = await withPushed.saveCorrection(id, pushed.questionId.toString(), 'Second.');
+    expect(edited.correctionChanged).toBe(true);
+  });
+
+  it('shows the live question, and says when it was edited after the checks', async () => {
+    const live = {
+      _id: todo.questionId,
+      question: 'What is the solution for Paddy stubble management?',
+      details: {state: 'Punjab', crop: 'Paddy', domain: 'Soil Health and Nutrient Management'},
+    };
+    const withLive = new GdbCleaningService(
+      new FakeRepository([todo]),
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
+      {} as IUserRepository,
+      {findByIds: async () => [live]} as unknown as IQuestionRepository,
+      {} as IQuestionService,
+      {} as IAuditTrailsService,
+    );
+    const item = await withLive.get(todo.answerId.toString());
+    expect(item.question).toBe(live.question);
+    expect(item.questionChanged).toBe(true);
+    expect(item.checkedQuestion).toBe('How to control stem borer in paddy?');
+    expect(item.questionId).toBe(todo.questionId.toString());
+    // when the live question cannot be read, the stored copy is shown
+    const stored = await service.get(todo.answerId.toString());
+    expect(stored.question).toBe('How to control stem borer in paddy?');
+    expect(stored.questionChanged).toBe(false);
+  });
+});
+
+describe('GdbCleaningService assignment', () => {
+  const people = (...users: object[]) =>
+    ({getUsersByIds: async () => users}) as unknown as IUserRepository;
+  const build = (repo: FakeRepository, users: IUserRepository = people()) =>
+    new GdbCleaningService(
+      repo,
+      {} as IAnswerRepository,
+      {} as IAnswerApprovalService,
+      users,
+      {} as IQuestionRepository,
+      {} as IQuestionService,
+      {} as IAuditTrailsService,
+    );
+
+  it('only the reviewer who holds an answer can change it', async () => {
+    const mine = makeDoc('todo', {assignedTo: new ObjectId(reviewerId)});
+    const service = build(new FakeRepository([mine]));
+    const id = mine.answerId.toString();
+    await expect(
+      service.decide(id, {action: 'dismiss'}, new ObjectId().toString()),
+    ).rejects.toMatchObject({httpCode: 403});
+    await expect(
+      service.saveCorrection(id, mine.questionId.toString(), 'Text.', new ObjectId().toString()),
+    ).rejects.toMatchObject({httpCode: 403});
+    expect(mine.status).toBe('todo');
+    const item = await service.decide(id, {action: 'dismiss'}, reviewerId);
+    expect(item.status).toBe('dismissed');
+  });
+
+  it('an answer nobody holds is open to every reviewer', async () => {
+    const free = makeDoc('todo');
+    const item = await build(new FakeRepository([free])).decide(
+      free.answerId.toString(),
+      {action: 'dismiss'},
+      reviewerId,
+    );
+    expect(item.status).toBe('dismissed');
+  });
+
+  it('tops a reviewer up to 50 and no further', async () => {
+    const repo = new FakeRepository([]);
+    const service = build(repo);
+    repo.open = 45;
+    expect(await service.refill(reviewerId)).toEqual({open: 50, claimed: 5});
+    repo.open = 50;
+    expect(await service.refill(reviewerId)).toEqual({open: 50, claimed: 0});
+    expect(repo.claims).toEqual([5]);
+  });
+
+  it('gives a reviewer the next answers when they finish one they held', async () => {
+    const mine = makeDoc('todo', {assignedTo: new ObjectId(reviewerId)});
+    const repo = new FakeRepository([mine]);
+    repo.open = 49;
+    await build(repo).decide(mine.answerId.toString(), {action: 'dismiss'}, reviewerId);
+    expect(repo.claims).toEqual([1]);
+  });
+
+  it('does not hand out answers to a reviewer who finishes one nobody gave them', async () => {
+    const free = makeDoc('todo');
+    const repo = new FakeRepository([free]);
+    await build(repo).decide(free.answerId.toString(), {action: 'dismiss'}, reviewerId);
+    expect(repo.claims).toEqual([]);
+  });
+
+  it('the hourly job frees answers of removed, quiet and tops up active reviewers', async () => {
+    const gone = new ObjectId().toString();
+    const blocked = new ObjectId().toString();
+    const quiet = new ObjectId().toString();
+    const active = new ObjectId().toString();
+    const repo = new FakeRepository([]);
+    repo.assignees = [gone, blocked, quiet, active];
+    const service = build(
+      repo,
+      people(
+        {_id: new ObjectId(blocked), role: 'admin', isBlocked: true},
+        {_id: new ObjectId(quiet), role: 'admin'},
+        {_id: new ObjectId(active), role: 'admin'},
+      ),
+    );
+    repo.activity = {
+      [quiet]: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+      [active]: new Date(),
+    };
+    const result = await service.runAssignmentCron();
+    expect(repo.released).toEqual([
+      [gone, false],
+      [blocked, false],
+      [quiet, true],
+    ]);
+    expect(repo.claims).toEqual([50]);
+    expect(result).toEqual({released: 3, toppedUp: 50});
+  });
+});
+
+describe('GdbCleaningService question edit', () => {
+  const admin = {_id: new ObjectId(reviewerId), firstName: 'Ad', lastName: 'Min', email: 'a@b.c', role: 'admin'} as any;
+
+  // a service wired with spies for everything the edit touches in the reviewer app
+  const setup = (status: string, golden: object | null = {answer: 'Golden.', sources: [], isFinalAnswer: true}) => {
+    const row = makeDoc('todo', {assignedTo: new ObjectId(reviewerId)});
+    const repo = new FakeRepository([row]);
+    const logged: string[] = [];
+    (repo as any).addHistory = async (_id: unknown, entry: {action: string}) => {
+      logged.push(entry.action);
+    };
+    const calls = {updates: [] as object[], approvals: [] as object[], audits: [] as object[]};
+    const live = {
+      _id: row.questionId,
+      question: 'Old question?',
+      status,
+      details: {state: 'Punjab', crop: 'Paddy', domain: 'Insect - Pest Management'},
+    };
+    const state = {failApprove: false};
+    const service = new GdbCleaningService(
+      repo,
+      {getById: async () => golden} as unknown as IAnswerRepository,
+      {
+        approveAnswer: async (_u: string, body: object) => {
+          if (state.failApprove) throw new Error('embedding service down');
+          calls.approvals.push(body);
+        },
+      } as unknown as IAnswerApprovalService,
+      {getUsersByIds: async () => []} as unknown as IUserRepository,
+      {getById: async () => live, findByIds: async () => [live]} as unknown as IQuestionRepository,
+      {updateQuestion: async (_id: string, u: object) => void calls.updates.push(u)} as unknown as IQuestionService,
+      {createAuditTrail: async (a: object) => void calls.audits.push(a)} as unknown as IAuditTrailsService,
+    );
+    return {service, row, calls, logged, state};
+  };
+
+  it('changes the question text, rebuilds the search data of a closed question and logs it', async () => {
+    const {service, row, calls, logged} = setup('closed');
+    await service.editQuestion(row.answerId.toString(), {question: ' New question? '}, admin);
+    expect(calls.updates).toEqual([{question: 'New question?'}]);
+    expect(calls.approvals).toHaveLength(1);
+    expect(calls.approvals[0]).toMatchObject({answer: 'Golden.', questionId: row.questionId.toString()});
+    expect(calls.audits).toHaveLength(1);
+    expect(logged).toEqual(['question_edited']);
+  });
+
+  it('a domain change alone does not touch the search data', async () => {
+    const {service, row, calls} = setup('closed');
+    await service.editQuestion(row.answerId.toString(), {domain: 'Weed Management'}, admin);
+    expect(calls.updates).toEqual([{'details.domain': 'Weed Management'}]);
+    expect(calls.approvals).toHaveLength(0);
+  });
+
+  it('never runs the full approval flow for a question that is not closed', async () => {
+    const {service, row, calls} = setup('duplicate');
+    await service.editQuestion(row.answerId.toString(), {question: 'New question?'}, admin);
+    expect(calls.updates).toHaveLength(1);
+    expect(calls.approvals).toHaveLength(0);
+  });
+
+  it('reports a failed refresh but still logs the edit that was made', async () => {
+    const {service, row, logged, state} = setup('closed');
+    state.failApprove = true;
+    await expect(
+      service.editQuestion(row.answerId.toString(), {question: 'New question?'}, admin),
+    ).rejects.toMatchObject({httpCode: 502});
+    expect(logged).toEqual(['question_edited']);
+  });
+
+  it('refuses a request that changes nothing, and a reviewer who does not hold the answer', async () => {
+    const {service, row} = setup('closed');
+    const id = row.answerId.toString();
+    await expect(service.editQuestion(id, {question: 'Old question?'}, admin)).rejects.toMatchObject({httpCode: 400});
+    const other = {...admin, _id: new ObjectId()};
+    await expect(service.editQuestion(id, {question: 'New question?'}, other)).rejects.toMatchObject({httpCode: 403});
   });
 });

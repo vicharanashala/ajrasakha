@@ -14,6 +14,10 @@ export interface IGdbCleaningListFilters {
   crops?: string[];
   flags?: string[];
   statuses?: GdbCleaningStatus[];
+  /** only the answers held by this reviewer */
+  assignedTo?: string;
+  /** only the answers nobody holds */
+  unassigned?: boolean;
   page: number;
   limit: number;
 }
@@ -28,6 +32,8 @@ export type GdbCleaningListRow = Pick<
   | 'flags'
   | 'notEvaluated'
   | 'status'
+  | 'assignedTo'
+  | 'questionId'
 >;
 
 /** One line of a reviewer's history: what they did, on which answer, and when. */
@@ -64,11 +70,15 @@ export interface IGdbCleaningRepository {
     flags: string[];
   }>;
 
-  /** Saves the suggested or edited correction. Only an answer still to do can change. */
+  /**
+   * Saves the suggested or edited correction. An answer that is to do, has no flags or is accepted can change.
+   * `pushedBefore` is the text that was pushed, kept when an already pushed correction is edited.
+   */
   saveCorrection(
     answerId: string,
     questionId: string,
     correctedAnswer: string,
+    pushedBefore?: string,
   ): Promise<IGdbCleaning | null>;
 
   /** Saves the checks with a reviewer's changes and the flags worked out from them. Only an answer still to do can change. */
@@ -88,6 +98,24 @@ export interface IGdbCleaningRepository {
     reviewerId: string,
   ): Promise<IGdbCleaning | null>;
 
+  /** How many to-do answers this reviewer holds. */
+  countOpenAssigned(userId: string): Promise<number>;
+
+  /** Gives the reviewer up to `limit` of the oldest to-do answers nobody holds; returns how many it got. */
+  claimFree(userId: string, limit: number): Promise<number>;
+
+  /** Takes the answer back from whoever holds it; false when nobody did. */
+  release(answerId: string): Promise<boolean>;
+
+  /** Takes back a reviewer's to-do answers they have not touched, or all of them. */
+  releaseOf(userId: string, onlyUntouched: boolean): Promise<number>;
+
+  /** Reviewers who hold to-do answers. */
+  listAssignees(): Promise<string[]>;
+
+  /** When the reviewer last did something or was given answers. */
+  lastActivityAt(userId: string): Promise<Date | null>;
+
   /** Adds one line to the answer's history. */
   addHistory(answerId: string, entry: IGdbCleaningHistoryEntry): Promise<void>;
 
@@ -105,7 +133,11 @@ export interface IGdbCleaningRepository {
   ): Promise<{fixed: number; dismissed: number; pushed: number}>;
 
   /** Records that the accepted correction was pushed to the golden answer. Only a fixed answer that was not pushed yet. */
-  markPushed(answerId: string, reviewerId: string): Promise<IGdbCleaning | null>;
+  markPushed(
+    answerId: string,
+    reviewerId: string,
+    pushedAnswer: string,
+  ): Promise<IGdbCleaning | null>;
 
   /** Closes an answer as fixed or dismissed. Only an answer still to do can change. */
   decide(

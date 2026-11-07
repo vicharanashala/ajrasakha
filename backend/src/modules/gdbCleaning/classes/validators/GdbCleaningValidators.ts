@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -60,6 +61,11 @@ export class GetGdbCleaningListQuery {
   @IsIn(STATUSES, {each: true})
   statuses?: ('pending' | 'clean' | 'todo' | 'fixed' | 'dismissed')[];
 
+  // my own answers, or those nobody holds
+  @IsOptional()
+  @IsIn(['me', 'unassigned'])
+  assignee?: 'me' | 'unassigned';
+
   @IsOptional()
   @Type(() => Number)
   @IsNumber()
@@ -72,6 +78,25 @@ export class GetGdbCleaningListQuery {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class EditGdbQuestionDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  question?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  domain?: string;
+}
+
+export class ReleaseGdbReviewerDto {
+  @IsMongoId()
+  userId: string;
 }
 
 export class GetGdbCleaningSummaryQuery {
@@ -196,6 +221,8 @@ export const GDB_CLEANING_VALIDATORS = [
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,
+  EditGdbQuestionDto,
+  ReleaseGdbReviewerDto,
   GdbSourceDto,
   SaveGdbSourcesDto,
 ];

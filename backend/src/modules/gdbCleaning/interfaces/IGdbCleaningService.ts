@@ -1,4 +1,5 @@
 import {
+  IUser,
   GdbCleaningAction,
   GdbCleaningStatus,
   IGdbCleaningCheck,
@@ -8,17 +9,29 @@ import type {GdbDraft} from '../services/GdbLibraryDraft.js';
 
 export interface GdbCleaningListItem {
   id: string;
+  /** the question's own id: the one the reviewer app's All Questions searches by */
+  questionId: string;
+  /** the live question text from the reviewer app; the copy the checks ran on is in checkedQuestion */
   question: string;
+  /** true when the question or its domain was edited after the checks ran */
+  questionChanged: boolean;
+  /** the question text the checks ran on, only when it differs from the live one */
+  checkedQuestion: string | null;
   state: string;
   crop: string;
   domain: string;
   flags: string[];
   notEvaluated: string[];
   status: GdbCleaningStatus;
+  /** who holds the answer; null when nobody (or the name is not known) */
+  assignedToName: string | null;
+  assignedToMe: boolean;
+  assigned: boolean;
 }
 
 export interface GdbCleaningItem extends GdbCleaningListItem {
-  questionId: string;
+  /** the correction was edited after it was pushed, so it needs a new push */
+  correctionChanged: boolean;
   answer: string;
   sources: IGdbCleaningSource[];
   checks: IGdbCleaningCheck[];
@@ -66,12 +79,13 @@ export interface GdbCleaningListQuery {
   crops?: string[];
   flags?: string[];
   statuses?: GdbCleaningStatus[];
+  assignee?: 'me' | 'unassigned';
   page?: number;
   limit?: number;
 }
 
 export interface IGdbCleaningService {
-  list(query: GdbCleaningListQuery): Promise<{
+  list(query: GdbCleaningListQuery, viewerId?: string): Promise<{
     items: GdbCleaningListItem[];
     totalCount: number;
     totalPages: number;
@@ -96,7 +110,26 @@ export interface IGdbCleaningService {
     flags: string[];
   }>;
 
-  get(answerId: string): Promise<GdbCleaningItem>;
+  get(answerId: string, viewerId?: string): Promise<GdbCleaningItem>;
+
+  /** Tops the reviewer up to 50 to-do answers of their own. */
+  refill(userId: string): Promise<{open: number; claimed: number}>;
+
+  /** Edits the question text and/or domain in the reviewer app, then refreshes the golden answer's search data. */
+  editQuestion(
+    answerId: string,
+    edit: {question?: string; domain?: string},
+    user: IUser,
+  ): Promise<GdbCleaningItem>;
+
+  /** Takes an answer back from whoever holds it. */
+  release(answerId: string, byUserId: string): Promise<GdbCleaningItem>;
+
+  /** Takes all of a reviewer's to-do answers back. */
+  releaseAll(userId: string): Promise<{released: number}>;
+
+  /** The job that runs every hour: frees quiet and removed reviewers' answers and tops up the others. */
+  runAssignmentCron(): Promise<{released: number; toppedUp: number}>;
 
   saveCorrection(
     answerId: string,

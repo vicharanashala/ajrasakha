@@ -1077,7 +1077,9 @@ export type GdbCleaningAction =
   | 'flag_changed'
   | 'sources_edited'
   | 'correction_saved'
-  | 'pushed';
+  | 'pushed'
+  | 'released'
+  | 'question_edited';
 
 /** One thing a reviewer did on an answer. It is kept on the answer's own row, so the page's
  *  database user needs no other collection. */
@@ -1104,11 +1106,16 @@ export interface IGdbCleaning {
   originalSources?: IGdbCleaningSource[];
   sourcesEditedBy?: ObjectId | null;
   sourcesEditedAt?: Date | null;
+  /** the reviewer this answer is given to; empty when nobody holds it */
+  assignedTo?: ObjectId;
+  assignedAt?: Date;
   /** everything reviewers did on this answer, oldest first */
   history?: IGdbCleaningHistoryEntry[];
   /** set when the accepted correction was pushed to the golden answer */
   pushedAt?: Date | null;
   pushedBy?: ObjectId | null;
+  /** the correction text as it was when pushed, so a later edit shows as needing a new push */
+  pushedAnswer?: string;
   status: GdbCleaningStatus;
   checks: IGdbCleaningCheck[];
   flags: string[];

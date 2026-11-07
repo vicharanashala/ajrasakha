@@ -51,7 +51,9 @@ export type GdbAction =
   | "flag_changed"
   | "sources_edited"
   | "correction_saved"
-  | "pushed";
+  | "pushed"
+  | "released"
+  | "question_edited";
 
 export const ACTION_LABELS: Record<GdbAction, string> = {
   accepted: "Accepted correction",
@@ -60,6 +62,8 @@ export const ACTION_LABELS: Record<GdbAction, string> = {
   sources_edited: "Edited sources",
   correction_saved: "Saved correction",
   pushed: "Pushed to GDB",
+  released: "Released an answer",
+  question_edited: "Edited the question",
 };
 
 // one thing a reviewer did on an answer
@@ -76,7 +80,14 @@ export interface IGdbHistoryEntry {
 // one row of the list
 export interface IGdbListItem {
   id: string;
+  // the question's own id: the one All Questions in the reviewer app searches by
+  questionId: string;
+  // the live question text from the reviewer app
   question: string;
+  // true when the question or its domain was edited after the checks ran
+  questionChanged: boolean;
+  // the text the checks ran on, when it differs from the live one
+  checkedQuestion: string | null;
   state: string;
   crop: string;
   domain: string;
@@ -85,11 +96,16 @@ export interface IGdbListItem {
   // names of the checks that could not run
   notEvaluated: string[];
   status: GdbStatus;
+  // who holds the answer; only that reviewer can change it
+  assigned: boolean;
+  assignedToMe: boolean;
+  assignedToName: string | null;
 }
 
 // one answer with everything the review screen needs
 export interface IGdbCleaningItem extends IGdbListItem {
-  questionId: string;
+  // the correction was edited after it was pushed, so it needs a new push
+  correctionChanged: boolean;
   answer: string;
   sources: IGdbSource[];
   // the 13 checks, in order
