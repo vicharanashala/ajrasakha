@@ -175,7 +175,9 @@ def classify_and_select(
         {"role": "system", "content": _SELECTION_SYSTEM_PROMPT},
         {"role": "user", "content": "\n".join(lines)},
     ]
-    content = _chat_completion(messages, temperature=0.0, call_name="classify_and_select")
+    content = _chat_completion(
+        messages, temperature=0.0, call_name="classify_and_select", timeout=config.MINIMAX_SELECTION_TIMEOUT_SECONDS
+    )
     try:
         parsed = json.loads(content)
         return SelectionClassification(
@@ -290,10 +292,11 @@ def classify_step_coverage(
         raise LLMUnavailableError(f"Could not parse step-coverage response: {exc}") from exc
 
 
-def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs) -> str:
+def _chat_completion(messages: list[dict], call_name: str = "unknown", timeout: float | None = None, **kwargs) -> str:
     if not config.MINIMAX_BASE_URL:
         raise LLMUnavailableError("MINIMAX_BASE_URL is not set")
 
+    budget = timeout if timeout is not None else config.MINIMAX_TIMEOUT_SECONDS
     url = config.MINIMAX_BASE_URL.rstrip("/") + config.MINIMAX_CHAT_PATH
     headers = {"Content-Type": "application/json"}
     if config.MINIMAX_API_KEY:
@@ -327,7 +330,7 @@ def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs)
         t0 = time.monotonic()
         try:
             response = httpx.post(
-                url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
+                url, json=payload, headers=headers, timeout=budget, proxy=proxy
             )
             response.raise_for_status()
             data = response.json()
@@ -346,19 +349,19 @@ def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs)
             if attempt == 0:
                 log.warning(
                     "%s failed after %.1fs on attempt 1/2 (budget %.0fs, input %d chars, model %s): %s - retrying once",
-                    call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+                    call_name, elapsed, budget, content_chars, config.MINIMAX_MODEL, exc,
                 )
                 continue
             log.error(
                 "%s failed after %.1fs on attempt 2/2 (budget %.0fs, input %d chars, model %s): %s",
-                call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+                call_name, elapsed, budget, content_chars, config.MINIMAX_MODEL, exc,
             )
         except (KeyError, IndexError, ValueError) as exc:
             # Not retried - see the comment above the loop.
             elapsed = time.monotonic() - t0
             log.error(
                 "%s got a malformed response after %.1fs (budget %.0fs, input %d chars, model %s): %s",
-                call_name, elapsed, config.MINIMAX_TIMEOUT_SECONDS, content_chars, config.MINIMAX_MODEL, exc,
+                call_name, elapsed, budget, content_chars, config.MINIMAX_MODEL, exc,
             )
             raise LLMUnavailableError(f"MiniMax call failed: {exc}") from exc
 

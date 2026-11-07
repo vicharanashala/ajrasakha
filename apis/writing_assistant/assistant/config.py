@@ -51,6 +51,18 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 # evidence-based value for that path) - this default is tuned for the
 # self-hosted model specifically, not universal.
 MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
+# classify_and_select gets its own, longer budget - live-confirmed it
+# needs more than the 20s default that was tuned off classify_step_coverage
+# samples only. It compares one question against every known domain,
+# Direct Topic and Crop Variant candidate at once (a heavier multi-
+# candidate reasoning task than a single step's covered/partial/missing
+# judgment), and real testing showed it can fail BOTH the initial attempt
+# and the one retry at ~21s each, consistently, for the same input -
+# not the rare one-off stall the retry was added for. 40s keeps this one
+# call's own target generous without raising the shared 20s budget that
+# the other, lighter, much-more-frequent calls (classify_step_coverage is
+# called 3x per step) are tuned against.
+MINIMAX_SELECTION_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_SELECTION_TIMEOUT_SECONDS", "40"))
 # scripts/start.sh's tailscaled runs --tun=userspace-networking, which has
 # no real network interface - a 100.x address is only reachable through
 # the local SOCKS5 proxy it exposes, so llm_client.py routes through it
