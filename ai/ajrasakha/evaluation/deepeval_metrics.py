@@ -82,10 +82,14 @@ def get_judge_model():
     if config.base_url:
         kwargs["base_url"] = config.base_url
         
-    if config.provider == "anthropic":
-        return AnthropicModel(**kwargs)
-    return OpenAIModel(**kwargs)
-
+    try:
+        if config.provider == "anthropic":
+            return AnthropicModel(**kwargs)
+        return OpenAIModel(**kwargs)
+    except Exception as exc:
+        raise JudgeSetupError(
+            f"couldn't set up the judge: {exc}"
+        ) from exc
 # ============================================================
 # 4. DEEPEVAL METRIC HELPERS
 # ============================================================

@@ -22,6 +22,10 @@ class FakeModel:
 class FakeAnthropic(FakeModel):
     pass
 
+class BrokenAnthropic:
+    def __init__(self, **kwargs):
+        raise RuntimeError("Anthropic Package is unavailable")
+
 
 class FakeOpenAI(FakeModel):
     pass
@@ -111,6 +115,18 @@ def test_unknown_provider_raises(monkeypatch):
 def test_key_is_not_in_config_repr(monkeypatch):
     monkeypatch.setenv("JUDGE_API_KEY", "super-secret-value")
     assert "super-secret-value" not in repr(dm.load_judge_config())
+
+def test_model_construction_error_becomes_judge_setup_error(monkeypatch):
+    monkeypatch.setenv("JUDGE_PROVIDER", "anthropic")
+    monkeypatch.setenv("JUDGE_API_KEY", "test-key")
+    monkeypatch.setattr(dm, "AnthropicModel", BrokenAnthropic)
+
+    with pytest.raises(dm.JudgeSetupError) as exc_info:
+        dm.get_judge_model()
+
+    assert "couldn't set up the judge" in str(exc_info.value)
+    assert isinstance(exc_info.value.__cause__, RuntimeError)
+    assert "Anthropic Package is unavailable" in str(exc_info.value.__cause__)
 
 
 # --- get_judge_model ------------------------------------------------------
