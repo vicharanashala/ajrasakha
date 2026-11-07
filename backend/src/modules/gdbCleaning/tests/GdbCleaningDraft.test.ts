@@ -6,6 +6,9 @@ import {IGdbCleaningRepository} from '#root/shared/database/interfaces/IGdbClean
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IQuestionService} from '#root/modules/question/interfaces/IQuestionService.js';
+import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {GdbCleaningService} from '../services/GdbCleaningService.js';
 import {
   draftFromLibrary,
@@ -68,6 +71,9 @@ const serviceWith = (repo: IGdbCleaningRepository) =>
     {} as IAnswerRepository,
     {} as IAnswerApprovalService,
     {} as IUserRepository,
+    {} as IQuestionRepository,
+    {} as IQuestionService,
+    {} as IAuditTrailsService,
   );
 
 describe('GdbCleaningService draft', () => {
