@@ -26,23 +26,19 @@ def skipped_due_to_incomplete_structure(structural_result: StructuralValidationR
     if structural_result.status == StructuralValidationStatus.COMPLETE:
         raise ValueError("structural validation is complete - polishing should not be skipped")
 
-    if structural_result.steps:
-        gaps = [s.step for s in structural_result.steps if s.coverage.value in ("missing", "partial")]
-        unconfirmed = [s.step for s in structural_result.steps if s.coverage.value == "not_assessed"]
-        # Kept as two separate clauses on purpose - "not_assessed" means a
-        # check failed, not that the step is actually missing/partial;
-        # conflating them would misreport a real gap where there may be
-        # none (same "never conflate" principle as the NOT_ASSESSED/
-        # CheckStatus.NOT_RUN states themselves).
-        clauses = []
-        if gaps:
-            clauses.append("missing or partial step(s): " + "; ".join(gaps))
-        if unconfirmed:
-            clauses.append("step(s) that could not be checked due to a failed dependency: " + "; ".join(unconfirmed))
-        reason = "Structural validation found " + " and ".join(clauses) + ", so a polish suggestion was not generated."
-    else:
-        reason = "Structural validation did not confirm every step is covered, so a polish " \
-            "suggestion was not generated."
+    gaps = [s.step for s in structural_result.steps if s.coverage.value in ("missing", "partial")]
+    unconfirmed = [s.step for s in structural_result.steps if s.coverage.value == "not_assessed"]
+    # Kept as two separate clauses on purpose - "not_assessed" means a
+    # check failed, not that the step is actually missing/partial;
+    # conflating them would misreport a real gap where there may be
+    # none (same "never conflate" principle as the NOT_ASSESSED/
+    # CheckStatus.NOT_RUN states themselves).
+    clauses = []
+    if gaps:
+        clauses.append("missing or partial step(s): " + "; ".join(gaps))
+    if unconfirmed:
+        clauses.append("step(s) that could not be checked due to a failed dependency: " + "; ".join(unconfirmed))
+    reason = "Structural validation found " + " and ".join(clauses) + ", so a polish suggestion was not generated."
 
     return LanguagePolishingResult(
         status=LanguagePolishingStatus.SKIPPED,

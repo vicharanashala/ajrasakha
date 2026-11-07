@@ -120,10 +120,9 @@ def test_chat_completion_logs_call_name_elapsed_and_input_size_on_failure(monkey
 
 # The self-hosted reasoning model occasionally stalls on a prompt and
 # fails once before a plain retry succeeds - live-confirmed this exact
-# pattern (classify_and_select and classify_step_coverage both failed
-# with "timed out" on real requests, no sign of a real connectivity
-# problem). One retry on a genuine network-level failure should recover
-# the result instead of surfacing it as needs_clarification.
+# pattern on real requests, no sign of a real connectivity problem. One
+# retry on a genuine network-level failure should recover the result
+# instead of surfacing a step as not_assessed.
 def test_chat_completion_retries_once_and_returns_the_successful_result(monkeypatch):
     calls = {"count": 0}
 
@@ -239,34 +238,9 @@ def test_chat_completion_defaults_to_the_shared_timeout_budget(monkeypatch):
     assert seen["timeout"] == config.MINIMAX_TIMEOUT_SECONDS
 
 
-# classify_and_select compares one question against every known domain,
-# Direct Topic and Crop Variant candidate at once - live-confirmed this
-# heavier multi-candidate reasoning task can fail BOTH the initial attempt
-# and the retry at the shared 20s budget, consistently, for the same
-# input. It gets its own, longer budget rather than raising the shared one
-# that the far more frequent, lighter calls (classify_step_coverage is
-# called 3x per step) are tuned against.
-def test_classify_and_select_uses_its_own_longer_timeout_budget(monkeypatch):
-    seen = {}
-
-    def _fake_post(url, json, headers, timeout, proxy):
-        seen["timeout"] = timeout
-        class _Resp:
-            def raise_for_status(self):
-                pass
-            def json(self):
-                return {"choices": [{"message": {"content": '{"domain": null, "question_type": null}'}}]}
-        return _Resp()
-
-    monkeypatch.setattr("httpx.post", _fake_post)
-    llm_client.classify_and_select("a question", [], [], [])
-    assert seen["timeout"] == config.MINIMAX_SELECTION_TIMEOUT_SECONDS
-    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
-
-
 # classify_step_coverage runs up to 3x per expected step (majority vote) -
-# often 15-30 calls per request - so it gets a more conservative bump than
-# classify_and_select (called once per request), but live testing still
+# 30 calls per request (10 fixed steps) - so it gets a conservative bump
+# over the shared default rather than a large one, but live testing still
 # showed it failing both the initial attempt and the retry at the shared
 # 20s budget on a larger-than-typical draft/step-list input.
 def test_classify_step_coverage_uses_its_own_timeout_budget(monkeypatch):

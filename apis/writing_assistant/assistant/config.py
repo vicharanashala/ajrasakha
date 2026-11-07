@@ -4,22 +4,6 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# "local" (dev: read REFERENCE_DATA_DIR) or "gcs" (prod: read REFERENCE_GCS_BUCKET
-# at REFERENCE_RELEASE_ID, pinned per Cloud Run revision). No default - an unset
-# or unrecognized value must fail closed, never guess which source was meant.
-REFERENCE_DATA_SOURCE = os.getenv("REFERENCE_DATA_SOURCE")
-
-# local source
-REFERENCE_DATA_DIR = os.getenv("REFERENCE_DATA_DIR")
-
-# gcs source - the running service only ever reads its own pinned release id;
-# it never polls a live "current" pointer (see Writing Assistant Build Plan,
-# "Production release consistency"). Not wired up yet - no cloud resources
-# have been created.
-REFERENCE_GCS_BUCKET = os.getenv("REFERENCE_GCS_BUCKET")
-REFERENCE_GCS_PREFIX = os.getenv("REFERENCE_GCS_PREFIX", "reference-data")
-REFERENCE_RELEASE_ID = os.getenv("REFERENCE_RELEASE_ID")
-
 # Same env var names already used elsewhere in this repo
 # (ai/ajrasakha/agents/config.py, backend/src/config/ai.ts) - reused on
 # purpose rather than inventing new ones.
@@ -40,38 +24,25 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
 # prompt, not a connectivity problem - so a 20s cap doesn't make that
 # case succeed, it just fails it faster (consistent with this service's
 # fail-closed design: a timeout is still reported as unavailable /
-# needs_clarification, never a silent pass).
+# not_assessed, never a silent pass).
 #
 # This is a per-call budget, not the whole request's latency - each
-# /polish-draft request makes several sequential calls (selection, one
-# per expected step, the rewrite, the second opinion).
+# /polish-draft request makes several sequential calls (one per expected
+# step, the rewrite, the second opinion).
 #
 # If MINIMAX_BASE_URL is ever pointed back at the public API instead of
 # the self-hosted tailnet model, override this back up (90 is the
 # evidence-based value for that path) - this default is tuned for the
 # self-hosted model specifically, not universal.
 MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "20"))
-# classify_and_select gets its own, longer budget - live-confirmed it
-# needs more than the 20s default that was tuned off classify_step_coverage
-# samples only. It compares one question against every known domain,
-# Direct Topic and Crop Variant candidate at once (a heavier multi-
-# candidate reasoning task than a single step's covered/partial/missing
-# judgment), and real testing showed it can fail BOTH the initial attempt
-# and the one retry at ~21s each, consistently, for the same input -
-# not the rare one-off stall the retry was added for. 40s keeps this one
-# call's own target generous without raising the shared 20s budget that
-# the other, lighter, much-more-frequent calls (classify_step_coverage is
-# called 3x per step) are tuned against.
-MINIMAX_SELECTION_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_SELECTION_TIMEOUT_SECONDS", "40"))
-# classify_step_coverage also gets its own budget, slightly above the
-# shared default rather than matching classify_and_select's - live-
-# confirmed it can fail both the initial attempt and the retry at 20s on
-# a larger-than-typical input (a longer draft and/or step list pushes it
-# past 20s, observed failing at ~21s both times). Kept more conservative
-# than MINIMAX_SELECTION_TIMEOUT_SECONDS on purpose: this call runs up to
-# 3x per expected step (majority vote) - often 15-30 calls per request -
-# so raising its budget multiplies total request latency far more than
-# raising classify_and_select's (called once per request) did.
+# classify_step_coverage gets its own, slightly higher budget - live-
+# confirmed it can fail both the initial attempt and the retry at the
+# shared 20s budget on a larger-than-typical draft/step-list input
+# (observed failing at ~21-31s both times). Kept conservative rather than
+# raised further: this call runs up to 3x per expected step (majority
+# vote) - 30 calls per request (10 fixed steps) - so raising its budget
+# multiplies total request latency far more than a once-per-request call
+# would.
 MINIMAX_COVERAGE_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_COVERAGE_TIMEOUT_SECONDS", "30"))
 # scripts/start.sh's tailscaled runs --tun=userspace-networking, which has
 # no real network interface - a 100.x address is only reachable through
