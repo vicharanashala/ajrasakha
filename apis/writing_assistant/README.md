@@ -125,13 +125,18 @@ actually found a difference - that's what separates `rejected` from
 | Value | Meaning |
 |---|---|
 | `complete` | Every expected step is `covered`. |
-| `partial` | No step is `missing`, but at least one is `partial`. |
+| `partial` | No step is `missing`, but at least one is `partial` or `not_assessed` (see below). |
 | `incomplete` | At least one expected step is `missing`. |
 | `needs_clarification` | No confident reference match for the question (out of scope, or genuinely ambiguous between two references) - see `clarificationReason`. |
 | `reference_data_unavailable` | The Golden Database itself failed to load - a deploy/config problem, not a question about the draft. |
 
-Each step's `coverage` is `covered` / `partial` / `missing`. `suggestion1`/
-`suggestion2` are only ever populated on a non-`covered` step.
+Each step's `coverage` is `covered` / `partial` / `missing` / `not_assessed`.
+`not_assessed` means every majority-vote call for that one step failed (a
+self-hosted-model timeout) - distinct from `missing` on purpose: it is
+never reported as "confirmed absent", only as "could not be checked". A
+single step's `not_assessed` no longer aborts the whole response; every
+other step is scored normally. `suggestion1`/`suggestion2` are populated
+on any non-`covered` step, `not_assessed` included.
 `orderWarnings` lists a step whose position in the draft comes before an
 earlier step's, only when both positions were confidently located.
 

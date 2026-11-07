@@ -6,6 +6,7 @@ Example/Suggestion text to explain a gap (see Writing Assistant Build Plan,
 "Separate responsibilities").
 """
 
+import logging
 from collections import Counter
 
 from . import llm_client, reference_data, reference_selector, text_checks
@@ -21,6 +22,8 @@ from .models import (
     StructuralValidationResult,
     StructuralValidationStatus,
 )
+
+log = logging.getLogger("writing_assistant.structural_validator")
 
 # Deliberately low bar: only overrides toward "missing" when a step's own
 # topic shares fewer than this many significant words with *any single*
@@ -82,10 +85,24 @@ def _vote_step_coverage(
     all_step_names: list[str],
     reference_subject: str,
 ) -> tuple[StepCoverage, int | None]:
-    votes = [
-        llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, reference_subject)
-        for _ in range(_COVERAGE_VOTES)
-    ]
+    """One failed vote no longer fails the whole step (or, previously, the
+    whole request) - live-confirmed the self-hosted model's rare per-call
+    stall becomes near-certain to hit AT LEAST ONE of the ~30 coverage
+    calls a longer draft needs (10 steps x 3 votes), so a single call's
+    retry-exhausted failure must degrade gracefully, not abort everything.
+    Only when every one of this step's votes fails is there truly nothing
+    to go on - that step alone becomes NOT_ASSESSED; every other step
+    (and the request as a whole) is unaffected."""
+    votes = []
+    for _ in range(_COVERAGE_VOTES):
+        try:
+            votes.append(
+                llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, reference_subject)
+            )
+        except LLMUnavailableError as exc:
+            log.warning("a coverage vote for step %r failed, continuing with the remaining votes: %s", step.step, exc)
+    if not votes:
+        return StepCoverage.NOT_ASSESSED, None
     counts = Counter(coverage for coverage, _ in votes)
     top_count = max(counts.values())
     winners = [coverage for coverage, n in counts.items() if n == top_count]
@@ -136,7 +153,14 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
         # Deterministic safety net: never let the LLM credit a step whose
         # topic has no real textual presence anywhere in the draft - only
         # ever downgrades toward "missing", never promotes away from it.
-        if coverage != StepCoverage.MISSING and not _has_textual_evidence(step, draft_text, structure.steps):
+        # Never applied to NOT_ASSESSED - there's no LLM judgment here to
+        # second-guess, and doing so would silently turn "couldn't verify"
+        # into "confirmed missing", exactly what NOT_ASSESSED exists to
+        # avoid.
+        if (
+            coverage not in (StepCoverage.MISSING, StepCoverage.NOT_ASSESSED)
+            and not _has_textual_evidence(step, draft_text, structure.steps)
+        ):
             coverage = StepCoverage.MISSING
             section_index = None
         # Example/Suggestion text is "what's expected" explanation for a
@@ -159,6 +183,13 @@ def score_coverage(draft_text: str, structure: ReferenceStructure) -> tuple[list
 
 
 def _summarize(steps: list[StepCoverageResult]) -> StructuralValidationStatus:
+    # A NOT_ASSESSED step falls through to PARTIAL below, same as a
+    # genuinely partial one: it's neither COVERED (so COMPLETE is correctly
+    # withheld - the polish-gating rule in main.py must never treat an
+    # unconfirmed step as "done") nor MISSING (so INCOMPLETE is correctly
+    # withheld too - nothing confirms it's actually absent). The per-step
+    # `steps[]` array still reports it honestly as its own distinct value;
+    # only this summary rollup, already lossy by design, folds it in here.
     if all(s.coverage == StepCoverage.COVERED for s in steps):
         return StructuralValidationStatus.COMPLETE
     if any(s.coverage == StepCoverage.MISSING for s in steps):
@@ -201,13 +232,11 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
         return StructuralValidationResult(status=outcome.status, clarification_reason=outcome.reason)
 
     structure = outcome.structure
-    try:
-        steps, section_indices = score_coverage(draft_text, structure)
-    except LLMUnavailableError as exc:
-        return StructuralValidationResult(
-            status=StructuralValidationStatus.NEEDS_CLARIFICATION,
-            clarification_reason=f"Could not assess step coverage: {exc}",
-        )
+    # score_coverage() no longer raises LLMUnavailableError - a step whose
+    # every vote fails becomes NOT_ASSESSED instead (see
+    # _vote_step_coverage), so one bad call can no longer abort the whole
+    # validation the way it used to.
+    steps, section_indices = score_coverage(draft_text, structure)
 
     matched_reference = MatchedReference(
         source_type=structure.source_type,
@@ -245,18 +274,21 @@ def validate_structure_cached(question: str, draft_text: str) -> StructuralValid
     reference_data_unavailable can both stem from a transient failure
     (an LLM call erroring, not a genuine "no match"), and caching that
     would permanently stick a bad answer to this input until the next
-    restart (Revision 18). Tests must clear this between cases - see
-    conftest.py."""
+    restart (Revision 18). A result with any NOT_ASSESSED step is the
+    same kind of transient failure wearing a "partial"/"incomplete"
+    status - also excluded from caching for the identical reason, even
+    though every *other* step in it may be a perfectly good, stable
+    judgment. Tests must clear this between cases - see conftest.py."""
     def _compute():
         dataset = reference_data.get_cached_dataset()
         return validate_structure(question, draft_text, dataset)
 
-    return _cache.get_or_compute(
-        (question, draft_text),
-        _compute,
-        lambda r: r.status
-        not in (StructuralValidationStatus.NEEDS_CLARIFICATION, StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE),
-    )
+    def _is_stable(r: StructuralValidationResult) -> bool:
+        if r.status in (StructuralValidationStatus.NEEDS_CLARIFICATION, StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE):
+            return False
+        return not any(s.coverage == StepCoverage.NOT_ASSESSED for s in r.steps or [])
+
+    return _cache.get_or_compute((question, draft_text), _compute, _is_stable)
 
 
 validate_structure_cached.cache_clear = _cache.cache_clear
