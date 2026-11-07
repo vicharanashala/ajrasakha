@@ -220,3 +220,45 @@ def test_chat_completion_strips_a_json_fence_so_the_caller_can_parse_it(monkeypa
     assert content == '{"domain": "Pest Management", "question_type": "Broad"}'
     import json
     json.loads(content)  # must not raise - this is the real bug being fixed
+
+
+def test_chat_completion_defaults_to_the_shared_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert seen["timeout"] == config.MINIMAX_TIMEOUT_SECONDS
+
+
+# classify_and_select compares one question against every known domain,
+# Direct Topic and Crop Variant candidate at once - live-confirmed this
+# heavier multi-candidate reasoning task can fail BOTH the initial attempt
+# and the retry at the shared 20s budget, consistently, for the same
+# input. It gets its own, longer budget rather than raising the shared one
+# that the far more frequent, lighter calls (classify_step_coverage is
+# called 3x per step) are tuned against.
+def test_classify_and_select_uses_its_own_longer_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"domain": null, "question_type": null}'}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.classify_and_select("a question", [], [], [])
+    assert seen["timeout"] == config.MINIMAX_SELECTION_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
