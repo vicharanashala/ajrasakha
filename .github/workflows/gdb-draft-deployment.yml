@@ -11,7 +11,7 @@
 #
 # Optional repository variables:
 #   POP_API_URL              the POP API (default below)
-#   GDB_DRAFT_GEMINI_MODEL   the Gemini model that writes the draft (default gemini-3.8-flash, the newest flash)
+#   GDB_DRAFT_GEMINI_MODEL   the Gemini model that writes the draft (default gemini-3.1-pro-preview; gemini-3.8-flash is faster but writes less well)
 #   ANARA_TOKEN_SECRET       where the service keeps its renewed Anara sign-in (default: the secret "anara-tokens"
 #                            in this project). Anara replaces its refresh key at every renewal, so the key in
 #                            ANARA_TOKENS_B64 goes stale; the service saves each new pair in this secret and starts
@@ -93,7 +93,7 @@ jobs:
             GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
             DRAFT_MINIMAX_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.DRAFT_MINIMAX_API_KEY }}
             DRAFT_MINIMAX_URL=${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' || 'https://api.minimax.io/v1/chat/completions' }}
-            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && (vars.GDB_DRAFT_GEMINI_MODEL || 'gemini-3.8-flash') || 'MiniMax-M3' }}
+            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && (vars.GDB_DRAFT_GEMINI_MODEL || 'gemini-3.1-pro-preview') || 'MiniMax-M3' }}
             POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south1.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
@@ -103,4 +103,4 @@ jobs:
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
           # background, so keep one instance up with its CPU on. A draft can take a few minutes.
-          flags: --allow-unauthenticated --min-instances=1 --max-instances=1 --memory=4Gi --cpu=2 --no-cpu-throttling --timeout=300 --concurrency=20
+          flags: --allow-unauthenticated --min-instances=1 --max-instances=1 --memory=4Gi --cpu=2 --no-cpu-throttling --timeout=480 --concurrency=20

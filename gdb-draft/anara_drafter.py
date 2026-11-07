@@ -28,7 +28,7 @@ MAX_PASSAGES = 8
 # a reviewer is waiting on the button, so a draft gives up after at most 3.5 minutes
 # (3 attempts of up to 70 seconds) instead of retrying for as long as the checks do
 DRAFT_ATTEMPTS = 3
-DRAFT_ATTEMPT_TIMEOUT_SECONDS = 70
+DRAFT_ATTEMPT_TIMEOUT_SECONDS = 120
 # the model reasons before it answers, and the reasoning counts against this budget: at 2048 it
 # often used all of it and returned no answer text (finish_reason "length")
 DRAFT_MAX_COMPLETION_TOKENS = 6000
