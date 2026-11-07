@@ -19,7 +19,6 @@ export interface IGdbListParams {
   crops?: string[];
   flags?: string[];
   statuses?: GdbStatus[];
-  assignee?: "me" | "unassigned";
   page?: number;
   limit?: number;
 }
@@ -83,7 +82,6 @@ class GdbCleaningService {
       const values = params[key];
       values?.forEach((value) => query.append(key, value));
     }
-    if (params.assignee) query.append("assignee", params.assignee);
     if (params.page) query.append("page", params.page.toString());
     if (params.limit) query.append("limit", params.limit.toString());
 
@@ -103,27 +101,12 @@ class GdbCleaningService {
     return response;
   }
 
-  // tops the reviewer up to 50 answers of their own
-  async refill(): Promise<{ open: number; claimed: number }> {
-    const response = await apiFetch<{ open: number; claimed: number }>(`${this._baseUrl}/assignments/refill`, {
-      method: "POST",
-    });
-    if (!response) throw new Error("Failed to get your answers: No response received");
-    return response;
-  }
-
   async editQuestion(answerId: string, edit: { question?: string; domain?: string }): Promise<IGdbCleaningItem> {
     const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/question`, {
       method: "PUT",
       body: JSON.stringify(edit),
     });
     if (!response) throw new Error("Failed to edit the question: No response received");
-    return response;
-  }
-
-  async release(answerId: string): Promise<IGdbCleaningItem> {
-    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/release`, { method: "POST" });
-    if (!response) throw new Error("Failed to release the answer: No response received");
     return response;
   }
 

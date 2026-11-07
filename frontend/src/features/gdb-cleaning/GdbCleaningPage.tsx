@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useGdbSummary, useRefillGdb } from "@/hooks/api/gdbCleaning/useGdbCleaning";
+import { useGdbSummary } from "@/hooks/api/gdbCleaning/useGdbCleaning";
 import { GdbDetailPage } from "./components/GdbDetailPage";
 import { GdbListView } from "./components/GdbListView";
 import { GdbDateRange } from "./components/GdbDateRange";
@@ -8,9 +8,7 @@ import { PRESETS, toQueryRange, type IDayRange } from "./dateRange";
 
 export const GdbCleaningPage = () => {
   const [openId, setOpenId] = useState<string | null>(null);
-  // "all" is the first tab, so looking at the page never assigns anything
-  const [tab, setTab] = useState<"mine" | "all" | "history">("all");
-  const refill = useRefillGdb();
+  const [tab, setTab] = useState<"answers" | "history">("answers");
   const [range, setRange] = useState<IDayRange>(PRESETS[3].range());
   const { data: summary } = useGdbSummary(toQueryRange(range));
 
@@ -37,15 +35,11 @@ export const GdbCleaningPage = () => {
 
       {!openId && (
         <div className="flex gap-2 text-sm">
-          {([["mine", "My answers"], ["all", "All answers"], ["history", "History"]] as const).map(([value, label]) => (
+          {([["answers", "Answers"], ["history", "History"]] as const).map(([value, label]) => (
             <button
               key={value}
               type="button"
-              onClick={() => {
-                setTab(value);
-                // opening My answers tops the reviewer up to 50 of their own
-                if (value === "mine") refill.mutate();
-              }}
+              onClick={() => setTab(value)}
               className={`rounded-md border px-3 py-1 ${
                 tab === value ? "bg-primary text-primary-foreground" : "bg-background text-foreground"
               }`}
@@ -76,7 +70,7 @@ export const GdbCleaningPage = () => {
             </div>
           ))}
         </div>
-        <GdbListView key={tab} assignee={tab === "mine" ? "me" : undefined} onOpen={setOpenId} />
+        <GdbListView onOpen={setOpenId} />
       </div>
     </div>
   );

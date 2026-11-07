@@ -30,8 +30,6 @@ interface GdbDetailViewProps {
   onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
   // replaces the golden answer with the accepted correction; resolves once it is done
   onPush: () => Promise<unknown>;
-  // takes the answer back from whoever holds it
-  onRelease: () => void;
   // changes the question text and/or domain in the reviewer app; resolves once it is saved
   onEditQuestion: (edit: { question?: string; domain?: string }) => Promise<unknown>;
   // the AI draft in the predefined structure; null when it could not be made
@@ -54,7 +52,6 @@ export const GdbDetailView = ({
   onEditFlag,
   onSaveSources,
   onPush,
-  onRelease,
   onEditQuestion,
   onDraftWithAi,
   drafting = false,
@@ -87,10 +84,9 @@ export const GdbDetailView = ({
   const decided = item.status === "fixed" || item.status === "dismissed";
   // an answer can be changed while it is to do or has no flags; a decided one is closed
   // an answer held by another reviewer can be read but not changed
-  const heldByOther = item.assigned && !item.assignedToMe;
-  const locked = (item.status !== "todo" && item.status !== "clean") || heldByOther;
+  const locked = item.status !== "todo" && item.status !== "clean";
   // the correction can still be edited after it is accepted, until it is pushed (and again, with a new push)
-  const correctionLocked = heldByOther || !["todo", "clean", "fixed"].includes(item.status);
+  const correctionLocked = !["todo", "clean", "fixed"].includes(item.status);
   // the domains the reviewer app offers, and the answer's own when it is not among them
   const domainOptions = DOMAINS.includes(item.domain) || !item.domain ? DOMAINS : [item.domain, ...DOMAINS];
 
@@ -212,7 +208,7 @@ export const GdbDetailView = ({
         ) : (
           <div className="flex items-start justify-between gap-3">
             <h2 className="text-xl font-semibold text-foreground">{item.question}</h2>
-            <Button size="sm" variant="outline" onClick={startQuestionEdit} disabled={heldByOther || busy}>
+            <Button size="sm" variant="outline" onClick={startQuestionEdit} disabled={busy}>
               <Pencil className="w-4 h-4 mr-1" />
               Edit question
             </Button>
@@ -232,23 +228,6 @@ export const GdbDetailView = ({
           ))}
         </div>
       </div>
-
-      {item.assigned && item.status === "todo" && (
-        <div
-          className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border p-3 text-sm ${
-            heldByOther ? "border-amber-300 bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300" : "bg-muted/30 text-muted-foreground"
-          }`}
-        >
-          <span>
-            {heldByOther
-              ? `Assigned to ${item.assignedToName ?? "another reviewer"}. You can read it but not change it.`
-              : "Assigned to you."}
-          </span>
-          <Button size="sm" variant="outline" onClick={onRelease} disabled={busy}>
-            Release
-          </Button>
-        </div>
-      )}
 
       {item.status === "pending" ? (
         <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">

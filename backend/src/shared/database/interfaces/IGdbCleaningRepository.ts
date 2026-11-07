@@ -14,10 +14,6 @@ export interface IGdbCleaningListFilters {
   crops?: string[];
   flags?: string[];
   statuses?: GdbCleaningStatus[];
-  /** only the answers held by this reviewer */
-  assignedTo?: string;
-  /** only the answers nobody holds */
-  unassigned?: boolean;
   page: number;
   limit: number;
 }
@@ -32,7 +28,6 @@ export type GdbCleaningListRow = Pick<
   | 'flags'
   | 'notEvaluated'
   | 'status'
-  | 'assignedTo'
   | 'questionId'
 >;
 
@@ -97,24 +92,6 @@ export interface IGdbCleaningRepository {
     originalSources: IGdbCleaningSource[],
     reviewerId: string,
   ): Promise<IGdbCleaning | null>;
-
-  /** How many to-do answers this reviewer holds. */
-  countOpenAssigned(userId: string): Promise<number>;
-
-  /** Gives the reviewer up to `limit` of the oldest to-do answers nobody holds; returns how many it got. */
-  claimFree(userId: string, limit: number): Promise<number>;
-
-  /** Takes the answer back from whoever holds it; false when nobody did. */
-  release(answerId: string): Promise<boolean>;
-
-  /** Takes back a reviewer's to-do answers they have not touched, or all of them. */
-  releaseOf(userId: string, onlyUntouched: boolean): Promise<number>;
-
-  /** Reviewers who hold to-do answers. */
-  listAssignees(): Promise<string[]>;
-
-  /** When the reviewer last did something or was given answers. */
-  lastActivityAt(userId: string): Promise<Date | null>;
 
   /** Adds one line to the answer's history. */
   addHistory(answerId: string, entry: IGdbCleaningHistoryEntry): Promise<void>;

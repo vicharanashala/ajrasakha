@@ -46,10 +46,6 @@ import {
 } from './GdbLibraryDraft.js';
 
 const DEFAULT_LIMIT = 25;
-// each reviewer holds up to this many to-do answers
-const MAX_OPEN = 50;
-// a reviewer who does nothing for this long gets the answers they have not touched taken back
-const QUIET_DAYS = 3;
 // the question statuses for which the reviewer app edits a final answer in place
 const CLOSED_STATUSES = ['closed', 'duplicate_closed', 'dynamic_closed'];
 
@@ -69,20 +65,6 @@ const sameSources = (a: IGdbCleaningSource[], b: IGdbCleaningSource[]) => {
 // does a check count as a flag, after any change by a reviewer
 const isFlagged = (check: IGdbCleaningCheck) =>
   (check.override ? check.override.result : check.result) === 'FAIL';
-
-// who holds an answer, as the person looking at it needs to know
-const holder = (
-  doc: {assignedTo?: ObjectId},
-  viewerId?: string,
-  names?: Map<string, string>,
-) => {
-  const id = doc.assignedTo?.toString();
-  return {
-    assigned: Boolean(id),
-    assignedToMe: Boolean(id) && id === viewerId,
-    assignedToName: (id && names?.get(id)) || null,
-  };
-};
 
 // The domain of a live question can be one name or a list of them
 const liveDomain = (live?: IQuestion): string => {
@@ -120,28 +102,17 @@ const liveFields = (
   };
 };
 
-const toListItem = (
-  row: GdbCleaningListRow,
-  viewerId?: string,
-  names?: Map<string, string>,
-  live?: IQuestion,
-): GdbCleaningListItem => ({
+const toListItem = (row: GdbCleaningListRow, live?: IQuestion): GdbCleaningListItem => ({
   id: row.answerId.toString(),
   questionId: row.questionId.toString(),
   ...liveFields(row, live),
   flags: row.flags ?? [],
   notEvaluated: row.notEvaluated ?? [],
   status: row.status,
-  ...holder(row, viewerId, names),
 });
 
-const toItem = (
-  doc: IGdbCleaning,
-  viewerId?: string,
-  names?: Map<string, string>,
-  live?: IQuestion,
-): GdbCleaningItem => ({
-  ...toListItem(doc, viewerId, names, live),
+const toItem = (doc: IGdbCleaning, live?: IQuestion): GdbCleaningItem => ({
+  ...toListItem(doc, live),
   // edited after it was pushed; an older push did not record its text, so it counts as the current one
   correctionChanged:
     Boolean(doc.pushedAt) &&
@@ -231,46 +202,6 @@ export class GdbCleaningService implements IGdbCleaningService {
     return {from: start, to: end};
   }
 
-  // names of the reviewers who hold these answers
-  private async holderNames(rows: {assignedTo?: ObjectId}[]) {
-    const ids = [...new Set(rows.map(r => r.assignedTo?.toString()).filter(Boolean))] as string[];
-    const users = ids.length
-      ? await this.userRepository.getUsersByIds(ids, undefined, {firstName: 1, lastName: 1})
-      : [];
-    return new Map(
-      users.map(u => [String(u._id), [u.firstName, u.lastName].filter(Boolean).join(' ')]),
-    );
-  }
-
-  // An answer given to one reviewer can be changed by that reviewer only. One nobody holds is open to all.
-  private async assertHolder(doc: IGdbCleaning, reviewerId: string): Promise<void> {
-    const owner = doc.assignedTo?.toString();
-    if (!owner || owner === reviewerId) return;
-    const name = (await this.holderNames([doc])).get(owner);
-    throw new HttpError(
-      403,
-      `This answer is assigned to ${name || 'another reviewer'}. Ask for it to be released first`,
-    );
-  }
-
-  // When a reviewer finishes an answer they held, they get another to keep their 50.
-  // The answer is already saved, so a failure here is only logged: the hourly job fills it later.
-  private async refillAfter(doc: IGdbCleaning, reviewerId: string): Promise<void> {
-    if (doc.assignedTo?.toString() !== reviewerId) return;
-    try {
-      await this.refill(reviewerId);
-    } catch (error) {
-      console.error(`Could not give reviewer ${reviewerId} the next answers:`, error);
-    }
-  }
-
-  async refill(userId: string) {
-    const open = await this.repository.countOpenAssigned(userId);
-    if (open >= MAX_OPEN) return {open, claimed: 0};
-    const claimed = await this.repository.claimFree(userId, MAX_OPEN - open);
-    return {open: open + claimed, claimed};
-  }
-
   async editQuestion(
     answerId: string,
     edit: {question?: string; domain?: string},
@@ -279,7 +210,6 @@ export class GdbCleaningService implements IGdbCleaningService {
     const reviewerId = user._id.toString();
     const row = await this.repository.getByAnswerId(answerId);
     if (!row) throw new NotFoundError(`Answer "${answerId}" not found`);
-    await this.assertHolder(row, reviewerId);
     const live = await this.questionRepository.getById(row.questionId.toString());
     if (!live) throw new NotFoundError('The question was not found in the reviewer app');
 
@@ -344,52 +274,10 @@ export class GdbCleaningService implements IGdbCleaningService {
         }
       }
     }
-    return this.get(answerId, reviewerId);
+    return this.get(answerId);
   }
 
-  async release(answerId: string, byUserId: string) {
-    const doc = await this.repository.getByAnswerId(answerId);
-    if (!doc) throw new NotFoundError(`Answer "${answerId}" not found`);
-    if (doc.assignedTo && (await this.repository.release(answerId))) {
-      await this.record(answerId, byUserId, 'released', {from: doc.assignedTo.toString()});
-    }
-    return toItem((await this.repository.getByAnswerId(answerId)) ?? doc, byUserId);
-  }
-
-  async releaseAll(userId: string) {
-    return {released: await this.repository.releaseOf(userId, false)};
-  }
-
-  async runAssignmentCron() {
-    const assignees = await this.repository.listAssignees();
-    if (!assignees.length) return {released: 0, toppedUp: 0};
-    const users = await this.userRepository.getUsersByIds(assignees, undefined, {role: 1, isBlocked: 1});
-    const quietBefore = Date.now() - QUIET_DAYS * 24 * 60 * 60 * 1000;
-    let released = 0;
-    let toppedUp = 0;
-    for (const id of assignees) {
-      try {
-        const user = users.find(u => String(u._id) === id);
-        // a reviewer who is gone, blocked or no longer an admin gives everything back
-        if (!user || user.isBlocked === true || (user.role as string) !== 'admin') {
-          released += await this.repository.releaseOf(id, false);
-          continue;
-        }
-        const last = await this.repository.lastActivityAt(id);
-        if (!last || last.getTime() < quietBefore) {
-          released += await this.repository.releaseOf(id, true);
-        } else {
-          toppedUp += (await this.refill(id)).claimed;
-        }
-      } catch (error) {
-        // one reviewer's problem does not stop the others
-        console.error(`Assignment job failed for reviewer ${id}:`, error);
-      }
-    }
-    return {released, toppedUp};
-  }
-
-  async list(query: GdbCleaningListQuery, viewerId?: string) {
+  async list(query: GdbCleaningListQuery) {
     const page = query.page ?? 1;
     const limit = query.limit ?? DEFAULT_LIMIT;
     const {rows, totalCount} = await this.repository.list({
@@ -398,17 +286,12 @@ export class GdbCleaningService implements IGdbCleaningService {
       crops: query.crops,
       flags: query.flags,
       statuses: query.statuses,
-      assignedTo: query.assignee === 'me' ? viewerId : undefined,
-      unassigned: query.assignee === 'unassigned',
       page,
       limit,
     });
-    const [names, live] = await Promise.all([
-      this.holderNames(rows),
-      this.liveQuestions(rows),
-    ]);
+    const live = await this.liveQuestions(rows);
     return {
-      items: rows.map(row => toListItem(row, viewerId, names, live.get(row.questionId.toString()))),
+      items: rows.map(row => toListItem(row, live.get(row.questionId.toString()))),
       totalCount,
       totalPages: Math.max(1, Math.ceil(totalCount / limit)),
       page,
@@ -473,11 +356,11 @@ export class GdbCleaningService implements IGdbCleaningService {
     return this.repository.getFilterOptions();
   }
 
-  async get(answerId: string, viewerId?: string): Promise<GdbCleaningItem> {
+  async get(answerId: string): Promise<GdbCleaningItem> {
     const doc = await this.repository.getByAnswerId(answerId);
     if (!doc) throw new NotFoundError(`Answer "${answerId}" not found`);
     const live = await this.liveQuestions([doc]);
-    return toItem(doc, viewerId, await this.holderNames([doc]), live.get(doc.questionId.toString()));
+    return toItem(doc, live.get(doc.questionId.toString()));
   }
 
   // The answer must exist and belong to the given question, or it is not found.
@@ -498,14 +381,13 @@ export class GdbCleaningService implements IGdbCleaningService {
     const text = correctedAnswer.trim();
     if (!text) throw new BadRequestError('The correction cannot be empty');
     const current = await this.requireMatch(answerId, questionId);
-    if (reviewerId) await this.assertHolder(current, reviewerId);
     // an older push did not record its text: it was the correction as it stood
     const pushedBefore =
       current.pushedAt && current.pushedAnswer === undefined
         ? current.correctedAnswer?.trim() || undefined
         : undefined;
     const updated = await this.repository.saveCorrection(answerId, questionId, text, pushedBefore);
-    const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'correction_saved');
     return item;
   }
@@ -541,7 +423,6 @@ export class GdbCleaningService implements IGdbCleaningService {
     if (!comment) throw new BadRequestError('A comment is required');
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    await this.assertHolder(current, reviewerId);
     if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const target = (current.checks ?? []).find(c => c.parameter === edit.parameter);
     if (!target) {
@@ -575,7 +456,7 @@ export class GdbCleaningService implements IGdbCleaningService {
       flags,
       stillOpen ? 'todo' : 'clean',
     );
-    const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'flag_changed', {
       parameter: edit.parameter,
       result: edit.result,
@@ -591,7 +472,6 @@ export class GdbCleaningService implements IGdbCleaningService {
     reviewerId: string,
   ): Promise<GdbCleaningItem> {
     const current = await this.requireMatch(answerId, questionId);
-    await this.assertHolder(current, reviewerId);
     if (!isEditable(current.status)) return toItem(await this.explainRefusal(answerId));
     const clean = sources.map(source => ({
       sourceName: source.sourceName?.trim(),
@@ -608,7 +488,7 @@ export class GdbCleaningService implements IGdbCleaningService {
       original,
       reviewerId,
     );
-    const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'sources_edited', {count: clean.length});
     return item;
   }
@@ -674,7 +554,7 @@ export class GdbCleaningService implements IGdbCleaningService {
     } as UpdateAnswerBody);
     const updated = await this.repository.markPushed(answerId, reviewerId, correction);
     await this.record(answerId, reviewerId, 'pushed');
-    return toItem(updated ?? row, reviewerId);
+    return toItem(updated ?? row);
   }
 
   async decide(
@@ -690,7 +570,6 @@ export class GdbCleaningService implements IGdbCleaningService {
 
     if (decision.action === 'dismiss') {
       const open = await this.repository.getByAnswerId(answerId);
-      if (open) await this.assertHolder(open, reviewerId);
       if (open && open.status === 'clean') {
         throw new BadRequestError('This answer has no flags to dismiss');
       }
@@ -699,16 +578,14 @@ export class GdbCleaningService implements IGdbCleaningService {
         comment,
         reviewerId,
       });
-      const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
+      const item = toItem(updated ?? (await this.explainRefusal(answerId)));
       await this.record(answerId, reviewerId, 'dismissed', {comment});
-      if (open) await this.refillAfter(open, reviewerId);
       return item;
     }
 
     // accepting needs a correction: the one in the request, or the one saved earlier
     const current = await this.repository.getByAnswerId(answerId);
     if (!current) throw new NotFoundError(`Answer "${answerId}" not found`);
-    await this.assertHolder(current, reviewerId);
     const correctedAnswer =
       decision.correctedAnswer?.trim() || current.correctedAnswer?.trim();
     if (!correctedAnswer) {
@@ -720,9 +597,8 @@ export class GdbCleaningService implements IGdbCleaningService {
       comment,
       reviewerId,
     });
-    const item = toItem(updated ?? (await this.explainRefusal(answerId)), reviewerId);
+    const item = toItem(updated ?? (await this.explainRefusal(answerId)));
     await this.record(answerId, reviewerId, 'accepted', {comment});
-    await this.refillAfter(current, reviewerId);
     return item;
   }
 
