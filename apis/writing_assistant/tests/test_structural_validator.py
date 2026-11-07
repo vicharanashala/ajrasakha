@@ -11,18 +11,18 @@ _FIRST_STEP = structural_validator.FIXED_STEPS[0].step
 _SECOND_STEP = structural_validator.FIXED_STEPS[1].step
 _LAST_STEP = structural_validator.FIXED_STEPS[-1].step
 
-# Every step's own example text, verbatim - guarantees genuine textual
-# evidence (Revision 15's deterministic safety net) for every one of the
-# 10 steps, so a mocked coverage/section_index survives unchanged. Used
-# whenever a test's mock is what should decide the outcome, not the
-# safety net.
+# Every step's own example text, verbatim - a stand-in for "a draft that
+# genuinely addresses every step". There's no deterministic override
+# anymore (removed - it compared the draft against the step's own
+# abstract example text, which doesn't share vocabulary with any real
+# topic-specific draft; see score_coverage's comment), so the mocked
+# coverage/section_index is what decides every test's outcome now - this
+# draft's actual content is just for readability.
 _FULL_DRAFT = " ".join(s.example for s in structural_validator.FIXED_STEPS)
 
-# Shares no real (length>=4, non-stopword) vocabulary with any of the 10
-# steps' example text - guarantees zero textual evidence everywhere, so
-# the safety net downgrades every step to "missing" regardless of what
-# classify_step_coverage claims. Used to test that override, and for
-# tests where the draft's content is otherwise irrelevant (an outage).
+# Content is irrelevant to the outcome (no textual-evidence check exists
+# to react to it) - used for tests where the draft's content itself
+# doesn't matter, only the mocked classify_step_coverage behavior does.
 _UNRELATED_DRAFT = "The weather today is pleasant and farmers are busy with their daily chores around the village."
 
 
@@ -114,25 +114,10 @@ def test_missing_step_never_gets_an_order_warning(monkeypatch):
     assert result.order_warnings == []
 
 
-# ISS-05 (Writing Assistant Build Plan, Revision 15): confirmed live that
-# prompt tightening alone wasn't enough when a removed step's topic is
-# still name-dropped once, in passing, in an unrelated section - the LLM
-# still gave partial credit. A deterministic textual-evidence check now
-# overrides that to "missing" when the step's own topic has no real
-# presence anywhere in the draft.
-def test_llm_overclaim_on_genuinely_absent_step_is_overridden_to_missing(monkeypatch):
-    # The LLM (wrongly) says "partial" for every step, but the draft
-    # shares no real vocabulary with any of them.
-    _mock_all_steps(monkeypatch, StepCoverage.PARTIAL)
-    result = structural_validator.validate_structure("q", _UNRELATED_DRAFT)
-    assert all(s.coverage == StepCoverage.MISSING for s in result.steps)
-    assert result.steps[-1].example == structural_validator.FIXED_STEPS[-1].example
-
-
-def test_llm_missing_is_never_promoted_by_the_textual_check(monkeypatch):
-    # The override only ever downgrades toward "missing" - it must never
-    # promote a step the LLM already scored missing, even if the draft
-    # genuinely does contain that step's vocabulary.
+def test_llm_missing_is_trusted_as_is(monkeypatch):
+    # No deterministic override anymore (removed - see score_coverage's
+    # comment): the majority-voted LLM judgment is the only signal, even
+    # when the draft genuinely does contain that step's vocabulary.
     _mock_all_steps(monkeypatch, StepCoverage.MISSING)
     result = structural_validator.validate_structure("q", _FULL_DRAFT)
     assert all(s.coverage == StepCoverage.MISSING for s in result.steps)

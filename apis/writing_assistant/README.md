@@ -177,11 +177,15 @@ already fail closed on their own, per request.
   terms are recognized. Most Hindi vocabulary (chemical/treatment terms,
   timing words) is not - a Hindi draft can still be polished, but the
   guardrail's fact-preservation checks will mostly read `n/a` for it.
-- **Structural coverage is semantic, not just lexical** - it uses LLM
-  judgment to recognize equivalent wording, with a deterministic safety net
-  that downgrades a step to `missing` if no section of the draft has real,
-  non-borrowed textual evidence for it. This is a risk-reducing heuristic,
-  not a proof of either coverage or absence.
+- **Structural coverage is entirely LLM judgment** - majority-voted
+  (3x per step) for stability, but not backed by any deterministic
+  keyword/vocabulary check. An earlier version downgraded a step to
+  `missing` when the draft shared no vocabulary with that step's own
+  example text; removed once the checklist became domain-neutral, since
+  a real draft's topic-specific content naturally shares no vocabulary
+  with an abstract, generic step description - live-confirmed that
+  heuristic was wrongly downgrading genuinely-covered steps to `missing`
+  once the checklist stopped being per-topic curated text.
 - **Never claims semantic equivalence** - every guardrail result carries a
   disclaimer: these checks reduce the risk of an unintended technical
   change, they do not prove the rewrite means exactly the same thing.
