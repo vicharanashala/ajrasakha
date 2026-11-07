@@ -275,7 +275,7 @@ export const SourceUrlManager = ({
         )}
 
         {/* Added sources list */}
-        {sources.length > 0 && (
+        {(sources?.length ?? 0) > 0 && (
           <ScrollArea className="h-[7rem] rounded-lg border p-2">
             <div className="flex flex-col gap-2">
               {sources.map((item, idx) => (

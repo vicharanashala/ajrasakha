@@ -85,7 +85,8 @@ export const EditRdqaAnswerModal = ({
       toast.error("Answer cannot be empty.");
       return;
     }
-    for (const source of editedSources) {
+    const sourcesToCheck = editedSources || [];
+    for (const source of sourcesToCheck) {
       if (source.sourceType && !source.sourceName?.trim()) {
         toast.error("Source name is required for all sources.");
         return;
@@ -97,14 +98,15 @@ export const EditRdqaAnswerModal = ({
   const handleConfirmedSave = async () => {
     if (!question) return;
     setShowConfirm(false);
+    const sourcesToSave = editedSources || [];
     try {
       await updateAnswer({
         answerId: question.answer._id,
         questionId: question.question._id,
         updatedAnswer: editedAnswer.trim(),
         sources:
-          editedSources.length > 0
-            ? editedSources
+          sourcesToSave.length > 0
+            ? sourcesToSave
             : [{ sourceType: "MODERATOR_REVIEW", source: "Answer reviewed and approved by moderator" }],
         source: "AJRASAKHA",
         isModeratorApproval: false,
@@ -185,19 +187,19 @@ export const EditRdqaAnswerModal = ({
             <div>
               <label className="text-sm font-medium text-foreground flex items-center gap-2 mb-2">
                 <ExternalLink className="w-4 h-4" />
-                Sources ({isEditing ? (editedSources?.length || 0) : (question.answer.sources?.length || 0)})
+                Sources ({isEditing ? ((editedSources || [])?.length || 0) : (question?.answer?.sources?.length || 0)})
               </label>
 
               {isEditing ? (
                 <SourceUrlManager
-                  sourceItems={editedSources || []}
-                  onSourceItemsChange={setEditedSources}
+                  sources={editedSources || []}
+                  onSourcesChange={setEditedSources}
                 />
               ) : (
                 <div className="rounded-lg border bg-card p-4">
-                  {(question.answer.sources != null && question.answer.sources.length > 0) ? (
+                  {((question?.answer?.sources?.length ?? 0) > 0) ? (
                     <div className="space-y-3">
-                      {question.answer.sources.map((src, idx) => (
+                      {question.answer.sources.map((src: { source?: string; sourceType?: string; page?: string | number; sourceName?: string }, idx: number) => (
                         <div
                           key={idx}
                           className="flex items-start justify-between gap-3 p-2 rounded-md hover:bg-muted/50 transition-colors"
