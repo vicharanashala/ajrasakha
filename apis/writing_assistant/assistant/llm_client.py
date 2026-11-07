@@ -141,12 +141,29 @@ _SELECTION_SYSTEM_PROMPT = (
     "question). The test is not the question's grammatical form (both "
     "can start with 'how do I') - it's whether the farmer still needs "
     "general orientation (Broad) or already has it and wants one "
-    "specific next step (Narrow). Respond only with a JSON object of "
+    "specific next step (Narrow). "
+    "A Direct Topic match requires the question's own specific named "
+    "subject (the exact pest, disease, scheme, or topic the question "
+    "names) to match the Direct Topic's own named subject - being in the "
+    "same general category or domain is NOT enough by itself. For "
+    "example, a Direct Topic entry 'How to control Yellow Stem Borer in "
+    "paddy?' matches a question about Yellow Stem Borer, but does NOT "
+    "match a question about Brown Plant Hopper, Gall Midge, or any other "
+    "insect pest, even though all of them are the same general 'insect "
+    "pest management' category - those other pests have no Direct Topic "
+    "of their own, so they fall through to the generic domain structure "
+    "instead (do not report matched_direct_topic for them; leave it "
+    "null). The same applies across diseases, crop varieties, government "
+    "schemes, or any other topic: never match a Direct Topic just because "
+    "it is the closest or only entry in that category - match it only "
+    "when the question's own specific subject is the one the Direct "
+    "Topic is actually about. Respond only with a JSON object of "
     "this exact shape: "
     '{"domain": "<one of the listed domains, or null if none fit confidently>", '
     '"question_type": "Broad" or "Narrow" or null, '
-    '"matched_direct_topic": <integer index into the Direct Topic list that '
-    "clearly and specifically matches, or null>, "
+    '"matched_direct_topic": <integer index into the Direct Topic list whose '
+    "OWN SPECIFIC SUBJECT (not just its general category) clearly matches the "
+    "question's specific subject, or null>, "
     '"ambiguous_direct_topics": [<indices of two or more Direct Topic entries '
     "that could equally plausibly match, if genuinely ambiguous - otherwise []>], "
     '"matched_crop_variants": [<indices into the Crop Variant list whose crop '
