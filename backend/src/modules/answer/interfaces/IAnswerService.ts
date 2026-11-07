@@ -34,6 +34,10 @@ export interface IAnswerService
 
   detectChemicals(text: string): Promise<ChemicalDetectionResponse>;
 
+  polishDraft(payload: { question: string; draft: string }): Promise<{ jobId: string; status: string }>;
+
+  getPolishDraftJob(jobId: string): Promise<any>;
+
   getAnswerByMessageOrThreadId(
     id: string,
   ): Promise<{
@@ -66,6 +70,21 @@ export interface IAnswerService
 
   submitAnswerCheck(payload: any): Promise<{ job_id: string; status: string; message?: string }>;
   getAnswerCheck(jobId: string): Promise<any>;
+  submitFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{ job_id: string; status: string }>;
+  getFfv(jobId: string): Promise<{
+    job_id: string;
+    status: 'processing' | 'completed' | 'failed';
+    results?: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions?: number;
+    error?: string;
+  }>;
   generateFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{
     results: Array<{
       domain: string;

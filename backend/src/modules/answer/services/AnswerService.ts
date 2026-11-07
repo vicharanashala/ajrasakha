@@ -1,4 +1,5 @@
 import 'reflect-metadata';
+import { randomUUID } from 'crypto';
 import { inject, injectable } from 'inversify';
 import { ClientSession } from 'mongodb';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
@@ -371,6 +372,145 @@ export class AnswerService extends BaseService implements IAnswerService {
     return result;
   }
 
+  async polishDraft(payload: { question: string; draft: string }): Promise<{ jobId: string; status: string }> {
+    if (!payload?.question || !payload?.draft) {
+      throw new BadRequestError('Question and draft are required for polishing.');
+    }
+
+    const jobId = `job_${randomUUID()}`;
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5-minute timeout
+
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    await collection.insertOne({
+      jobId,
+      status: 'processing',
+      question: payload.question,
+      draft: payload.draft,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    });
+
+    // Cleanup old completed or expired jobs in the background
+    this.cleanupOldPolishJobs().catch((err) => {
+      console.error('[cleanupOldPolishJobs] Failed:', err);
+    });
+
+    // Fire-and-forget background processing so the client gets an immediate jobId
+    this.executePolishDraftJob(jobId, payload).catch((err) => {
+      console.error(`[executePolishDraftJob] Unhandled error for job ${jobId}:`, err);
+    });
+
+    return { jobId, status: 'processing' };
+  }
+
+  private async executePolishDraftJob(
+    jobId: string,
+    payload: { question: string; draft: string }
+  ): Promise<void> {
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    try {
+      console.log(`[executePolishDraftJob] Starting AI polish for job ${jobId}`);
+      const result = await this.aiService.polishDraft({
+        question: payload.question,
+        draft: payload.draft,
+      });
+
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'completed',
+            result,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      console.log(`[executePolishDraftJob] Completed job ${jobId}`);
+    } catch (error: any) {
+      const now = new Date();
+      const errorMsg = error?.message || 'Writing assistant service failed';
+      console.error(`[executePolishDraftJob] Failed job ${jobId}:`, errorMsg);
+
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: errorMsg,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    }
+  }
+
+  async getPolishDraftJob(jobId: string): Promise<any> {
+    if (!jobId) {
+      throw new BadRequestError('Job ID is required.');
+    }
+
+    const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+    const job = await collection.findOne({ jobId });
+
+    if (!job) {
+      throw new NotFoundError(`Polish job "${jobId}" not found`);
+    }
+
+    // Check for 5-minute timeout on jobs that are still processing
+    if (job.status === 'processing' && job.expiresAt && new Date() > new Date(job.expiresAt)) {
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: 'Draft analysis timed out after 5 minutes.',
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      return {
+        jobId,
+        status: 'failed',
+        error: 'Draft analysis timed out after 5 minutes.',
+        createdAt: job.createdAt,
+        completedAt: now,
+      };
+    }
+
+    return {
+      jobId: job.jobId,
+      status: job.status,
+      result: job.result,
+      error: job.error,
+      createdAt: job.createdAt,
+      completedAt: job.completedAt,
+    };
+  }
+
+  private async cleanupOldPolishJobs(): Promise<void> {
+    try {
+      const collection = await this.mongoDatabase.getCollection('polish_draft_jobs');
+      const twelveHoursAgo = new Date(Date.now() - 12 * 60 * 60 * 1000);
+      const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000);
+
+      await collection.deleteMany({
+        $or: [
+          { status: { $in: ['completed', 'failed'] }, updatedAt: { $lt: twelveHoursAgo } },
+          { expiresAt: { $lt: oneHourAgo } },
+        ],
+      });
+    } catch (err) {
+      console.error('[cleanupOldPolishJobs] Error during cleanup:', err);
+    }
+  }
+
   async submitAnswerCheck(body: any): Promise<{ job_id: string; status: string }> {
     if (!body?.question || !body?.answer) {
       throw new BadRequestError('Question and answer are required for answer quality check.');
@@ -391,6 +531,150 @@ export class AnswerService extends BaseService implements IAnswerService {
       throw new InternalServerError('Failed to fetch check result from verification service.');
     }
     return result;
+  }
+
+  async submitFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{ job_id: string; status: string }> {
+    if (!payload?.question || !payload?.answer) {
+      throw new BadRequestError('Question and answer are required for FFV generation.');
+    }
+
+    const jobId = randomUUID();
+    const now = new Date();
+    const expiresAt = new Date(now.getTime() + 5 * 60 * 1000); // 5 minutes expiry
+
+    // Create job document in 'ffv_jobs' collection
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    await collection.insertOne({
+      jobId,
+      status: 'processing',
+      payload,
+      result: null,
+      error: null,
+      createdAt: now,
+      updatedAt: now,
+      expiresAt,
+    });
+
+    // Process the job asynchronously
+    this.processFfvJob(jobId, payload).catch((err) => {
+      console.error(`[submitFfv] Job ${jobId} failed:`, err);
+    });
+
+    return { job_id: jobId, status: 'processing' };
+  }
+
+  private async processFfvJob(jobId: string, payload: { question: string; answer: string; domains?: string[] }): Promise<void> {
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    const now = new Date();
+
+    try {
+      // Call the FFV service
+      const ffvResult = await this.aiService.generateFfv(payload);
+
+      // Update job with successful result
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'completed',
+            result: ffvResult,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      console.error(`[processFfvJob] Job ${jobId} failed:`, errorMsg);
+
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: errorMsg,
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+    }
+  }
+
+  async getFfv(jobId: string): Promise<{
+    job_id: string;
+    status: 'processing' | 'completed' | 'failed';
+    results?: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions?: number;
+    error?: string;
+  }> {
+    if (!jobId) {
+      throw new BadRequestError('Job ID is required.');
+    }
+
+    const collection = await this.mongoDatabase.getCollection('ffv_jobs');
+    const job = await collection.findOne({ jobId });
+
+    if (!job) {
+      throw new NotFoundError(`FFV job "${jobId}" not found`);
+    }
+
+    // Check for 5-minute timeout on jobs that are still processing
+    if (job.status === 'processing' && job.expiresAt && new Date() > new Date(job.expiresAt)) {
+      const now = new Date();
+      await collection.updateOne(
+        { jobId },
+        {
+          $set: {
+            status: 'failed',
+            error: 'FFV generation timed out after 5 minutes.',
+            completedAt: now,
+            updatedAt: now,
+          },
+        }
+      );
+      return {
+        job_id: jobId,
+        status: 'failed',
+        error: 'FFV generation timed out after 5 minutes.',
+      };
+    }
+
+    const response: {
+      job_id: string;
+      status: 'processing' | 'completed' | 'failed';
+      results?: Array<{
+        domain: string;
+        versions: Array<{
+          angle: string;
+          question: string;
+          answer: string;
+        }>;
+      }>;
+      total_versions?: number;
+      error?: string;
+    } = {
+      job_id: job.jobId,
+      status: job.status,
+    };
+
+    if (job.status === 'completed' && job.result) {
+      response.results = job.result.results;
+      response.total_versions = job.result.total_versions;
+    }
+
+    if (job.status === 'failed' && job.error) {
+      response.error = job.error;
+    }
+
+    return response;
   }
 
   async generateFfv(payload: { question: string; answer: string; domains?: string[] }): Promise<{

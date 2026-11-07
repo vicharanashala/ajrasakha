@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   ChevronsRight,
   RefreshCw,
@@ -151,8 +151,8 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   console.log("[FarmerFriendlyVersionsPanel] answer:", answerText);
   console.log("[FarmerFriendlyVersionsPanel] domain:", domain);
 
-  // CHANGE: Call the FFV generation API hook
-  const { mutateAsync: generateFfv, isPending: isGenerating } = useGenerateFfv();
+  // CHANGE: Call the FFV generation API hook with polling support
+  const { generateFfv, resetFfv, isGenerating, result } = useGenerateFfv();
 
   // CHANGE: Store the generated versions locally so editing a version
   // updates the displayed data without requiring a backend connection.
@@ -181,37 +181,36 @@ export const FarmerFriendlyVersionsPanel: React.FC<
   // The component can later replace this with the actual API response.
   const totalVersions = hasGenerated ? versions.length : 0;
 
-  // CHANGE: Generate FFVs by calling the real API.
-  const handleGenerateVersions = async () => {
-    if (!questionText || !answerText) {
-      toast.error("Question and answer are required to generate FFVs.");
-      return;
-    }
-
-    try {
-      const response: GenerateFfvResponse = await generateFfv({
-        question: questionText,
-        answer: answerText,
-        domains: domain,
-      });
-
-      const generatedVersions = response.results.flatMap(
-        (result) => result.versions
+  // CHANGE: Effect to handle the result when polling completes
+  useEffect(() => {
+    if (result && result.results.length > 0) {
+      const generatedVersions = result.results.flatMap(
+        (res) => res.versions
       );
 
       setVersions(generatedVersions);
       setHasGenerated(true);
 
       // Set the first domain as source domain for display
-      if (response.results.length > 0) {
-        setSourceDomain(response.results[0].domain);
-      }
+      setSourceDomain(result.results[0].domain);
 
       setSelectedVersionIndex(null);
       setIsModalOpen(false);
-    } catch {
-      // Error is already handled in the hook's onError
     }
+  }, [result]);
+
+  // CHANGE: Generate FFVs by calling the real API with polling.
+  const handleGenerateVersions = () => {
+    if (!questionText || !answerText) {
+      toast.error("Question and answer are required to generate FFVs.");
+      return;
+    }
+
+    generateFfv({
+      question: questionText,
+      answer: answerText,
+      domains: domain,
+    });
   };
 
   // CHANGE: Open the shared modal in view or edit mode and initialize

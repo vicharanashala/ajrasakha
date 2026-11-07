@@ -165,6 +165,7 @@ jobs:
             GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
             ANSWER_CHECK_PORT=${{ secrets.ANSWER_CHECK_PORT}}
             FFV_PORT=${{ secrets.FFV_PORT}}
+            WRITING_ASSISTANT_PORT=${{ secrets.WRITING_ASSISTANT_PORT}}
           env_vars_update_strategy: merge
 
           # ── The remaining app env vars are NOT set from here ───────────────────

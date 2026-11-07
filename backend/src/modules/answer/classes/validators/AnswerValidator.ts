@@ -569,6 +569,24 @@ class DetectChemicalsBody {
   text: string;
 }
 
+class PolishDraftBody {
+  @JSONSchema({
+    description: 'Farmer question text',
+    example: 'How to control Sheath Blight in paddy?',
+  })
+  @IsNotEmpty()
+  @IsString()
+  question: string;
+
+  @JSONSchema({
+    description: 'Reviewer draft answer text',
+    example: 'Sheath blight is a disease of paddy. Farmer should spray fungicide when needed.',
+  })
+  @IsNotEmpty()
+  @IsString()
+  draft: string;
+}
+
 export const ANSWER_VALIDATORS = [
   AddAnswerBody,
   AnswerResponse,
@@ -579,6 +597,7 @@ export const ANSWER_VALIDATORS = [
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
   DetectChemicalsBody,
+  PolishDraftBody,
 ];
 
 export {
@@ -591,4 +610,5 @@ export {
   ReviewAnswerBody,
   FetchAiInitialAnswerBody,
   DetectChemicalsBody,
+  PolishDraftBody,
 };

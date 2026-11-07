@@ -44,7 +44,11 @@ export const apiFetch = async <T>(
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   try {
-    const res = await fetch(url, { ...options, headers, signal: controller.signal });
+    const res = await fetch(url, {
+      ...options,
+      headers,
+      signal: options?.signal || controller.signal,
+    });
     clearTimeout(timeoutId);
 
     if (res.status === 204) {

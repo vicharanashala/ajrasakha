@@ -7,6 +7,12 @@ import type {
 } from "@/types";
 import { apiFetch } from "../api/api-fetch";
 import type { IReviewAnswerPayload } from "../api/answer/useReviewAnswer";
+import type {
+  PolishDraftPayload,
+  PolishDraftResponse,
+  PolishDraftSubmitResponse,
+  PolishDraftJobResponse,
+} from "./writingAssistantService";
 import { env } from "@/config/env";
 export interface IFetchAnswerPayload {
   query: string;
@@ -240,6 +246,29 @@ export class AnswerService {
     }
   }
 
+  async submitPolishDraft(payload: PolishDraftPayload): Promise<PolishDraftSubmitResponse | null> {
+    try {
+      return await apiFetch<PolishDraftSubmitResponse>(`${this._baseUrl}/polish-draft`, {
+        method: "POST",
+        body: JSON.stringify(payload),
+      });
+    } catch (error) {
+      console.error(`Error in submitPolishDraft:`, error);
+      throw error;
+    }
+  }
+
+  async getPolishDraftJob(jobId: string): Promise<PolishDraftJobResponse | null> {
+    try {
+      return await apiFetch<PolishDraftJobResponse>(`${this._baseUrl}/polish-draft/${jobId}`, {
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(`Error in getPolishDraftJob(${jobId}):`, error);
+      throw error;
+    }
+  }
+
   async submitAnswerCheck(payload: AnswerCheckPayload): Promise<{ job_id: string; status: string } | null> {
     try {
       return await apiFetch<{ job_id: string; status: string }>(`${this._baseUrl}/check-quality`, {
@@ -263,24 +292,12 @@ export class AnswerService {
     }
   }
 
-  async generateFfv(payload: {
+  async submitFfv(payload: {
     question: string;
     answer: string;
     domains?: string[];
-  }): Promise<{
-    results: Array<{
-      domain: string;
-      versions: Array<{
-        angle: string;
-        question: string;
-        answer: string;
-      }>;
-    }>;
-    total_versions: number;
-  } | null> {
+  }): Promise<{ job_id: string; status: string } | null> {
     try {
-      // Normalize the answer: trim whitespace and normalize multiple
-      // newlines/spaces to a single space to ensure clean JSON serialization.
       const normalizedAnswer = payload.answer
         .trim()
         .replace(/\r\n/g, "\n")
@@ -288,17 +305,7 @@ export class AnswerService {
 
       const normalizedQuestion = payload.question.trim();
 
-      return await apiFetch<{
-        results: Array<{
-          domain: string;
-          versions: Array<{
-            angle: string;
-            question: string;
-            answer: string;
-          }>;
-        }>;
-        total_versions: number;
-      }>(`${this._baseUrl}/ffv`, {
+      return await apiFetch<{ job_id: string; status: string }>(`${this._baseUrl}/ffv/submit`, {
         method: "POST",
         body: JSON.stringify({
           question: normalizedQuestion,
@@ -307,7 +314,44 @@ export class AnswerService {
         }),
       });
     } catch (error) {
-      console.error(`Error in generateFfv:`, error);
+      console.error(`Error in submitFfv:`, error);
+      throw error;
+    }
+  }
+
+  async getFfv(jobId: string): Promise<{
+    job_id: string;
+    status: "processing" | "completed" | "failed";
+    results?: Array<{
+      domain: string;
+      versions: Array<{
+        angle: string;
+        question: string;
+        answer: string;
+      }>;
+    }>;
+    total_versions?: number;
+    error?: string;
+  } | null> {
+    try {
+      return await apiFetch<{
+        job_id: string;
+        status: "processing" | "completed" | "failed";
+        results?: Array<{
+          domain: string;
+          versions: Array<{
+            angle: string;
+            question: string;
+            answer: string;
+          }>;
+        }>;
+        total_versions?: number;
+        error?: string;
+      }>(`${this._baseUrl}/ffv/${jobId}`, {
+        method: "GET",
+      });
+    } catch (error) {
+      console.error(`Error in getFfv(${jobId}):`, error);
       throw error;
     }
   }

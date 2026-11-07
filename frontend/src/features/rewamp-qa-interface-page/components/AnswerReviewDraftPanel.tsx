@@ -5,12 +5,8 @@ import {
   ChevronsRight,
   Bot,
   Sparkles,
-  ListOrdered,
-  Languages,
   RotateCcw,
-  Wand2,
   FileCheck,
-  ArrowDownToLine,
   FileText,
   Send,
   Loader2,
@@ -42,7 +38,7 @@ import { SourceUrlManager } from "@/components/source-url-manager";
 import { ConfirmationModal } from "@/components/confirmation-modal";
 import { toast } from "sonner";
 import type { IQuestion, IReviewParmeters, SourceItem } from "@/types";
-import type { AiAssistActionType } from "../types";
+import { PolishDraftAssistant } from "./PolishDraftAssistant";
 import { RevampReviewHistoryTimeline } from "./RevampReviewHistoryTimeline";
 import { ReviewResponseDialog } from "@/features/qa-interface-page/ReviewResponseDialog";
 import SarvamTranslateDropdown from "@/components/SarvamTranslateDropdown";
@@ -158,10 +154,6 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
       (m) => m.status?.toLowerCase() === "banned"
     )
   );
-
-  const [aiAssistOutput, setAiAssistOutput] = useState<string>("");
-  const [activeAiAction, setActiveAiAction] = useState<AiAssistActionType | null>(null);
-  const [isAiProcessing, setIsAiProcessing] = useState(false);
 
   // Notify parent of live draft answer & sources updates
   useEffect(() => {
@@ -352,53 +344,6 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
     toast.info("Draft, remarks, and sources have been cleared.");
   };
 
-  const handleAiAssist = (action: AiAssistActionType) => {
-    setActiveAiAction(action);
-    setIsAiProcessing(true);
-
-    setTimeout(() => {
-      let result = "";
-      const baseText = draftAnswer || aiAnswerText;
-
-      switch (action) {
-        case "polish":
-          result = `✨ [Polished]: ${baseText.slice(0, 180)}...\n• High-potency management applied with structured terminology for better clarity.`;
-          break;
-        case "simplify":
-          result = `🌿 [Simplified]: To control sucking pests in brinjal, keep fields clean, inspect under leaves regularly, and use neem-based organic sprays or approved chemical treatments.`;
-          break;
-        case "shorten":
-          result = `⚡ [Shortened]: Brinjal sucking pests (aphids, thrips, whiteflies) cause yellowing. Control: Clean fields, promote ladybird predators, and apply recommended insecticide per PoP.`;
-          break;
-        case "summarise":
-          result = `📝 [Summary]: Sucking pests degrade brinjal yield. Recommended actions include field hygiene, biological controls, and targeted chemical applications based on localized PoP.`;
-          break;
-        case "farmer_friendly":
-          result = `👨‍🌾 [Farmer Friendly]: बैंगन की फसल में रस चूसक कीटों (माहू, सफेद मक्खी) से बचाव के लिए खेत साफ रखें और नीम के तेल (3ml/लीटर) का छिड़काव करें। जरूरत पड़ने पर कृषि विशेषज्ञ की सलाह अनुसार दवाई डालें।`;
-          break;
-        case "improve_structure":
-          result = `📋 [Structured]:\n1. Overview: Sucking pests damage tender shoots.\n2. Preventive Steps: Remove infested leaves.\n3. Intervention: Apply recommended treatments.`;
-          break;
-        case "translate":
-          result = `🌐 [Translated Hindi]: बैंगन में रस चूसक कीटों के प्रभावी नियंत्रण के लिए स्थानीय पैकेज ऑफ प्रैक्टिसेज के अनुसार कीटनाशक और जैविक उपायों का प्रयोग करें।`;
-          break;
-        default:
-          result = baseText;
-      }
-
-      setAiAssistOutput(result);
-      setIsAiProcessing(false);
-      toast.success(`AI Assist: ${action.replace("_", " ")} completed`);
-    }, 600);
-  };
-
-  const handleApplyAiAssist = () => {
-    if (!aiAssistOutput) return;
-    setDraftAnswer((prev) => (prev ? `${prev}\n\n${aiAssistOutput}` : aiAssistOutput));
-    setActiveTab(isReviewPhase ? "response_review" : "reviewer_draft");
-    toast.success("Applied AI suggestion to Draft!");
-  };
-
   const handleUseAiAnswerInDraft = () => {
     setDraftAnswer(aiAnswerText);
     setRemarks("AI Suggested Answer");
@@ -578,18 +523,18 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
                 </button>
               )}
 
-              {/* TAB: AI Assist */}
+              {/* TAB: Polish Draft */}
               <button
                 type="button"
                 onClick={() => setActiveTab("ai_assist")}
                 className={`h-8 px-3.5 inline-flex items-center justify-center text-xs rounded-t-md border-t-2 border-x border-b-0 transition-colors whitespace-nowrap relative -mb-px select-none cursor-pointer ${
                   activeTab === "ai_assist"
-                    ? "border-t-blue-500 border-x-blue-500/80 bg-background text-blue-900 dark:text-blue-300 font-bold z-10 shadow-xs"
+                    ? "border-t-purple-500 border-x-purple-500/80 bg-background text-purple-900 dark:text-purple-300 font-bold z-10 shadow-xs"
                     : "border-t-transparent border-x-transparent bg-slate-100/90 dark:bg-slate-800/70 text-slate-600 dark:text-slate-400 font-medium hover:bg-slate-200/80 dark:hover:bg-slate-700/70 hover:text-foreground"
                 }`}
               >
                 <Sparkles className="w-3 h-3 mr-1 text-purple-500" />
-                AI Assist
+                Polish Draft
               </button>
             </div>
 
@@ -922,155 +867,25 @@ export const AnswerReviewDraftPanel: React.FC<AnswerReviewDraftPanelProps> = ({
         )}
 
         {/* ============================================================ */}
-        {/* TAB: AI ASSIST TOOLS                                         */}
+        {/* TAB: POLISH DRAFT & REFERENCE CHECKS                         */}
         {/* ============================================================ */}
         {!isLoading && activeTab === "ai_assist" && (
-          <div className="flex-1 flex flex-col space-y-3">
-            <div className="flex flex-wrap items-center justify-between gap-1">
-              <span className="text-xs font-semibold text-foreground flex items-center gap-1.5">
-                <Wand2 className="w-3.5 h-3.5 text-purple-600 dark:text-purple-400" />
-                <span>AI Enhancement Tools</span>
-              </span>
-              <span className="text-[11px] text-muted-foreground">Select an action to refine the answer text</span>
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("polish")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "polish" ? "border-purple-500 bg-purple-500/10 text-purple-700 dark:text-purple-300" : ""
-                }`}
-              >
-                <Sparkles className="w-3.5 h-3.5 mr-1.5 text-purple-500 shrink-0" />
-                <span>Polish</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("simplify")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "simplify" ? "border-emerald-500 bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : ""
-                }`}
-              >
-                <Wand2 className="w-3.5 h-3.5 mr-1.5 text-emerald-500 shrink-0" />
-                <span>Simplify</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("shorten")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "shorten" ? "border-amber-500 bg-amber-500/10 text-amber-700 dark:text-amber-300" : ""
-                }`}
-              >
-                <ArrowDownToLine className="w-3.5 h-3.5 mr-1.5 text-amber-500 shrink-0" />
-                <span>Shorten</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("summarise")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "summarise" ? "border-blue-500 bg-blue-500/10 text-blue-700 dark:text-blue-300" : ""
-                }`}
-              >
-                <FileText className="w-3.5 h-3.5 mr-1.5 text-blue-500 shrink-0" />
-                <span>Summarise</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("farmer_friendly")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "farmer_friendly" ? "border-green-600 bg-green-600/10 text-green-700 dark:text-green-300" : ""
-                }`}
-              >
-                <span className="mr-1.5 shrink-0">👨‍🌾</span>
-                <span>Farmer Friendly</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("improve_structure")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "improve_structure" ? "border-indigo-500 bg-indigo-500/10 text-indigo-700 dark:text-indigo-300" : ""
-                }`}
-              >
-                <ListOrdered className="w-3.5 h-3.5 mr-1.5 text-indigo-500 shrink-0" />
-                <span>Improve Structure</span>
-              </Button>
-
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => handleAiAssist("translate")}
-                disabled={isAiProcessing}
-                className={`h-auto min-h-[36px] py-1.5 px-2.5 text-xs justify-start font-medium text-left whitespace-normal leading-tight ${
-                  activeAiAction === "translate" ? "border-sky-500 bg-sky-500/10 text-sky-700 dark:text-sky-300" : ""
-                }`}
-              >
-                <Languages className="w-3.5 h-3.5 mr-1.5 text-sky-500 shrink-0" />
-                <span>Hindi Translation</span>
-              </Button>
-            </div>
-
-            {/* AI Output / Processing Container */}
-            <div className="flex-1 min-h-[160px] rounded-lg border border-border/80 bg-muted/20 p-3 flex flex-col justify-between">
-              {isAiProcessing ? (
-                <div className="flex-1 flex flex-col items-center justify-center space-y-2 py-6">
-                  <Loader2 className="w-5 h-5 text-purple-600 animate-spin" />
-                  <span className="text-xs text-muted-foreground">Generating enhancement...</span>
-                </div>
-              ) : aiAssistOutput ? (
-                <>
-                  <div className="text-xs font-normal text-foreground whitespace-pre-wrap leading-relaxed max-h-[220px] overflow-y-auto">
-                    {aiAssistOutput}
-                  </div>
-                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-border/60">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(aiAssistOutput);
-                        toast.success("Copied to clipboard!");
-                      }}
-                      className="h-6 text-[11px]"
-                    >
-                      Copy Output
-                    </Button>
-                    <Button
-                      variant="default"
-                      size="sm"
-                      onClick={handleApplyAiAssist}
-                      className="h-6 px-2.5 text-[11px] bg-purple-600 hover:bg-purple-700 text-white"
-                    >
-                      Apply to Draft
-                    </Button>
-                  </div>
-                </>
-              ) : (
-                <div className="flex-1 flex flex-col items-center justify-center text-center p-4">
-                  <Sparkles className="w-6 h-6 text-muted-foreground/40 mb-1.5" />
-                  <p className="text-xs text-muted-foreground font-medium">
-                    Click any tool above to generate enhanced phrasing
-                  </p>
-                </div>
-              )}
-            </div>
-          </div>
+          <PolishDraftAssistant
+            questionText={
+              selectedQuestionData?.text ||
+              (selectedQuestionData as any)?.question?.text ||
+              (selectedQuestionData as any)?.question?.question ||
+              (selectedQuestionData as any)?.question ||
+              ""
+            }
+            draftAnswer={translatedDraftText || draftAnswer}
+            onApplySuggestedText={(suggestedText) => {
+              setDraftAnswer(suggestedText);
+              setTranslatedDraftText("");
+              setActiveTab(isReviewPhase ? "response_review" : "reviewer_draft");
+            }}
+            isEnlarged={isEnlarged}
+          />
         )}
       </CardContent>
 
