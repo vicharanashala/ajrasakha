@@ -15924,17 +15924,21 @@ async getAllUserMessageIds(
         };
       }
 
+      // NOTE: the Unique/Duplicate filter (typeMatch) and the non_agri exclusion both
+      // constrain `status`, so they must be separate $and conditions. Putting two
+      // `status` keys in one object makes the later one silently overwrite the first,
+      // which is why Unique/Duplicate used to return the same rows as All.
       const finalMatch: any = {
         ...matchStage,
         ...cropMatch,
-        ...typeMatch,
         ...searchMatch,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
+          typeMatch,
+          {status: {$ne: 'non_agri'}},
         ],
-        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
@@ -16169,12 +16173,12 @@ async getAllUserMessageIds(
         };
       }
       if (status === 'pending') {
-        // matchQuery.status = {
-        //   $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
-        // };
+        // "In Queue" = every question that is not closed / non-GDB. This must match the
+        // tile's formula (total - closed - non-GDB), so it includes open, in-review,
+        // delayed, hold, etc. -- not only questions whose status is literally 'pending'.
         matchQuery.status = {
-          $in: ['pending'],
-        }
+          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+        };
       }
 
       // Apply date range

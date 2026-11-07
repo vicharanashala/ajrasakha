@@ -727,7 +727,14 @@ function KpiCard({
                                 </tr>
                               </thead>
                               <tbody>
-                                {(activePoints || []).map((value, idx) => (
+                                {/* Newest first: the chart reads oldest → newest, but the list should start from the latest period */}
+                                {(activePoints || [])
+                                  .map((value, i) => ({
+                                    value,
+                                    label: activeLabels?.[i] || `Point ${i + 1}`,
+                                  }))
+                                  .reverse()
+                                  .map(({ value, label }, idx) => (
                                   <motion.tr
                                     key={idx}
                                     initial={{ opacity: 0, y: 4 }}
@@ -736,8 +743,7 @@ function KpiCard({
                                     className="border-t border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"
                                   >
                                     <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                      {activeLabels?.[idx] ||
-                                        `Point ${idx + 1}`}
+                                      {label}
                                     </td>
                                     <td className="px-3 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
                                       {value.toLocaleString()}
