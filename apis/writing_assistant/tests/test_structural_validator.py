@@ -93,9 +93,17 @@ def test_reference_dataset_none_is_unavailable(dataset):
 
 
 def test_selection_ambiguity_short_circuits_before_coverage_scoring(monkeypatch, dataset):
+    # A genuine conflict between candidates (reference_selector's
+    # no_match=False case) - distinct from "nothing matched at all", which
+    # now falls back to the generic template (see the test below) rather
+    # than short-circuiting. Only a real conflict or a failed
+    # classification call should still skip coverage scoring entirely.
     monkeypatch.setattr(
         llm_client, "classify_and_select",
-        lambda **kw: SelectionClassification(domain=None),
+        lambda **kw: SelectionClassification(
+            domain="Soil Health (Fixture)", question_type=QuestionType.BROAD,
+            ambiguous_direct_topics=[0, 0],
+        ),
     )
 
     def _should_not_be_called(draft, step, example, all_steps=None, subject=None):
@@ -106,6 +114,36 @@ def test_selection_ambiguity_short_circuits_before_coverage_scoring(monkeypatch,
     result = structural_validator.validate_structure("q", _REALISTIC_DRAFT, dataset)
     assert result.status == StructuralValidationStatus.NEEDS_CLARIFICATION
     assert result.steps is None
+
+
+# Team requirement: a question genuinely outside the Golden Database (no
+# domain/topic/crop matches at all) must still get a real structural check
+# against the generic fallback template, not needs_clarification.
+def test_no_match_at_all_uses_the_generic_fallback_structure(monkeypatch, dataset):
+    monkeypatch.setattr(
+        llm_client, "classify_and_select",
+        lambda **kw: SelectionClassification(domain=None),
+    )
+    monkeypatch.setattr(
+        llm_client, "classify_step_coverage",
+        lambda draft, step, example, all_steps=None, subject=None: (StepCoverage.COVERED, 1),
+    )
+
+    result = structural_validator.validate_structure("a question about something not in the CSVs", _REALISTIC_DRAFT, dataset)
+
+    # Not asserting COMPLETE here - _REALISTIC_DRAFT shares real words with
+    # the fixture's own 2-step structure, not this 10-step generic one, so
+    # the separate textual-evidence safety net (tested elsewhere) would
+    # downgrade some steps regardless of what classify_step_coverage says.
+    # This test is only about the generic-fallback wiring itself: real
+    # scoring ran (not needs_clarification/reference_data_unavailable),
+    # against the right structure, with the right step count.
+    assert result.status not in (
+        StructuralValidationStatus.NEEDS_CLARIFICATION, StructuralValidationStatus.REFERENCE_DATA_UNAVAILABLE,
+    )
+    assert result.matched_reference.source_type.value == "generic_fallback"
+    assert result.matched_reference.domain is None
+    assert len(result.steps) == len(structural_validator._GENERIC_FALLBACK_STEPS)
 
 
 # ISS-08 (Writing Assistant Build Plan, Revision 14): the reference's
@@ -244,15 +282,20 @@ def test_validate_structure_cached_is_deterministic_on_repeated_identical_input(
 
 
 # Revision 18: needs_clarification from a transient failure must never
-# be cached - same reasoning as the language-polishing cache.
+# be cached - same reasoning as the language-polishing cache. Uses a real
+# classification-call failure (not domain=None) - domain=None is no
+# longer a short-circuit, it now uses the generic fallback (see the
+# no_match tests above), which would make a real, unmocked
+# classify_step_coverage call here otherwise.
 def test_validate_structure_cached_does_not_cache_needs_clarification(monkeypatch, dataset):
     from assistant import reference_data
 
     monkeypatch.setattr(reference_data, "get_cached_dataset", lambda: dataset)
-    monkeypatch.setattr(
-        llm_client, "classify_and_select",
-        lambda **kw: SelectionClassification(domain=None),  # unresolved -> needs_clarification
-    )
+
+    def _raise(**kw):
+        raise LLMUnavailableError("simulated outage")
+
+    monkeypatch.setattr(llm_client, "classify_and_select", _raise)
 
     first = structural_validator.validate_structure_cached("q3", _REALISTIC_DRAFT)
     second = structural_validator.validate_structure_cached("q3", _REALISTIC_DRAFT)

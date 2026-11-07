@@ -17,6 +17,7 @@ from .models import (
     ReferenceDataset,
     ReferenceStep,
     ReferenceStructure,
+    SourceType,
     StepCoverage,
     StepCoverageResult,
     StructuralValidationResult,
@@ -24,6 +25,95 @@ from .models import (
 )
 
 log = logging.getLogger("writing_assistant.structural_validator")
+
+# Team requirement: a question/answer pair from a domain the Golden
+# Database doesn't cover must still get a real structural check, not just
+# needs_clarification - but only when nothing matched at all (reference_
+# selector.SelectionOutcome.no_match), never for a genuine conflict
+# between two real candidates or a failed classification call (see that
+# module's docstring - neither of those means "this topic isn't covered").
+# One fixed, domain-neutral template, not a per-topic one: reused as-is
+# for every unmatched question regardless of subject, by explicit team
+# decision. Wording is deliberately generalized off a concrete pest-
+# management example the team gave (Introduction / major-or-minor /
+# identification / severity / action threshold / escalating response
+# options / safety / conclusion) rather than reusing pest-specific terms
+# (e.g. "chemical control") that wouldn't fit a non-pest topic like a
+# scheme or soil-health question.
+_GENERIC_FALLBACK_STEPS = [
+    ReferenceStep(
+        sl_no=1, step="Introduction",
+        example="States the specific problem or question being addressed and gives a brief overview of "
+        "the approach the rest of the answer will take.",
+        suggestion_1="Name the specific issue or topic directly instead of opening with generic background.",
+    ),
+    ReferenceStep(
+        sl_no=2, step="Severity or Importance",
+        example="Explains how significant, urgent, or widespread this issue typically is, so the reader "
+        "understands how much it matters.",
+        suggestion_1="State plainly whether this is generally a major or minor concern.",
+    ),
+    ReferenceStep(
+        sl_no=3, step="Confirm the Specifics First",
+        example="Helps the reader confirm exactly what they are dealing with (the specific pest, disease, "
+        "situation, or eligibility condition) before acting on the rest of the answer.",
+        suggestion_1="Give concrete signs or criteria the reader can check to confirm this applies to them.",
+    ),
+    ReferenceStep(
+        sl_no=4, step="Impact if Not Addressed",
+        example="Describes the concrete consequences of leaving the issue unaddressed.",
+        suggestion_1="State the specific downside of not acting, not just that it 'should be addressed'.",
+    ),
+    ReferenceStep(
+        sl_no=5, step="Decision Point - When to Act",
+        example="Gives a clear threshold or trigger for when the reader should actually take action, "
+        "rather than acting on every small occurrence.",
+        suggestion_1="State a specific threshold, condition, or signal, not just 'if needed'.",
+    ),
+    ReferenceStep(
+        sl_no=6, step="Lower-Intervention Options First",
+        example="Describes the least invasive, lowest-cost, or most preventive measures appropriate to "
+        "this specific topic, to try before anything stronger.",
+        suggestion_1="Name at least one concrete preventive or low-intervention measure for this topic.",
+    ),
+    ReferenceStep(
+        sl_no=7, step="Supporting or Alternative Measures",
+        example="Describes additional measures beyond the lowest-intervention option - alternative "
+        "approaches or supporting actions appropriate to the topic.",
+        suggestion_1="Name a specific supporting measure, distinct from the previous step.",
+    ),
+    ReferenceStep(
+        sl_no=8, step="Direct or Strongest Action (Once Warranted)",
+        example="Describes the strongest or most direct action to take once the decision threshold from "
+        "the earlier step is actually crossed.",
+        suggestion_1="Make clear this is conditional on the threshold being crossed, and name the action.",
+    ),
+    ReferenceStep(
+        sl_no=9, step="Safety, Compliance, or Precautions",
+        example="States any safety precautions, compliance requirements, or official rules the reader "
+        "must follow while carrying out the recommended action.",
+        suggestion_1="Name a concrete precaution or compliance requirement specific to this action.",
+    ),
+    ReferenceStep(
+        sl_no=10, step="Conclusion",
+        example="Closes with a genuine summary that ties the above points together into a clear final "
+        "recommendation - not a restatement of the introduction, and not left blank.",
+        suggestion_1="End with an explicit, concrete closing recommendation, distinct from the introduction.",
+    ),
+]
+
+
+def _generic_fallback_structure(question: str) -> ReferenceStructure:
+    # question (the author's own, real question) stands in for a matched
+    # reference's own canonical question - there's no single curated
+    # "subject" here by design, so classify_step_coverage's off-topic
+    # check is grounded in the actual question instead.
+    return ReferenceStructure(
+        source_type=SourceType.GENERIC_FALLBACK,
+        question=question,
+        full_written_answer="",
+        steps=_GENERIC_FALLBACK_STEPS,
+    )
 
 # Deliberately low bar: only overrides toward "missing" when a step's own
 # topic shares fewer than this many significant words with *any single*
@@ -229,9 +319,14 @@ def validate_structure(question: str, draft_text: str, dataset: ReferenceDataset
 
     outcome = reference_selector.select_reference(question, dataset)
     if outcome.structure is None:
-        return StructuralValidationResult(status=outcome.status, clarification_reason=outcome.reason)
-
-    structure = outcome.structure
+        if not outcome.no_match:
+            # A real conflict between candidates, or the classification
+            # call itself failing - neither means "this topic isn't
+            # covered", so neither gets the generic fallback.
+            return StructuralValidationResult(status=outcome.status, clarification_reason=outcome.reason)
+        structure = _generic_fallback_structure(question)
+    else:
+        structure = outcome.structure
     # score_coverage() no longer raises LLMUnavailableError - a step whose
     # every vote fails becomes NOT_ASSESSED instead (see
     # _vote_step_coverage), so one bad call can no longer abort the whole
