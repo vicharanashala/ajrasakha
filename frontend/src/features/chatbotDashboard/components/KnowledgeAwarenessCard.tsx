@@ -9,8 +9,8 @@ import {
 } from "@/components/atoms/tooltip";
 
 export interface KccAndAgriAppUsageData {
-  kccAwareness?: Array<{ count: number }>;
-  agriAppUsage?: Array<{ count: number }>;
+  kccAwareness?: Array<{ label?: string; count: number }>;
+  agriAppUsage?: Array<{ label?: string; count: number }>;
 }
 
 export interface KnowledgeAwarenessCardProps {
@@ -27,7 +27,7 @@ export interface KnowledgeAwarenessCardProps {
 
 interface AwarenessMetricProps {
   label: string;
-  data?: Array<{ count: number }>;
+  data?: Array<{ label?: string; count: number }>;
   hovered: string | null;
   setHover: (value: string | null) => void;
   color: string;
@@ -44,8 +44,12 @@ function AwarenessMetric({
   gradId,
   onMetricClick,
 }: AwarenessMetricProps) {
-  const yes = data?.[0]?.count || 0;
-  const no = data?.[1]?.count || 0;
+  // Look entries up by label, not array position: the API only returns groups that
+  // exist, so if everyone answered "No" the first element is the "No" group.
+  const isYes = (e: { label?: string }) =>
+    e.label === "Aware" || e.label === "Uses Apps";
+  const yes = data?.find(isYes)?.count || 0;
+  const no = data?.find((e) => !isYes(e))?.count || 0;
   const total = yes + no;
   const r = 45,
     cx = 60,
