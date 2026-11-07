@@ -202,12 +202,12 @@ def run_mock_case(case: dict) -> dict:
     expected_nodes = case.get("expected_nodes", [])
 
     trace = {
-    "nodes": expected_nodes,
-    "plan": case.get("expected_plan", {}),
-    "tools": expected_tools,
-    "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
-    "errors": [],
-}
+        "nodes": expected_nodes,
+        "plan": case.get("expected_plan", {}),
+        "tools": expected_tools,
+        "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
+        "errors": [],
+    }
 
     response_text = f"Mock response for {case['name']}"
 
