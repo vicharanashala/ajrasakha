@@ -1,4 +1,16 @@
 #!/bin/bash
+set -e
+
+# Check if TAILSCALE_AUTHKEY is provided - if not, skip Tailscale entirely
+# Tailscale is OPTIONAL: the LangGraph API can still work without it
+if [ -z "$TAILSCALE_AUTHKEY" ]; then
+    echo "TAILSCALE_AUTHKEY is not set - skipping Tailscale startup."
+    echo "The API will start without tailnet connectivity."
+    # Sleep forever so s6-overlay keeps this service alive (but doing nothing)
+    sleep infinity
+fi
+
+echo "TAILSCALE_AUTHKEY received (length: ${#TAILSCALE_AUTHKEY})"
 
 # Create directories for tailscaled
 mkdir -p /var/run/tailscale /var/lib/tailscale
@@ -17,29 +29,30 @@ DAEMON_PID=$!
 WAIT_COUNT=0
 until [ -S /var/run/tailscale/tailscaled.sock ]; do
     WAIT_COUNT=$((WAIT_COUNT + 1))
-    if [ $WAIT_COUNT -gt 15 ]; then
-        echo "ERROR: tailscaled.sock not created within 15 seconds"
-        exit 1
+    if [ $WAIT_COUNT -gt 30 ]; then
+        echo "WARNING: tailscaled.sock not created within 30 seconds - continuing without Tailscale"
+        kill $DAEMON_PID 2>/dev/null || true
+        sleep infinity
     fi
     sleep 1
 done
 
-# Check if authkey is provided
-if [ -z "$TAILSCALE_AUTHKEY" ]; then
-    echo "ERROR: TAILSCALE_AUTHKEY is empty"
-    exit 1
-fi
+echo "tailscaled daemon started, connecting to tailnet..."
 
-# Connect to tailnet
-tailscale up \
-  --reset \
-  --authkey=${TAILSCALE_AUTHKEY} \
-  --hostname=${TS_HOSTNAME:-ajrasakha-langgraph} \
-  --accept-routes 2>&1
+# Connect to tailnet with reusable auth key
+# The auth key must be REUSABLE and EPHEMERAL: every cold start is a new machine,
+# so a single-use key authenticates the first instance and fails on every one after it
+if ! tailscale up \
+  --authkey="${TAILSCALE_AUTHKEY}" \
+  --hostname="${TS_HOSTNAME:-ajrasakha-langgraph}" \
+  --accept-routes 2>&1; then
+    echo "WARNING: 'tailscale up' failed - continuing without tailnet connectivity"
+    echo "Usual causes: auth key expired, was single-use, or was revoked"
+fi
 
 # Log tailscale status
 echo "TAILSCALE_STATUS:"
-tailscale status
+tailscale status 2>/dev/null || echo "Tailscale not connected"
 echo "TAILSCALE_STATUS_END"
 
 # Lock DERP region if specified
@@ -47,6 +60,7 @@ if [ -n "$TS_DERP_REGION" ]; then
     tailscale set --derp-region=$TS_DERP_REGION 2>&1 || true
 fi
 
-# Keep daemon alive
+# Keep daemon alive - sleep and wait for signal
+# s6-overlay will send SIGTERM when stopping
+echo "Tailscale service running, waiting for shutdown signal..."
 wait $DAEMON_PID
-exit 1
