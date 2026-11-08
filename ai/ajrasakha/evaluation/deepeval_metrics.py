@@ -1,3 +1,5 @@
+# .\.venv\Scripts\python.exe -m pytest tests/test_quality_eval.py -v
+
 import os
 
 from dotenv import load_dotenv
@@ -267,4 +269,4 @@ def evaluate_treatment_with_deepeval(
             "score": None,
             "passed": False,
             "reason": f"Treatment GEval evaluation error: {exc}",
-        }
+        }
