@@ -20,9 +20,11 @@ jobs:
         working-directory: project-2-web-app-testing
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: npm
@@ -33,6 +35,16 @@ jobs:
 
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
+
+      - name: Check MongoDB URI Format
+        run: |
+          node -e '
+          const uri = process.env.MONGODB_URI || "";
+          console.log("Secret present:", uri.length > 0);
+          console.log("Valid MongoDB prefix:", /^mongodb(\+srv)?:\/\//.test(uri));
+          console.log("First 12 characters:", uri.slice(0, 12));
+          console.log("URI length:", uri.length);
+          '
 
       - name: Start Backend Server
         run: |
@@ -45,6 +57,7 @@ jobs:
               echo "Backend server is ready"
               exit 0
             fi
+
             echo "Waiting for backend server..."
             sleep 2
           done
@@ -58,7 +71,10 @@ jobs:
 
       - name: Show Backend Logs on Failure
         if: failure()
-        run: cat server.log
+        run: |
+          if [ -f server.log ]; then
+            cat server.log
+          fi
 
       - name: Upload Playwright Report
         uses: actions/upload-artifact@v4
