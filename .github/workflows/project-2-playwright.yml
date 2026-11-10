@@ -13,7 +13,18 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      MONGODB_URI: ${{ secrets.MONGODB_URI }}
+      MONGODB_URI: mongodb://127.0.0.1:27017/ajrasakha
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     defaults:
       run:
@@ -36,16 +47,6 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Check MongoDB URI Format
-        run: |
-          node -e '
-          const uri = process.env.MONGODB_URI || "";
-          console.log("Secret present:", uri.length > 0);
-          console.log("Valid MongoDB prefix:", /^mongodb(\+srv)?:\/\//.test(uri));
-          console.log("First 12 characters:", uri.slice(0, 12));
-          console.log("URI length:", uri.length);
-          '
-
       - name: Start Backend Server
         run: |
           nohup npx tsx server.ts > server.log 2>&1 &
@@ -57,7 +58,6 @@ jobs:
               echo "Backend server is ready"
               exit 0
             fi
-
             echo "Waiting for backend server..."
             sleep 2
           done
