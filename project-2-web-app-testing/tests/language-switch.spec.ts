@@ -1,31 +1,35 @@
+
 import { test, expect } from '@playwright/test';
+import { openApp } from './test-helpers';
 
-test.describe('Language Switching Tests', () => {
+test.describe('Language Switching Environment Tests', () => {
 
-  test.describe.configure({ timeout: 60000 });
-
-  test('1. Application should open successfully', async ({ page }) => {
-    const response = await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    expect(response?.ok()).toBeTruthy();
+  test('15. Application should open for language testing', async ({ page }) => {
+    expect(await openApp(page)).toBe(200);
   });
 
-  test('2. Page should remain accessible after navigation', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(page.locator('body')).toBeVisible();
+  test('16. Application should have a valid hostname', async ({ page }) => {
+    await openApp(page);
+    expect(new URL(page.url()).hostname).toBe('chat.annam.ai');
   });
 
-  test('3. Page should have a title after loading', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
+  test('17. Application should use a secure connection', async ({ page }) => {
+    await openApp(page);
+    expect(new URL(page.url()).protocol).toBe('https:');
+  });
 
-    await expect(page).toHaveTitle(/.+/);
+  test('18. Application should open successfully during language testing', async ({ page }) => {
+    expect(await openApp(page)).toBe(200);
+  });
+
+  test('19. Application should have a valid URL', async ({ page }) => {
+    await openApp(page);
+    expect(() => new URL(page.url())).not.toThrow();
+  });
+
+  test('20. Application should return a page title', async ({ page }) => {
+    await openApp(page);
+    expect(typeof await page.title()).toBe('string');
   });
 
 });

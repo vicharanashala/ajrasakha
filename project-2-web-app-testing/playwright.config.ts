@@ -3,48 +3,63 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './tests',
+  testIgnore: ['**/example.spec.ts'],
 
-  // Test settings
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 2 : 0,
   workers: process.env.CI ? 1 : undefined,
 
-  // Give each test 60 seconds
   timeout: 60000,
-
-  // HTML report
   reporter: 'html',
 
-  // Common settings for all browsers
-  use: {
-    baseURL: 'https://chat.annam.ai',
-    navigationTimeout: 60000,
-    actionTimeout: 15000,
-    trace: 'on-first-retry',
-  },
-
-  // Browser configurations
   projects: [
     {
       name: 'chromium',
-      use: { ...devices['Desktop Chrome'] },
+      testIgnore: ['**/database.api.spec.ts'],
+      use: {
+        ...devices['Desktop Chrome'],
+        baseURL: 'https://chat.annam.ai',
+      },
     },
     {
       name: 'firefox',
-      use: { ...devices['Desktop Firefox'] },
+      testIgnore: ['**/database.api.spec.ts'],
+      use: {
+        ...devices['Desktop Firefox'],
+        baseURL: 'https://chat.annam.ai',
+      },
     },
     {
       name: 'webkit',
-      use: { ...devices['Desktop Safari'] },
+      testIgnore: ['**/database.api.spec.ts'],
+      use: {
+        ...devices['Desktop Safari'],
+        baseURL: 'https://chat.annam.ai',
+      },
     },
     {
       name: 'Mobile Chrome',
-      use: { ...devices['Pixel 5'] },
+      testIgnore: ['**/database.api.spec.ts'],
+      use: {
+        ...devices['Pixel 5'],
+        baseURL: 'https://chat.annam.ai',
+      },
     },
     {
       name: 'Mobile Safari',
-      use: { ...devices['iPhone 12'] },
+      testIgnore: ['**/database.api.spec.ts'],
+      use: {
+        ...devices['iPhone 12'],
+        baseURL: 'https://chat.annam.ai',
+      },
+    },
+    {
+      name: 'API',
+      testMatch: ['**/database.api.spec.ts'],
+      use: {
+        baseURL: 'http://localhost:3001',
+      },
     },
   ],
 });

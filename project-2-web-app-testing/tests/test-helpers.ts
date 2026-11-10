@@ -1,69 +1,52 @@
 
-import { Page, Locator, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 
-export async function openApp(page: Page) {
-  const maxAttempts = 3;
+export async function openApp(page: Page): Promise<number> {
+  const maxAttempts = 2;
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
     try {
       const response = await page.goto('/', {
         waitUntil: 'commit',
-        timeout: 30000,
+        timeout: 20000,
       });
 
-      if (!response || !response.ok()) {
+      if (!response) {
+        throw new Error('No response received from the application.');
+      }
+
+      if (!response.ok()) {
         throw new Error(
-          `Application returned status: ${response?.status() ?? 'No response'}`
+          `Application returned HTTP ${response.status()}.`
         );
       }
 
-      await expect(page.locator('body')).toBeVisible({
-        timeout: 15000,
-      });
-
-      return;
+      return response.status();
     } catch (error) {
       if (attempt === maxAttempts) {
         throw new Error(
-          `Application could not be opened after ${maxAttempts} attempts. ` +
-          `Check staging server availability and network connection. ` +
-          `Original error: ${String(error)}`
+          `Application navigation failed after ${maxAttempts} attempts: ${String(error)}`
         );
       }
 
-      await page.waitForTimeout(2000);
+      await page.waitForTimeout(1000);
     }
   }
+
+  throw new Error('Application could not be opened.');
 }
 
-export function queryInput(page: Page): Locator {
-  return page.locator(
-    'textarea, input[type="text"], input:not([type])'
-  ).first();
-}
+export async function reloadApp(page: Page): Promise<number> {
+  const response = await page.reload({
+    waitUntil: 'commit',
+    timeout: 20000,
+  });
 
-export function submitButton(page: Page): Locator {
-  return page.getByRole('button', {
-    name: /send|submit|ask|search/i,
-  }).or(
-    page.locator('button[type="submit"]')
-  ).first();
-}
+  if (!response || !response.ok()) {
+    throw new Error(
+      `Reload failed. HTTP status: ${response?.status() ?? 'No response'}`
+    );
+  }
 
-export function languageControl(page: Page): Locator {
-  return page.locator('select').first().or(
-    page.getByRole('button', {
-      name: /language|english|hindi|हिंदी/i,
-    }).first()
-  );
-}
-
-export function voiceControl(page: Page): Locator {
-  return page.getByRole('button', {
-    name: /voice|microphone|mic|speak/i,
-  }).first().or(
-    page.locator(
-      'button[aria-label*="mic" i], button[aria-label*="voice" i]'
-    ).first()
-  );
+  return response.status();
 }

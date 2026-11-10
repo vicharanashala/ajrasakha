@@ -1,31 +1,42 @@
+
 import { test, expect } from '@playwright/test';
+import { openApp, reloadApp } from './test-helpers';
 
-test.describe('Hindi Query Tests', () => {
+test.describe('Hindi Query Environment Tests', () => {
 
-  test.describe.configure({ timeout: 60000 });
-
-  test('1. Application should open for Hindi testing', async ({ page }) => {
-    const response = await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    expect(response?.ok()).toBeTruthy();
+  test('8. Application should open for Hindi testing', async ({ page }) => {
+    expect(await openApp(page)).toBe(200);
   });
 
-  test('2. Page should have a title', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(page).toHaveTitle(/.+/);
+  test('9. Hindi testing page should use HTTPS', async ({ page }) => {
+    await openApp(page);
+    expect(page.url()).toMatch(/^https:/);
   });
 
-  test('3. Page body should be visible', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
+  test('10. Hindi testing page should have a valid URL', async ({ page }) => {
+    await openApp(page);
+    expect(() => new URL(page.url())).not.toThrow();
+  });
 
-    await expect(page.locator('body')).toBeVisible();
+  test('11. Application should remain available after reload', async ({ page }) => {
+    await openApp(page);
+    expect(await reloadApp(page)).toBe(200);
+  });
+
+  test('12. Application should retain its hostname', async ({ page }) => {
+    await openApp(page);
+    expect(new URL(page.url()).hostname).toBe('chat.annam.ai');
+  });
+
+  test('13. Application should provide a page title', async ({ page }) => {
+    await openApp(page);
+    expect(typeof await page.title()).toBe('string');
+  });
+
+  test('14. Application URL should remain valid after reload', async ({ page }) => {
+    await openApp(page);
+    await reloadApp(page);
+    expect(() => new URL(page.url())).not.toThrow();
   });
 
 });

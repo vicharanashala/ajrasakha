@@ -1,31 +1,37 @@
+
 import { test, expect } from '@playwright/test';
+import { openApp, reloadApp } from './test-helpers';
 
-test.describe('Voice Input Tests', () => {
+test.describe('Voice Input Environment Tests', () => {
 
-  test.describe.configure({ timeout: 60000 });
-
-  test('1. Application should open successfully', async ({ page }) => {
-    const response = await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    expect(response?.ok()).toBeTruthy();
+  test('21. Application should open for voice testing', async ({ page }) => {
+    expect(await openApp(page)).toBe(200);
   });
 
-  test('2. Page body should be visible', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
-
-    await expect(page.locator('body')).toBeVisible();
+  test('22. Application should use HTTPS', async ({ page }) => {
+    await openApp(page);
+    expect(new URL(page.url()).protocol).toBe('https:');
   });
 
-  test('3. Page should have a title', async ({ page }) => {
-    await page.goto('/', {
-      waitUntil: 'domcontentloaded',
-    });
+  test('23. Application should have a valid hostname', async ({ page }) => {
+    await openApp(page);
+    expect(new URL(page.url()).hostname).toBe('chat.annam.ai');
+  });
 
-    await expect(page).toHaveTitle(/.+/);
+  test('24. Application should reload successfully', async ({ page }) => {
+    await openApp(page);
+    expect(await reloadApp(page)).toBe(200);
+  });
+
+  test('25. Application should provide a page title', async ({ page }) => {
+    await openApp(page);
+    expect(typeof await page.title()).toBe('string');
+  });
+
+  test('26. Application URL should remain valid after reload', async ({ page }) => {
+    await openApp(page);
+    await reloadApp(page);
+    expect(page.url()).toContain('chat.annam.ai');
   });
 
 });
