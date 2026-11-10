@@ -1,3 +1,4 @@
+
 name: Playwright Tests
 
 on:
@@ -10,6 +11,9 @@ jobs:
   test:
     timeout-minutes: 60
     runs-on: ubuntu-latest
+
+    env:
+      MONGODB_URI: ${{ secrets.MONGODB_URI }}
 
     defaults:
       run:
@@ -30,10 +34,34 @@ jobs:
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright tests
+      - name: Start Backend Server
+        run: |
+          nohup npx tsx server.ts > server.log 2>&1 &
+
+      - name: Wait for Backend Server
+        run: |
+          for i in {1..30}; do
+            if curl -sS -o /dev/null http://localhost:3001/api/answers/000000000000000000000000; then
+              echo "Backend server is ready"
+              exit 0
+            fi
+            echo "Waiting for backend server..."
+            sleep 2
+          done
+
+          echo "Backend server failed to start"
+          cat server.log
+          exit 1
+
+      - name: Run Playwright Tests
         run: npx playwright test
 
-      - uses: actions/upload-artifact@v4
+      - name: Show Backend Logs on Failure
+        if: failure()
+        run: cat server.log
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report
