@@ -1,11 +1,13 @@
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IReviewRepository} from '#root/shared/database/interfaces/IReviewRepository.js';
 import {BaseService, MongoDatabase} from '#root/shared/index.js';
 import {GLOBAL_TYPES} from '#root/types.js';
 import {inject, injectable} from 'inversify';
 import {ClientSession, ObjectId} from 'mongodb';
 import {
   IReviewerHeatmapResponse,
+  IReviewQualityAnalyticsResponse,
 } from '#root/shared/interfaces/models.js';
 import {
   UnauthorizedError,
@@ -21,6 +23,7 @@ import {
   GetHeatMapQuery,
   GetGoldenDatasetQuery,
   GetQuestionsAnalyticsQuery,
+  GetReviewQualityAnalyticsQuery,
   GoldenDataset,
   QuestionStatusOverview,
   StatusOverview,
@@ -53,6 +56,9 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     @inject(GLOBAL_TYPES.AnswerRepository)
     private readonly answerRepo: IAnswerRepository,
 
+    @inject(GLOBAL_TYPES.ReviewRepository)
+    private readonly reviewRepo: IReviewRepository,
+
     @inject(GLOBAL_TYPES.Database)
     private readonly mongoDatabase: MongoDatabase,
   ) {
@@ -65,6 +71,19 @@ export class PerformanceService extends BaseService implements IPerformanceServi
     isAdmin?: boolean
   ): Promise<IReviewerHeatmapResponse | null> {
     return await this.questionSubmissionRepo.heatMapResultsForReviewer(query,isTrainingUser,isAdmin);
+  }
+
+  async getReviewQualityAnalytics(
+    query: GetReviewQualityAnalyticsQuery,
+    isTrainingUser?: boolean,
+    isAdmin?: boolean,
+  ): Promise<IReviewQualityAnalyticsResponse> {
+    return await this.reviewRepo.getQualityDimensionStats(
+      query.startTime,
+      query.endTime,
+      isTrainingUser,
+      isAdmin,
+    );
   }
 
   async getCurrentUserWorkLoad(currentUserId: string): Promise<{
