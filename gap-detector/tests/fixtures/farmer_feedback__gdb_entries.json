@@ -1,0 +1,55 @@
+[
+ {
+  "_id": "g1",
+  "question": "How to control pink bollworm in cotton?",
+  "answer": "Use pheromone traps and spray ...",
+  "domain": "Pest Control",
+  "language": "English",
+  "state": "Maharashtra",
+  "keywords": [
+   "cotton",
+   "bollworm"
+  ],
+  "created_at": "2026-05-01T00:00:00Z",
+  "updated_at": "2026-05-01T00:00:00Z"
+ },
+ {
+  "_id": "g2",
+  "question": "Drip irrigation schedule for tomato",
+  "answer": "Irrigate every 2 days ...",
+  "domain": "Irrigation",
+  "language": "English",
+  "state": null,
+  "keywords": [
+   "tomato",
+   "drip"
+  ],
+  "created_at": "2026-05-02T00:00:00Z",
+  "updated_at": "2026-05-02T00:00:00Z"
+ },
+ {
+  "_id": "g3",
+  "question": "Namaste, how are you",
+  "answer": "Hello! Ask me a farming question.",
+  "domain": "Chat",
+  "language": "Hindi",
+  "state": null,
+  "keywords": [],
+  "created_at": "2026-05-03T00:00:00Z",
+  "updated_at": "2026-05-03T00:00:00Z"
+ },
+ {
+  "_id": "g4",
+  "question": "Yellow rust management in wheat",
+  "answer": "Spray propiconazole ...",
+  "domain": "Crop Disease",
+  "language": "English",
+  "state": "Punjab",
+  "keywords": [
+   "wheat",
+   "rust"
+  ],
+  "created_at": "2026-05-04T00:00:00Z",
+  "updated_at": "2026-05-04T00:00:00Z"
+ }
+]

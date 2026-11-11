@@ -1,0 +1,46 @@
+[
+ {
+  "_id": "r1",
+  "question": "Blast disease in rice, which fungicide?",
+  "crop": "Rice",
+  "domain": "Disease",
+  "state": "Punjab",
+  "language": "English",
+  "timestamp": "2026-07-10T08:00:00Z",
+  "user_id": "U10",
+  "disclaimer_triggered": true
+ },
+ {
+  "_id": "r2",
+  "question": "Rice blast disease control",
+  "crop": "Rice",
+  "domain": "Disease",
+  "state": "Haryana",
+  "language": "English",
+  "timestamp": "2026-07-15T08:00:00Z",
+  "user_id": "U11",
+  "disclaimer_triggered": true
+ },
+ {
+  "_id": "r3",
+  "question": "Urea dose for wheat at tillering",
+  "crop": "Wheat",
+  "domain": "Fertilizer",
+  "state": "Uttar Pradesh",
+  "language": "Hindi",
+  "timestamp": "2026-07-16T08:00:00Z",
+  "user_id": "U12",
+  "disclaimer_triggered": false
+ },
+ {
+  "_id": "r4",
+  "question": "Tomato leaf curl virus treatment",
+  "crop": "Tomato",
+  "domain": "Disease",
+  "state": "Gujarat",
+  "language": "English",
+  "timestamp": "2026-07-18T08:00:00Z",
+  "user_id": "U13",
+  "disclaimer_triggered": true
+ }
+]
