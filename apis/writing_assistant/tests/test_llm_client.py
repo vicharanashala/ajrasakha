@@ -299,3 +299,72 @@ def test_check_meaning_preserved_uses_the_polish_timeout_budget(monkeypatch):
     llm_client.check_meaning_preserved("original", "rewrite")
     assert seen["timeout"] == config.MINIMAX_POLISH_TIMEOUT_SECONDS
     assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+# generate_polish now rewrites one section at a time rather than the
+# whole draft in one call - live-confirmed the whole-document version
+# reliably stalls/times out (the identical draft failed the identical way
+# twice in separate requests), while short, narrowly-scoped calls run
+# fine. A single-section draft (no blank lines) still makes exactly one
+# call, identical to the old behavior.
+def test_generate_polish_makes_one_call_per_section_and_reassembles(monkeypatch):
+    seen_inputs = []
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        content = json["messages"][1]["content"]
+        seen_inputs.append(content)
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": content.upper()}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("First section.\n\nSecond section.")
+    assert seen_inputs == ["First section.", "Second section."]
+    assert result == "FIRST SECTION.\n\nSECOND SECTION."
+
+
+def test_generate_polish_single_section_draft_makes_one_call(monkeypatch):
+    calls = {"n": 0}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        calls["n"] += 1
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "polished"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("Just one paragraph, no blank lines.")
+    assert calls["n"] == 1
+    assert result == "polished"
+
+
+def test_generate_polish_one_failed_section_falls_back_to_original_text(monkeypatch):
+    def _fake_post(url, json, headers, timeout, proxy):
+        content = json["messages"][1]["content"]
+        if content == "Bad section.":
+            raise httpx.ReadTimeout("The read operation timed out")
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": content.upper()}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("Good section.\n\nBad section.\n\nAnother good one.")
+    assert result == "GOOD SECTION.\n\nBad section.\n\nANOTHER GOOD ONE."
+
+
+def test_generate_polish_raises_only_when_every_section_fails(monkeypatch):
+    def _raise(*a, **kw):
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    monkeypatch.setattr("httpx.post", _raise)
+    with pytest.raises(LLMUnavailableError):
+        llm_client.generate_polish("One section.\n\nAnother section.")
