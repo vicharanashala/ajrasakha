@@ -122,18 +122,41 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
 
     # LLM second-opinion - adds coverage for what the deterministic checks
     # above can't name (e.g. a subtler recommendation change), is not proof.
-    try:
-        changed, explanation = llm_client.check_meaning_preserved(original_text, rewrite_text)
-        if changed:
-            details.append(f"LLM second-opinion check flagged a possible meaning change: {explanation}")
-        # The second opinion doesn't have its own CheckedTokens slot - it's
-        # folded into the overall pass/fail decision directly, below.
-        llm_flagged_change = changed
-        llm_not_run = False
-    except LLMUnavailableError as exc:
-        details.append(f"LLM second-opinion check could not run: {exc}")
-        llm_flagged_change = False
-        llm_not_run = True
+    # Run per-section, not once on the whole document - mirrors
+    # generate_polish's own per-section split (live-confirmed the whole-
+    # document version of this call times out the same way the whole-
+    # document rewrite did). A section identical to its original is
+    # skipped entirely - nothing to ask the model, it trivially can't have
+    # changed. Section counts always match here when the rewrite came from
+    # the per-section generate_polish; if they don't (e.g. a hand-supplied
+    # rewrite in a test, or a section's own rewrite introducing a new
+    # blank line), fall back to one whole-document call rather than
+    # inventing a new failure mode.
+    orig_sections = text_checks.split_sections(original_text)
+    rew_sections = text_checks.split_sections(rewrite_text)
+    section_pairs = (
+        list(zip(orig_sections, rew_sections))
+        if len(orig_sections) == len(rew_sections)
+        else [(original_text, rewrite_text)]
+    )
+    llm_flagged_change = False
+    llm_not_run = False
+    for orig_section, rew_section in section_pairs:
+        if orig_section == rew_section:
+            continue
+        try:
+            changed, explanation = llm_client.check_meaning_preserved(orig_section, rew_section)
+            if changed:
+                llm_flagged_change = True
+                details.append(f"LLM second-opinion check flagged a possible meaning change: {explanation}")
+        except LLMUnavailableError as exc:
+            # Never treat an unconfirmed section as safe - one section's
+            # check failing means the second opinion as a whole could not
+            # run, even if every other section matched.
+            llm_not_run = True
+            details.append(f"LLM second-opinion check could not run: {exc}")
+    # The second opinion doesn't have its own CheckedTokens slot - it's
+    # folded into the overall pass/fail decision directly, below.
 
     overall_failed = tokens.any_failed() or llm_flagged_change or llm_not_run
     status = GuardrailStatus.FAILED if overall_failed else GuardrailStatus.PASSED

@@ -90,15 +90,39 @@ _SEMANTIC_CHECK_SYSTEM_PROMPT = (
 
 def generate_polish(draft_text: str) -> str:
     """Returns a candidate grammar/spelling/clarity-only rewrite. Never
-    verifies its own output - that is the separate guardrail's job."""
-    messages = [
-        {"role": "system", "content": _POLISH_SYSTEM_PROMPT},
-        {"role": "user", "content": draft_text},
-    ]
-    content = _chat_completion(
-        messages, temperature=0.0, call_name="generate_polish", timeout=config.MINIMAX_POLISH_TIMEOUT_SECONDS
-    )
-    return content.strip()
+    verifies its own output - that is the separate guardrail's job.
+
+    Rewrites one section at a time (text_checks.split_sections), not the
+    whole draft in one call - live-confirmed the whole-document version
+    reliably stalls/times out on the self-hosted model for certain drafts
+    (the identical draft failed the identical way twice in separate
+    requests, ruling out random bad luck), while short, narrowly-scoped
+    calls (e.g. classify_step_coverage) run fine. A section whose own call
+    fails falls back to its original, unrewritten text - safe by
+    construction (identical text can't introduce a technical-content
+    change) and lets the rest of the document still get polished. Only
+    raises if every section fails."""
+    sections = text_checks.split_sections(draft_text)
+    polished_sections = []
+    failures = 0
+    for i, section in enumerate(sections, start=1):
+        messages = [
+            {"role": "system", "content": _POLISH_SYSTEM_PROMPT},
+            {"role": "user", "content": section},
+        ]
+        try:
+            content = _chat_completion(
+                messages, temperature=0.0, call_name=f"generate_polish[section {i}]",
+                timeout=config.MINIMAX_POLISH_TIMEOUT_SECONDS,
+            )
+            polished_sections.append(content.strip())
+        except LLMUnavailableError as exc:
+            log.warning("polishing section %d failed, keeping it unchanged: %s", i, exc)
+            polished_sections.append(section)
+            failures += 1
+    if failures == len(sections):
+        raise LLMUnavailableError(f"MiniMax call failed for every section ({failures}/{len(sections)})")
+    return "\n\n".join(polished_sections)
 
 
 def check_meaning_preserved(original_text: str, rewrite_text: str) -> tuple[bool, str]:
