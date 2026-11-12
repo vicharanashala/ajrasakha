@@ -1329,6 +1329,14 @@ export class QuestionService {
     return apiFetch<IRdqaCheckJobStatus>(`${this._baseUrl}/rdqa/check/jobs/${jobId}`);
   }
 
+  /** Fetch check history for a question from the rdqa_checks collection */
+  async getRdqaCheckHistory(questionId: string): Promise<any[]> {
+    const res = await apiFetch<{ success: boolean; data: any[] }>(
+      `${this._baseUrl}/rdqa/checks/${questionId}/history`
+    );
+    return res?.data ?? [];
+  }
+
   /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
    *  Managers can pass a target userId + role to view a specific user's dashboard. */
   async getRoleDashboard(
