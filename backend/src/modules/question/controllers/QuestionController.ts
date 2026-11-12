@@ -775,4 +775,15 @@ export class QuestionController {
     }
     return job;
   }
+
+  @Get('/rdqa/checks/:questionId/history')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get RDQA check history for a question',
+  })
+  async getRdqaCheckHistory(@Param('questionId') questionId: string) {
+    const history = await this.questionService.getRdqaCheckHistory(questionId);
+    return { success: true, data: history };
+  }
 }

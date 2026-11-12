@@ -1,7 +1,7 @@
 import { getContainer } from '#root/bootstrap/loadModules.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import type { MongoDatabase } from '#root/shared/database/index.js';
-import type { IAnswer, IQuestion, IGdbCleaningCheck } from '#root/shared/interfaces/models.js';
+import type { IAnswer, IQuestion, IGdbCleaningCheck, IRdqaCheck } from '#root/shared/interfaces/models.js';
 import { ObjectId } from 'mongodb';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -307,12 +307,22 @@ async function callAnswerCheckApi(payload: {
 /**
  * Process a single question: fetch finalized answer, run checks, and persist to MongoDB.
  */
+let rdqaIndexesEnsured = false;
+
 async function processQuestionCheck(
   questionId: string,
   db: MongoDatabase,
+  userId?: string,
 ): Promise<RdqaCheckJobResult> {
   const answerCol = await db.getCollection<IAnswer>('answers');
   const questionCol = await db.getCollection<IQuestion>('questions');
+  const rdqaChecksCol = await db.getCollection<IRdqaCheck>('rdqa_checks');
+
+  if (!rdqaIndexesEnsured) {
+    rdqaIndexesEnsured = true;
+    rdqaChecksCol.createIndex({ questionId: 1, checkedAt: -1 }).catch(() => {});
+    rdqaChecksCol.createIndex({ answerId: 1, checkedAt: -1 }).catch(() => {});
+  }
 
   const qObjectId = new ObjectId(questionId);
   const question = await questionCol.findOne({ _id: qObjectId });
@@ -370,30 +380,54 @@ async function processQuestionCheck(
 
   const { checks, flags, notEvaluated } = evaluation;
   const checkedAt = new Date();
+  const passed = flags.length === 0;
 
-  // Update answer in MongoDB
+  // Insert full check result into the dedicated rdqa_checks collection (audit trail)
+  const checkDoc: IRdqaCheck = {
+    questionId: qObjectId,
+    answerId: answer._id as ObjectId,
+    checkedAt,
+    checkedBy: userId,
+    passed,
+    flags,
+    notEvaluated,
+    checks,
+    answerSnapshot: answerText,
+    sourcesSnapshot: sources as any,
+    trigger: 'rdqa_batch',
+    createdAt: checkedAt,
+  };
+  const insertResult = await rdqaChecksCol.insertOne(checkDoc as any);
+  const checkId = insertResult.insertedId;
+
+  // Update answer in MongoDB with lightweight summary reference
   await answerCol.updateOne(
     { _id: answer._id as ObjectId },
     {
       $set: {
-        checks,
+        lastCheckId: checkId,
         flags,
         notEvaluated,
         checkedAt,
         rdqaChecked: true,
       } as any,
+      $unset: {
+        checks: '',
+      } as any,
     }
   );
 
-  // Update question in MongoDB
+  // Update question in MongoDB (timestamp only, cleaning up redundant arrays)
   await questionCol.updateOne(
     { _id: qObjectId },
     {
       $set: {
-        checks,
-        flags,
-        notEvaluated,
         rdqaCheckedAt: checkedAt,
+      } as any,
+      $unset: {
+        checks: '',
+        flags: '',
+        notEvaluated: '',
       } as any,
     }
   );
@@ -401,7 +435,7 @@ async function processQuestionCheck(
   return {
     questionId,
     answerId: answer._id?.toString(),
-    passed: flags.length === 0,
+    passed,
     flags,
     notEvaluated,
   };
@@ -421,7 +455,7 @@ async function runRdqaCheckTask(jobId: string, questionIds: string[], userId: st
       const qId = questionIds[i];
       try {
         job.logs.push(`🔍 [${i + 1}/${questionIds.length}] Checking question ${qId}...`);
-        const result = await processQuestionCheck(qId, db);
+        const result = await processQuestionCheck(qId, db, userId);
         job.results.push(result);
         job.processed += 1;
 

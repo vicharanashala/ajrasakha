@@ -1081,4 +1081,9 @@ export interface IQuestionService {
       checkedAt?: string | Date | null;
     }>;
   }>;
+
+  /**
+   * Get all RDQA check records for a question from the dedicated rdqa_checks collection.
+   */
+  getRdqaCheckHistory(questionId: string): Promise<any[]>;
 }

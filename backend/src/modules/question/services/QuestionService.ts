@@ -3271,6 +3271,32 @@ export class QuestionService extends BaseService implements IQuestionService {
           },
         },
         { $unwind: '$questionDoc' },
+        {
+          $lookup: {
+            from: 'rdqa_checks',
+            let: { ansId: '$_id', lastChkId: '$lastCheckId' },
+            pipeline: [
+              {
+                $match: {
+                  $expr: {
+                    $or: [
+                      { $eq: ['$_id', '$$lastChkId'] },
+                      { $eq: ['$answerId', '$$ansId'] },
+                    ],
+                  },
+                },
+              },
+              { $sort: { checkedAt: -1 } },
+              { $limit: 1 },
+            ],
+            as: 'checkDoc',
+          },
+        },
+        {
+          $addFields: {
+            latestCheck: { $arrayElemAt: ['$checkDoc', 0] },
+          },
+        },
         { $sort: { 'questionDoc.closedAt': 1, _id: 1 } },
         {
           $project: {
@@ -3289,10 +3315,11 @@ export class QuestionService extends BaseService implements IQuestionService {
             approvalCount: 1,
             createdAt: 1,
             updatedAt: 1,
-            checks: 1,
-            flags: 1,
-            notEvaluated: 1,
-            checkedAt: 1,
+            lastCheckId: 1,
+            checks: { $ifNull: ['$latestCheck.checks', '$checks', []] },
+            flags: { $ifNull: ['$latestCheck.flags', '$flags', []] },
+            notEvaluated: { $ifNull: ['$latestCheck.notEvaluated', '$notEvaluated', []] },
+            checkedAt: { $ifNull: ['$latestCheck.checkedAt', '$checkedAt', null] },
             question: {
               _id: '$questionDoc._id',
               question: '$questionDoc.question',
@@ -3313,10 +3340,7 @@ export class QuestionService extends BaseService implements IQuestionService {
               priority: '$questionDoc.priority',
               metrics: '$questionDoc.metrics',
               text: '$questionDoc.text',
-              checks: '$questionDoc.checks',
-              flags: '$questionDoc.flags',
-              notEvaluated: '$questionDoc.notEvaluated',
-              rdqaCheckedAt: '$questionDoc.rdqaCheckedAt',
+              rdqaCheckedAt: { $ifNull: ['$latestCheck.checkedAt', '$questionDoc.rdqaCheckedAt', null] },
             },
           },
         },
@@ -3347,9 +3371,6 @@ export class QuestionService extends BaseService implements IQuestionService {
               priority: pair.question.priority,
               metrics: pair.question.metrics,
               text: pair.question.text,
-              checks: pair.question.checks || [],
-              flags: pair.question.flags || [],
-              notEvaluated: pair.question.notEvaluated || [],
               rdqaCheckedAt: pair.question.rdqaCheckedAt,
             }
           : null;
@@ -3376,10 +3397,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           approvalCount: pair.approvalCount,
           createdAt: pair.createdAt,
           updatedAt: pair.updatedAt,
-          checks: pair.checks || pair.question?.checks || [],
-          flags: pair.flags || pair.question?.flags || [],
-          notEvaluated: pair.notEvaluated || pair.question?.notEvaluated || [],
-          checkedAt: pair.checkedAt || pair.question?.rdqaCheckedAt || null,
+          checks: pair.checks || [],
+          flags: pair.flags || [],
+          notEvaluated: pair.notEvaluated || [],
+          checkedAt: pair.checkedAt || null,
         };
 
         questionAnswerPairs.push({
@@ -3418,10 +3439,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         approvedByEmail: a?.approvedBy ? userEmailMap.get(a.approvedBy) || null : null,
       },
       authorIdEmail: a?.authorId ? userEmailMap.get(a.authorId) || null : null,
-      checks: a?.checks || q?.checks || [],
-      flags: a?.flags || q?.flags || [],
-      notEvaluated: a?.notEvaluated || q?.notEvaluated || [],
-      checkedAt: a?.checkedAt || q?.rdqaCheckedAt || null,
+      checks: a?.checks || [],
+      flags: a?.flags || [],
+      notEvaluated: a?.notEvaluated || [],
+      checkedAt: a?.checkedAt || null,
     }));
 
     return {
@@ -3433,5 +3454,17 @@ export class QuestionService extends BaseService implements IQuestionService {
       moderatorDistribution,
       questions: questionsWithEmails,
     };
+  }
+
+  /**
+   * Get all RDQA check records for a question from the dedicated rdqa_checks collection.
+   */
+  async getRdqaCheckHistory(questionId: string): Promise<any[]> {
+    const col = await this.mongoDatabase.getCollection('rdqa_checks');
+    const qObjectId = new ObjectId(questionId);
+    return col
+      .find({ questionId: qObjectId })
+      .sort({ checkedAt: -1 })
+      .toArray();
   }
 }
