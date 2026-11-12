@@ -17,6 +17,8 @@ log = logging.getLogger("agriculture_classifier")
 
 app = FastAPI(title="Agriculture Question Classifier")
 
+# CI Verification: Automated testing trigger for apis/
+
 
 @app.post("/classify-question", response_model=ClassifyResponse)
 def classify_question_endpoint(request: ClassifyRequest) -> ClassifyResponse:
