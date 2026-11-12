@@ -2444,11 +2444,22 @@ export class ChatbotRepository implements IChatbotRepository {
         //   {session},
         // ),
 
+        // Total Installs represents verified farmers who submitted a profile.
+        // Keep this role predicate aligned with the Users-table Farmer filter,
+        // which accepts the role stored in either field.
         this.users.countDocuments(
           {
-            ...userDocFilter,
-            farmerProfile: {$exists: true, $ne: null},
-            isVerified: true,
+            $and: [
+              userDocFilter,
+              {farmerProfile: {$exists: true, $ne: null}},
+              {isVerified: true},
+              {
+                $or: [
+                  {userRole: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                  {role: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                ],
+              },
+            ],
           },
           {session},
         ),
