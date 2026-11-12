@@ -9,6 +9,8 @@ import {
   CheckCheck,
   CheckCircle2,
   Loader2,
+  AlertCircle,
+  RotateCw,
 } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useRdqaCheckQuestions } from "@/hooks/api/question/useRdqaCheckQuestions";
@@ -54,11 +56,30 @@ function FormattedText({ text }: { text: string }) {
   );
 }
 
+/** Check if an answer has been edited after its quality check was performed */
+function isAnswerModifiedAfterCheck(question: RdqaQuestion | null | undefined): boolean {
+  if (!question) return false;
+  const checkedAt =
+    question.checkedAt ||
+    question.answer?.checkedAt ||
+    question.question?.rdqaCheckedAt;
+  const updatedAt = question.answer?.updatedAt;
+  if (!checkedAt || !updatedAt) return false;
+  const checkTime = new Date(checkedAt).getTime();
+  const updateTime = new Date(updatedAt).getTime();
+  // Buffer of 2 seconds to avoid any minor clock jitter during same-step updates
+  return updateTime - checkTime > 2000;
+}
+
+type StatusFilter = "all" | "flagged" | "modified" | "clean" | "not_checked";
+
 export const RdqaPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
   const [selectedDate, setSelectedDate] = useState<Date | undefined>(subDays(new Date(), 1));
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
 
@@ -97,25 +118,74 @@ export const RdqaPage = () => {
     }
   }, [questions, selectedQuestion]);
 
+  const filterCounts = useMemo(() => {
+    let flagged = 0;
+    let modified = 0;
+    let clean = 0;
+    let notChecked = 0;
+
+    for (const q of questions) {
+      const flags = q.flags || q.answer?.flags || q.question?.flags || [];
+      const checks = q.checks || q.answer?.checks || q.question?.checks || [];
+      const checkedAt = q.checkedAt || q.answer?.checkedAt || q.question?.rdqaCheckedAt;
+      const isMod = isAnswerModifiedAfterCheck(q);
+
+      if (isMod) modified++;
+      if (flags.length > 0) {
+        flagged++;
+      } else if (checks.length > 0 || checkedAt) {
+        clean++;
+      } else {
+        notChecked++;
+      }
+    }
+
+    return { flagged, modified, clean, notChecked };
+  }, [questions]);
+
   const filteredQuestions = useMemo(() => {
     if (!questions) return [];
-    if (!debouncedSearch.trim()) return questions;
+
+    let list = questions;
+    if (statusFilter === "flagged") {
+      list = list.filter((q) => {
+        const flags = q.flags || q.answer?.flags || q.question?.flags || [];
+        return flags.length > 0;
+      });
+    } else if (statusFilter === "modified") {
+      list = list.filter((q) => isAnswerModifiedAfterCheck(q));
+    } else if (statusFilter === "clean") {
+      list = list.filter((q) => {
+        const flags = q.flags || q.answer?.flags || q.question?.flags || [];
+        const checks = q.checks || q.answer?.checks || q.question?.checks || [];
+        const checkedAt = q.checkedAt || q.answer?.checkedAt || q.question?.rdqaCheckedAt;
+        return flags.length === 0 && (checks.length > 0 || !!checkedAt);
+      });
+    } else if (statusFilter === "not_checked") {
+      list = list.filter((q) => {
+        const checks = q.checks || q.answer?.checks || q.question?.checks || [];
+        const checkedAt = q.checkedAt || q.answer?.checkedAt || q.question?.rdqaCheckedAt;
+        return checks.length === 0 && !checkedAt;
+      });
+    }
+
+    if (!debouncedSearch.trim()) return list;
     const searchLower = debouncedSearch.toLowerCase();
-    return questions.filter(
+    return list.filter(
       (q) =>
         q.question?.question?.toLowerCase().includes(searchLower) ||
         q.answer?.answer?.toLowerCase().includes(searchLower) ||
         q.question?.details?.crop?.toLowerCase().includes(searchLower) ||
         q.question?.details?.state?.toLowerCase().includes(searchLower)
     );
-  }, [questions, debouncedSearch]);
+  }, [questions, statusFilter, debouncedSearch]);
 
   const totalQuestions = filteredQuestions.length;
   const totalPages = Math.ceil(totalQuestions / ITEMS_PER_PAGE);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedDate, debouncedSearch]);
+  }, [selectedDate, debouncedSearch, statusFilter]);
 
   const paginatedQuestions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
@@ -136,6 +206,18 @@ export const RdqaPage = () => {
       await checkQuestionsMutation(questionIds);
     } catch {
       // toast is handled in the mutation onError hook
+    }
+  };
+
+  const handleRecheckSingle = async (questionId: string) => {
+    if (!questionId) return;
+    setCheckingQuestionId(questionId);
+    try {
+      await checkQuestionsMutation([questionId]);
+    } catch {
+      // toast is handled in the mutation hook
+    } finally {
+      setCheckingQuestionId(null);
     }
   };
 
@@ -278,6 +360,82 @@ export const RdqaPage = () => {
             </div>
           )}
 
+          {/* Quick Status Filter Tabs */}
+          {!isLoading && !error && questions.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b bg-muted/20 text-xs">
+              <span className="text-muted-foreground font-medium mr-1">Filter:</span>
+              <button
+                type="button"
+                onClick={() => setStatusFilter("all")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md border transition-all font-medium",
+                  statusFilter === "all"
+                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
+                    : "bg-background hover:bg-muted text-muted-foreground border-border"
+                )}
+              >
+                All ({questions.length})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("flagged")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                  statusFilter === "flagged"
+                    ? "bg-red-600 text-white border-red-600 shadow-sm"
+                    : "bg-background hover:bg-red-50 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900"
+                )}
+              >
+                <span className={cn("w-1.5 h-1.5 rounded-full", statusFilter === "flagged" ? "bg-white" : "bg-red-500")} />
+                Flagged ({filterCounts.flagged})
+              </button>
+
+              {filterCounts.modified > 0 && (
+                <button
+                  type="button"
+                  onClick={() => setStatusFilter("modified")}
+                  className={cn(
+                    "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                    statusFilter === "modified"
+                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
+                      : "bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                  )}
+                >
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  Modified ({filterCounts.modified})
+                </button>
+              )}
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("clean")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                  statusFilter === "clean"
+                    ? "bg-green-600 text-white border-green-600 shadow-sm"
+                    : "bg-background hover:bg-green-50 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900"
+                )}
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                No Flags ({filterCounts.clean})
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setStatusFilter("not_checked")}
+                className={cn(
+                  "px-2.5 py-1 rounded-md border transition-all font-medium",
+                  statusFilter === "not_checked"
+                    ? "bg-slate-700 text-white border-slate-700 shadow-sm"
+                    : "bg-background hover:bg-muted text-muted-foreground border-border"
+                )}
+              >
+                Not Checked ({filterCounts.notChecked})
+              </button>
+            </div>
+          )}
+
           {isLoading ? (
             <div className="flex items-center justify-center h-64">
               <Spinner />
@@ -289,13 +447,24 @@ export const RdqaPage = () => {
             </div>
           ) : filteredQuestions.length === 0 ? (
             <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
-              <p className="text-muted-foreground">No questions found for this date.</p>
-              <p className="text-xs text-muted-foreground">Try selecting a different date.</p>
+              <p className="text-muted-foreground">
+                {questions.length === 0
+                  ? "No questions found for this date."
+                  : `No questions match the current filter (${statusFilter !== "all" ? statusFilter : "search"}).`}
+              </p>
+              {questions.length > 0 && statusFilter !== "all" ? (
+                <Button variant="outline" size="sm" onClick={() => setStatusFilter("all")} className="mt-2">
+                  Clear Filter
+                </Button>
+              ) : (
+                <p className="text-xs text-muted-foreground">Try selecting a different date.</p>
+              )}
             </div>
           ) : (
             <>
               <div className="divide-y divide-border">
                 {paginatedQuestions.map((question) => {
+                  const qId = question.question?._id || question.questionId || question._id;
                   const qChecks =
                     question.checks ||
                     question.answer?.checks ||
@@ -315,6 +484,8 @@ export const RdqaPage = () => {
                     question.checkedAt ||
                     question.answer?.checkedAt ||
                     question.question?.rdqaCheckedAt;
+                  const isModified = isAnswerModifiedAfterCheck(question);
+                  const isSingleChecking = checkingQuestionId === qId;
 
                   return (
                     <div
@@ -347,6 +518,12 @@ export const RdqaPage = () => {
 
                           {/* Quality Check Badges & Flags */}
                           <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                            {isModified && (
+                              <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 px-2 py-0.5 text-[11px] font-medium">
+                                <AlertCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400 shrink-0" />
+                                Answer modified after check
+                              </span>
+                            )}
                             {qFlags.length > 0 ? (
                               <>
                                 <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 px-2 py-0.5 text-[11px] font-semibold">
@@ -384,15 +561,47 @@ export const RdqaPage = () => {
                           </div>
                         </div>
 
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => setSelectedQuestion(question)}
-                          className="shrink-0"
-                        >
-                          <Eye className="h-4 w-4 mr-1" />
-                          View
-                        </Button>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isChecking}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleRecheckSingle(qId);
+                            }}
+                            className={cn(
+                              "h-8 px-2.5 text-xs font-medium gap-1",
+                              isModified
+                                ? "border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                : "text-muted-foreground hover:text-foreground"
+                            )}
+                            title={isModified ? "Answer was modified after last check - click to recheck" : "Run quality check on this answer"}
+                          >
+                            {isSingleChecking ? (
+                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-indigo-600" />
+                            ) : (
+                              <RotateCw className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            {isSingleChecking
+                              ? "Checking..."
+                              : isModified
+                              ? "Recheck"
+                              : qCheckedAt
+                              ? "Recheck"
+                              : "Check"}
+                          </Button>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => setSelectedQuestion(question)}
+                            className="h-8 px-2.5 text-xs"
+                          >
+                            <Eye className="h-4 w-4 mr-1" />
+                            View
+                          </Button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -493,30 +702,76 @@ export const RdqaPage = () => {
 
             {/* Quality Checks & Flags Panel */}
             <div className="mb-6">
-              {selectedChecks.length > 0 ? (
-                <GdbFlagsPanel checks={selectedChecks} editable={false} />
-              ) : (
-                <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center justify-between">
-                  <span>The quality checks have not run on this answer yet.</span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    disabled={isChecking}
-                    onClick={() => {
-                      const qId =
-                        selectedQuestion.question?._id ||
-                        selectedQuestion.questionId ||
-                        selectedQuestion._id;
-                      if (qId) {
-                        checkQuestionsMutation([qId]);
-                      }
-                    }}
-                  >
-                    <CheckCheck className="h-4 w-4 mr-1 text-indigo-600" />
-                    Check Now
-                  </Button>
-                </div>
-              )}
+              {(() => {
+                const modalQId =
+                  selectedQuestion.question?._id ||
+                  selectedQuestion.questionId ||
+                  selectedQuestion._id;
+                const isModalModified = isAnswerModifiedAfterCheck(selectedQuestion);
+                const isModalChecking = checkingQuestionId === modalQId;
+
+                return selectedChecks.length > 0 ? (
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+                          Quality Checks
+                        </h3>
+                        {isModalModified && (
+                          <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 px-2 py-0.5 text-xs font-medium">
+                            <AlertCircle className="w-3.5 h-3.5 mr-1 text-amber-600 shrink-0" />
+                            Answer modified after last check
+                          </span>
+                        )}
+                      </div>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        disabled={isChecking}
+                        onClick={() => {
+                          if (modalQId) handleRecheckSingle(modalQId);
+                        }}
+                        className={cn(
+                          "h-7 text-xs gap-1.5",
+                          isModalModified
+                            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                            : ""
+                        )}
+                      >
+                        {isModalChecking ? (
+                          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+                        ) : (
+                          <RotateCw className="h-3.5 w-3.5" />
+                        )}
+                        {isModalChecking ? "Rechecking..." : isModalModified ? "Recheck Answer" : "Recheck"}
+                      </Button>
+                    </div>
+
+                    <GdbFlagsPanel checks={selectedChecks} editable={false} />
+                  </div>
+                ) : (
+                  <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center justify-between">
+                    <span>The quality checks have not run on this answer yet.</span>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={isChecking}
+                      onClick={() => {
+                        if (modalQId) handleRecheckSingle(modalQId);
+                      }}
+                      className="gap-1.5"
+                    >
+                      {isModalChecking ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                      ) : (
+                        <CheckCheck className="h-4 w-4 text-indigo-600" />
+                      )}
+                      {isModalChecking ? "Checking..." : "Check Now"}
+                    </Button>
+                  </div>
+                );
+              })()}
             </div>
 
             <div className="border-t my-6" />
@@ -558,6 +813,18 @@ export const RdqaPage = () => {
               <div><span className="font-medium text-muted-foreground">Approval Count:</span><p className="mt-0.5">{selectedQuestion.answer?.approvalCount ?? "N/A"}</p></div>
               <div><span className="font-medium text-muted-foreground">Answer Created:</span><p className="mt-0.5">{selectedQuestion.answer?.createdAt ? new Date(selectedQuestion.answer.createdAt).toLocaleString() : "N/A"}</p></div>
               <div><span className="font-medium text-muted-foreground">Answer Updated:</span><p className="mt-0.5">{selectedQuestion.answer?.updatedAt ? new Date(selectedQuestion.answer.updatedAt).toLocaleString() : "N/A"}</p></div>
+              <div>
+                <span className="font-medium text-muted-foreground">Last Quality Check:</span>
+                <p className="mt-0.5">
+                  {selectedQuestion.checkedAt || selectedQuestion.answer?.checkedAt || selectedQuestion.question?.rdqaCheckedAt
+                    ? new Date(
+                        (selectedQuestion.checkedAt ||
+                          selectedQuestion.answer?.checkedAt ||
+                          selectedQuestion.question?.rdqaCheckedAt)!
+                      ).toLocaleString()
+                    : "Not evaluated yet"}
+                </p>
+              </div>
             </div>
 
             {/* Sources */}

@@ -47,17 +47,28 @@ export const useRdqaCheckQuestions = () => {
             });
 
             if (isSuccess) {
-              toast.success(
-                `RDQA quality check completed: ${passed} passed, ${flagged} flagged${
-                  failed > 0 ? `, ${failed} errors` : ""
-                }.`,
-                { duration: 6000 }
-              );
+              if (job.total === 1) {
+                toast.success(
+                  passed > 0
+                    ? "Question quality check passed (0 flags)!"
+                    : `Question quality check completed: ${flagged} flag(s) found.`,
+                  { duration: 5000 }
+                );
+              } else {
+                toast.success(
+                  `RDQA quality check completed: ${passed} passed, ${flagged} flagged${
+                    failed > 0 ? `, ${failed} errors` : ""
+                  }.`,
+                  { duration: 6000 }
+                );
+              }
             } else {
               toast.error(
-                `RDQA check failed: 0 questions processed${
-                  failed > 0 ? ` (${failed} errors)` : ""
-                }.`,
+                job.total === 1
+                  ? "Quality check failed for this question."
+                  : `RDQA check failed: 0 questions processed${
+                      failed > 0 ? ` (${failed} errors)` : ""
+                    }.`,
                 { duration: 6000 }
               );
             }
@@ -92,8 +103,11 @@ export const useRdqaCheckQuestions = () => {
 
       if (jobId && totalCount > 0) {
         toast.info(
-          data?.message || `Starting RDQA quality check for ${totalCount} question(s)...`,
-          { duration: 5000 }
+          data?.message ||
+            (totalCount === 1
+              ? "Checking question quality..."
+              : `Starting RDQA quality check for ${totalCount} question(s)...`),
+          { duration: totalCount === 1 ? 3000 : 5000 }
         );
         pollRdqaCheckJob(jobId, totalCount);
       } else {
