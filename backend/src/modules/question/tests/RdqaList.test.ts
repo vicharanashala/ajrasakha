@@ -20,6 +20,7 @@ describe('RDQA List Service - Core Logic', () => {
       .mockResolvedValueOnce(moderatorGroups)
       .mockResolvedValue(questionAnswerPairs);
     (service as any).answerRepo = { aggregate: aggregateMock };
+    (service as any).userRepo = { getUsersByIds: vi.fn().mockResolvedValue([]) };
     return service;
   };
 

@@ -7,6 +7,7 @@ import {
   Body,
   HttpCode,
   Params,
+  Param,
   QueryParams,
   Authorized,
   CurrentUser,
@@ -37,7 +38,9 @@ import {
   QuestionIdParam,
   QuestionResponse,
   RdqaListQuery,
+  RdqaCheckBody,
 } from '../classes/validators/QuestionVaidators.js';
+import { startRdqaCheckJob, getRdqaCheckJobById } from '#root/workers/rdqaCheck.manager.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
@@ -734,5 +737,42 @@ export class QuestionController {
   async getRdqaQuestions(@QueryParams() query: RdqaListQuery) {
     const result = await this.questionService.getRdqaQuestions(query.date, query.limit);
     return { success: true, data: result };
+  }
+
+  @Post('/rdqa/check')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Trigger RDQA quality check for a list of questions',
+    description: 'Runs answer quality checks on finalized answers for the given questions in a background job',
+  })
+  async checkRdqaQuestions(
+    @Body() body: RdqaCheckBody,
+    @CurrentUser() user: IUser,
+  ) {
+    if (!body?.questionIds || !Array.isArray(body.questionIds) || body.questionIds.length === 0) {
+      throw new BadRequestError('questionIds array cannot be empty');
+    }
+    const userId = user?._id?.toString() || 'admin';
+    const jobId = startRdqaCheckJob(body.questionIds, userId);
+    return {
+      message: `RDQA quality check job started for ${body.questionIds.length} question(s)`,
+      jobId,
+      totalCount: body.questionIds.length,
+    };
+  }
+
+  @Get('/rdqa/check/jobs/:id')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get RDQA quality check job status',
+  })
+  getRdqaCheckJob(@Param('id') id: string) {
+    const job = getRdqaCheckJobById(id);
+    if (!job) {
+      throw new NotFoundError('RDQA check job not found');
+    }
+    return job;
   }
 }

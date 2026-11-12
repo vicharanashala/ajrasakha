@@ -3289,6 +3289,10 @@ export class QuestionService extends BaseService implements IQuestionService {
             approvalCount: 1,
             createdAt: 1,
             updatedAt: 1,
+            checks: 1,
+            flags: 1,
+            notEvaluated: 1,
+            checkedAt: 1,
             question: {
               _id: '$questionDoc._id',
               question: '$questionDoc.question',
@@ -3309,6 +3313,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               priority: '$questionDoc.priority',
               metrics: '$questionDoc.metrics',
               text: '$questionDoc.text',
+              checks: '$questionDoc.checks',
+              flags: '$questionDoc.flags',
+              notEvaluated: '$questionDoc.notEvaluated',
+              rdqaCheckedAt: '$questionDoc.rdqaCheckedAt',
             },
           },
         },
@@ -3339,6 +3347,10 @@ export class QuestionService extends BaseService implements IQuestionService {
               priority: pair.question.priority,
               metrics: pair.question.metrics,
               text: pair.question.text,
+              checks: pair.question.checks || [],
+              flags: pair.question.flags || [],
+              notEvaluated: pair.question.notEvaluated || [],
+              rdqaCheckedAt: pair.question.rdqaCheckedAt,
             }
           : null;
 
@@ -3364,6 +3376,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           approvalCount: pair.approvalCount,
           createdAt: pair.createdAt,
           updatedAt: pair.updatedAt,
+          checks: pair.checks || pair.question?.checks || [],
+          flags: pair.flags || pair.question?.flags || [],
+          notEvaluated: pair.notEvaluated || pair.question?.notEvaluated || [],
+          checkedAt: pair.checkedAt || pair.question?.rdqaCheckedAt || null,
         };
 
         questionAnswerPairs.push({
@@ -3402,6 +3418,10 @@ export class QuestionService extends BaseService implements IQuestionService {
         approvedByEmail: a?.approvedBy ? userEmailMap.get(a.approvedBy) || null : null,
       },
       authorIdEmail: a?.authorId ? userEmailMap.get(a.authorId) || null : null,
+      checks: a?.checks || q?.checks || [],
+      flags: a?.flags || q?.flags || [],
+      notEvaluated: a?.notEvaluated || q?.notEvaluated || [],
+      checkedAt: a?.checkedAt || q?.rdqaCheckedAt || null,
     }));
 
     return {

@@ -1074,6 +1074,11 @@ export interface IQuestionService {
     questions: Array<{
       question: any;
       answer: any;
+      authorIdEmail?: string | null;
+      checks?: any[];
+      flags?: string[];
+      notEvaluated?: string[];
+      checkedAt?: string | Date | null;
     }>;
   }>;
 }

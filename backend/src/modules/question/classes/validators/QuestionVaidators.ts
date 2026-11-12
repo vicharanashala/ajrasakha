@@ -1202,6 +1202,23 @@ export class RdqaListQuery {
   limit?: number;
 }
 
+/**
+ * DTO for RDQA check endpoint body.
+ * Accepts an array of question IDs to run quality checks on.
+ */
+export class RdqaCheckBody {
+  @JSONSchema({
+    description: 'Array of question IDs to run RDQA quality checks on',
+    example: ['6627e3d2f9b8c1a2b3c4d5e6'],
+    type: 'array',
+    items: { type: 'string' },
+  })
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -1228,6 +1245,7 @@ export const QUESTION_VALIDATORS = [
   QuestionCollectionDetailsDto,
   AddQuestionCollectionBodyDto,
   RdqaListQuery,
+  RdqaCheckBody,
 ];
 
 export {
