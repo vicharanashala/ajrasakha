@@ -11,6 +11,8 @@ import {
   Loader2,
   AlertCircle,
   RotateCw,
+  Pencil,
+  Edit,
 } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useRdqaCheckQuestions } from "@/hooks/api/question/useRdqaCheckQuestions";
@@ -29,7 +31,51 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Card, CardContent } from "@/components/atoms/card";
 import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
+import { EditRdqaAnswerModal } from "./EditRdqaAnswerModal";
+import { useQueryClient } from "@tanstack/react-query";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/atoms/context-menu";
+import { AddOrEditQuestionDialog } from "@/features/question-table-page/AddOrEditQuestionDialog";
+import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
 import { toast } from "sonner";
+
+// Convert RdqaQuestion to IDetailedQuestion for the full edit dialog
+function convertRdqaToDetailedQuestion(rdqaQuestion: RdqaQuestion): IDetailedQuestion {
+  return {
+    _id: rdqaQuestion.question._id,
+    userId: rdqaQuestion.authorId,
+    question: rdqaQuestion.question.question,
+    context: rdqaQuestion.context || "",
+    aiInitialAnswer: rdqaQuestion.answer.answer,
+    status: "closed" as QuestionStatus,
+    totalAnswersCount: 1,
+    priority: "medium",
+    metrics: {
+      mean_similarity: 0,
+      std_similarity: 0,
+      recent_similarity: 0,
+      collusion_score: 0,
+    },
+    details: {
+      state: rdqaQuestion.question.details?.state || "",
+      district: rdqaQuestion.question.details?.district || "",
+      crop: rdqaQuestion.question.details?.crop || "",
+      season: "",
+      domain: [],
+    },
+    source: "AJRASAKHA",
+    createdAt: undefined,
+    updatedAt: undefined,
+    review_level_number: undefined,
+    closedAt: rdqaQuestion.closedAt,
+  };
+}
 
 const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
 const ITEMS_PER_PAGE = 12;
@@ -82,6 +128,15 @@ export const RdqaPage = () => {
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [editQuestion, setEditQuestion] = useState<RdqaQuestion | null>(null);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const queryClient = useQueryClient();
+
+  // Full edit dialog state
+  const [fullEditQuestion, setFullEditQuestion] = useState<IDetailedQuestion | null>(null);
+  const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(null);
+  const [showFullEditModal, setShowFullEditModal] = useState(false);
+  const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
 
   const { data: rdqaResponse, isLoading, error } = useRdqaQuestions(formatDateStr(selectedDate), API_LIMIT);
   const { mutateAsync: checkQuestionsMutation, isPending: isCheckingMutation } = useRdqaCheckQuestions();
@@ -221,6 +276,53 @@ export const RdqaPage = () => {
     }
   };
 
+  // Handle full question edit from context menu
+  const handleFullEdit = (rdqaQuestion: RdqaQuestion) => {
+    const detailedQuestion = convertRdqaToDetailedQuestion(rdqaQuestion);
+    setFullEditQuestion(detailedQuestion);
+    setUpdatedData(detailedQuestion);
+    setShowFullEditModal(true);
+  };
+
+  // Handle save from the full edit dialog
+  const handleUpdateQuestion = async (
+    mode: "add" | "edit",
+    entityId?: string,
+    _flagReason?: string,
+    _status?: QuestionStatus,
+  ) => {
+    try {
+      if (!entityId) {
+        toast.error(`Failed to identify and ${mode} the selected question.`);
+        return;
+      }
+
+      if (!updatedData) {
+        console.error("No data available to update.");
+        return;
+      }
+
+      await updateQuestion({
+        _id: entityId,
+        question: updatedData.question,
+        priority: updatedData.priority,
+        context: updatedData.context,
+        details: updatedData.details,
+      });
+
+      toast.success(`Question ${mode === "add" ? "added" : "updated"} successfully`);
+      setShowFullEditModal(false);
+      setFullEditQuestion(null);
+      setUpdatedData(null);
+      
+      // Refresh the RDQA questions list
+      queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
+    } catch (error) {
+      console.error("Error updating question:", error);
+      toast.error("Failed to update question. Please try again.");
+    }
+  };
+
   const selectedChecks = useMemo(() => {
     if (!selectedQuestion) return [];
     return (
@@ -242,7 +344,6 @@ export const RdqaPage = () => {
     100,
     Math.max(0, Math.round((bulkProcessed / Math.max(1, bulkTotal)) * 100))
   );
-
   if (!currentUser || currentUser.role !== "admin") {
     return (
       <div className={cn("flex items-center justify-center", PAGE_HEIGHT_CLASSES)}>
@@ -488,122 +589,171 @@ export const RdqaPage = () => {
                   const isSingleChecking = checkingQuestionId === qId;
 
                   return (
-                    <div
-                      key={question._id}
-                      className="border-b border-border p-4 transition-colors hover:bg-muted/30"
-                    >
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-sm leading-snug">
-                            {question.question?.question || "N/A"}
-                          </p>
+                    <ContextMenu key={question._id}>
+                      <ContextMenuTrigger>
+                        <div className="border-b border-border p-4 transition-colors hover:bg-muted/30">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-sm leading-snug">
+                                {question.question?.question || "N/A"}
+                              </p>
 
-                          <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                            {question.question?.details?.crop && (
-                              <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                {question.question.details.crop}
-                              </span>
-                            )}
-                            {question.question?.details?.state && (
-                              <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                {question.question.details.state}
-                              </span>
-                            )}
-                            {question.closedAt && (
-                              <span className="text-muted-foreground/70">
-                                Closed: {new Date(question.closedAt).toLocaleDateString()}
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Quality Check Badges & Flags */}
-                          <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                            {isModified && (
-                              <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 px-2 py-0.5 text-[11px] font-medium">
-                                <AlertCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400 shrink-0" />
-                                Answer modified after check
-                              </span>
-                            )}
-                            {qFlags.length > 0 ? (
-                              <>
-                                <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 px-2 py-0.5 text-[11px] font-semibold">
-                                  {qFlags.length} {qFlags.length === 1 ? "flag" : "flags"}
-                                </span>
-                                {qFlags.map((flag: string) => (
-                                  <span
-                                    key={flag}
-                                    className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-800 border border-red-300 dark:bg-red-900/30 dark:text-red-300"
-                                  >
-                                    {humanize(flag)}
+                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                                {question.question?.details?.crop && (
+                                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                    {question.question.details.crop}
                                   </span>
-                                ))}
-                              </>
-                            ) : qChecks.length > 0 ? (
-                              <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 border border-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                <CheckCircle2 className="w-3 h-3 mr-1" />
-                                No flags
-                              </span>
-                            ) : (
-                              <span className="text-[11px] text-muted-foreground/60 italic">
-                                Not checked
-                              </span>
-                            )}
-                            {qNotEvaluated.length > 0 && (
-                              <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-                                {qNotEvaluated.length} could not run
-                              </span>
-                            )}
-                            {qCheckedAt && (
-                              <span className="text-[10px] text-muted-foreground/60 ml-1">
-                                · Checked {new Date(qCheckedAt).toLocaleDateString()}
-                              </span>
-                            )}
+                                )}
+                                {question.question?.details?.state && (
+                                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                    {question.question.details.state}
+                                  </span>
+                                )}
+                                {question.closedAt && (
+                                  <span className="text-muted-foreground/70">
+                                    Closed: {new Date(question.closedAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Quality Check Badges & Flags */}
+                              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
+                                {isModified && (
+                                  <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 px-2 py-0.5 text-[11px] font-medium">
+                                    <AlertCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400 shrink-0" />
+                                    Answer modified after check
+                                  </span>
+                                )}
+                                {qFlags.length > 0 ? (
+                                  <>
+                                    <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 px-2 py-0.5 text-[11px] font-semibold">
+                                      {qFlags.length} {qFlags.length === 1 ? "flag" : "flags"}
+                                    </span>
+                                    {qFlags.map((flag: string) => (
+                                      <span
+                                        key={flag}
+                                        className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-800 border border-red-300 dark:bg-red-900/30 dark:text-red-300"
+                                      >
+                                        {humanize(flag)}
+                                      </span>
+                                    ))}
+                                  </>
+                                ) : qChecks.length > 0 ? (
+                                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 border border-green-700 dark:bg-green-900/30 dark:text-green-300">
+                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                    No flags
+                                  </span>
+                                ) : (
+                                  <span className="text-[11px] text-muted-foreground/60 italic">
+                                    Not checked
+                                  </span>
+                                )}
+                                {qNotEvaluated.length > 0 && (
+                                  <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
+                                    {qNotEvaluated.length} could not run
+                                  </span>
+                                )}
+                                {qCheckedAt && (
+                                  <span className="text-[10px] text-muted-foreground/60 ml-1">
+                                    · Checked {new Date(qCheckedAt).toLocaleDateString()}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="flex items-center gap-2 shrink-0">
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                disabled={isChecking}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleRecheckSingle(qId);
+                                }}
+                                className={cn(
+                                  "h-8 px-2.5 text-xs font-medium gap-1",
+                                  isModified
+                                    ? "border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
+                                    : "text-muted-foreground hover:text-foreground"
+                                )}
+                                title={isModified ? "Answer was modified after last check - click to recheck" : "Run quality check on this answer"}
+                              >
+                                {isSingleChecking ? (
+                                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-indigo-600" />
+                                ) : (
+                                  <RotateCw className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                {isSingleChecking
+                                  ? "Checking..."
+                                  : isModified
+                                  ? "Recheck"
+                                  : qCheckedAt
+                                  ? "Recheck"
+                                  : "Check"}
+                              </Button>
+
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => setSelectedQuestion(question)}
+                                className="h-8 px-2.5 text-xs"
+                              >
+                                <Eye className="h-4 w-4 mr-1" />
+                                View
+                              </Button>
+
+                              <Button
+                                variant="default"
+                                size="sm"
+                                onClick={() => {
+                                  setEditQuestion(question);
+                                  setShowEditModal(true);
+                                }}
+                                className="h-8 px-2.5 text-xs shrink-0 bg-primary hover:bg-primary/90"
+                              >
+                                <Pencil className="h-4 w-4 mr-1" />
+                                Edit
+                              </Button>
+                            </div>
                           </div>
                         </div>
-
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            disabled={isChecking}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleRecheckSingle(qId);
-                            }}
-                            className={cn(
-                              "h-8 px-2.5 text-xs font-medium gap-1",
-                              isModified
-                                ? "border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                                : "text-muted-foreground hover:text-foreground"
-                            )}
-                            title={isModified ? "Answer was modified after last check - click to recheck" : "Run quality check on this answer"}
-                          >
-                            {isSingleChecking ? (
-                              <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-indigo-600" />
-                            ) : (
-                              <RotateCw className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            {isSingleChecking
-                              ? "Checking..."
-                              : isModified
-                              ? "Recheck"
-                              : qCheckedAt
-                              ? "Recheck"
-                              : "Check"}
-                          </Button>
-
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setSelectedQuestion(question)}
-                            className="h-8 px-2.5 text-xs"
-                          >
-                            <Eye className="h-4 w-4 mr-1" />
-                            View
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                      </ContextMenuTrigger>
+                      <ContextMenuContent>
+                        <ContextMenuItem
+                          onSelect={(e) => {
+                            setTimeout(() => {
+                              e.preventDefault();
+                              handleFullEdit(question);
+                            }, 0);
+                          }}
+                        >
+                          <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                          Edit Question
+                        </ContextMenuItem>
+                        <ContextMenuItem
+                          onClick={() => {
+                            setEditQuestion(question);
+                            setShowEditModal(true);
+                          }}
+                        >
+                          <Pencil className="w-4 h-4 mr-2 text-primary" />
+                          Edit Answer
+                        </ContextMenuItem>
+                        <ContextMenuSeparator />
+                        <ContextMenuItem
+                          onClick={() => {
+                            handleRecheckSingle(qId);
+                          }}
+                        >
+                          <RotateCw className="w-4 h-4 mr-2 text-indigo-500" />
+                          Recheck Quality
+                        </ContextMenuItem>
+                        <ContextMenuItem onClick={() => setSelectedQuestion(question)}>
+                          <Eye className="w-4 h-4 mr-2 text-primary" />
+                          View Details
+                        </ContextMenuItem>
+                      </ContextMenuContent>
+                    </ContextMenu>
                   );
                 })}
               </div>
@@ -937,6 +1087,30 @@ export const RdqaPage = () => {
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Edit RDQA Answer Modal */}
+      <EditRdqaAnswerModal
+        question={editQuestion}
+        open={showEditModal}
+        onOpenChange={setShowEditModal}
+        onSuccess={() => {
+          // Refresh the RDQA questions list
+          queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
+        }}
+      />
+
+      {/* Full Question Edit Dialog - Same as All Questions tab */}
+      <AddOrEditQuestionDialog
+        open={showFullEditModal}
+        setOpen={setShowFullEditModal}
+        updatedData={updatedData}
+        setUpdatedData={setUpdatedData}
+        onSave={handleUpdateQuestion}
+        question={fullEditQuestion}
+        userRole={(currentUser?.role as UserRole) || "expert"}
+        isLoadingAction={updatingQuestion}
+        mode="edit"
+      />
     </>
   );
 };

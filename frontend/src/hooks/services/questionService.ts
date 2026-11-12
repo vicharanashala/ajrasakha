@@ -103,11 +103,11 @@ export type RdqaQuestion = {
   answer: {
     _id: string;
     answer: string; // The actual answer text
-    sources?: Array<{
-      source?: string;
-      page?: string | number | number[];
-      sourceName?: string;
+    sources: Array<{
+      source: string;
       sourceType?: string;
+      sourceName?: string;
+      page?: string;
     }>;
     status?: string;
     approvalCount?: number;

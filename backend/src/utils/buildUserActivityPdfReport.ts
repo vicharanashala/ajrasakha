@@ -200,12 +200,12 @@ export async function buildUserActivityPdfReport(
     { width: revCycleW, align: 'center' },
   );
 
-  // 4. PERFORMANCE METRICS (3 COLUMNS x 2 ROWS)
+  // 4. PERFORMANCE METRICS (4 COLUMNS x 2 ROWS = 8 CARDS)
   const gridY = 110;
-  const cardW = (contentWidth - 2 * 9) / 3; // ~168.4 pt
-  const cardH = 72;
-  const colGap = 9;
-  const rowGap = 8;
+  const colGap = 7;
+  const rowGap = 7;
+  const cardW = (contentWidth - 3 * colGap) / 4; // ~125.57 pt
+  const cardH = 70;
 
   interface ActivityCardConfig {
     title: string;
@@ -216,6 +216,9 @@ export async function buildUserActivityPdfReport(
     borderColor: string;
     badgeText?: string;
   }
+
+  const rerouteCombinedCount = (data.reroutedCount || 0) + (data.expertReroutedCount || 0);
+  const rerouteCombinedMs = (data.totalReroutingMs || 0) + (data.totalExpertReroutingMs || 0);
 
   const cards: ActivityCardConfig[] = [
     {
@@ -263,35 +266,33 @@ export async function buildUserActivityPdfReport(
       borderColor: '#99F6E4',
       badgeText: 'Gate Passed',
     },
-    (data.heldCount || 0) > 0
-      ? {
-          title: 'Question Hold',
-          count: data.heldCount || 0,
-          totalMs: data.totalHoldingMs || 0,
-          accentColor: '#F59E0B',
-          bgColor: '#FFFBEB',
-          borderColor: '#FDE68A',
-          badgeText: 'Held Questions',
-        }
-      : (data.reroutedCount || 0) > 0
-        ? {
-            title: 'Rerouting',
-            count: data.reroutedCount,
-            totalMs: data.totalReroutingMs,
-            accentColor: '#B45309',
-            bgColor: '#FFFBEB',
-            borderColor: '#FDE68A',
-            badgeText: 'Questions Rerouted',
-          }
-        : {
-            title: 'GDB Pushed',
-            count: data.gdbPushedCount,
-            totalMs: 0,
-            accentColor: '#E11D48',
-            bgColor: '#FFF1F2',
-            borderColor: '#FECDD3',
-            badgeText: 'Authored to GDB',
-          },
+    {
+      title: 'Question Hold',
+      count: data.heldCount || 0,
+      totalMs: data.totalHoldingMs || 0,
+      accentColor: '#EA580C',
+      bgColor: '#FFF7ED',
+      borderColor: '#FED7AA',
+      badgeText: 'Held Questions',
+    },
+    {
+      title: 'Rerouted Questions',
+      count: rerouteCombinedCount,
+      totalMs: rerouteCombinedMs,
+      accentColor: '#B45309',
+      bgColor: '#FFFBEB',
+      borderColor: '#FDE68A',
+      badgeText: 'Rerouted Questions',
+    },
+    {
+      title: 'GDB Pushed',
+      count: data.gdbPushedCount,
+      totalMs: 0,
+      accentColor: '#E11D48',
+      bgColor: '#FFF1F2',
+      borderColor: '#FECDD3',
+      badgeText: 'Authored to GDB',
+    },
   ];
 
   const drawCard = (card: ActivityCardConfig, x: number, y: number) => {
@@ -299,22 +300,22 @@ export async function buildUserActivityPdfReport(
     doc.lineWidth(1).roundedRect(x, y, cardW, cardH, 5).fillAndStroke(card.bgColor, card.borderColor);
 
     // Left color indicator
-    doc.roundedRect(x + 7, y + 8, 3.5, cardH - 16, 1.5).fill(card.accentColor);
+    doc.roundedRect(x + 6, y + 7, 3, cardH - 14, 1.5).fill(card.accentColor);
 
     // Title
-    doc.fillColor('#0F172A').fontSize(8.5).font('Helvetica-Bold').text(
+    doc.fillColor('#0F172A').fontSize(7.5).font('Helvetica-Bold').text(
       card.title,
-      x + 16,
-      y + 8,
-      { width: cardW - 24 },
+      x + 13,
+      y + 7,
+      { width: cardW - 18, ellipsis: true },
     );
 
     // Count value
-    doc.fillColor(card.accentColor).fontSize(16).font('Helvetica-Bold').text(
+    doc.fillColor(card.accentColor).fontSize(14).font('Helvetica-Bold').text(
       String(card.count),
-      x + 16,
-      y + 20,
-      { width: cardW - 24 },
+      x + 13,
+      y + 19,
+      { width: cardW - 18 },
     );
 
     // Bottom Stats (Avg time & Total hours)
@@ -322,30 +323,30 @@ export async function buildUserActivityPdfReport(
       const avgMs = card.count > 0 ? card.totalMs / card.count : 0;
       const totalHoursNum = card.totalMs / (1000 * 60 * 60);
 
-      const statY = y + 42;
-      doc.fillColor('#64748B').fontSize(6).font('Helvetica-Bold').text('AVG TIME', x + 16, statY);
-      doc.fillColor('#334155').fontSize(7.5).font('Helvetica').text(formatMsToHMS(avgMs), x + 16, statY + 8);
+      const statY = y + 41;
+      doc.fillColor('#64748B').fontSize(5.5).font('Helvetica-Bold').text('AVG TIME', x + 13, statY);
+      doc.fillColor('#334155').fontSize(7).font('Helvetica').text(formatMsToHMS(avgMs), x + 13, statY + 8);
 
-      const totalHoursX = x + cardW / 2 + 6;
-      doc.fillColor('#64748B').fontSize(6).font('Helvetica-Bold').text('TOTAL TIME', totalHoursX, statY);
-      doc.fillColor('#334155').fontSize(7.5).font('Helvetica').text(formatHours(totalHoursNum), totalHoursX, statY + 8);
+      const totalHoursX = x + cardW / 2 + 4;
+      doc.fillColor('#64748B').fontSize(5.5).font('Helvetica-Bold').text('TOTAL TIME', totalHoursX, statY);
+      doc.fillColor('#334155').fontSize(7).font('Helvetica').text(formatHours(totalHoursNum), totalHoursX, statY + 8);
     } else {
-      const statY = y + 42;
-      doc.fillColor('#64748B').fontSize(6).font('Helvetica-Bold').text('CONVERSION STATUS', x + 16, statY);
+      const statY = y + 41;
+      doc.fillColor('#64748B').fontSize(5.5).font('Helvetica-Bold').text('CONVERSION STATUS', x + 13, statY);
       const percent = data.authoredCount > 0 ? Math.round((data.gdbPushedCount / data.authoredCount) * 100) : 0;
-      doc.fillColor('#334155').fontSize(7.5).font('Helvetica').text(
-        `${data.gdbPushedCount} of ${data.authoredCount} authored (${percent}%)`,
-        x + 16,
+      doc.fillColor('#334155').fontSize(6.5).font('Helvetica').text(
+        `${data.gdbPushedCount} of ${data.authoredCount} (${percent}%)`,
+        x + 13,
         statY + 8,
-        { width: cardW - 24 },
+        { width: cardW - 18 },
       );
     }
   };
 
-  // Render the 6 cards in a 3x2 grid
+  // Render the 8 cards in a 4x2 grid
   cards.forEach((c, idx) => {
-    const col = idx % 3;
-    const row = Math.floor(idx / 3);
+    const col = idx % 4;
+    const row = Math.floor(idx / 4);
     const cx = pageMargin + col * (cardW + colGap);
     const cy = gridY + row * (cardH + rowGap);
     drawCard(c, cx, cy);
@@ -456,7 +457,7 @@ export async function buildUserActivityPdfReport(
       notes: 'Gatekeeper screening completions',
     },
     {
-      role: 'Rerouting',
+      role: 'Moderator Rerouting',
       count: data.reroutedCount,
       avg: formatMsToHMS(data.reroutedCount > 0 ? data.totalReroutingMs / data.reroutedCount : 0),
       hours: formatHours(data.totalReroutingMs / (1000 * 60 * 60)),
@@ -540,21 +541,15 @@ export async function buildUserActivityPdfReport(
     data.expertReroutedCount +
     (data.heldCount || 0);
 
-  const rawActionHours =
-    (data.totalAuthoringMs +
-      data.totalReviewingMs +
-      data.totalModeratingMs +
-      data.totalAuditingMs +
-      data.totalGatekeepingMs +
-      data.totalReroutingMs +
-      data.totalExpertReroutingMs +
-      (data.totalHoldingMs || 0)) /
-    (1000 * 60 * 60);
+  const sumTableHours = tableRows.reduce((acc, row) => {
+    const val = parseFloat(row.hours);
+    return acc + (isNaN(val) ? 0 : val);
+  }, 0);
 
   const totalActionHours =
     data.totalHoursInRevCycle > 0
-      ? Math.min(rawActionHours, data.totalHoursInRevCycle)
-      : rawActionHours;
+      ? Math.min(sumTableHours, data.totalHoursInRevCycle)
+      : sumTableHours;
 
   doc.rect(pageMargin, currentY, contentWidth, rowH).fill('#ECFDF5');
 

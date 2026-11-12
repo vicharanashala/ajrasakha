@@ -4,13 +4,19 @@
 #   DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID
 #   GDB_DRAFT_TOKEN          shared secret; the backend sends it as x-draft-token
-#   GEMINI_API_KEY           key for Gemini 3.5 Flash, which writes the draft when this secret exists
+#   GEMINI_API_KEY           key for Gemini Flash, which writes the draft when this secret exists
 #   DRAFT_MINIMAX_API_KEY    key for MiniMax, used when GEMINI_API_KEY does not exist
 #   ANARA_TOKENS_B64         optional; the Anara sign-in file, base64 encoded (see gdb-draft/anara_search.py);
 #                            without it the service searches its own copy of the documents
 #
 # Optional repository variables:
 #   POP_API_URL              the POP API (default below)
+#   GDB_DRAFT_GEMINI_MODEL   the Gemini model that writes the draft (default gemini-3.1-pro-preview; gemini-3.8-flash is faster but writes less well)
+#   ANARA_TOKEN_SECRET       where the service keeps its renewed Anara sign-in (default: the secret "anara-tokens"
+#                            in this project). Anara replaces its refresh key at every renewal, so the key in
+#                            ANARA_TOKENS_B64 goes stale; the service saves each new pair in this secret and starts
+#                            from the newer of the two. Create it once in Secret Manager (value {}) and give the
+#                            Cloud Run service account the roles Secret Manager Secret Accessor and Secret Version Adder.
 #
 # The backend needs the service address and the same token: set the repository secrets
 # GDB_DRAFT_URL (the Cloud Run URL of this service) and GDB_DRAFT_TOKEN, which
@@ -32,6 +38,8 @@ permissions:
 env:
   DOCKER_IMAGE: gdb-draft
   GCP_REGION: asia-south1
+  # used when the GCP_PROJECT_ID secret is empty in this workflow
+  GCP_PROJECT: vibe-5b35a
   GCP_SERVICE: gdb-draft
 
 jobs:
@@ -85,12 +93,14 @@ jobs:
             GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
             DRAFT_MINIMAX_API_KEY=${{ secrets.GEMINI_API_KEY || secrets.DRAFT_MINIMAX_API_KEY }}
             DRAFT_MINIMAX_URL=${{ secrets.GEMINI_API_KEY && 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions' || 'https://api.minimax.io/v1/chat/completions' }}
-            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && 'gemini-3.5-flash' || 'MiniMax-M3' }}
+            DRAFT_MINIMAX_MODEL=${{ secrets.GEMINI_API_KEY && (vars.GDB_DRAFT_GEMINI_MODEL || 'gemini-3.1-pro-preview') || 'MiniMax-M3' }}
             POP_API_URL=${{ vars.POP_API_URL || 'https://reviewer-backend-239934307367.asia-south1.run.app/api/pop' }}
             DRAFT_SYNC_MINUTES=30
             DRAFT_PREFETCH=1
             ANARA_TOKENS_B64=${{ secrets.ANARA_TOKENS_B64 || 'none' }}
+            ANARA_TOKEN_SECRET=${{ vars.ANARA_TOKEN_SECRET || format('projects/{0}/secrets/anara-tokens', secrets.GCP_PROJECT_ID || env.GCP_PROJECT) }}
+            ANARA_KEEPALIVE_HOURS=6
 
           # the documents and PDFs live in the instance's memory, and the sync runs in the
           # background, so keep one instance up with its CPU on. A draft can take a few minutes.
-          flags: --allow-unauthenticated --min-instances=1 --max-instances=1 --memory=4Gi --cpu=2 --no-cpu-throttling --timeout=300 --concurrency=20
+          flags: --allow-unauthenticated --min-instances=1 --max-instances=1 --memory=4Gi --cpu=2 --no-cpu-throttling --timeout=480 --concurrency=20

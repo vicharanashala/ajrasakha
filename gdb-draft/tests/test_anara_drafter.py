@@ -48,7 +48,8 @@ class DraftAnswer(unittest.TestCase):
         with_outline, plain, without = (c.args[0] for c in call.call_args_list)
         for prompt in (with_outline, plain):
             self.assertIn("dose and waiting period of ITS OWN table row", prompt)
-            self.assertIn("never mention \"the passages\"", prompt)
+            self.assertIn("Never mention \"the passages\"", prompt)
+            self.assertIn("newest edition", prompt)
         self.assertIn("The usual sections", with_outline)
         self.assertNotIn("Rules for writing the answer", without)
 

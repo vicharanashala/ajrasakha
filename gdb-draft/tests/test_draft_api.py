@@ -36,7 +36,7 @@ class DraftApi(unittest.TestCase):
         self.patches = [
             patch.object(library_files, "MANIFEST_PATH", data / "anara_uploads.json"),
             patch.object(library_files, "PDF_DIRECTORY", data / "anara_pdfs"),
-            patch.dict(os.environ, {"GDB_DRAFT_TOKEN": TOKEN}),
+            patch.dict(os.environ, {"GDB_DRAFT_TOKEN": TOKEN, "DRAFT_ENGINE": "search"}),
         ]
         for p in self.patches:
             p.start()
@@ -57,7 +57,59 @@ class DraftApi(unittest.TestCase):
         ) as drafter:
             response = self.client.post("/draft", json={"question": "spacing?"}, headers=HEADERS)
         self.assertEqual(response.json(), draft)
-        drafter.assert_called_once_with("spacing?", [{"text": "t"}], None, None)
+        drafter.assert_called_once_with("spacing?", [{"text": "t"}], None, None, notes=None, max_passages=None)
+
+    def agent_result(self, passages, notes):
+        return {"passages": passages, "notes": notes}
+
+    def test_the_anara_agent_does_the_research_and_the_drafter_gets_its_findings(self):
+        passage = {"passageId": "p9", "documentId": "d", "documentName": "Punjab POP", "pageNumber": 5, "text": "dose"}
+        draft = {"answer": "a", "citations": [], "note": ""}
+        with patch.dict(os.environ, {"DRAFT_ENGINE": "agent"}), patch.object(
+            draft_api.anara_search, "enabled", return_value=True
+        ), patch.object(
+            draft_api.anara_agent, "research", return_value=self.agent_result([passage], "Sow in October. {p9}")
+        ), patch.object(draft_api, "search_library") as plain, patch.object(
+            draft_api, "draft_answer", return_value=draft
+        ) as drafter:
+            self.client.post("/draft", json={"question": "sowing?", "crop": "Mustard"}, headers=HEADERS)
+        plain.assert_not_called()  # our own search is not used when the agent answered
+        self.assertEqual(drafter.call_args.args[1], [passage])
+        self.assertEqual(drafter.call_args.kwargs["notes"], "Sow in October. [P1]")
+
+    def test_when_the_agent_finds_nothing_its_explanation_is_the_note(self):
+        with patch.dict(os.environ, {"DRAFT_ENGINE": "agent"}), patch.object(
+            draft_api.anara_search, "enabled", return_value=True
+        ), patch.object(
+            draft_api.anara_agent, "research", return_value=self.agent_result([], "No document in your library covers Rajasthan.")
+        ), patch.object(draft_api, "draft_answer") as drafter:
+            body = self.client.post("/draft", json={"question": "q", "state": "Rajasthan"}, headers=HEADERS).json()
+        drafter.assert_not_called()
+        self.assertEqual(body["answer"], "")
+        self.assertIn("covers Rajasthan", body["note"])
+
+    def test_when_the_model_writes_nothing_the_agents_explanation_replaces_its_generic_note(self):
+        passage = {"passageId": "p1", "documentId": "d", "documentName": "Punjab POP", "pageNumber": 5, "text": "urea"}
+        empty = {"answer": "", "citations": [], "note": "The provided passages do not contain it."}
+        findings = "No document mentions polysulphate. The library has Punjab's paddy schedule {p1}."
+        with patch.dict(os.environ, {"DRAFT_ENGINE": "agent"}), patch.object(
+            draft_api.anara_search, "enabled", return_value=True
+        ), patch.object(
+            draft_api.anara_agent, "research", return_value=self.agent_result([passage], findings)
+        ), patch.object(draft_api, "draft_answer", return_value=empty):
+            body = self.client.post("/draft", json={"question": "q"}, headers=HEADERS).json()
+        self.assertEqual(body["note"], "No document mentions polysulphate. The library has Punjab's paddy schedule.")
+
+    def test_if_the_agent_cannot_be_used_the_plain_library_search_is_the_fallback(self):
+        draft = {"answer": "a", "citations": [], "note": ""}
+        with patch.dict(os.environ, {"DRAFT_ENGINE": "agent"}), patch.object(
+            draft_api.anara_search, "enabled", return_value=True
+        ), patch.object(draft_api.anara_agent, "research", return_value=None), patch.object(
+            draft_api, "search_library", return_value=[{"text": "t"}]
+        ) as plain, patch.object(draft_api, "draft_answer", return_value=draft) as drafter:
+            self.client.post("/draft", json={"question": "q"}, headers=HEADERS)
+        plain.assert_called_once()
+        self.assertIsNone(drafter.call_args.kwargs["notes"])
 
     def test_draft_failure_is_a_502(self):
         with patch.object(draft_api, "search_library", side_effect=RuntimeError("anara down")):
