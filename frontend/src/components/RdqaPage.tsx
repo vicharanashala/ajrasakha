@@ -155,22 +155,78 @@ export const RdqaPage = () => {
         return;
       }
 
-      const formData = new FormData();
-      formData.append("question", updatedData.question);
-      formData.append("priority", updatedData.priority || "medium");
-      formData.append("state", updatedData.details?.state || "");
-      formData.append("district", updatedData.details?.district || "");
-      formData.append("crop", updatedData.details?.crop || "");
-      formData.append("season", updatedData.details?.season || "");
-      formData.append("domain", JSON.stringify(updatedData.details?.domain || []));
-      formData.append("context", updatedData.context || "");
+      if (!updatedData.question?.trim()) {
+        toast.error("Question text is required.");
+        return;
+      }
 
-      await updateQuestion({
-        questionId: entityId,
-        formData,
-      });
+      if (!updatedData.priority) {
+        toast.error("Priority is required.");
+        return;
+      }
 
-      toast.success(`Question ${mode === "add" ? "added" : "updated"} successfully`);
+      if (!updatedData.details?.state?.trim()) {
+        toast.error("State is required.");
+        return;
+      }
+
+      if (!updatedData.details?.district?.trim()) {
+        toast.error("District is required.");
+        return;
+      }
+
+      if (!updatedData.details?.crop?.trim()) {
+        toast.error("Crop is required.");
+        return;
+      }
+
+      if (!updatedData.details?.season?.trim()) {
+        toast.error("Season is required.");
+        return;
+      }
+
+      if (!updatedData.details?.domain?.length) {
+        toast.error("Domain is required.");
+        return;
+      }
+
+      // Build the update payload matching questions-table pattern
+      const original = fullEditQuestion;
+      const changed: Partial<IDetailedQuestion> = { _id: entityId };
+
+      if (original) {
+        const editableKeys: (keyof IDetailedQuestion)[] = [
+          "question",
+          "context",
+          "aiInitialAnswer",
+          "priority",
+          "status",
+          "isTrainingQuestion",
+        ];
+        for (const key of editableKeys) {
+          if (updatedData[key] !== original[key]) {
+            (changed as Record<string, unknown>)[key] = updatedData[key];
+          }
+        }
+        if (
+          JSON.stringify(updatedData.details) !==
+          JSON.stringify(original.details)
+        ) {
+          changed.details = updatedData.details;
+        }
+        // Test-question toggle
+        if (!!updatedData.isTesting !== !!original.isTesting) {
+          changed.isTesting = !!updatedData.isTesting;
+          changed.isAutoAllocate = !updatedData.isTesting;
+        }
+      } else {
+        // No original to diff against — fall back to sending the edited data
+        Object.assign(changed, updatedData);
+      }
+
+      await updateQuestion(changed);
+
+      toast.success("Question updated successfully.");
       setShowFullEditModal(false);
       setFullEditQuestion(null);
       setUpdatedData(null);
