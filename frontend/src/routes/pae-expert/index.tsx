@@ -4,8 +4,6 @@ import { useAuthStore } from "@/stores/auth-store";
 import { useEffect } from "react";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
-import { DiwaliGreeting } from "@/components/festive/DiwaliGreeting";
-import { DiwaliLightString } from "@/components/festive/DiwaliLightString";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { NotificationModal } from "@/components/NotificationModal";
 import { BellIcon } from "lucide-react";
@@ -31,10 +29,9 @@ function RouteComponent() {
 
   return (
     <div className="min-h-screen min-w-screen relative flex flex-col overflow-hidden">
-      <header className="relative flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 ">
+      <header className="flex items-center justify-between px-4 py-2 border-b border-gray-200 dark:border-gray-700 ">
         <h1 className="text-lg font-semibold">PAE Expert Portal</h1>
         <div className="flex items-center gap-2">
-          <DiwaliGreeting className="hidden sm:inline-flex" />
           <NotificationModal
             trigger={
               <button className="relative p-1 rounded-md hover:bg-accent transition-colors">
@@ -50,7 +47,6 @@ function RouteComponent() {
           <ThemeToggleCompact />
           <UserProfileActions />
         </div>
-        <DiwaliLightString />
       </header>
       <main className="flex-1 overflow-auto">
         <PAEExpertPage />

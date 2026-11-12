@@ -69,8 +69,6 @@ jobs:
           VITE_SARVAM_API_KEY: ${{ secrets.VITE_SARVAM_API_KEY_STAGING }}
           VITE_VAPID_PUBLIC_KEY: ${{ secrets.VITE_VAPID_PUBLIC_KEY_STAGING }}
           VITE_CARTO_API_KEY: ${{ secrets.VITE_CARTO_API_KEY }}
-          # Festive theme: auto (follows the calendar), off, or diwali. Set the repo variable to override.
-          VITE_FESTIVE_THEME: ${{ vars.VITE_FESTIVE_THEME_STAGING || 'auto' }}
         run: |
           cd frontend
           pnpm exec vite build

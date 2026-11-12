@@ -1,7 +1,5 @@
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
-import { DiwaliGreeting } from "@/components/festive/DiwaliGreeting";
-import { DiwaliLightString } from "@/components/festive/DiwaliLightString";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { isCoordinatorRole } from "@/lib/roles";
 import { useAuthStore } from "@/stores/auth-store";
@@ -34,14 +32,12 @@ function RouteComponent() {
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <header className="relative flex items-center justify-between border-b border-border px-4 py-2">
+      <header className="flex items-center justify-between border-b border-border px-4 py-2">
         <h1 className="text-base font-semibold">Coordinator Dashboard</h1>
         <div className="flex items-center gap-2">
-          <DiwaliGreeting className="hidden sm:inline-flex" />
           <ThemeToggleCompact />
           <UserProfileActions />
         </div>
-        <DiwaliLightString />
       </header>
     </div>
   );
