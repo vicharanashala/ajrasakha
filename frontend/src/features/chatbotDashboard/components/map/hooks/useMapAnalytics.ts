@@ -35,6 +35,11 @@ interface UseMapAnalyticsProps {
 //   return aliases[key] || key;
 // };
 
+// The API appends one extra row for questions that belong to no state. It must never
+// take part in the per-state name lookup or ranking, which are only for real states.
+const NO_STATE_KEY = "__no_state__";
+const isRealState = (row: any) => row?.state !== NO_STATE_KEY;
+
 export function useMapAnalytics({
   statesGeo,
   districtsAll,
@@ -74,14 +79,16 @@ export function useMapAnalytics({
     if (!allStatesData) return new Map();
 
     return new Map(
-      allStatesData.map((item) => [String(item.state).toLowerCase(), item]),
+      allStatesData
+        .filter(isRealState)
+        .map((item) => [String(item.state).toLowerCase(), item]),
     );
   }, [allStatesData]);
 
   const stateRankMap = useMemo(() => {
   if (!allStatesData) return new Map<string, number>();
 
-  const sorted = [...allStatesData].sort((a, b) => {
+  const sorted = allStatesData.filter(isRealState).sort((a, b) => {
     switch (metric) {
 case "users":
   return hasDateFilter

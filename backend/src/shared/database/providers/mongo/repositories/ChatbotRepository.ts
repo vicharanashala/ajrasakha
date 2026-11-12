@@ -78,6 +78,20 @@ const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 //   ],
 // });
 
+// Values of `details.state` that mean "this question belongs to no state"
+// (null also matches a missing field). Used both to count the map's "No state" row
+// and to list those questions, so the count and the list always agree.
+const NO_STATE_VALUES: Array<string | null> = [
+  null,
+  '',
+  'all',
+  'All',
+  '<unknown>',
+  'Not Specified',
+];
+// Special `state` value the frontend sends to list the "No state" questions.
+const NO_STATE_KEY = '__no_state__';
+
 const buildExternalUserMatch = () => ({
   $or: [
     {userRole: {$in: EXTERNAL_USER_ROLES}},
@@ -2430,11 +2444,22 @@ export class ChatbotRepository implements IChatbotRepository {
         //   {session},
         // ),
 
+        // Total Installs represents verified farmers who submitted a profile.
+        // Keep this role predicate aligned with the Users-table Farmer filter,
+        // which accepts the role stored in either field.
         this.users.countDocuments(
           {
-            ...userDocFilter,
-            farmerProfile: {$exists: true, $ne: null},
-            isVerified: true,
+            $and: [
+              userDocFilter,
+              {farmerProfile: {$exists: true, $ne: null}},
+              {isVerified: true},
+              {
+                $or: [
+                  {userRole: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                  {role: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                ],
+              },
+            ],
           },
           {session},
         ),
@@ -9311,48 +9336,13 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {isDeleted: {$ne: true}}},
+            // Keep only the fields this pipeline needs (smaller documents through the lookup/group)
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                msgCount: {$sum: 1},
-              },
-            },
-            // Skip conversations with only 1 message — no gaps, nothing to measure
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9363,6 +9353,57 @@ async getAllUserMessageIds(
         `Failed to get avg session duration v2: ${error}`,
       );
     }
+  }
+
+  // Per-conversation active session time WITHOUT a global $sort / $setWindowFields.
+  // Collects each conversation's message timestamps, sorts that small array, and
+  // sums only the gaps <= 30 min (longer gaps = user was away). Conversations with
+  // a single message are skipped. Emits { _id, firstMsg, activeSessionMs }.
+  // Requires MongoDB 5.2+ ($sortArray).
+  private buildSessionDurationStages(): any[] {
+    return [
+      {$group: {_id: '$conversationId', times: {$push: '$createdAt'}}},
+      {$match: {$expr: {$gt: [{$size: '$times'}, 1]}}},
+      {
+        $project: {
+          firstMsg: {$min: '$times'},
+          activeSessionMs: {
+            $let: {
+              vars: {sorted: {$sortArray: {input: '$times', sortBy: 1}}},
+              in: {
+                $reduce: {
+                  input: {$range: [1, {$size: '$$sorted'}]},
+                  initialValue: 0,
+                  in: {
+                    $let: {
+                      vars: {
+                        gap: {
+                          $subtract: [
+                            {$arrayElemAt: ['$$sorted', '$$this']},
+                            {
+                              $arrayElemAt: [
+                                '$$sorted',
+                                {$subtract: ['$$this', 1]},
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                      in: {
+                        $add: [
+                          '$$value',
+                          {$cond: [{$lte: ['$$gap', 1800000]}, '$$gap', 0]},
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ];
   }
 
   // ── NEW: Inactivity-gap based weekly avg session duration (sparkline/delta) ──
@@ -9387,49 +9428,9 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {createdAt: {$gte: since}, isDeleted: {$ne: true}}},
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-                    window: {documents: ['unbounded', 'current']},
-                  },
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                firstMsg: {$min: '$firstMsgInConv'},
-                msgCount: {$sum: 1},
-              },
-            },
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {
               $addFields: {
                 week: {
@@ -9458,7 +9459,7 @@ async getAllUserMessageIds(
             },
             {$sort: {week: 1}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9493,92 +9494,11 @@ async getAllUserMessageIds(
                 isDeleted: {$ne: true},
               },
             },
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
 
             ...userTypeLookupStages,
 
-            {
-              $sort: {
-                conversationId: 1,
-                createdAt: 1,
-              },
-            },
-
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-
-                sortBy: {
-                  createdAt: 1,
-                },
-
-                output: {
-                  prevCreatedAt: {
-                    $shift: {
-                      output: '$createdAt',
-                      by: -1,
-                    },
-                  },
-
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-
-                    window: {
-                      documents: ['unbounded', 'current'],
-                    },
-                  },
-                },
-              },
-            },
-
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-
-                    {
-                      $subtract: ['$createdAt', '$prevCreatedAt'],
-                    },
-
-                    0,
-                  ],
-                },
-              },
-            },
-
-            // Ignore inactive gaps > 30 mins
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-
-            {
-              $group: {
-                _id: '$conversationId',
-
-                activeSessionMs: {
-                  $sum: '$activeGapMs',
-                },
-
-                firstMsg: {
-                  $min: '$firstMsgInConv',
-                },
-
-                msgCount: {
-                  $sum: 1,
-                },
-              },
-            },
-
-            // Ignore single-message conversations
-            {
-              $match: {
-                msgCount: {$gt: 1},
-              },
-            },
+            ...this.buildSessionDurationStages(),
 
             // MONTH GROUPING
             {
@@ -9626,7 +9546,7 @@ async getAllUserMessageIds(
               },
             },
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -16029,17 +15949,21 @@ async getAllUserMessageIds(
         };
       }
 
+      // NOTE: the Unique/Duplicate filter (typeMatch) and the non_agri exclusion both
+      // constrain `status`, so they must be separate $and conditions. Putting two
+      // `status` keys in one object makes the later one silently overwrite the first,
+      // which is why Unique/Duplicate used to return the same rows as All.
       const finalMatch: any = {
         ...matchStage,
         ...cropMatch,
-        ...typeMatch,
         ...searchMatch,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
+          typeMatch,
+          {status: {$ne: 'non_agri'}},
         ],
-        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
@@ -16274,12 +16198,12 @@ async getAllUserMessageIds(
         };
       }
       if (status === 'pending') {
-        // matchQuery.status = {
-        //   $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
-        // };
+        // "In Queue" = every question that is not closed / non-GDB. This must match the
+        // tile's formula (total - closed - non-GDB), so it includes open, in-review,
+        // delayed, hold, etc. -- not only questions whose status is literally 'pending'.
         matchQuery.status = {
-          $in: ['pending'],
-        }
+          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+        };
       }
 
       // Apply date range
@@ -17404,6 +17328,13 @@ async getAllUserMessageIds(
         },
       ]).toArray();
 
+      // Questions that belong to no state (shown as the map's "No state" row). Same base
+      // filters as the per-state counts above, with the state condition inverted.
+      const noStateQuestionCount = await this.QuestionCollection.countDocuments({
+        ...matchQuery,
+        'details.state': {$in: NO_STATE_VALUES},
+      });
+
       const feedbackMatch: any = {
         feedback: {$ne: null},
         'feedback.rating': {$exists: true},
@@ -17755,7 +17686,24 @@ async getAllUserMessageIds(
           }
         }
       }
-      return Array.from(stateMap.values());
+      const stateRows = Array.from(stateMap.values());
+      if (noStateQuestionCount > 0) {
+        stateRows.push({
+          state: NO_STATE_KEY,
+          stateCode: null,
+          totalQuestions: noStateQuestionCount,
+          totalUsers: 0,
+          activeUsers: 0,
+          totalFeedbacks: 0,
+          positiveFeedbacks: 0,
+          negativeFeedbacks: 0,
+          districtCoordinators: 0,
+          blockCoordinators: 0,
+          villageVolunteers: 0,
+          coordinators: 0,
+        });
+      }
+      return stateRows;
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
@@ -19695,9 +19643,13 @@ async getAllUserMessageIds(
         throw new BadRequestError('state is required');
       }
 
-      const stateMatch = {
-        'details.state': stateLabel,
-      };
+      // The map's "No state" row asks for questions that belong to no state.
+      const isNoStateRequest = stateLabel === NO_STATE_KEY;
+      if (isNoStateRequest) {
+        baseMatch['details.state'] = {$in: NO_STATE_VALUES};
+      }
+
+      const stateMatch = isNoStateRequest ? {} : {'details.state': stateLabel};
 
       const typeMatch =
         questionType === 'duplicate'

@@ -4,6 +4,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { Toaster as SonnerToast } from "sonner";
 import { NotFound } from "@/components/NotFound";
 import { BulkUploadProgressTracker } from "@/components/BulkUploadProgressTracker";
+import { DiwaliCelebration } from "@/components/festive/DiwaliCelebration";
+import { DiwaliThemeDecorations } from "@/components/festive/DiwaliThemeDecorations";
 
 export const queryClient = new QueryClient();
 
@@ -15,6 +17,8 @@ export const Route = createRootRoute({
           {/* <ReactHotToast position="bottom-right" reverseOrder={false} /> */}
           <SonnerToast richColors position="bottom-right" />
           <BulkUploadProgressTracker />
+          <DiwaliCelebration />
+          <DiwaliThemeDecorations />
           <Outlet />
         </QueryClientProvider>
       </ThemeProvider>

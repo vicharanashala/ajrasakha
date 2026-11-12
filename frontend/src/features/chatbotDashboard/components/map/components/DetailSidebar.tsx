@@ -75,6 +75,7 @@ interface DetailSidebarProps {
   monthlyAnalyticsData?: any;
   questionStatusRange?: any;
   questionStatusDateRange?: DateRange | undefined
+  noStateQuestions?: number;
 }
 
 export function DetailSidebar({
@@ -105,8 +106,10 @@ export function DetailSidebar({
   weeklyAnalyticsData,
   monthlyAnalyticsData,
   questionStatusRange,
-  questionStatusDateRange
+  questionStatusDateRange,
+  noStateQuestions = 0,
 }: DetailSidebarProps) {
+  const [showNoStateModal, setShowNoStateModal] = useState(false);
   const [isPassed, setIsPassed] = useState(false);
   const [showActiveUsersModal, setShowActiveUsersModal] = useState(false);
   const [showModeratorsModal, setShowModeratorsModal] = useState(false);
@@ -403,6 +406,18 @@ export function DetailSidebar({
                 endDate={questionStatusRange.endTime}
               />
             ) : null}
+            {showNoStateModal && (
+              <QueryCategoryQuestionsModal
+                state="__no_state__"
+                source={source}
+                userType={userType}
+                isQueryCategory={false}
+                isIndiaView
+                onClose={() => setShowNoStateModal(false)}
+                startDate={questionStatusRange.startTime}
+                endDate={questionStatusRange.endTime}
+              />
+            )}
             {showActiveUsersModal && (
               <ActiveUserDetailsModal
                 source={source}
@@ -665,6 +680,8 @@ export function DetailSidebar({
             renderCardValue={renderCardValue}
             metric={metric}
             questionStatusRnage = {questionStatusRange}
+            noStateQuestions={noStateQuestions}
+            onSelectNoState={() => setShowNoStateModal(true)}
           />
         )}
 
