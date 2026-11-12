@@ -28,7 +28,7 @@ MAX_PASSAGES = 8
 # a reviewer is waiting on the button, so a draft gives up after at most 3.5 minutes
 # (3 attempts of up to 70 seconds) instead of retrying for as long as the checks do
 DRAFT_ATTEMPTS = 3
-DRAFT_ATTEMPT_TIMEOUT_SECONDS = 70
+DRAFT_ATTEMPT_TIMEOUT_SECONDS = 120
 # the model reasons before it answers, and the reasoning counts against this budget: at 2048 it
 # often used all of it and returned no answer text (finish_reason "length")
 DRAFT_MAX_COMPLETION_TOKENS = 6000
@@ -136,6 +136,8 @@ WRITING_RULES = """Rules for writing the answer:
 - If a title in the list names a crop, disease, pest or chemical other than the one asked, give it a plain title for the one asked.
 - For chemicals, give the products the passages list for this crop, each with the dose and waiting period of ITS OWN table row. Never mix figures from different rows. If a waiting period is missing or not credible (for example over 100 days), leave it out. When products with different modes of action are given, suggest rotating them.
 - Never mention "the passages" or "the write-up". When the documents do not cover what was asked, say so once, naming the document (for example "The Punjab Package of Practices does not specify ..."), and then give what they do recommend.
+- When passages come from different editions or years of the same document, use the newest edition's figures; name the year when an older edition is used, and never mix figures of different editions.
+- Never name an individual person (officer, staff member, scientist or author), and give no personal phone number or e-mail; name the office or post instead.
 - After each sentence put only the one to three passage numbers that hold its facts, never a long run of numbers.
 - Mark advice that is optional or depends on the farmer's case.
 

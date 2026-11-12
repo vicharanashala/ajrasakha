@@ -18,6 +18,7 @@ import {GLOBAL_TYPES} from '#root/types.js';
 import {IUser} from '#root/shared/interfaces/models.js';
 import {
   EditGdbFlagDto,
+  EditGdbQuestionDto,
   GdbCleaningAnswerParam,
   GdbDecisionDto,
   GdbLibraryDocumentParam,
@@ -118,6 +119,22 @@ export class GdbCleaningController {
       body.correctedAnswer,
       user._id.toString(),
     );
+  }
+
+  @OpenAPI({
+    summary: 'Edit the question text and/or its domain',
+    description:
+      'Edits the question in the reviewer app, through the same update it uses (audit trail included), then rebuilds the golden answer\'s search data when the text changed.',
+  })
+  @Put('/:answerId/question')
+  @HttpCode(200)
+  @Authorized(ROLES)
+  async editQuestion(
+    @Params() params: GdbCleaningAnswerParam,
+    @Body() body: EditGdbQuestionDto,
+    @CurrentUser() user: IUser,
+  ) {
+    return this.service.editQuestion(params.answerId, body, user);
   }
 
   @OpenAPI({
