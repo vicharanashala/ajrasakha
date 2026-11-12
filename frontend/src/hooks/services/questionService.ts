@@ -17,6 +17,7 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 import type { ReviewLevelsApiResponse } from "@/features/questions/types";
+import type { IGdbCheck } from "@/features/gdb-cleaning/types";
 import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
@@ -85,20 +86,71 @@ export type RdqaQuestion = {
       crop?: string;
       state?: string;
       district?: string;
+      season?: string;
+      domain?: string[];
     };
-    closedAt: string;
+    source?: string;
+    status?: string;
+    priority?: string;
+    isAutoAllocate?: boolean;
+    createdAt?: string;
+    closedAt?: string;
+    checks?: IGdbCheck[];
+    flags?: string[];
+    notEvaluated?: string[];
+    rdqaCheckedAt?: string | null;
   };
   answer: {
     _id: string;
     answer: string; // The actual answer text
+    sources?: Array<{
+      source?: string;
+      page?: string | number | number[];
+      sourceName?: string;
+      sourceType?: string;
+    }>;
+    status?: string;
+    approvalCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
     isFinalAnswer: boolean;
     modifiedBy: string | null;
     approvedBy: string;
     approvedByEmail: string | null;
+    checks?: IGdbCheck[];
+    flags?: string[];
+    notEvaluated?: string[];
+    checkedAt?: string | null;
   };
   approvedBy: string;
   closedAt: string;
+  checks?: IGdbCheck[];
+  flags?: string[];
+  notEvaluated?: string[];
+  checkedAt?: string | null;
 };
+
+export interface IRdqaCheckJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  passed: number;
+  flagged: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  logs: string[];
+  errors: any[];
+  results?: Array<{
+    questionId: string;
+    answerId?: string;
+    passed: boolean;
+    flags: string[];
+    notEvaluated: string[];
+    error?: string;
+  }>;
+}
 
 /** Backend response structure for RDQA endpoint */
 export type RdqaQuestionsResponse = {
@@ -1262,6 +1314,19 @@ export class QuestionService {
       moderatorDistribution: [],
       questions: [],
     };
+  }
+
+  /** Trigger RDQA quality checks on multiple questions in background */
+  async checkRdqaQuestions(questionIds: string[]): Promise<{ message: string; jobId: string } | null> {
+    return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/rdqa/check`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds }),
+    });
+  }
+
+  /** Fetch status of an RDQA quality check background job */
+  async getRdqaCheckJobStatus(jobId: string): Promise<IRdqaCheckJobStatus | null> {
+    return apiFetch<IRdqaCheckJobStatus>(`${this._baseUrl}/rdqa/check/jobs/${jobId}`);
   }
 
   /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
