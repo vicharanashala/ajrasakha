@@ -1,5 +1,5 @@
 ﻿import { useState, useMemo, useEffect } from "react";
-import { Calendar, Eye, X, ChevronLeft, ChevronRight, BarChart3, Pencil } from "lucide-react";
+import { Calendar, Eye, X, ChevronLeft, ChevronRight, BarChart3, Pencil, Edit } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Button } from "@/components/atoms/button";
@@ -13,6 +13,49 @@ import { format, subDays } from "date-fns";
 import { cn } from "@/lib/utils";
 import { EditRdqaAnswerModal } from "./EditRdqaAnswerModal";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/atoms/context-menu";
+import { AddOrEditQuestionDialog } from "@/features/question-table-page/AddOrEditQuestionDialog";
+import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
+import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
+import { toast } from "sonner";
+
+// Convert RdqaQuestion to IDetailedQuestion for the full edit dialog
+function convertRdqaToDetailedQuestion(rdqaQuestion: RdqaQuestion): IDetailedQuestion {
+  return {
+    _id: rdqaQuestion.question._id,
+    userId: rdqaQuestion.authorId,
+    question: rdqaQuestion.question.question,
+    context: rdqaQuestion.context || "",
+    aiInitialAnswer: rdqaQuestion.answer.answer,
+    status: "closed" as QuestionStatus,
+    totalAnswersCount: 1,
+    priority: "medium",
+    metrics: {
+      accepted: 0,
+      pending: 0,
+      rejected: 0,
+      total: 0,
+    },
+    details: {
+      state: rdqaQuestion.question.details?.state || "",
+      district: rdqaQuestion.question.details?.district || "",
+      crop: rdqaQuestion.question.details?.crop || "",
+      season: "",
+      domain: [],
+    },
+    source: "AJRASAKHA",
+    createdAt: undefined,
+    updatedAt: undefined,
+    review_level_number: undefined,
+    closedAt: rdqaQuestion.closedAt,
+  };
+}
 
 const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
 const ITEMS_PER_PAGE = 12;
@@ -50,6 +93,12 @@ export const RdqaPage = () => {
   const [showEditModal, setShowEditModal] = useState(false);
   const queryClient = useQueryClient();
 
+  // Full edit dialog state
+  const [fullEditQuestion, setFullEditQuestion] = useState<IDetailedQuestion | null>(null);
+  const [updatedData, setUpdatedData] = useState<IDetailedQuestion | null>(null);
+  const [showFullEditModal, setShowFullEditModal] = useState(false);
+  const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
+
   const { data: rdqaResponse, isLoading, error } = useRdqaQuestions(formatDateStr(selectedDate), API_LIMIT);
   const debouncedSearch = useDebounce(search, 300);
 
@@ -79,6 +128,60 @@ export const RdqaPage = () => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     return filteredQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   }, [filteredQuestions, currentPage]);
+
+  // Handle full question edit from context menu
+  const handleFullEdit = (rdqaQuestion: RdqaQuestion) => {
+    const detailedQuestion = convertRdqaToDetailedQuestion(rdqaQuestion);
+    setFullEditQuestion(detailedQuestion);
+    setUpdatedData(detailedQuestion);
+    setShowFullEditModal(true);
+  };
+
+  // Handle save from the full edit dialog
+  const handleUpdateQuestion = async (
+    mode: "add" | "edit",
+    entityId?: string,
+    flagReason?: string,
+    status?: QuestionStatus,
+  ) => {
+    try {
+      if (!entityId) {
+        toast.error(`Failed to identify and ${mode} the selected question.`);
+        return;
+      }
+
+      if (!updatedData) {
+        console.error("No data available to update.");
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append("question", updatedData.question);
+      formData.append("priority", updatedData.priority || "medium");
+      formData.append("state", updatedData.details?.state || "");
+      formData.append("district", updatedData.details?.district || "");
+      formData.append("crop", updatedData.details?.crop || "");
+      formData.append("season", updatedData.details?.season || "");
+      formData.append("domain", JSON.stringify(updatedData.details?.domain || []));
+      formData.append("context", updatedData.context || "");
+
+      await updateQuestion({
+        questionId: entityId,
+        formData,
+      });
+
+      toast.success(`Question ${mode === "add" ? "added" : "updated"} successfully`);
+      setShowFullEditModal(false);
+      setFullEditQuestion(null);
+      setUpdatedData(null);
+      
+      // Refresh the RDQA questions list
+      queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
+    } catch (error) {
+      console.error("Error updating question:", error);
+      toast.error("Failed to update question. Please try again.");
+    }
+  };
 
   if (!currentUser || currentUser.role !== "admin") {
     return (
@@ -151,46 +254,69 @@ export const RdqaPage = () => {
             <>
               <div className="divide-y divide-border">
                 {paginatedQuestions.map((question) => (
-                  <div key={question._id} className="border-b border-border p-4 transition-colors hover:bg-muted/30">
-                    <div className="flex items-start justify-between gap-4">
-                      <div className="flex-1 min-w-0">
-                        <p className="font-medium text-sm leading-snug">{question.question?.question || "N/A"}</p>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                          {question.question?.details?.crop && (
-                            <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                              {question.question.details.crop}
-                            </span>
-                          )}
-                          {question.question?.details?.state && (
-                            <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                              {question.question.details.state}
-                            </span>
-                          )}
-                          {question.closedAt && (
-                            <span className="text-muted-foreground/70">
-                              Closed: {new Date(question.closedAt).toLocaleDateString()}
-                            </span>
-                          )}
+                  <ContextMenu key={question._id}>
+                    <ContextMenuTrigger>
+                      <div className="border-b border-border p-4 transition-colors hover:bg-muted/30 cursor-pointer">
+                        <div className="flex items-start justify-between gap-4">
+                          <div className="flex-1 min-w-0">
+                            <p className="font-medium text-sm leading-snug">{question.question?.question || "N/A"}</p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                              {question.question?.details?.crop && (
+                                <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                                  {question.question.details.crop}
+                                </span>
+                              )}
+                              {question.question?.details?.state && (
+                                <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                  {question.question.details.state}
+                                </span>
+                              )}
+                              {question.closedAt && (
+                                <span className="text-muted-foreground/70">
+                                  Closed: {new Date(question.closedAt).toLocaleDateString()}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <div className="flex gap-2 shrink-0">
+                            <Button variant="outline" size="sm" onClick={() => setSelectedQuestion(question)} className="shrink-0">
+                              <Eye className="h-4 w-4 mr-1" />View
+                            </Button>
+                            <Button
+                              variant="default"
+                              size="sm"
+                              onClick={() => {
+                                setEditQuestion(question);
+                                setShowEditModal(true);
+                              }}
+                              className="shrink-0 bg-primary hover:bg-primary/90"
+                            >
+                              <Pencil className="h-4 w-4 mr-1" />Edit
+                            </Button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex gap-2 shrink-0">
-                        <Button variant="outline" size="sm" onClick={() => setSelectedQuestion(question)} className="shrink-0">
-                          <Eye className="h-4 w-4 mr-1" />View
-                        </Button>
-                        <Button
-                          variant="default"
-                          size="sm"
-                          onClick={() => {
-                            setEditQuestion(question);
-                            setShowEditModal(true);
-                          }}
-                          className="shrink-0 bg-primary hover:bg-primary/90"
-                        >
-                          <Pencil className="h-4 w-4 mr-1" />Edit
-                        </Button>
-                      </div>
-                    </div>
-                  </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem
+                        onSelect={(e) => {
+                          // SetTimeout is essential because it will resolve the UI Overlay conflicts happening due to edit modal being opened before closing the context menu
+                          setTimeout(() => {
+                            e.preventDefault();
+                            handleFullEdit(question);
+                          }, 0);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-2 text-blue-500" />
+                        Edit
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => setSelectedQuestion(question)}>
+                        <Eye className="w-4 h-4 mr-2 text-primary" />
+                        View
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
               <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/50 sticky bottom-0">
@@ -403,6 +529,19 @@ export const RdqaPage = () => {
           // Refresh the RDQA questions list
           queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
         }}
+      />
+
+      {/* Full Question Edit Dialog - Same as All Questions tab */}
+      <AddOrEditQuestionDialog
+        open={showFullEditModal}
+        setOpen={setShowFullEditModal}
+        updatedData={updatedData}
+        setUpdatedData={setUpdatedData}
+        onSave={handleUpdateQuestion}
+        question={fullEditQuestion}
+        userRole={(currentUser?.role as UserRole) || "expert"}
+        isLoadingAction={updatingQuestion}
+        mode="edit"
       />
     </>
   );
