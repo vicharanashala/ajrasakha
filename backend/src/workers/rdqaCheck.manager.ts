@@ -3,12 +3,6 @@ import { GLOBAL_TYPES } from '#root/types.js';
 import type { MongoDatabase } from '#root/shared/database/index.js';
 import type { IAnswer, IQuestion, IGdbCleaningCheck, IRdqaCheck } from '#root/shared/interfaces/models.js';
 import { ObjectId } from 'mongodb';
-import fs from 'node:fs';
-import path from 'node:path';
-import { fileURLToPath } from 'node:url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
 
 export interface RdqaCheckJobResult {
   questionId: string;
@@ -51,178 +45,6 @@ function getAnswerCheckBaseUrl(): string {
 }
 
 /**
- * Load banned chemicals list from data directory if available.
- */
-let cachedBannedChemicals: string[] | null = null;
-function getBannedChemicals(): string[] {
-  if (cachedBannedChemicals) return cachedBannedChemicals;
-  try {
-    const candidates = [
-      path.resolve(__dirname, '../../../apis/answer-check/data/quality_banned_chemicals.json'),
-      path.resolve(__dirname, '../../../../apis/answer-check/data/quality_banned_chemicals.json'),
-      path.resolve(process.cwd(), 'apis/answer-check/data/quality_banned_chemicals.json'),
-    ];
-    for (const p of candidates) {
-      if (fs.existsSync(p)) {
-        const raw = fs.readFileSync(p, 'utf-8');
-        const parsed = JSON.parse(raw);
-        cachedBannedChemicals = parsed.map((item: any) => item.name).filter(Boolean);
-        return cachedBannedChemicals!;
-      }
-    }
-  } catch {
-    // ignore
-  }
-  cachedBannedChemicals = [
-    'Alachlor', 'Aldicarb', 'Aldrin', 'Benzene Hexachloride', 'Benomyl',
-    'Calcium Cyanide', 'Carbaryl', 'Carbosulfan', 'Chlorbenzilate', 'Chlordane',
-    'Chlorofenvinphos', 'Diazinon', 'Dieldrin', 'Endosulfan', 'Endrin',
-    'Lindane', 'Linuron', 'Methyl Parathion', 'Paraquat Dimethyl Sulphate',
-    'Phorate', 'Phosphamidon', 'Sodium Cyanide', 'Triazophos', 'Tridemorph',
-  ];
-  return cachedBannedChemicals!;
-}
-
-/**
- * Fallback rule-based check when the external Python Answer Check API is unavailable.
- */
-function evaluateRulesLocally(
-  questionText: string,
-  answerText: string,
-  sources: any[],
-): { checks: IGdbCleaningCheck[]; flags: string[]; notEvaluated: string[] } {
-  const checks: IGdbCleaningCheck[] = [];
-  const lowerAnswer = (answerText || '').toLowerCase();
-
-  // 1. Banned Chemical Check
-  const banned = getBannedChemicals();
-  const foundBanned = banned.filter((chem) =>
-    new RegExp(`\\b${chem.toLowerCase()}\\b`, 'i').test(lowerAnswer)
-  );
-  if (foundBanned.length > 0) {
-    checks.push({
-      parameter: 'banned_chemical',
-      category: 'chemical',
-      result: 'FAIL',
-      reason: `Found banned chemical(s): ${foundBanned.join(', ')}`,
-      highlight: foundBanned,
-    });
-  } else {
-    checks.push({
-      parameter: 'banned_chemical',
-      category: 'chemical',
-      result: 'PASS',
-      reason: 'No banned chemicals found in answer',
-    });
-  }
-
-  // 2. Source Present Check
-  if (!sources || sources.length === 0) {
-    checks.push({
-      parameter: 'source_present',
-      category: 'source',
-      result: 'FAIL',
-      reason: 'No source attached to answer',
-    });
-  } else {
-    checks.push({
-      parameter: 'source_present',
-      category: 'source',
-      result: 'PASS',
-      reason: `${sources.length} source(s) attached`,
-    });
-  }
-
-  // 3. Page Number Present Check
-  if (sources && sources.length > 0) {
-    const hasPage = sources.some((s) => s.page && String(s.page).trim() !== '');
-    if (!hasPage) {
-      checks.push({
-        parameter: 'page_number_present',
-        category: 'source',
-        result: 'FAIL',
-        reason: 'None of the attached sources include a page number',
-      });
-    } else {
-      checks.push({
-        parameter: 'page_number_present',
-        category: 'source',
-        result: 'PASS',
-        reason: 'Page numbers present on attached sources',
-      });
-    }
-  } else {
-    checks.push({
-      parameter: 'page_number_present',
-      category: 'source',
-      result: 'FAIL',
-      reason: 'No sources attached',
-    });
-  }
-
-  // 4. Officer Name Check
-  const officerMatches = lowerAnswer.match(/\b(dr\.|prof\.|mr\.|mrs\.|officer|director|scientist)\s+[a-z]+/gi);
-  if (officerMatches && officerMatches.length > 0) {
-    checks.push({
-      parameter: 'officer_name',
-      category: 'terminology',
-      result: 'FAIL',
-      reason: `Potential officer/personal name found: ${officerMatches.join(', ')}`,
-      highlight: officerMatches,
-    });
-  } else {
-    checks.push({
-      parameter: 'officer_name',
-      category: 'terminology',
-      result: 'PASS',
-      reason: 'No officer names detected',
-    });
-  }
-
-  // 5. Answer Structure Check
-  if (!answerText || answerText.trim().length < 30) {
-    checks.push({
-      parameter: 'answer_structure',
-      category: 'answer_quality',
-      result: 'FAIL',
-      reason: 'Answer is too short or missing key details',
-    });
-  } else {
-    checks.push({
-      parameter: 'answer_structure',
-      category: 'answer_quality',
-      result: 'PASS',
-      reason: 'Answer length and basic structure are adequate',
-    });
-  }
-
-  // Remaining checks that require LLM / external API are marked NOT_EVALUATED
-  const externalChecks = [
-    { parameter: 'restricted_chemical', category: 'chemical' },
-    { parameter: 'uniformity_of_dose', category: 'chemical' },
-    { parameter: 'source_fidelity', category: 'chemical' },
-    { parameter: 'query_properly_answered', category: 'answer_quality' },
-    { parameter: 'sequence', category: 'answer_quality' },
-    { parameter: 'contextuality', category: 'answer_quality' },
-    { parameter: 'private_product_name', category: 'terminology' },
-    { parameter: 'local_name_mismatch', category: 'terminology' },
-  ];
-
-  for (const item of externalChecks) {
-    checks.push({
-      parameter: item.parameter,
-      category: item.category,
-      result: 'NOT_EVALUATED',
-      reason: 'External answer check model offline; heuristic check applied',
-    });
-  }
-
-  const flags = checks.filter((c) => c.result === 'FAIL').map((c) => c.parameter);
-  const notEvaluated = checks.filter((c) => c.result === 'NOT_EVALUATED').map((c) => c.parameter);
-  return { checks, flags, notEvaluated };
-}
-
-/**
  * Call the Answer Check API (POST /check and poll GET /check/{job_id}).
  */
 async function callAnswerCheckApi(payload: {
@@ -235,28 +57,33 @@ async function callAnswerCheckApi(payload: {
 }): Promise<{ checks: IGdbCleaningCheck[]; flags: string[]; notEvaluated: string[] }> {
   const baseUrl = getAnswerCheckBaseUrl();
 
-  const submitRes = await fetch(`${baseUrl}/check`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      question: payload.question,
-      answer: payload.answer,
-      crop: payload.crop || 'Unknown',
-      state: payload.state || 'Unknown',
-      sources: payload.sources.map((s) => ({
-        sourceName: s.sourceName || '',
-        source: s.source || '',
-        page: s.page ? String(s.page) : '',
-        sourceType: s.sourceType,
-      })),
-      answerId: payload.answerId,
-    }),
-    signal: AbortSignal.timeout(15000),
-  });
+  let submitRes: Response;
+  try {
+    submitRes = await fetch(`${baseUrl}/check`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question: payload.question,
+        answer: payload.answer,
+        crop: payload.crop || 'Unknown',
+        state: payload.state || 'Unknown',
+        sources: payload.sources.map((s) => ({
+          sourceName: s.sourceName || '',
+          source: s.source || '',
+          page: s.page ? String(s.page) : '',
+          sourceType: s.sourceType,
+        })),
+        answerId: payload.answerId,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+  } catch (err: any) {
+    throw new Error(`AI Check server unreachable at ${baseUrl}: ${err?.message || 'Connection failed'}`);
+  }
 
   if (!submitRes.ok) {
     const errorText = await submitRes.text();
-    throw new Error(`Submit check returned ${submitRes.status}: ${errorText.slice(0, 150)}`);
+    throw new Error(`AI Check server error (${submitRes.status}): ${errorText.slice(0, 150)}`);
   }
 
   const summary = (await submitRes.json()) as { job_id: string; status: string };
@@ -373,9 +200,16 @@ async function processQuestionCheck(
       answerId: answer._id?.toString(),
     });
   } catch (apiErr: any) {
-    // Graceful fallback to rule-based evaluation if Answer Check server is offline or fails
-    console.warn(`[RdqaCheck] Answer Check API offline/error for ${questionId} (${apiErr?.message}), using local heuristics`);
-    evaluation = evaluateRulesLocally(questionText, answerText, sources);
+    const errorMsg = apiErr?.message || 'Answer Check AI server failed';
+    console.error(`[RdqaCheck] Check failed for question ${questionId}: ${errorMsg}`);
+    return {
+      questionId,
+      answerId: answer._id?.toString(),
+      passed: false,
+      flags: [],
+      notEvaluated: [],
+      error: errorMsg,
+    };
   }
 
   const { checks, flags, notEvaluated } = evaluation;
