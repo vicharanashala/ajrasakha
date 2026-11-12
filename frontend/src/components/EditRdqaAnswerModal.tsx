@@ -23,7 +23,7 @@ import { Textarea } from "@/components/atoms/textarea";
 import { SourceUrlManager } from "@/components/source-url-manager";
 import type { SourceItem } from "@/types";
 import { useUpdateAnswer } from "@/hooks/api/answer/useUpdateAnswer";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { format } from "date-fns";
 import { BookOpen, ExternalLink, Pencil, Save, Loader2, X, Maximize2, Minimize2 } from "lucide-react";
 import type { RdqaQuestion } from "@/hooks/services/questionService";
@@ -46,7 +46,7 @@ export const EditRdqaAnswerModal = ({
   const [isAnswerExpanded, setIsAnswerExpanded] = useState(false);
   const [editedAnswer, setEditedAnswer] = useState(question?.answer?.answer ?? "");
   const [editedSources, setEditedSources] = useState<SourceItem[]>(
-    question?.answer?.sources ?? []
+    (question?.answer?.sources as unknown as SourceItem[]) ?? []
   );
 
   const { mutateAsync: updateAnswer, isPending: isSaving } = useUpdateAnswer();
@@ -55,7 +55,7 @@ export const EditRdqaAnswerModal = ({
   useEffect(() => {
     if (question) {
       setEditedAnswer(question.answer?.answer ?? "");
-      setEditedSources(question?.answer?.sources ?? []);
+      setEditedSources((question.answer?.sources as unknown as SourceItem[]) ?? []);
       setIsEditing(false);
       setShowConfirm(false);
     }
@@ -68,7 +68,7 @@ export const EditRdqaAnswerModal = ({
   const handleEditToggle = () => {
     if (question) {
       setEditedAnswer(question.answer?.answer ?? "");
-      setEditedSources(question?.answer?.sources ?? []);
+      setEditedSources((question.answer?.sources as unknown as SourceItem[]) ?? []);
     }
     setIsEditing(true);
   };
@@ -76,7 +76,7 @@ export const EditRdqaAnswerModal = ({
   const handleCancel = () => {
     if (question) {
       setEditedAnswer(question.answer?.answer ?? "");
-      setEditedSources(question.answer?.sources ?? []);
+      setEditedSources((question.answer?.sources as unknown as SourceItem[]) ?? []);
     }
     setIsEditing(false);
   };

@@ -43,7 +43,7 @@ import {
 import { AddOrEditQuestionDialog } from "@/features/question-table-page/AddOrEditQuestionDialog";
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 
 // Convert RdqaQuestion to IDetailedQuestion for the full edit dialog
 function convertRdqaToDetailedQuestion(rdqaQuestion: RdqaQuestion): IDetailedQuestion {

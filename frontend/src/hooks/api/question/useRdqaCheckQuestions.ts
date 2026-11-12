@@ -1,6 +1,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { QuestionService } from "../../services/questionService";
-import { toast } from "sonner";
+import { toast } from "@/shared/components/toast";
 import { useBulkUploadStore } from "@/stores/bulk-upload-store";
 
 const questionService = new QuestionService();
@@ -102,13 +102,6 @@ export const useRdqaCheckQuestions = () => {
       const totalCount = Array.isArray(questionIds) ? questionIds.length : 0;
 
       if (jobId && totalCount > 0) {
-        toast.info(
-          data?.message ||
-            (totalCount === 1
-              ? "Checking question quality..."
-              : `Starting RDQA quality check for ${totalCount} question(s)...`),
-          { duration: totalCount === 1 ? 3000 : 5000 }
-        );
         pollRdqaCheckJob(jobId, totalCount);
       } else {
         if (data?.message) {
