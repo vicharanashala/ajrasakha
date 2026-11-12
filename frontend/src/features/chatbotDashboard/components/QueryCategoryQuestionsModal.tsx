@@ -499,7 +499,9 @@ export function QueryCategoryQuestionsModal({
                         : period
                           ? `Question related to the ${period}`
                           : state && !district
-                            ? `Question releated to the ${state}`
+                            ? state === "__no_state__"
+                              ? "Questions that belong to no state"
+                              : `Question releated to the ${state}`
                             : `Question releated to the ${district}`}
             </p>
           </div>

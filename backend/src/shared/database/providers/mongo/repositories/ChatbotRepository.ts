@@ -78,6 +78,20 @@ const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 //   ],
 // });
 
+// Values of `details.state` that mean "this question belongs to no state"
+// (null also matches a missing field). Used both to count the map's "No state" row
+// and to list those questions, so the count and the list always agree.
+const NO_STATE_VALUES: Array<string | null> = [
+  null,
+  '',
+  'all',
+  'All',
+  '<unknown>',
+  'Not Specified',
+];
+// Special `state` value the frontend sends to list the "No state" questions.
+const NO_STATE_KEY = '__no_state__';
+
 const buildExternalUserMatch = () => ({
   $or: [
     {userRole: {$in: EXTERNAL_USER_ROLES}},
@@ -17303,6 +17317,13 @@ async getAllUserMessageIds(
         },
       ]).toArray();
 
+      // Questions that belong to no state (shown as the map's "No state" row). Same base
+      // filters as the per-state counts above, with the state condition inverted.
+      const noStateQuestionCount = await this.QuestionCollection.countDocuments({
+        ...matchQuery,
+        'details.state': {$in: NO_STATE_VALUES},
+      });
+
       const feedbackMatch: any = {
         feedback: {$ne: null},
         'feedback.rating': {$exists: true},
@@ -17654,7 +17675,24 @@ async getAllUserMessageIds(
           }
         }
       }
-      return Array.from(stateMap.values());
+      const stateRows = Array.from(stateMap.values());
+      if (noStateQuestionCount > 0) {
+        stateRows.push({
+          state: NO_STATE_KEY,
+          stateCode: null,
+          totalQuestions: noStateQuestionCount,
+          totalUsers: 0,
+          activeUsers: 0,
+          totalFeedbacks: 0,
+          positiveFeedbacks: 0,
+          negativeFeedbacks: 0,
+          districtCoordinators: 0,
+          blockCoordinators: 0,
+          villageVolunteers: 0,
+          coordinators: 0,
+        });
+      }
+      return stateRows;
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
@@ -19594,9 +19632,13 @@ async getAllUserMessageIds(
         throw new BadRequestError('state is required');
       }
 
-      const stateMatch = {
-        'details.state': stateLabel,
-      };
+      // The map's "No state" row asks for questions that belong to no state.
+      const isNoStateRequest = stateLabel === NO_STATE_KEY;
+      if (isNoStateRequest) {
+        baseMatch['details.state'] = {$in: NO_STATE_VALUES};
+      }
+
+      const stateMatch = isNoStateRequest ? {} : {'details.state': stateLabel};
 
       const typeMatch =
         questionType === 'duplicate'
