@@ -1,18 +1,25 @@
 import { useState, useMemo, useEffect } from "react";
 import {
-  Calendar,
-  Eye,
-  X,
+  Calendar as CalendarIcon,
   ChevronLeft,
   ChevronRight,
   BarChart3,
-  CheckCheck,
   CheckCircle2,
   Loader2,
   AlertCircle,
   RotateCw,
   Pencil,
   Edit,
+  Search,
+  Sparkles,
+  ShieldCheck,
+  Clock,
+  Copy,
+  Check,
+  ArrowUpDown,
+  History,
+  MoreVertical,
+  X,
 } from "lucide-react";
 import { useRdqaQuestions, type RdqaQuestion } from "@/hooks/api/question/useRdqaQuestions";
 import { useRdqaCheckQuestions } from "@/hooks/api/question/useRdqaCheckQuestions";
@@ -23,16 +30,38 @@ import { effectiveResult } from "@/features/gdb-cleaning/types";
 import { humanize } from "@/features/gdb-cleaning/utils";
 import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Button } from "@/components/atoms/button";
+import { Badge } from "@/components/atoms/badge";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/atoms/popover";
 import { Calendar as CalendarComponent } from "@/components/atoms/calendar";
 import { ScrollToTopButton } from "@/components/atoms/ScrollToTopButton";
 import Spinner from "@/components/atoms/spinner";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/atoms/dialog";
-import { Card, CardContent } from "@/components/atoms/card";
-import { format, subDays } from "date-fns";
-import { cn } from "@/lib/utils";
-import { EditRdqaAnswerModal } from "./EditRdqaAnswerModal";
-import { useQueryClient } from "@tanstack/react-query";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/atoms/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/atoms/tabs";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/atoms/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/atoms/select";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -40,6 +69,11 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/components/atoms/context-menu";
+import { format, subDays, addDays, isToday, isYesterday } from "date-fns";
+import { cn } from "@/lib/utils";
+import { EditRdqaAnswerModal } from "./EditRdqaAnswerModal";
+import { RdqaHistoryTimeline } from "./RdqaHistoryTimeline";
+import { useQueryClient } from "@tanstack/react-query";
 import { AddOrEditQuestionDialog } from "@/features/question-table-page/AddOrEditQuestionDialog";
 import type { IDetailedQuestion, QuestionStatus, UserRole } from "@/types";
 import { useUpdateQuestion } from "@/hooks/api/question/useUpdateQuestion";
@@ -77,7 +111,6 @@ function convertRdqaToDetailedQuestion(rdqaQuestion: RdqaQuestion): IDetailedQue
   };
 }
 
-const PAGE_HEIGHT_CLASSES = "h-[calc(100dvh-7.5rem)] md:h-[calc(100dvh-8.5rem)]";
 const ITEMS_PER_PAGE = 12;
 const API_LIMIT = 50;
 
@@ -113,11 +146,11 @@ function isAnswerModifiedAfterCheck(question: RdqaQuestion | null | undefined): 
   if (!checkedAt || !updatedAt) return false;
   const checkTime = new Date(checkedAt).getTime();
   const updateTime = new Date(updatedAt).getTime();
-  // Buffer of 2 seconds to avoid any minor clock jitter during same-step updates
   return updateTime - checkTime > 2000;
 }
 
 type StatusFilter = "all" | "flagged" | "modified" | "clean" | "not_checked";
+type SortOption = "default" | "flags_desc" | "flags_asc" | "modified_first" | "crop_asc";
 
 export const RdqaPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
@@ -125,11 +158,14 @@ export const RdqaPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
+  const [sortOption, setSortOption] = useState<SortOption>("default");
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
+  const [detailsTab, setDetailsTab] = useState<string>("overview");
   const [showDetailsModal, setShowDetailsModal] = useState(false);
   const [editQuestion, setEditQuestion] = useState<RdqaQuestion | null>(null);
   const [showEditModal, setShowEditModal] = useState(false);
+  const [copiedId, setCopiedId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   // Full edit dialog state
@@ -138,7 +174,10 @@ export const RdqaPage = () => {
   const [showFullEditModal, setShowFullEditModal] = useState(false);
   const { mutateAsync: updateQuestion, isPending: updatingQuestion } = useUpdateQuestion();
 
-  const { data: rdqaResponse, isLoading, error } = useRdqaQuestions(formatDateStr(selectedDate), API_LIMIT);
+  const { data: rdqaResponse, isLoading, error, refetch, isFetching } = useRdqaQuestions(
+    formatDateStr(selectedDate),
+    API_LIMIT
+  );
   const { mutateAsync: checkQuestionsMutation, isPending: isCheckingMutation } = useRdqaCheckQuestions();
 
   const {
@@ -155,7 +194,7 @@ export const RdqaPage = () => {
   const isRdqaChecking = bulkOpType === "rdqa_check" && bulkStatus === "running";
   const isChecking = isCheckingMutation || isRdqaChecking;
 
-  const debouncedSearch = useDebounce(search, 300);
+  const debouncedSearch = useDebounce(search, 250);
 
   const questions = rdqaResponse?.questions ?? [];
 
@@ -172,6 +211,14 @@ export const RdqaPage = () => {
       }
     }
   }, [questions, selectedQuestion]);
+
+  const copyToClipboard = (text: string, id: string, label: string) => {
+    if (!text) return;
+    navigator.clipboard.writeText(text);
+    setCopiedId(id);
+    toast.success(`${label} copied to clipboard`);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const filterCounts = useMemo(() => {
     let flagged = 0;
@@ -195,13 +242,17 @@ export const RdqaPage = () => {
       }
     }
 
-    return { flagged, modified, clean, notChecked };
+    const passRate =
+      questions.length > 0 ? Math.round((clean / questions.length) * 100) : 0;
+
+    return { flagged, modified, clean, notChecked, passRate };
   }, [questions]);
 
-  const filteredQuestions = useMemo(() => {
+  const filteredAndSortedQuestions = useMemo(() => {
     if (!questions) return [];
 
-    let list = questions;
+    let list = [...questions];
+
     if (statusFilter === "flagged") {
       list = list.filter((q) => {
         const flags = q.flags || q.answer?.flags || q.question?.flags || [];
@@ -224,33 +275,69 @@ export const RdqaPage = () => {
       });
     }
 
-    if (!debouncedSearch.trim()) return list;
-    const searchLower = debouncedSearch.toLowerCase();
-    return list.filter(
-      (q) =>
-        q.question?.question?.toLowerCase().includes(searchLower) ||
-        q.answer?.answer?.toLowerCase().includes(searchLower) ||
-        q.question?.details?.crop?.toLowerCase().includes(searchLower) ||
-        q.question?.details?.state?.toLowerCase().includes(searchLower)
-    );
-  }, [questions, statusFilter, debouncedSearch]);
+    if (debouncedSearch.trim()) {
+      const searchLower = debouncedSearch.toLowerCase();
+      list = list.filter(
+        (q) =>
+          q.question?.question?.toLowerCase().includes(searchLower) ||
+          q.answer?.answer?.toLowerCase().includes(searchLower) ||
+          q.question?.details?.crop?.toLowerCase().includes(searchLower) ||
+          q.question?.details?.state?.toLowerCase().includes(searchLower) ||
+          q.question?.details?.district?.toLowerCase().includes(searchLower) ||
+          q.answer?.approvedByEmail?.toLowerCase().includes(searchLower)
+      );
+    }
 
-  const totalQuestions = filteredQuestions.length;
+    if (sortOption === "flags_desc") {
+      list.sort((a, b) => {
+        const flagsA = (a.flags || a.answer?.flags || a.question?.flags || []).length;
+        const flagsB = (b.flags || b.answer?.flags || b.question?.flags || []).length;
+        return flagsB - flagsA;
+      });
+    } else if (sortOption === "flags_asc") {
+      list.sort((a, b) => {
+        const flagsA = (a.flags || a.answer?.flags || a.question?.flags || []).length;
+        const flagsB = (b.flags || b.answer?.flags || b.question?.flags || []).length;
+        return flagsA - flagsB;
+      });
+    } else if (sortOption === "modified_first") {
+      list.sort((a, b) => {
+        const modA = isAnswerModifiedAfterCheck(a) ? 1 : 0;
+        const modB = isAnswerModifiedAfterCheck(b) ? 1 : 0;
+        return modB - modA;
+      });
+    } else if (sortOption === "crop_asc") {
+      list.sort((a, b) => {
+        const cropA = (a.question?.details?.crop || "").toLowerCase();
+        const cropB = (b.question?.details?.crop || "").toLowerCase();
+        return cropA.localeCompare(cropB);
+      });
+    }
+
+    return list;
+  }, [questions, statusFilter, debouncedSearch, sortOption]);
+
+  const totalQuestions = filteredAndSortedQuestions.length;
   const totalPages = Math.ceil(totalQuestions / ITEMS_PER_PAGE);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedDate, debouncedSearch, statusFilter]);
+  }, [selectedDate, debouncedSearch, statusFilter, sortOption]);
 
   const paginatedQuestions = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredQuestions, currentPage]);
+    return filteredAndSortedQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+  }, [filteredAndSortedQuestions, currentPage]);
 
   const handleRunCheck = async () => {
+    if (!questions || questions.length === 0) {
+      toast.error("No questions available to check for this date");
+      return;
+    }
+
     const questionIds = questions
       .map((q) => q.question?._id || q.questionId || q._id)
-      .filter(Boolean);
+      .filter((id): id is string => Boolean(id));
 
     if (questionIds.length === 0) {
       toast.error("No questions available to check for this date");
@@ -260,7 +347,7 @@ export const RdqaPage = () => {
     try {
       await checkQuestionsMutation(questionIds);
     } catch {
-      // toast is handled in the mutation onError hook
+      // handled in mutation hook
     }
   };
 
@@ -270,13 +357,12 @@ export const RdqaPage = () => {
     try {
       await checkQuestionsMutation([questionId]);
     } catch {
-      // toast is handled in the mutation hook
+      // handled in hook
     } finally {
       setCheckingQuestionId(null);
     }
   };
 
-  // Handle full question edit from context menu
   const handleFullEdit = (rdqaQuestion: RdqaQuestion) => {
     const detailedQuestion = convertRdqaToDetailedQuestion(rdqaQuestion);
     setFullEditQuestion(detailedQuestion);
@@ -284,12 +370,11 @@ export const RdqaPage = () => {
     setShowFullEditModal(true);
   };
 
-  // Handle save from the full edit dialog
   const handleUpdateQuestion = async (
     mode: "add" | "edit",
     entityId?: string,
     _flagReason?: string,
-    _status?: QuestionStatus,
+    _status?: QuestionStatus
   ) => {
     try {
       if (!entityId) {
@@ -297,47 +382,37 @@ export const RdqaPage = () => {
         return;
       }
 
-      if (!updatedData) {
-        console.error("No data available to update.");
-        return;
-      }
+      if (!updatedData) return;
 
       if (!updatedData.question?.trim()) {
         toast.error("Question text is required.");
         return;
       }
-
       if (!updatedData.priority) {
         toast.error("Priority is required.");
         return;
       }
-
       if (!updatedData.details?.state?.trim()) {
         toast.error("State is required.");
         return;
       }
-
       if (!updatedData.details?.district?.trim()) {
         toast.error("District is required.");
         return;
       }
-
       if (!updatedData.details?.crop?.trim()) {
         toast.error("Crop is required.");
         return;
       }
-
       if (!updatedData.details?.season?.trim()) {
         toast.error("Season is required.");
         return;
       }
-
       if (!updatedData.details?.domain?.length) {
         toast.error("Domain is required.");
         return;
       }
 
-      // Build the update payload matching questions-table pattern
       const original = fullEditQuestion;
       const changed: Partial<IDetailedQuestion> = { _id: entityId };
 
@@ -355,19 +430,14 @@ export const RdqaPage = () => {
             (changed as Record<string, unknown>)[key] = updatedData[key];
           }
         }
-        if (
-          JSON.stringify(updatedData.details) !==
-          JSON.stringify(original.details)
-        ) {
+        if (JSON.stringify(updatedData.details) !== JSON.stringify(original.details)) {
           changed.details = updatedData.details;
         }
-        // Test-question toggle
         if (!!updatedData.isTesting !== !!original.isTesting) {
           changed.isTesting = !!updatedData.isTesting;
           changed.isAutoAllocate = !updatedData.isTesting;
         }
       } else {
-        // No original to diff against — fall back to sending the edited data
         Object.assign(changed, updatedData);
       }
 
@@ -377,8 +447,7 @@ export const RdqaPage = () => {
       setShowFullEditModal(false);
       setFullEditQuestion(null);
       setUpdatedData(null);
-      
-      // Refresh the RDQA questions list
+
       queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
     } catch (error) {
       console.error("Error updating question:", error);
@@ -407,135 +476,181 @@ export const RdqaPage = () => {
     100,
     Math.max(0, Math.round((bulkProcessed / Math.max(1, bulkTotal)) * 100))
   );
+
+  const formattedDateTitle = selectedDate
+    ? isToday(selectedDate)
+      ? "Today"
+      : isYesterday(selectedDate)
+      ? "Yesterday"
+      : format(selectedDate, "MMM d, yyyy")
+    : "Pick Date";
+
   if (!currentUser || currentUser.role !== "admin") {
     return (
-      <div className={cn("flex items-center justify-center", PAGE_HEIGHT_CLASSES)}>
-        <p className="text-muted-foreground">You don&apos;t have permission to view this page.</p>
+      <div className="flex flex-col items-center justify-center gap-3 p-12 text-center">
+        <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
+          <AlertCircle className="w-5 h-5" />
+        </div>
+        <h2 className="text-base font-semibold">Access Restricted</h2>
+        <p className="text-sm text-muted-foreground max-w-sm">
+          You don&apos;t have administrative permissions to view the RDQA quality review dashboard.
+        </p>
       </div>
     );
   }
 
   return (
     <>
-      <div className={cn("flex flex-col h-full overflow-hidden", PAGE_HEIGHT_CLASSES)}>
-        {/* Top Header */}
-        <div className="flex-shrink-0 border-b bg-background/50 px-4 py-3">
+      {/* Outer Page Container - Natural flow without forced fixed heights or nested scrollbars */}
+      <div className="w-full flex flex-col space-y-4 pb-12">
+        {/* Sleek Top Header Bar */}
+        <header className="rounded-xl border border-border/70 bg-card/70 px-4 sm:px-6 py-3 shadow-2xs">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div>
-              <h1 className="text-lg font-semibold">RDQA Review</h1>
-              <p className="text-sm text-muted-foreground">Review finalized questions from a specific date</p>
+            {/* Title & Date Stepper */}
+            <div className="flex flex-wrap items-center gap-2.5 sm:gap-3">
+              <div className="flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-primary" />
+                <h1 className="text-base sm:text-lg font-semibold tracking-tight text-foreground">
+                  RDQA Review
+                </h1>
+              </div>
+
+              <span className="text-muted-foreground/30 hidden sm:inline">|</span>
+
+              {/* Day-by-Day Stepper */}
+              <div className="flex items-center rounded-lg border border-border/80 bg-background/80 p-0.5">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSelectedDate((d) => (d ? subDays(d, 1) : subDays(new Date(), 1)))}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                  title="Previous Day"
+                >
+                  <ChevronLeft className="h-3.5 w-3.5" />
+                </Button>
+
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <button
+                      type="button"
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1 text-xs sm:text-sm font-medium hover:bg-muted/60 rounded transition-colors text-foreground"
+                    >
+                      <CalendarIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span>{formattedDateTitle}</span>
+                    </button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <CalendarComponent
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={setSelectedDate}
+                      initialFocus
+                      disabled={(date) => date > new Date() || date < new Date("2020-01-01")}
+                    />
+                  </PopoverContent>
+                </Popover>
+
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  disabled={selectedDate ? isToday(selectedDate) : false}
+                  onClick={() => setSelectedDate((d) => (d ? addDays(d, 1) : new Date()))}
+                  className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground disabled:opacity-30"
+                  title="Next Day"
+                >
+                  <ChevronRight className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-3">
-              {/* Check button positioned to the left of the Details button */}
+
+            {/* Actions: Refresh, Distribution, Run Check */}
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={handleRunCheck}
-                disabled={isChecking || questions.length === 0}
-                className="shrink-0"
+                onClick={() => refetch()}
+                disabled={isFetching}
+                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                title="Refresh Questions"
               >
-                {isChecking ? (
-                  <Loader2 className="h-4 w-4 mr-1 animate-spin text-indigo-600 dark:text-indigo-400" />
-                ) : (
-                  <CheckCheck className="h-4 w-4 mr-1 text-indigo-600 dark:text-indigo-400" />
-                )}
-                {isChecking ? "Checking..." : "Quality Check"}
+                <RotateCw className={cn("h-3.5 w-3.5", isFetching && "animate-spin text-primary")} />
               </Button>
 
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setShowDetailsModal(true)}
-                className="shrink-0"
+                className="h-8 px-2.5 text-xs text-muted-foreground hover:text-foreground gap-1.5 shrink-0"
+                title="View Moderator Distribution"
               >
-                <BarChart3 className="h-4 w-4 mr-1" />
-                Details
+                <BarChart3 className="h-3.5 w-3.5 text-primary" />
+                <span className="hidden sm:inline">Distribution</span>
               </Button>
 
-              <Popover>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full sm:w-auto justify-start text-left font-normal shrink-0">
-                    <Calendar className="mr-2 h-4 w-4" />
-                    {selectedDate ? format(selectedDate, "PPP") : "Select Date"}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="end">
-                  <CalendarComponent
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={setSelectedDate}
-                    initialFocus
-                    disabled={(date) => date > new Date() || date < new Date("2020-01-01")}
-                  />
-                </PopoverContent>
-              </Popover>
+              <Button
+                size="sm"
+                onClick={handleRunCheck}
+                disabled={isChecking || questions.length === 0}
+                className="h-8 px-3 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shadow-2xs shrink-0"
+              >
+                {isChecking ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Checking...</span>
+                  </>
+                ) : (
+                  <>
+                    <Sparkles className="h-3.5 w-3.5" />
+                    <span>Run Quality Check</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </header>
 
-              <input
-                type="text"
-                placeholder="Search questions..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex h-9 w-full sm:w-64 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+        {/* Live Banner when Checking */}
+        {isRdqaChecking && (
+          <div className="rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/40 p-3.5 shadow-2xs">
+            <div className="flex items-center justify-between gap-3 text-xs mb-2">
+              <div className="flex items-center gap-2 font-medium text-indigo-950 dark:text-indigo-200">
+                <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600 dark:text-indigo-400" />
+                <span>Evaluating questions ({bulkProcessed} of {bulkTotal})</span>
+                {bulkLatestLog && (
+                  <span className="text-muted-foreground font-normal truncate max-w-xs hidden md:inline">
+                    — {bulkLatestLog}
+                  </span>
+                )}
+              </div>
+              <div className="flex items-center gap-2 font-medium text-[11px]">
+                <span className="text-emerald-700 dark:text-emerald-400">Passed: {bulkPassed}</span>
+                <span className="text-rose-700 dark:text-rose-400">Flagged: {bulkFlagged}</span>
+                {bulkFailed > 0 && <span className="text-amber-700 dark:text-amber-400">Errors: {bulkFailed}</span>}
+                <span className="font-mono text-muted-foreground">{percentage}%</span>
+              </div>
+            </div>
+            <div className="h-1.5 w-full bg-indigo-100 dark:bg-indigo-950 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-indigo-600 dark:bg-indigo-400 transition-all duration-200 rounded-full"
+                style={{ width: `${percentage}%` }}
               />
             </div>
           </div>
-        </div>
+        )}
 
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto">
-          {/* Dedicated Processing Progress Tab/Banner when RDQA check is running */}
-          {isRdqaChecking && (
-            <div className="m-4 rounded-xl border border-indigo-200 dark:border-indigo-900 bg-indigo-50/70 dark:bg-indigo-950/40 p-4 shadow-sm animate-in fade-in slide-in-from-top-2">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="flex items-center gap-2">
-                  <Loader2 className="h-4 w-4 animate-spin text-indigo-600 dark:text-indigo-400" />
-                  <span className="text-sm font-semibold text-indigo-900 dark:text-indigo-100">
-                    RDQA Quality Check in Progress...
-                  </span>
-                </div>
-                <span className="text-xs font-bold text-indigo-700 dark:text-indigo-300">
-                  {bulkProcessed} / {bulkTotal} ({percentage}%)
-                </span>
-              </div>
-              <div className="h-2 w-full bg-indigo-100 dark:bg-indigo-900/60 rounded-full overflow-hidden mb-2.5">
-                <div
-                  className="h-full bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 transition-all duration-300 rounded-full"
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
-              <div className="flex flex-wrap items-center justify-between gap-2 text-xs">
-                <span className="text-muted-foreground truncate max-w-[65%]">
-                  {bulkLatestLog ? `💬 ${bulkLatestLog}` : "Evaluating quality checks on finalized answers..."}
-                </span>
-                <div className="flex items-center gap-2">
-                  <span className="text-emerald-700 dark:text-emerald-400 font-semibold">
-                    Passed: {bulkPassed}
-                  </span>
-                  <span className="text-amber-700 dark:text-amber-400 font-semibold">
-                    Flagged: {bulkFlagged}
-                  </span>
-                  {bulkFailed > 0 && (
-                    <span className="text-rose-700 dark:text-rose-400 font-semibold">
-                      Errors: {bulkFailed}
-                    </span>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quick Status Filter Tabs */}
-          {!isLoading && !error && questions.length > 0 && (
-            <div className="flex flex-wrap items-center gap-1.5 px-4 py-2.5 border-b bg-muted/20 text-xs">
-              <span className="text-muted-foreground font-medium mr-1">Filter:</span>
+        {/* Filter & Search Toolbar - Structured to guarantee NO overlap */}
+        {!isLoading && !error && questions.length > 0 && (
+          <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 pb-3 border-b border-border/60">
+            {/* Left: Filter Tabs with Dots (no horizontal scrollbar on mobile) */}
+            <div className="flex items-center gap-1 overflow-x-auto no-scrollbar shrink-0">
               <button
                 type="button"
                 onClick={() => setStatusFilter("all")}
                 className={cn(
-                  "px-2.5 py-1 rounded-md border transition-all font-medium",
+                  "px-3 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0",
                   statusFilter === "all"
-                    ? "bg-primary text-primary-foreground border-primary shadow-sm"
-                    : "bg-background hover:bg-muted text-muted-foreground border-border"
+                    ? "bg-primary text-primary-foreground shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 )}
               >
                 All ({questions.length})
@@ -545,13 +660,13 @@ export const RdqaPage = () => {
                 type="button"
                 onClick={() => setStatusFilter("flagged")}
                 className={cn(
-                  "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                  "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0",
                   statusFilter === "flagged"
-                    ? "bg-red-600 text-white border-red-600 shadow-sm"
-                    : "bg-background hover:bg-red-50 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900"
+                    ? "bg-rose-600 text-white shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 )}
               >
-                <span className={cn("w-1.5 h-1.5 rounded-full", statusFilter === "flagged" ? "bg-white" : "bg-red-500")} />
+                <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
                 Flagged ({filterCounts.flagged})
               </button>
 
@@ -560,13 +675,13 @@ export const RdqaPage = () => {
                   type="button"
                   onClick={() => setStatusFilter("modified")}
                   className={cn(
-                    "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                    "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0",
                     statusFilter === "modified"
-                      ? "bg-amber-600 text-white border-amber-600 shadow-sm"
-                      : "bg-amber-50 hover:bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300 border-amber-300 dark:border-amber-800"
+                      ? "bg-amber-600 text-white shadow-2xs"
+                      : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                   )}
                 >
-                  <AlertCircle className="w-3.5 h-3.5" />
+                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
                   Modified ({filterCounts.modified})
                 </button>
               )}
@@ -575,156 +690,306 @@ export const RdqaPage = () => {
                 type="button"
                 onClick={() => setStatusFilter("clean")}
                 className={cn(
-                  "px-2.5 py-1 rounded-md border transition-all font-medium inline-flex items-center gap-1.5",
+                  "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors inline-flex items-center gap-1.5 whitespace-nowrap shrink-0",
                   statusFilter === "clean"
-                    ? "bg-green-600 text-white border-green-600 shadow-sm"
-                    : "bg-background hover:bg-green-50 text-green-700 dark:text-green-400 border-green-200 dark:border-green-900"
+                    ? "bg-emerald-600 text-white shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 )}
               >
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                No Flags ({filterCounts.clean})
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0" />
+                Passed ({filterCounts.clean})
               </button>
 
               <button
                 type="button"
                 onClick={() => setStatusFilter("not_checked")}
                 className={cn(
-                  "px-2.5 py-1 rounded-md border transition-all font-medium",
+                  "px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors whitespace-nowrap shrink-0",
                   statusFilter === "not_checked"
-                    ? "bg-slate-700 text-white border-slate-700 shadow-sm"
-                    : "bg-background hover:bg-muted text-muted-foreground border-border"
+                    ? "bg-foreground text-background shadow-2xs"
+                    : "text-muted-foreground hover:text-foreground hover:bg-muted/60"
                 )}
               >
-                Not Checked ({filterCounts.notChecked})
+                Pending ({filterCounts.notChecked})
               </button>
             </div>
-          )}
 
+            {/* Right: Search, Sort & Reset - immune to overlap */}
+            <div className="flex items-center gap-2.5 flex-wrap sm:flex-nowrap">
+              {/* Search Bar */}
+              <div className="relative flex-1 sm:w-64 sm:flex-initial">
+                <Search className="absolute left-2.5 top-2.5 h-3.5 w-3.5 text-muted-foreground pointer-events-none" />
+                <input
+                  type="text"
+                  placeholder="Search questions, crops..."
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  className="w-full h-8 pl-8 pr-7 rounded-lg border border-input bg-background text-xs shadow-2xs transition-colors placeholder:text-muted-foreground/60 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary"
+                />
+                {search && (
+                  <button
+                    type="button"
+                    onClick={() => setSearch("")}
+                    className="absolute right-2 top-2 text-muted-foreground hover:text-foreground"
+                    title="Clear search"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
+
+              {/* Sort Dropdown */}
+              <div className="w-36 shrink-0">
+                <Select value={sortOption} onValueChange={(val: SortOption) => setSortOption(val)}>
+                  <SelectTrigger className="h-8 w-full text-xs bg-background shrink-0">
+                    <ArrowUpDown className="w-3 h-3 mr-1 text-muted-foreground shrink-0" />
+                    <SelectValue placeholder="Sort" />
+                  </SelectTrigger>
+                  <SelectContent align="end">
+                    <SelectItem value="default" className="text-xs">
+                      Default
+                    </SelectItem>
+                    <SelectItem value="flags_desc" className="text-xs">
+                      Most Flags
+                    </SelectItem>
+                    <SelectItem value="flags_asc" className="text-xs">
+                      Fewest Flags
+                    </SelectItem>
+                    <SelectItem value="modified_first" className="text-xs">
+                      Modified First
+                    </SelectItem>
+                    <SelectItem value="crop_asc" className="text-xs">
+                      Crop (A-Z)
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Reset Filters Link */}
+              {(statusFilter !== "all" || search) && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setSearch("");
+                  }}
+                  className="h-8 px-2.5 text-xs text-primary hover:text-primary/80 shrink-0 whitespace-nowrap"
+                >
+                  Reset
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Subtle Status Line */}
+        {!isLoading && !error && questions.length > 0 && (
+          <div className="flex items-center justify-between text-xs text-muted-foreground px-1 pb-1">
+            <span>
+              Showing <strong className="text-foreground">{filteredAndSortedQuestions.length}</strong> of{" "}
+              <strong className="text-foreground">{questions.length}</strong> questions
+            </span>
+            <span className="hidden sm:inline">
+              {filterCounts.passRate}% pass rate · {filterCounts.flagged} flagged · {filterCounts.modified} modified
+            </span>
+          </div>
+        )}
+
+        {/* Main Listing Area - Natural page flow, NO inner scrollbar! */}
+        <div className="w-full">
           {isLoading ? (
-            <div className="flex items-center justify-center h-64">
+            <div className="flex flex-col items-center justify-center h-64 gap-3 text-muted-foreground">
               <Spinner />
+              <p className="text-xs font-medium">Loading questions for review...</p>
             </div>
           ) : error ? (
-            <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
-              <p className="text-muted-foreground">Failed to load questions.</p>
-              <p className="text-xs text-muted-foreground">Please try again later.</p>
-            </div>
-          ) : filteredQuestions.length === 0 ? (
-            <div className="flex flex-col items-center justify-center gap-2 p-8 text-center">
-              <p className="text-muted-foreground">
-                {questions.length === 0
-                  ? "No questions found for this date."
-                  : `No questions match the current filter (${statusFilter !== "all" ? statusFilter : "search"}).`}
+            <div className="flex flex-col items-center justify-center gap-3 p-10 text-center rounded-xl border border-destructive/20 bg-destructive/5 my-4">
+              <div className="h-10 w-10 rounded-full bg-destructive/10 flex items-center justify-center text-destructive">
+                <AlertCircle className="w-5 h-5" />
+              </div>
+              <h3 className="font-medium text-sm text-foreground">Failed to Load Questions</h3>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                There was a problem communicating with the server. Please check your connection or retry.
               </p>
-              {questions.length > 0 && statusFilter !== "all" ? (
-                <Button variant="outline" size="sm" onClick={() => setStatusFilter("all")} className="mt-2">
-                  Clear Filter
+              <Button variant="outline" size="sm" onClick={() => refetch()} className="mt-2 text-xs gap-1.5">
+                <RotateCw className="w-3 h-3" /> Retry
+              </Button>
+            </div>
+          ) : filteredAndSortedQuestions.length === 0 ? (
+            <div className="flex flex-col items-center justify-center gap-3 p-12 text-center rounded-xl border border-dashed border-border bg-card my-4">
+              <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-muted-foreground">
+                <Search className="w-5 h-5" />
+              </div>
+              <h3 className="font-medium text-sm text-foreground">No Questions Found</h3>
+              <p className="text-xs text-muted-foreground max-w-sm">
+                {questions.length === 0
+                  ? `No finalized questions found for ${selectedDate ? format(selectedDate, "PPP") : "the selected date"}.`
+                  : `No questions match the current filter or search criteria.`}
+              </p>
+              {questions.length > 0 && (statusFilter !== "all" || search) ? (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setStatusFilter("all");
+                    setSearch("");
+                  }}
+                  className="mt-1 text-xs"
+                >
+                  Clear Filters
                 </Button>
               ) : (
-                <p className="text-xs text-muted-foreground">Try selecting a different date.</p>
+                <p className="text-xs text-muted-foreground mt-1">Try choosing a different date using the stepper above.</p>
               )}
             </div>
           ) : (
-            <>
-              <div className="divide-y divide-border">
-                {paginatedQuestions.map((question) => {
-                  const qId = question.question?._id || question.questionId || question._id;
-                  const qChecks =
-                    question.checks ||
-                    question.answer?.checks ||
-                    question.question?.checks ||
-                    [];
-                  const qFlags =
-                    question.flags ||
-                    question.answer?.flags ||
-                    question.question?.flags ||
-                    [];
-                  const qNotEvaluated =
-                    question.notEvaluated ||
-                    question.answer?.notEvaluated ||
-                    question.question?.notEvaluated ||
-                    [];
-                  const qCheckedAt =
-                    question.checkedAt ||
-                    question.answer?.checkedAt ||
-                    question.question?.rdqaCheckedAt;
-                  const isModified = isAnswerModifiedAfterCheck(question);
-                  const isSingleChecking = checkingQuestionId === qId;
+            /* Question Cards - Proper block layout, NO overlapping! */
+            <div className="flex flex-col gap-3">
+              {paginatedQuestions.map((question) => {
+                const qId = question.question?._id || question.questionId || question._id;
+                const qChecks =
+                  question.checks ||
+                  question.answer?.checks ||
+                  question.question?.checks ||
+                  [];
+                const qFlags =
+                  question.flags ||
+                  question.answer?.flags ||
+                  question.question?.flags ||
+                  [];
+                const qCheckedAt =
+                  question.checkedAt ||
+                  question.answer?.checkedAt ||
+                  question.question?.rdqaCheckedAt;
+                const isModified = isAnswerModifiedAfterCheck(question);
+                const isSingleChecking = checkingQuestionId === qId;
+                const isClean = qFlags.length === 0 && (qChecks.length > 0 || !!qCheckedAt);
 
-                  return (
-                    <ContextMenu key={question._id}>
-                      <ContextMenuTrigger>
-                        <div className="border-b border-border p-4 transition-colors hover:bg-muted/30">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="flex-1 min-w-0">
-                              <p className="font-medium text-sm leading-snug">
-                                {question.question?.question || "N/A"}
-                              </p>
-
-                              <div className="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                                {question.question?.details?.crop && (
-                                  <span className="rounded bg-green-100 px-1.5 py-0.5 text-green-700 dark:bg-green-900/30 dark:text-green-400">
-                                    {question.question.details.crop}
+                return (
+                  <ContextMenu key={question._id}>
+                    {/* asChild is critical to prevent Radix from wrapping in an inline span */}
+                    <ContextMenuTrigger asChild>
+                      <div
+                        className={cn(
+                          "w-full rounded-xl border p-4 transition-all duration-150 bg-card hover:bg-muted/20 shadow-2xs",
+                          isModified
+                            ? "border-amber-300 dark:border-amber-800"
+                            : qFlags.length > 0
+                            ? "border-rose-300 dark:border-rose-900"
+                            : "border-border/80 hover:border-border"
+                        )}
+                      >
+                        <div className="flex flex-col md:flex-row md:items-start justify-between gap-4">
+                          {/* Left Side: Information */}
+                          <div className="min-w-0 flex-1 space-y-2">
+                            {/* Meta line */}
+                            <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                              {question.question?.details?.crop && (
+                                <span className="font-semibold text-foreground">
+                                  {question.question.details.crop}
+                                </span>
+                              )}
+                              {question.question?.details?.state && (
+                                <>
+                                  <span>·</span>
+                                  <span>{question.question.details.state}</span>
+                                </>
+                              )}
+                              {question.question?.details?.district && (
+                                <span>({question.question.details.district})</span>
+                              )}
+                              {question.closedAt && (
+                                <>
+                                  <span>·</span>
+                                  <span>Closed {new Date(question.closedAt).toLocaleDateString()}</span>
+                                </>
+                              )}
+                              {(question.answer?.approvedByEmail || question.approvedBy) && (
+                                <>
+                                  <span>·</span>
+                                  <span className="truncate max-w-[220px]">
+                                    Moderator:{" "}
+                                    <strong className="text-foreground font-medium">
+                                      {question.answer?.approvedByEmail || question.approvedBy}
+                                    </strong>
                                   </span>
-                                )}
-                                {question.question?.details?.state && (
-                                  <span className="rounded bg-blue-100 px-1.5 py-0.5 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
-                                    {question.question.details.state}
-                                  </span>
-                                )}
-                                {question.closedAt && (
-                                  <span className="text-muted-foreground/70">
-                                    Closed: {new Date(question.closedAt).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
-
-                              {/* Quality Check Badges & Flags */}
-                              <div className="mt-2.5 flex flex-wrap items-center gap-1.5">
-                                {isModified && (
-                                  <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 dark:border-amber-800 px-2 py-0.5 text-[11px] font-medium">
-                                    <AlertCircle className="w-3 h-3 mr-1 text-amber-600 dark:text-amber-400 shrink-0" />
-                                    Answer modified after check
-                                  </span>
-                                )}
-                                {qFlags.length > 0 ? (
-                                  <>
-                                    <span className="inline-flex items-center rounded-full bg-red-50 text-red-700 border border-red-200 dark:bg-red-950/40 dark:text-red-400 dark:border-red-800 px-2 py-0.5 text-[11px] font-semibold">
-                                      {qFlags.length} {qFlags.length === 1 ? "flag" : "flags"}
-                                    </span>
-                                    {qFlags.map((flag: string) => (
-                                      <span
-                                        key={flag}
-                                        className="inline-flex items-center rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-800 border border-red-300 dark:bg-red-900/30 dark:text-red-300"
-                                      >
-                                        {humanize(flag)}
-                                      </span>
-                                    ))}
-                                  </>
-                                ) : qChecks.length > 0 ? (
-                                  <span className="inline-flex items-center rounded-full bg-green-100 px-2 py-0.5 text-[11px] font-medium text-green-700 border border-green-700 dark:bg-green-900/30 dark:text-green-300">
-                                    <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    No flags
-                                  </span>
-                                ) : (
-                                  <span className="text-[11px] text-muted-foreground/60 italic">
-                                    Not checked
-                                  </span>
-                                )}
-                                {qNotEvaluated.length > 0 && (
-                                  <span className="text-[11px] text-amber-700 dark:text-amber-400 font-medium">
-                                    {qNotEvaluated.length} could not run
-                                  </span>
-                                )}
-                                {qCheckedAt && (
-                                  <span className="text-[10px] text-muted-foreground/60 ml-1">
-                                    · Checked {new Date(qCheckedAt).toLocaleDateString()}
-                                  </span>
-                                )}
-                              </div>
+                                </>
+                              )}
                             </div>
 
-                            <div className="flex items-center gap-2 shrink-0">
+                            {/* Question Title */}
+                            <h3
+                              onClick={() => {
+                                setSelectedQuestion(question);
+                                setDetailsTab("overview");
+                              }}
+                              className="font-semibold text-sm sm:text-base text-foreground leading-snug cursor-pointer hover:text-primary transition-colors"
+                            >
+                              {question.question?.question || "No question text"}
+                            </h3>
+
+                            {/* Answer Preview */}
+                            {question.answer?.answer && (
+                              <p
+                                onClick={() => {
+                                  setSelectedQuestion(question);
+                                  setDetailsTab("overview");
+                                }}
+                                className="text-xs text-muted-foreground line-clamp-2 leading-relaxed cursor-pointer hover:text-foreground transition-colors"
+                              >
+                                <strong className="text-foreground/80 font-medium">Answer: </strong>
+                                {question.answer.answer}
+                              </p>
+                            )}
+
+                            {/* Flags List */}
+                            {qFlags.length > 0 && (
+                              <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                                {qFlags.map((flag: string) => (
+                                  <span
+                                    key={flag}
+                                    className="inline-flex items-center rounded-md px-2 py-0.5 text-[11px] font-medium bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-300 border border-rose-200 dark:border-rose-900"
+                                  >
+                                    {humanize(flag)}
+                                  </span>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Right Side: Status Badge and Action Buttons */}
+                          <div className="flex flex-row md:flex-col items-center md:items-end justify-between md:justify-start gap-3 shrink-0 pt-2 md:pt-0 border-t md:border-t-0 border-border/50">
+                            {/* Status Badge */}
+                            <div className="flex items-center gap-1.5">
+                              {isModified && (
+                                <span
+                                  className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300 border border-amber-300 dark:border-amber-800"
+                                  title="Answer was modified after last check"
+                                >
+                                  <span className="w-1.5 h-1.5 rounded-full bg-amber-500 shrink-0" />
+                                  Modified
+                                </span>
+                              )}
+                              {qFlags.length > 0 ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 dark:bg-rose-950/60 dark:text-rose-300 border border-rose-200 dark:border-rose-900">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-rose-500 shrink-0" />
+                                  {qFlags.length} {qFlags.length === 1 ? "flag" : "flags"}
+                                </span>
+                              ) : isClean ? (
+                                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[11px] font-medium bg-emerald-50 text-emerald-700 dark:bg-emerald-950/60 dark:text-emerald-300 border border-emerald-200 dark:border-emerald-900">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                                  Passed
+                                </span>
+                              ) : (
+                                <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[11px] text-muted-foreground bg-muted">
+                                  Not checked
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Actions */}
+                            <div className="flex items-center gap-1.5">
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -734,417 +999,686 @@ export const RdqaPage = () => {
                                   handleRecheckSingle(qId);
                                 }}
                                 className={cn(
-                                  "h-8 px-2.5 text-xs font-medium gap-1",
-                                  isModified
-                                    ? "border-amber-300 bg-amber-50/80 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                                    : "text-muted-foreground hover:text-foreground"
+                                  "h-8 px-2.5 text-xs font-medium gap-1 shrink-0",
+                                  isModified && "border-amber-400 bg-amber-50 text-amber-900 hover:bg-amber-100 dark:bg-amber-950/80 dark:text-amber-200"
                                 )}
-                                title={isModified ? "Answer was modified after last check - click to recheck" : "Run quality check on this answer"}
+                                title={isModified ? "Answer modified - recheck now" : "Recheck quality"}
                               >
                                 {isSingleChecking ? (
-                                  <Loader2 className="h-3.5 w-3.5 mr-1 animate-spin text-indigo-600" />
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
                                 ) : (
-                                  <RotateCw className="h-3.5 w-3.5 mr-1" />
+                                  <RotateCw className="h-3.5 w-3.5" />
                                 )}
-                                {isSingleChecking
-                                  ? "Checking..."
-                                  : isModified
-                                  ? "Recheck"
-                                  : qCheckedAt
-                                  ? "Recheck"
-                                  : "Check"}
+                                <span>Recheck</span>
                               </Button>
 
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() => setSelectedQuestion(question)}
-                                className="h-8 px-2.5 text-xs"
+                                onClick={() => {
+                                  setSelectedQuestion(question);
+                                  setDetailsTab("overview");
+                                }}
+                                className="h-8 px-3 text-xs font-medium shrink-0"
                               >
-                                <Eye className="h-4 w-4 mr-1" />
-                                View
+                                Audit
                               </Button>
 
                               <Button
-                                variant="default"
+                                variant="ghost"
                                 size="sm"
                                 onClick={() => {
                                   setEditQuestion(question);
                                   setShowEditModal(true);
                                 }}
-                                className="h-8 px-2.5 text-xs shrink-0 bg-primary hover:bg-primary/90"
+                                className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                                title="Edit Answer"
                               >
-                                <Pencil className="h-4 w-4 mr-1" />
-                                Edit
+                                <Pencil className="h-3.5 w-3.5" />
                               </Button>
+
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground shrink-0"
+                                  >
+                                    <MoreVertical className="h-3.5 w-3.5" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-48 text-xs">
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedQuestion(question);
+                                      setDetailsTab("overview");
+                                    }}
+                                  >
+                                    <ShieldCheck className="w-3.5 h-3.5 mr-2" />
+                                    View Quality Audit
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem
+                                    onClick={() => {
+                                      setSelectedQuestion(question);
+                                      setDetailsTab("history");
+                                    }}
+                                  >
+                                    <History className="w-3.5 h-3.5 mr-2" />
+                                    Check History
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem onClick={() => handleFullEdit(question)}>
+                                    <Edit className="w-3.5 h-3.5 mr-2" />
+                                    Edit Full Question
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        question.question?.question || "",
+                                        `q-${question._id}`,
+                                        "Question text"
+                                      )
+                                    }
+                                  >
+                                    <Copy className="w-3.5 h-3.5 mr-2" />
+                                    Copy Question
+                                  </DropdownMenuItem>
+                                  {question.answer?.answer && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        copyToClipboard(
+                                          question.answer.answer,
+                                          `a-${question._id}`,
+                                          "Answer text"
+                                        )
+                                      }
+                                    >
+                                      <Copy className="w-3.5 h-3.5 mr-2" />
+                                      Copy Answer
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         </div>
-                      </ContextMenuTrigger>
-                      <ContextMenuContent>
-                        <ContextMenuItem
-                          onSelect={(e) => {
-                            setTimeout(() => {
-                              e.preventDefault();
-                              handleFullEdit(question);
-                            }, 0);
-                          }}
-                        >
-                          <Edit className="w-4 h-4 mr-2 text-blue-500" />
-                          Edit Question
-                        </ContextMenuItem>
-                        <ContextMenuItem
-                          onClick={() => {
-                            setEditQuestion(question);
-                            setShowEditModal(true);
-                          }}
-                        >
-                          <Pencil className="w-4 h-4 mr-2 text-primary" />
-                          Edit Answer
-                        </ContextMenuItem>
-                        <ContextMenuSeparator />
-                        <ContextMenuItem
-                          onClick={() => {
-                            handleRecheckSingle(qId);
-                          }}
-                        >
-                          <RotateCw className="w-4 h-4 mr-2 text-indigo-500" />
-                          Recheck Quality
-                        </ContextMenuItem>
-                        <ContextMenuItem onClick={() => setSelectedQuestion(question)}>
-                          <Eye className="w-4 h-4 mr-2 text-primary" />
-                          View Details
-                        </ContextMenuItem>
-                      </ContextMenuContent>
-                    </ContextMenu>
-                  );
-                })}
-              </div>
+                      </div>
+                    </ContextMenuTrigger>
 
-              {/* Pagination */}
-              <div className="flex items-center justify-between px-4 py-3 border-t bg-muted/50 sticky bottom-0">
-                <div className="text-sm text-muted-foreground">
-                  Showing {((currentPage - 1) * ITEMS_PER_PAGE) + 1} to{" "}
-                  {Math.min(currentPage * ITEMS_PER_PAGE, filteredQuestions.length)} of{" "}
-                  {filteredQuestions.length} questions
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                    disabled={currentPage === 1}
-                    className="h-8 px-3"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </Button>
-                  <span className="text-sm font-medium px-2">
-                    {currentPage} / {totalPages || 1}
-                  </span>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => setCurrentPage((p) => Math.min(totalPages || 1, p + 1))}
-                    disabled={currentPage >= (totalPages || 1)}
-                    className="h-8 px-3"
-                  >
-                    <ChevronRight className="h-4 w-4" />
-                  </Button>
-                </div>
-              </div>
-            </>
+                    <ContextMenuContent>
+                      <ContextMenuItem
+                        onSelect={(e) => {
+                          setTimeout(() => {
+                            e.preventDefault();
+                            handleFullEdit(question);
+                          }, 0);
+                        }}
+                      >
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Question Details
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => {
+                          setEditQuestion(question);
+                          setShowEditModal(true);
+                        }}
+                      >
+                        <Pencil className="w-4 h-4 mr-2" />
+                        Edit Final Answer
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleRecheckSingle(qId)}>
+                        <RotateCw className="w-4 h-4 mr-2" />
+                        Recheck Quality
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => {
+                          setSelectedQuestion(question);
+                          setDetailsTab("overview");
+                        }}
+                      >
+                        <ShieldCheck className="w-4 h-4 mr-2 text-primary" />
+                        View Quality Audit
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        onClick={() => {
+                          setSelectedQuestion(question);
+                          setDetailsTab("history");
+                        }}
+                      >
+                        <History className="w-4 h-4 mr-2" />
+                        Audit History
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
+                );
+              })}
+            </div>
           )}
         </div>
+
+        {/* Bottom Pagination */}
+        {!isLoading && !error && filteredAndSortedQuestions.length > 0 && (
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border/70 bg-card/70 shadow-2xs">
+            <div className="text-xs text-muted-foreground">
+              Showing <strong className="text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to{" "}
+              <strong className="text-foreground">
+                {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedQuestions.length)}
+              </strong>{" "}
+              of <strong className="text-foreground">{filteredAndSortedQuestions.length}</strong> questions
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="h-8 px-2.5 text-xs"
+              >
+                <ChevronLeft className="h-3.5 w-3.5 mr-1" />
+                Previous
+              </Button>
+              <span className="text-xs font-semibold px-2">
+                Page {currentPage} of {totalPages || 1}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage((p) => Math.min(totalPages || 1, p + 1))}
+                disabled={currentPage >= (totalPages || 1)}
+                className="h-8 px-2.5 text-xs"
+              >
+                Next
+                <ChevronRight className="h-3.5 w-3.5 ml-1" />
+              </Button>
+            </div>
+          </div>
+        )}
+
         <ScrollToTopButton />
       </div>
 
-      {/* Question Details Modal */}
+      {/* Clean Audit Modal */}
       {selectedQuestion && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setSelectedQuestion(null)} />
-          <div className="relative z-10 max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-lg bg-background p-6 shadow-lg m-4">
-            <div className="flex items-start justify-between gap-4 mb-6">
-              <div>
-                <h2 className="text-lg font-semibold mb-2">Question Details</h2>
-                <div className="flex flex-wrap gap-2 text-xs">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/50 backdrop-blur-xs animate-in fade-in">
+          <div className="relative w-full max-w-4xl max-h-[90vh] flex flex-col rounded-xl bg-card border shadow-xl overflow-hidden animate-in zoom-in-95">
+            {/* Modal Header */}
+            <div className="flex items-start justify-between gap-4 px-5 py-4 border-b">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <h2 className="text-base sm:text-lg font-semibold tracking-tight text-foreground flex items-center gap-2">
+                    <ShieldCheck className="w-5 h-5 text-primary" />
+                    Question Audit
+                  </h2>
                   {selectedQuestion.question?.details?.crop && (
-                    <span className="rounded bg-green-100 px-2 py-1 text-green-700 dark:bg-green-900/30 dark:text-green-400">
+                    <Badge variant="outline" className="text-xs font-normal">
                       {selectedQuestion.question.details.crop}
-                    </span>
+                    </Badge>
                   )}
                   {selectedQuestion.question?.details?.state && (
-                    <span className="rounded bg-blue-100 px-2 py-1 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                    <Badge variant="outline" className="text-xs font-normal">
                       {selectedQuestion.question.details.state}
-                    </span>
-                  )}
-                  {selectedQuestion.question?.details?.district && (
-                    <span className="rounded bg-purple-100 px-2 py-1 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400">
-                      {selectedQuestion.question.details.district}
-                    </span>
+                    </Badge>
                   )}
                 </div>
+                <p className="text-xs text-muted-foreground">
+                  Reviewing automated rules, answer text, and historical evaluation runs
+                </p>
               </div>
-              <Button variant="ghost" size="icon" onClick={() => setSelectedQuestion(null)}>
-                <X className="h-5 w-5" />
+
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setSelectedQuestion(null)}
+                className="h-8 w-8 rounded-full"
+              >
+                <X className="h-4 w-4" />
               </Button>
             </div>
 
-            {/* Question Text */}
-            <div className="mb-6">
-              <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">
-                Question
-              </h3>
-              <div className="rounded-lg bg-muted/50 p-4">
-                <FormattedText text={selectedQuestion.question?.question || "N/A"} />
+            {/* Modal Tabs */}
+            <Tabs value={detailsTab} onValueChange={setDetailsTab} className="flex-1 flex flex-col min-h-0">
+              <div className="px-5 pt-2.5 border-b shrink-0 bg-muted/20">
+                <TabsList className="bg-muted/70 p-0.5">
+                  <TabsTrigger value="overview" className="text-xs py-1 px-3">
+                    Question & Answer
+                  </TabsTrigger>
+                  <TabsTrigger value="rules" className="text-xs py-1 px-3">
+                    Quality Rules
+                    {selectedChecks.length > 0 && (
+                      <span className="text-[10px] px-1 rounded-full bg-primary/20 text-primary font-bold ml-1.5">
+                        {selectedChecks.length}
+                      </span>
+                    )}
+                  </TabsTrigger>
+                  <TabsTrigger value="history" className="text-xs py-1 px-3">
+                    Check History
+                  </TabsTrigger>
+                  <TabsTrigger value="metadata" className="text-xs py-1 px-3">
+                    Audit Info
+                  </TabsTrigger>
+                </TabsList>
               </div>
-            </div>
 
-            {/* Question Metadata */}
-            <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
-              <div><span className="font-medium text-muted-foreground">Source:</span><p className="mt-0.5">{selectedQuestion.question?.source || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Status:</span><p className="mt-0.5">{selectedQuestion.question?.status || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Priority:</span><p className="mt-0.5">{selectedQuestion.question?.priority || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Auto Allocated:</span><p className="mt-0.5">{selectedQuestion.question?.isAutoAllocate ? "Yes" : "No"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Created:</span><p className="mt-0.5">{selectedQuestion.question?.createdAt ? new Date(selectedQuestion.question.createdAt).toLocaleString() : "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Closed:</span><p className="mt-0.5">{selectedQuestion.question?.closedAt ? new Date(selectedQuestion.question.closedAt).toLocaleString() : "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Season:</span><p className="mt-0.5">{selectedQuestion.question?.details?.season || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Domain:</span><p className="mt-0.5">{selectedQuestion.question?.details?.domain?.join(", ") || "N/A"}</p></div>
-            </div>
+              <div className="flex-1 overflow-y-auto p-5 space-y-4">
+                {/* Tab 1: Overview */}
+                <TabsContent value="overview" className="space-y-4 m-0 focus-visible:outline-none">
+                  {/* Question */}
+                  <div className="rounded-lg border p-4 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Question
+                      </h4>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() =>
+                          copyToClipboard(
+                            selectedQuestion.question?.question || "",
+                            "modal-q",
+                            "Question"
+                          )
+                        }
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
+                      >
+                        {copiedId === "modal-q" ? (
+                          <Check className="w-3 h-3 text-emerald-600" />
+                        ) : (
+                          <Copy className="w-3 h-3" />
+                        )}
+                        Copy
+                      </Button>
+                    </div>
+                    <FormattedText text={selectedQuestion.question?.question || "N/A"} />
+                    {selectedQuestion.context && (
+                      <p className="pt-2 border-t text-xs text-muted-foreground">
+                        <span className="font-semibold text-foreground">Context: </span>
+                        {selectedQuestion.context}
+                      </p>
+                    )}
+                  </div>
 
-            <div className="border-t my-6" />
-
-            {/* Quality Checks & Flags Panel */}
-            <div className="mb-6">
-              {(() => {
-                const modalQId =
-                  selectedQuestion.question?._id ||
-                  selectedQuestion.questionId ||
-                  selectedQuestion._id;
-                const isModalModified = isAnswerModifiedAfterCheck(selectedQuestion);
-                const isModalChecking = checkingQuestionId === modalQId;
-
-                return selectedChecks.length > 0 ? (
-                  <div className="space-y-3">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
+                  {/* Final Answer */}
+                  <div className="rounded-lg border p-4 space-y-2">
+                    <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                          Quality Checks
-                        </h3>
-                        {isModalModified && (
-                          <span className="inline-flex items-center rounded-full bg-amber-50 text-amber-800 border border-amber-300 dark:bg-amber-950/40 dark:text-amber-300 px-2 py-0.5 text-xs font-medium">
-                            <AlertCircle className="w-3.5 h-3.5 mr-1 text-amber-600 shrink-0" />
-                            Answer modified after last check
-                          </span>
+                        <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                          Final Answer
+                        </h4>
+                        {flaggedWords.length > 0 && (
+                          <Badge variant="destructive" className="text-[10px] font-semibold py-0">
+                            {flaggedWords.length} flagged words
+                          </Badge>
                         )}
                       </div>
-
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        disabled={isChecking}
-                        onClick={() => {
-                          if (modalQId) handleRecheckSingle(modalQId);
-                        }}
-                        className={cn(
-                          "h-7 text-xs gap-1.5",
-                          isModalModified
-                            ? "border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-300"
-                            : ""
-                        )}
+                        onClick={() =>
+                          copyToClipboard(
+                            selectedQuestion.answer?.answer || "",
+                            "modal-a",
+                            "Answer"
+                          )
+                        }
+                        className="h-6 px-2 text-xs text-muted-foreground hover:text-foreground gap-1"
                       >
-                        {isModalChecking ? (
-                          <Loader2 className="h-3.5 w-3.5 animate-spin text-indigo-600" />
+                        {copiedId === "modal-a" ? (
+                          <Check className="w-3 h-3 text-emerald-600" />
                         ) : (
-                          <RotateCw className="h-3.5 w-3.5" />
+                          <Copy className="w-3 h-3" />
                         )}
-                        {isModalChecking ? "Rechecking..." : isModalModified ? "Recheck Answer" : "Recheck"}
+                        Copy
                       </Button>
                     </div>
 
-                    <GdbFlagsPanel checks={selectedChecks} editable={false} />
-                  </div>
-                ) : (
-                  <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground flex items-center justify-between">
-                    <span>The quality checks have not run on this answer yet.</span>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      disabled={isChecking}
-                      onClick={() => {
-                        if (modalQId) handleRecheckSingle(modalQId);
-                      }}
-                      className="gap-1.5"
-                    >
-                      {isModalChecking ? (
-                        <Loader2 className="h-4 w-4 animate-spin text-indigo-600" />
+                    <div className="rounded-md bg-muted/30 p-3 text-sm leading-relaxed">
+                      {flaggedWords.length > 0 ? (
+                        <pre className="whitespace-pre-wrap break-words font-sans">
+                          <HighlightedText
+                            text={selectedQuestion.answer?.answer || "No answer provided"}
+                            words={flaggedWords}
+                            className="bg-rose-200 dark:bg-rose-950/80 text-rose-950 dark:text-rose-200 font-semibold px-1 py-0.5 rounded border border-rose-300 dark:border-rose-800"
+                          />
+                        </pre>
                       ) : (
-                        <CheckCheck className="h-4 w-4 text-indigo-600" />
+                        <FormattedText text={selectedQuestion.answer?.answer || "No answer provided"} />
                       )}
-                      {isModalChecking ? "Checking..." : "Check Now"}
-                    </Button>
-                  </div>
-                );
-              })()}
-            </div>
-
-            <div className="border-t my-6" />
-
-            {/* Final Answer Text (with flagged word highlights) */}
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
-                  Final Answer
-                </h3>
-                {flaggedWords.length > 0 && (
-                  <span className="text-xs text-red-600 dark:text-red-400 font-medium">
-                    Highlighted words flagged by checks
-                  </span>
-                )}
-              </div>
-              <div className="rounded-lg bg-muted/50 p-4">
-                {flaggedWords.length > 0 ? (
-                  <pre className="whitespace-pre-wrap break-words text-sm leading-relaxed font-normal font-sans">
-                    <HighlightedText
-                      text={selectedQuestion.answer?.answer || "No answer provided"}
-                      words={flaggedWords}
-                      className="bg-red-200 dark:bg-red-900/50 text-red-900 dark:text-red-200 font-semibold px-1 py-0.5 rounded"
-                    />
-                  </pre>
-                ) : (
-                  <FormattedText text={selectedQuestion.answer?.answer || "No answer provided"} />
-                )}
-              </div>
-            </div>
-
-            {/* Answer Metadata */}
-            <div className="mb-6 grid grid-cols-2 gap-4 text-sm">
-              <div><span className="font-medium text-muted-foreground">Approved By:</span><p className="mt-0.5">{selectedQuestion.answer?.approvedByEmail || selectedQuestion.answer?.approvedBy || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Author:</span><p className="mt-0.5">{selectedQuestion.authorIdEmail || selectedQuestion.authorId || "N/A"}</p></div>
-              {selectedQuestion.answer?.modifiedBy && <div><span className="font-medium text-muted-foreground">Modified By:</span><p className="mt-0.5">{selectedQuestion.answer.modifiedBy}</p></div>}
-              <div><span className="font-medium text-muted-foreground">Answer Status:</span><p className="mt-0.5">{selectedQuestion.answer?.status || "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Is Final Answer:</span><p className="mt-0.5">{selectedQuestion.answer?.isFinalAnswer ? "Yes" : "No"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Approval Count:</span><p className="mt-0.5">{selectedQuestion.answer?.approvalCount ?? "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Answer Created:</span><p className="mt-0.5">{selectedQuestion.answer?.createdAt ? new Date(selectedQuestion.answer.createdAt).toLocaleString() : "N/A"}</p></div>
-              <div><span className="font-medium text-muted-foreground">Answer Updated:</span><p className="mt-0.5">{selectedQuestion.answer?.updatedAt ? new Date(selectedQuestion.answer.updatedAt).toLocaleString() : "N/A"}</p></div>
-              <div>
-                <span className="font-medium text-muted-foreground">Last Quality Check:</span>
-                <p className="mt-0.5">
-                  {selectedQuestion.checkedAt || selectedQuestion.answer?.checkedAt || selectedQuestion.question?.rdqaCheckedAt
-                    ? new Date(
-                        (selectedQuestion.checkedAt ||
-                          selectedQuestion.answer?.checkedAt ||
-                          selectedQuestion.question?.rdqaCheckedAt)!
-                      ).toLocaleString()
-                    : "Not evaluated yet"}
-                </p>
-              </div>
-            </div>
-
-            {/* Sources */}
-            {selectedQuestion.answer?.sources && selectedQuestion.answer.sources.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground mb-2">Sources</h3>
-                <div className="rounded-lg bg-muted/50 p-4 space-y-3">
-                  {selectedQuestion.answer.sources.map((source: any, index: number) => (
-                    <div key={index} className="border-b border-border/50 last:border-0 pb-2 last:pb-0">
-                      {source.sourceName && <p className="font-medium text-sm">{source.sourceName}</p>}
-                      {source.source && (
-                        <a
-                          href={source.source}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs text-blue-600 hover:underline break-all block"
-                        >
-                          {source.source}
-                        </a>
-                      )}
-                      {source.page && <p className="text-xs text-muted-foreground mt-1">Page: {source.page}</p>}
                     </div>
-                  ))}
-                </div>
+                  </div>
+
+                  {/* Sources */}
+                  {selectedQuestion.answer?.sources && selectedQuestion.answer.sources.length > 0 && (
+                    <div className="rounded-lg border p-4 space-y-2">
+                      <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Sources ({selectedQuestion.answer.sources.length})
+                      </h4>
+                      <div className="grid gap-2 sm:grid-cols-2">
+                        {selectedQuestion.answer.sources.map((source: any, index: number) => (
+                          <div
+                            key={index}
+                            className="p-2.5 rounded-md border bg-muted/20 text-xs space-y-1"
+                          >
+                            {source.sourceName && (
+                              <p className="font-semibold text-foreground">{source.sourceName}</p>
+                            )}
+                            {source.source && (
+                              <a
+                                href={source.source}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-primary hover:underline truncate block"
+                              >
+                                {source.source}
+                              </a>
+                            )}
+                            {source.page && (
+                              <p className="text-[11px] text-muted-foreground">Page: {source.page}</p>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </TabsContent>
+
+                {/* Tab 2: Quality Rules */}
+                <TabsContent value="rules" className="space-y-3 m-0 focus-visible:outline-none">
+                  {(() => {
+                    const modalQId =
+                      selectedQuestion.question?._id ||
+                      selectedQuestion.questionId ||
+                      selectedQuestion._id;
+                    const isModalModified = isAnswerModifiedAfterCheck(selectedQuestion);
+                    const isModalChecking = checkingQuestionId === modalQId;
+
+                    return (
+                      <div className="rounded-lg border p-4 space-y-3">
+                        <div className="flex items-center justify-between gap-3 border-b pb-3">
+                          <div>
+                            <h4 className="text-sm font-semibold text-foreground">
+                              Automated Rule Evaluation
+                            </h4>
+                            <p className="text-xs text-muted-foreground">
+                              Verification evaluated against AI Answer Check server
+                            </p>
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            disabled={isChecking}
+                            onClick={() => {
+                              if (modalQId) handleRecheckSingle(modalQId);
+                            }}
+                            className={cn(
+                              "h-7 text-xs font-medium gap-1.5",
+                              isModalModified && "border-amber-400 bg-amber-50 text-amber-900 dark:bg-amber-950 dark:text-amber-200"
+                            )}
+                          >
+                            {isModalChecking ? (
+                              <Loader2 className="h-3 w-3 animate-spin text-primary" />
+                            ) : (
+                              <RotateCw className="h-3 w-3" />
+                            )}
+                            {isModalChecking
+                              ? "Rechecking..."
+                              : isModalModified
+                              ? "Recheck Now"
+                              : "Recheck"}
+                          </Button>
+                        </div>
+
+                        {isModalModified && (
+                          <div className="rounded-md border border-amber-300 dark:border-amber-800 bg-amber-50/70 dark:bg-amber-950/40 p-2.5 text-xs text-amber-900 dark:text-amber-200 flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+                            <span>
+                              Answer was edited after the last evaluation. Recheck is recommended to verify updated text.
+                            </span>
+                          </div>
+                        )}
+
+                        {selectedChecks.length > 0 ? (
+                          <GdbFlagsPanel checks={selectedChecks} editable={false} />
+                        ) : (
+                          <div className="rounded-md border border-dashed p-6 text-center text-xs text-muted-foreground space-y-2">
+                            <Clock className="w-6 h-6 mx-auto text-muted-foreground/60" />
+                            <p>No quality check has been executed for this question yet.</p>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              disabled={isChecking}
+                              onClick={() => {
+                                if (modalQId) handleRecheckSingle(modalQId);
+                              }}
+                              className="text-xs"
+                            >
+                              Run Check Now
+                            </Button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })()}
+                </TabsContent>
+
+                {/* Tab 3: History */}
+                <TabsContent value="history" className="m-0 focus-visible:outline-none">
+                  <div className="rounded-lg border p-4">
+                    <RdqaHistoryTimeline
+                      questionId={
+                        selectedQuestion.question?._id ||
+                        selectedQuestion.questionId ||
+                        selectedQuestion._id
+                      }
+                    />
+                  </div>
+                </TabsContent>
+
+                {/* Tab 4: Metadata */}
+                <TabsContent value="metadata" className="space-y-3 m-0 focus-visible:outline-none">
+                  <div className="rounded-lg border p-4 space-y-3">
+                    <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                      Audit Information
+                    </h4>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Moderator:</span>
+                        <p className="font-medium text-foreground mt-0.5 truncate">
+                          {selectedQuestion.answer?.approvedByEmail || selectedQuestion.answer?.approvedBy || "N/A"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Author:</span>
+                        <p className="font-medium text-foreground mt-0.5 truncate">
+                          {selectedQuestion.authorIdEmail || selectedQuestion.authorId || "N/A"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Closed At:</span>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {selectedQuestion.question?.closedAt
+                            ? new Date(selectedQuestion.question.closedAt).toLocaleDateString()
+                            : "N/A"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Last Checked:</span>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {selectedQuestion.checkedAt ||
+                          selectedQuestion.answer?.checkedAt ||
+                          selectedQuestion.question?.rdqaCheckedAt
+                            ? new Date(
+                                (selectedQuestion.checkedAt ||
+                                  selectedQuestion.answer?.checkedAt ||
+                                  selectedQuestion.question?.rdqaCheckedAt)!
+                              ).toLocaleString()
+                            : "Not evaluated"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Location:</span>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {selectedQuestion.question?.details?.district || "N/A"},{" "}
+                          {selectedQuestion.question?.details?.state || "N/A"}
+                        </p>
+                      </div>
+                      <div className="p-2.5 rounded-md bg-muted/20 border">
+                        <span className="text-muted-foreground block text-[11px]">Crop & Season:</span>
+                        <p className="font-medium text-foreground mt-0.5">
+                          {selectedQuestion.question?.details?.crop || "N/A"}{" "}
+                          {selectedQuestion.question?.details?.season
+                            ? `(${selectedQuestion.question.details.season})`
+                            : ""}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 border-t flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span>QID:</span>
+                        <code className="font-mono bg-muted px-1 rounded text-[11px] text-foreground">
+                          {selectedQuestion.question?._id || selectedQuestion.questionId}
+                        </code>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            copyToClipboard(
+                              selectedQuestion.question?._id || selectedQuestion.questionId || "",
+                              "meta-qid",
+                              "Question ID"
+                            )
+                          }
+                          className="hover:text-foreground text-muted-foreground"
+                        >
+                          {copiedId === "meta-qid" ? (
+                            <Check className="w-3 h-3 text-emerald-600" />
+                          ) : (
+                            <Copy className="w-3 h-3" />
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </TabsContent>
               </div>
-            )}
+            </Tabs>
 
-            <div className="border-t my-6" />
-
-            {/* Identifiers */}
-            <div className="grid grid-cols-2 gap-4 text-xs text-muted-foreground">
-              <div><span className="font-medium">Question ID:</span><p className="mt-0.5 break-all">{selectedQuestion.question?._id || selectedQuestion.questionId || "N/A"}</p></div>
-              <div><span className="font-medium">Answer ID:</span><p className="mt-0.5 break-all">{selectedQuestion.answer?._id || "N/A"}</p></div>
-              <div><span className="font-medium">Context ID:</span><p className="mt-0.5 break-all">{selectedQuestion.context || "N/A"}</p></div>
-              <div><span className="font-medium">Author ID:</span><p className="mt-0.5 break-all">{selectedQuestion.question?.userId || selectedQuestion.authorId || "N/A"}</p></div>
+            {/* Modal Footer */}
+            <div className="flex items-center justify-between gap-3 px-5 py-3 border-t bg-muted/10 shrink-0">
+              <span className="text-xs text-muted-foreground">
+                Quality Status:{" "}
+                <strong className="text-foreground font-medium">
+                  {isAnswerModifiedAfterCheck(selectedQuestion)
+                    ? "Modified (Needs Recheck)"
+                    : (selectedQuestion.flags || selectedQuestion.answer?.flags || []).length > 0
+                    ? `${(selectedQuestion.flags || selectedQuestion.answer?.flags || []).length} Flags`
+                    : "Passed"}
+                </strong>
+              </span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setEditQuestion(selectedQuestion);
+                    setShowEditModal(true);
+                  }}
+                  className="gap-1.5 text-xs h-8"
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  Edit Answer
+                </Button>
+                <Button variant="default" size="sm" onClick={() => setSelectedQuestion(null)} className="text-xs h-8">
+                  Close
+                </Button>
+              </div>
             </div>
           </div>
         </div>
       )}
 
-      {/* Details Modal */}
+      {/* Distribution Modal */}
       <Dialog open={showDetailsModal} onOpenChange={setShowDetailsModal}>
-        <DialogContent className="sm:max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogContent className="sm:max-w-2xl max-h-[85vh] overflow-y-auto rounded-xl">
           <DialogHeader>
-            <DialogTitle>RDQA Distribution Details</DialogTitle>
-            <DialogDescription>
-              Overview of question distribution for {selectedDate ? format(selectedDate, "PPP") : "selected date"}
+            <DialogTitle className="flex items-center gap-2 text-base">
+              <BarChart3 className="w-4 h-4 text-primary" />
+              RDQA Distribution Details
+            </DialogTitle>
+            <DialogDescription className="text-xs">
+              Overview of question balancing and moderator workload for{" "}
+              {selectedDate ? format(selectedDate, "PPP") : "the selected date"}
             </DialogDescription>
           </DialogHeader>
 
-          {/* Stats Cards */}
-          <div className="grid grid-cols-3 gap-4 mb-6">
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-3xl font-bold text-primary">{rdqaResponse?.totalModerators ?? 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Total Moderators</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-3xl font-bold text-primary">{rdqaResponse?.questionsPerModerator ?? 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Questions/Moderator</p>
-              </CardContent>
-            </Card>
-            <Card>
-              <CardContent className="pt-6 text-center">
-                <p className="text-3xl font-bold text-primary">{rdqaResponse?.totalQuestions ?? 0}</p>
-                <p className="text-sm text-muted-foreground mt-1">Total Questions</p>
-              </CardContent>
-            </Card>
+          {/* Minimal Stats Strip */}
+          <div className="grid grid-cols-3 gap-2.5 my-3">
+            <div className="rounded-lg border bg-muted/20 p-3 text-center">
+              <p className="text-xl font-bold text-foreground">
+                {rdqaResponse?.totalModerators ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Moderators</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3 text-center">
+              <p className="text-xl font-bold text-primary">
+                {rdqaResponse?.questionsPerModerator ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Per Moderator</p>
+            </div>
+            <div className="rounded-lg border bg-muted/20 p-3 text-center">
+              <p className="text-xl font-bold text-foreground">
+                {rdqaResponse?.totalQuestions ?? 0}
+              </p>
+              <p className="text-[11px] text-muted-foreground mt-0.5">Total Questions</p>
+            </div>
           </div>
 
-          {/* Moderator Distribution */}
-          <div>
-            <h3 className="text-sm font-semibold mb-3">Moderator Distribution</h3>
-            <div className="space-y-3">
+          {/* Moderator Distribution Rows */}
+          <div className="space-y-2 mt-2">
+            <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+              Moderator Workload
+            </h4>
+            <div className="space-y-1.5 max-h-60 overflow-y-auto pr-1">
               {rdqaResponse?.moderatorDistribution?.map((moderator, index) => (
                 <div
                   key={index}
-                  className="flex items-center justify-between p-3 rounded-lg border bg-muted/30"
+                  className="flex items-center justify-between p-2.5 rounded-lg border bg-card text-xs"
                 >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
-                      <span className="text-sm font-medium text-primary">{index + 1}</span>
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium">{moderator.approvedByEmail || moderator.approvedBy}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {moderator.totalAvailable} available · {moderator.selectedCount} selected
-                      </p>
-                    </div>
+                  <div>
+                    <p className="font-medium text-foreground">
+                      {moderator.approvedByEmail || moderator.approvedBy}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground">
+                      {moderator.totalAvailable} available · {moderator.selectedCount} selected
+                    </p>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className="w-24 h-2 bg-muted rounded-full overflow-hidden">
+                    <div className="w-20 sm:w-28 h-1.5 bg-muted rounded-full overflow-hidden">
                       <div
                         className="h-full bg-primary rounded-full"
-                        style={{ width: `${Math.min(100, (moderator.selectedCount / moderator.totalAvailable) * 100)}%` }}
+                        style={{
+                          width: `${Math.min(
+                            100,
+                            (moderator.selectedCount / Math.max(1, moderator.totalAvailable)) * 100
+                          )}%`,
+                        }}
                       />
                     </div>
-                    <span className="text-xs text-muted-foreground w-12 text-right">
-                      {Math.round((moderator.selectedCount / moderator.totalAvailable) * 100)}%
+                    <span className="text-[11px] font-mono text-muted-foreground w-8 text-right">
+                      {Math.round(
+                        (moderator.selectedCount / Math.max(1, moderator.totalAvailable)) * 100
+                      )}
+                      %
                     </span>
                   </div>
                 </div>
               ))}
-              {(!rdqaResponse?.moderatorDistribution || rdqaResponse.moderatorDistribution.length === 0) && (
-                <p className="text-sm text-muted-foreground text-center py-4">No moderator data available</p>
+              {(!rdqaResponse?.moderatorDistribution ||
+                rdqaResponse.moderatorDistribution.length === 0) && (
+                <p className="text-xs text-muted-foreground text-center py-6">
+                  No moderator data available for this date.
+                </p>
               )}
             </div>
           </div>
@@ -1157,12 +1691,11 @@ export const RdqaPage = () => {
         open={showEditModal}
         onOpenChange={setShowEditModal}
         onSuccess={() => {
-          // Refresh the RDQA questions list
           queryClient.invalidateQueries({ queryKey: ["rdqa-questions"] });
         }}
       />
 
-      {/* Full Question Edit Dialog - Same as All Questions tab */}
+      {/* Full Question Edit Dialog */}
       <AddOrEditQuestionDialog
         open={showFullEditModal}
         setOpen={setShowFullEditModal}
