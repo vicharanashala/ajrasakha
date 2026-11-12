@@ -35,7 +35,11 @@ testers-dashboard/backend/node_modules
 .env
 secrets/
 
-#Testing 
+#Testing
+
+test-results/
+apis/testing/test-results/
+apis/testing/reports/
 
 ai/tests/api/reports/
 

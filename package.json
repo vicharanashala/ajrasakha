@@ -1,13 +1,23 @@
 {
+  "name": "ajrasakha",
+  "version": "1.0.0",
+  "scripts": {
+    "test:agentic": "npm --prefix apis/testing run test:agentic",
+    "test:apis": "npm --prefix apis/testing run test:api",
+    "test:apis:ui": "npm --prefix apis/testing run test:ui",
+    "test:promptfoo": "npm --prefix apis/testing run test:promptfoo"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/ws": "^8.18.1",
     "bcryptjs": "^3.0.3",
     "http-proxy-middleware": "^4.0.0",
-    "pdfkit": "^0.18.0"
+    "pdfkit": "^0.18.0",
+    "promptfoo": "^0.125.1"
   }
 }
