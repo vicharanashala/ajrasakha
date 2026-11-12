@@ -6,11 +6,13 @@ on:
       - feat/agentic-test-suite
     paths:
       - 'apis/**'
+      - '.github/workflows/apis-test-suite.yml'
   pull_request:
     branches:
       - feat/agentic-test-suite
     paths:
       - 'apis/**'
+      - '.github/workflows/apis-test-suite.yml'
   workflow_dispatch:
 
 concurrency:
@@ -27,14 +29,13 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
-      - name: Set up Node.js
+      - name: Set up Node.js 22
         uses: actions/setup-node@v4
         with:
-          node-version: 20
-          cache: 'npm'
+          node-version: 22
 
       - name: Install Dependencies
-        run: npm ci
+        run: npm install
 
       - name: Install Playwright Chromium Browser
         run: npx playwright install --with-deps chromium
