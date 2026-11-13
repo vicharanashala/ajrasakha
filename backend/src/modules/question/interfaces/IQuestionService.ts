@@ -1047,4 +1047,15 @@ export interface IQuestionService {
     count: number;
     questionIds: string[];
   }>;
+
+  /**
+   * Export all questions for a given state as an Excel file.
+   * The Excel contains separate tabs for:
+   * - "Questions" tab with Sl No, Question, and basic details
+   * - "Details" tab with detailed question details
+   *
+   * @param state - The state name to filter questions by details.state
+   * @returns Excel file as Buffer, or null if no questions found
+   */
+  exportQuestionsByState(state: string): Promise<Buffer | null>;
 }

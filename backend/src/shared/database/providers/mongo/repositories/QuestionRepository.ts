@@ -11051,4 +11051,50 @@ export class QuestionRepository implements IQuestionRepository {
       totalHoldingMs,
     };
   }
+
+  /**
+   * Find all questions where details.state matches the given state name.
+   * Uses streaming cursor for memory efficiency with large datasets.
+   */
+  async findByDetailsState(state: string): Promise<IQuestion[]> {
+    await this.init();
+    
+    const escapeRegex = (v: string) =>
+      v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    const filter: any = {
+      'details.state': { $regex: `^${escapeRegex(state)}$`, $options: 'i' },
+    };
+
+    return this.QuestionCollection.find(filter)
+      .project({
+        _id: 1,
+        question: 1,
+        text: 1,
+        details: 1,
+        status: 1,
+        priority: 1,
+        source: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      })
+      .sort({ createdAt: -1 })
+      .toArray();
+  }
+
+  /**
+   * Count questions where details.state matches the given state name.
+   */
+  async countByDetailsState(state: string): Promise<number> {
+    await this.init();
+    
+    const escapeRegex = (v: string) =>
+      v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    const filter: any = {
+      'details.state': { $regex: `^${escapeRegex(state)}$`, $options: 'i' },
+    };
+
+    return this.QuestionCollection.countDocuments(filter);
+  }
 }
