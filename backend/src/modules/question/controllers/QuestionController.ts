@@ -724,7 +724,8 @@ export class QuestionController {
     this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
-
+  
+  //endpoint for getting the excel with questions of a specific state
   @Post('/export-by-state')
   @HttpCode(200)
   @Authorized()
@@ -739,7 +740,7 @@ export class QuestionController {
     @Res() response: any,
   ) {
     const { state } = body;
-
+    console.log("state ",state)
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.DOWNLOAD_REPORTS,
       action: AuditAction.DOWNLOAD,

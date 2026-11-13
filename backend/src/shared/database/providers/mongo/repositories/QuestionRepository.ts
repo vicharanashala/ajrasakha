@@ -11058,7 +11058,7 @@ export class QuestionRepository implements IQuestionRepository {
    */
   async findByDetailsState(state: string): Promise<IQuestion[]> {
     await this.init();
-    
+    console.log('MongoDatabase connected:', this.db);
     const escapeRegex = (v: string) =>
       v.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     
