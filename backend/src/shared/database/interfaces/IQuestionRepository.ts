@@ -993,6 +993,17 @@ export interface IQuestionRepository {
     endDate: Date,
     activeSessions?: Array<{ start: number; end: number }>,
   ): Promise<IUserActivityMetrics>;
+
+  /**
+   * Find all questions where details.state matches the given state name.
+   * Returns a cursor for streaming large datasets.
+   */
+  findByDetailsState(state: string): Promise<IQuestion[]>;
+
+  /**
+   * Count questions where details.state matches the given state name.
+   */
+  countByDetailsState(state: string): Promise<number>;
 }
 
 export interface IUserActivityMetrics {

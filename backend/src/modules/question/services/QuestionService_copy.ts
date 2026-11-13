@@ -11684,4 +11684,8 @@ export class QuestionService extends BaseService implements IQuestionService {
   ): Promise<{ success: boolean; message: string }> {
     throw new Error('Method deprecated in QuestionService_copy. Use PaeValidationService directly.');
   }
+
+  async exportQuestionsByState(state: string): Promise<Buffer | null> {
+    throw new Error('Method deprecated in QuestionService_copy. Use QuestionService directly.');
+  }
 }

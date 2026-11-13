@@ -3108,4 +3108,147 @@ export class QuestionService extends BaseService implements IQuestionService {
       recipients,
     );
   }
+
+  /**
+   * Export all questions for a given state as an Excel file with separate tabs.
+   * Tab 1: "Questions" - Sl No, Question
+   * Tab 2: "Details" - Full details object for each question
+   */
+  async exportQuestionsByState(state: string): Promise<Buffer | null> {
+    // Fetch questions from repository
+    const questions = await this.questionRepo.findByDetailsState(state);
+
+    if (!questions || questions.length === 0) {
+      return null;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'QuestionService';
+    workbook.created = new Date();
+
+    // ============ Tab 1: Questions Sheet ============
+    const questionsSheet = workbook.addWorksheet('Questions');
+
+    // Title row
+    questionsSheet.mergeCells('A1:C1');
+    const titleCell = questionsSheet.getCell('A1');
+    titleCell.value = `Questions Export - State: ${state}`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Date row
+    questionsSheet.mergeCells('A2:C2');
+    const dateCell = questionsSheet.getCell('A2');
+    dateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
+    dateCell.font = { bold: false, size: 10 };
+    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Count row
+    questionsSheet.mergeCells('A3:C3');
+    const countCell = questionsSheet.getCell('A3');
+    countCell.value = `Total Questions: ${questions.length}`;
+    countCell.font = { bold: true, size: 11 };
+    countCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Empty row separator
+    questionsSheet.addRow([]);
+
+    // Header row
+    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question']);
+    questionsHeaderRow.font = { bold: true };
+    questionsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    questionsHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Set column widths for Questions sheet
+    questionsSheet.getColumn(1).width = 10;  // Sl No
+    questionsSheet.getColumn(2).width = 80;  // Question
+
+    // Add data rows to Questions sheet
+    questions.forEach((q, index) => {
+      const row = questionsSheet.addRow([index + 1, q.question || q.text || '']);
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+    });
+
+    // ============ Tab 2: Details Sheet ============
+    const detailsSheet = workbook.addWorksheet('Details');
+
+    // Title row
+    detailsSheet.mergeCells('A1:H1');
+    const detailsTitleCell = detailsSheet.getCell('A1');
+    detailsTitleCell.value = `Question Details Export - State: ${state}`;
+    detailsTitleCell.font = { bold: true, size: 14 };
+    detailsTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Date row
+    detailsSheet.mergeCells('A2:H2');
+    const detailsDateCell = detailsSheet.getCell('A2');
+    detailsDateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
+    detailsDateCell.font = { bold: false, size: 10 };
+    detailsDateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Count row
+    detailsSheet.mergeCells('A3:H3');
+    const detailsCountCell = detailsSheet.getCell('A3');
+    detailsCountCell.value = `Total Questions: ${questions.length}`;
+    detailsCountCell.font = { bold: true, size: 11 };
+    detailsCountCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Empty row separator
+    detailsSheet.addRow([]);
+
+    // Header row for details
+    const detailsHeaderRow = detailsSheet.addRow([
+      'Sl No',
+      'Question',
+      'State',
+      'District',
+      'Crop',
+      'Season',
+      'Domain',
+      'Source',
+    ]);
+    detailsHeaderRow.font = { bold: true };
+    detailsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    detailsHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Set column widths for Details sheet
+    detailsSheet.getColumn(1).width = 10;   // Sl No
+    detailsSheet.getColumn(2).width = 50;   // Question
+    detailsSheet.getColumn(3).width = 20;   // State
+    detailsSheet.getColumn(4).width = 25;   // District
+    detailsSheet.getColumn(5).width = 20;   // Crop
+    detailsSheet.getColumn(6).width = 15;   // Season
+    detailsSheet.getColumn(7).width = 30;   // Domain
+    detailsSheet.getColumn(8).width = 20;   // Source
+
+    // Add data rows to Details sheet
+    questions.forEach((q, index) => {
+      const details = q.details as { state?: string; district?: string; crop?: string | any; season?: string; domain?: string | string[] } || {};
+      const row = detailsSheet.addRow([
+        index + 1,
+        q.question || q.text || '',
+        details.state || '',
+        details.district || '',
+        typeof details.crop === 'object' ? (details.crop as any)?.name || '' : (details.crop || ''),
+        details.season || '',
+        Array.isArray(details.domain) ? (details.domain as string[]).join(', ') : (details.domain || ''),
+        q.source || '',
+      ]);
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+    });
+
+    // Write to buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
+  }
 }
