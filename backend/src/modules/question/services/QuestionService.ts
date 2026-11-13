@@ -3232,15 +3232,15 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     // Add data rows to Details sheet
     questions.forEach((q, index) => {
-      const details = q.details || {};
+      const details = q.details as { state?: string; district?: string; crop?: string | any; season?: string; domain?: string | string[] } || {};
       const row = detailsSheet.addRow([
         index + 1,
         q.question || q.text || '',
         details.state || '',
         details.district || '',
-        details.crop || '',
+        typeof details.crop === 'object' ? (details.crop as any)?.name || '' : (details.crop || ''),
         details.season || '',
-        Array.isArray(details.domain) ? details.domain.join(', ') : (details.domain || ''),
+        Array.isArray(details.domain) ? (details.domain as string[]).join(', ') : (details.domain || ''),
         q.source || '',
       ]);
       row.getCell(1).alignment = { horizontal: 'center' };

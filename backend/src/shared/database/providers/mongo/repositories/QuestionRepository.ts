@@ -11066,7 +11066,7 @@ export class QuestionRepository implements IQuestionRepository {
       'details.state': { $regex: `^${escapeRegex(state)}$`, $options: 'i' },
     };
 
-    return this.QuestionCollection.find(filter)
+    const cursor = this.QuestionCollection.find(filter)
       .project({
         _id: 1,
         question: 1,
@@ -11078,8 +11078,13 @@ export class QuestionRepository implements IQuestionRepository {
         createdAt: 1,
         updatedAt: 1,
       })
-      .sort({ createdAt: -1 })
-      .toArray();
+      .sort({ createdAt: -1 });
+
+    const results: IQuestion[] = [];
+    for await (const doc of cursor) {
+      results.push(doc as unknown as IQuestion);
+    }
+    return results;
   }
 
   /**
