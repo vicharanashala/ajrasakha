@@ -169,7 +169,16 @@ if (faqPopConfig.popApiUrl) {
     agent: tailnetAgentFor(faqPopConfig.popApiUrl),
     timeout: POP_PROXY_TIMEOUT_MS,
     proxyTimeout: POP_PROXY_TIMEOUT_MS,
-    on: { error: proxyOnError('pop') },
+    on: {
+      error: proxyOnError('pop'),
+      // POP's shared-secret gate (2026-11) — every request needs this once POP turns its check
+      // on; POP ignores it until then. Set server-side here so the secret never has to reach
+      // the browser. A browser-supplied X-Service-Key (there shouldn't be one) is overwritten,
+      // never trusted.
+      proxyReq: (proxyReq) => {
+        if (faqPopConfig.popServiceKey) proxyReq.setHeader('X-Service-Key', faqPopConfig.popServiceKey);
+      },
+    },
   }));
 }
 
