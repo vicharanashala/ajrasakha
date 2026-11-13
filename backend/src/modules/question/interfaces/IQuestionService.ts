@@ -1051,7 +1051,7 @@ export interface IQuestionService {
   /**
    * Export all questions for a given state as an Excel file.
    * The Excel contains separate tabs for:
-   * - "Questions" tab with Sl No, Question, Status
+   * - "Questions" tab with Sl No, Question
    * - "Details" tab with detailed question details including Status
    *
    * @param state - The state name to filter questions by details.state

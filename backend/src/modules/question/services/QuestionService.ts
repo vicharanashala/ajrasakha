@@ -3111,8 +3111,8 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   /**
    * Export all questions for a given state as an Excel file with separate tabs.
-   * Tab 1: "Questions" - Sl No, Question, Status
-   * Tab 2: "Details" - Full details object for each question
+   * Tab 1: "Questions" - Sl No, Question
+   * Tab 2: "Details" - Full details object for each question including Status
    */
   async exportQuestionsByState(state: string): Promise<Buffer | null> {
     // Fetch questions from repository
@@ -3130,21 +3130,21 @@ export class QuestionService extends BaseService implements IQuestionService {
     const questionsSheet = workbook.addWorksheet('Questions');
 
     // Title row
-    questionsSheet.mergeCells('A1:C1');
+    questionsSheet.mergeCells('A1:B1');
     const titleCell = questionsSheet.getCell('A1');
     titleCell.value = `Questions Export - State: ${state}`;
     titleCell.font = { bold: true, size: 14 };
     titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Date row
-    questionsSheet.mergeCells('A2:C2');
+    questionsSheet.mergeCells('A2:B2');
     const dateCell = questionsSheet.getCell('A2');
     dateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
     dateCell.font = { bold: false, size: 10 };
     dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Count row
-    questionsSheet.mergeCells('A3:C3');
+    questionsSheet.mergeCells('A3:B3');
     const countCell = questionsSheet.getCell('A3');
     countCell.value = `Total Questions: ${questions.length}`;
     countCell.font = { bold: true, size: 11 };
@@ -3154,7 +3154,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionsSheet.addRow([]);
 
     // Header row
-    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question', 'Status']);
+    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question']);
     questionsHeaderRow.font = { bold: true };
     questionsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
     questionsHeaderRow.fill = {
@@ -3166,18 +3166,15 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Set column widths for Questions sheet
     questionsSheet.getColumn(1).width = 10;  // Sl No
     questionsSheet.getColumn(2).width = 80;  // Question
-    questionsSheet.getColumn(3).width = 20;  // Status
 
     // Add data rows to Questions sheet
     questions.forEach((q, index) => {
       const row = questionsSheet.addRow([
         index + 1,
         q.question || q.text || '',
-        q.status || '',
       ]);
       row.getCell(1).alignment = { horizontal: 'center' };
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
-      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
     });
 
     // ============ Tab 2: Details Sheet ============
