@@ -740,7 +740,6 @@ export class QuestionController {
     @Res() response: any,
   ) {
     const { state } = body;
-    console.log("state ",state)
     const auditPayload: ModeratorAuditTrail = {
       category: AuditCategory.DOWNLOAD_REPORTS,
       action: AuditAction.DOWNLOAD,

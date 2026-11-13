@@ -3111,7 +3111,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
   /**
    * Export all questions for a given state as an Excel file with separate tabs.
-   * Tab 1: "Questions" - Sl No, Question
+   * Tab 1: "Questions" - Sl No, Question, Status
    * Tab 2: "Details" - Full details object for each question
    */
   async exportQuestionsByState(state: string): Promise<Buffer | null> {
@@ -3154,7 +3154,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionsSheet.addRow([]);
 
     // Header row
-    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question']);
+    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question', 'Status']);
     questionsHeaderRow.font = { bold: true };
     questionsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
     questionsHeaderRow.fill = {
@@ -3166,33 +3166,39 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Set column widths for Questions sheet
     questionsSheet.getColumn(1).width = 10;  // Sl No
     questionsSheet.getColumn(2).width = 80;  // Question
+    questionsSheet.getColumn(3).width = 20;  // Status
 
     // Add data rows to Questions sheet
     questions.forEach((q, index) => {
-      const row = questionsSheet.addRow([index + 1, q.question || q.text || '']);
+      const row = questionsSheet.addRow([
+        index + 1,
+        q.question || q.text || '',
+        q.status || '',
+      ]);
       row.getCell(1).alignment = { horizontal: 'center' };
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
     });
 
     // ============ Tab 2: Details Sheet ============
     const detailsSheet = workbook.addWorksheet('Details');
 
     // Title row
-    detailsSheet.mergeCells('A1:H1');
+    detailsSheet.mergeCells('A1:I1');
     const detailsTitleCell = detailsSheet.getCell('A1');
     detailsTitleCell.value = `Question Details Export - State: ${state}`;
     detailsTitleCell.font = { bold: true, size: 14 };
     detailsTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Date row
-    detailsSheet.mergeCells('A2:H2');
+    detailsSheet.mergeCells('A2:I2');
     const detailsDateCell = detailsSheet.getCell('A2');
     detailsDateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
     detailsDateCell.font = { bold: false, size: 10 };
     detailsDateCell.alignment = { horizontal: 'center', vertical: 'middle' };
 
     // Count row
-    detailsSheet.mergeCells('A3:H3');
+    detailsSheet.mergeCells('A3:I3');
     const detailsCountCell = detailsSheet.getCell('A3');
     detailsCountCell.value = `Total Questions: ${questions.length}`;
     detailsCountCell.font = { bold: true, size: 11 };
@@ -3205,6 +3211,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     const detailsHeaderRow = detailsSheet.addRow([
       'Sl No',
       'Question',
+      'Status',
       'State',
       'District',
       'Crop',
@@ -3223,12 +3230,13 @@ export class QuestionService extends BaseService implements IQuestionService {
     // Set column widths for Details sheet
     detailsSheet.getColumn(1).width = 10;   // Sl No
     detailsSheet.getColumn(2).width = 50;   // Question
-    detailsSheet.getColumn(3).width = 20;   // State
-    detailsSheet.getColumn(4).width = 25;   // District
-    detailsSheet.getColumn(5).width = 20;   // Crop
-    detailsSheet.getColumn(6).width = 15;   // Season
-    detailsSheet.getColumn(7).width = 30;   // Domain
-    detailsSheet.getColumn(8).width = 20;   // Source
+    detailsSheet.getColumn(3).width = 20;   // Status
+    detailsSheet.getColumn(4).width = 20;   // State
+    detailsSheet.getColumn(5).width = 25;   // District
+    detailsSheet.getColumn(6).width = 20;   // Crop
+    detailsSheet.getColumn(7).width = 15;   // Season
+    detailsSheet.getColumn(8).width = 30;   // Domain
+    detailsSheet.getColumn(9).width = 20;   // Source
 
     // Add data rows to Details sheet
     questions.forEach((q, index) => {
@@ -3236,6 +3244,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       const row = detailsSheet.addRow([
         index + 1,
         q.question || q.text || '',
+        q.status || '',
         details.state || '',
         details.district || '',
         typeof details.crop === 'object' ? (details.crop as any)?.name || '' : (details.crop || ''),
@@ -3245,6 +3254,7 @@ export class QuestionService extends BaseService implements IQuestionService {
       ]);
       row.getCell(1).alignment = { horizontal: 'center' };
       row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
     });
 
     // Write to buffer
