@@ -7,6 +7,7 @@ import {
   startWritingAssistantMock,
   startWeatherMock,
 } from './mock-apis-server.js';
+import { generateQAReport } from './generate-qa-report.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -79,6 +80,8 @@ async function main() {
       'eval',
       '--config',
       'promptfoo/promptfooconfig.yaml',
+      '--output',
+      'reports/promptfoo-results.json',
       '--no-cache',
     ]);
 
@@ -114,6 +117,13 @@ async function main() {
   console.log(`2. Playwright API Tests:      ${results.apiTests?.code === 0 ? '\x1b[32mPASSED\x1b[0m' : '\x1b[31mFAILED\x1b[0m'}`);
   console.log(`3. Playwright Web UI Tests:   ${results.uiTests?.code === 0 ? '\x1b[32mPASSED\x1b[0m' : '\x1b[31mFAILED\x1b[0m'}`);
   console.log('================================================================\n');
+
+  // Generate Quality Gate & Agentic QA Verification Markdown Report
+  try {
+    generateQAReport({ results });
+  } catch (err) {
+    console.error('[apis-runner] Failed to generate QA report:', err.message);
+  }
 
   const allPassed =
     results.promptfoo?.code === 0 &&
