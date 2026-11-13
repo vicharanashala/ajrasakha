@@ -6,10 +6,46 @@ service, in the backend) changes it.
 """
 
 from . import guardrails, llm_client
-from .models import LanguagePolishingResult, LanguagePolishingStatus, LLMUnavailableError
+from .models import (
+    LanguagePolishingResult,
+    LanguagePolishingStatus,
+    LLMUnavailableError,
+    StructuralValidationResult,
+    StructuralValidationStatus,
+)
 from .result_cache import ResultCache
 
 _cache = ResultCache()
+
+
+def skipped_due_to_incomplete_structure(structural_result: StructuralValidationResult) -> LanguagePolishingResult:
+    """Team requirement: for every request, only offer a polish suggestion
+    once structural validation says every step is covered - otherwise skip
+    the rewrite entirely (not just withhold it) and let the step report be
+    the whole answer."""
+    if structural_result.status == StructuralValidationStatus.COMPLETE:
+        raise ValueError("structural validation is complete - polishing should not be skipped")
+
+    gaps = [s.step for s in structural_result.steps if s.coverage.value in ("missing", "partial")]
+    unconfirmed = [s.step for s in structural_result.steps if s.coverage.value == "not_assessed"]
+    # Kept as two separate clauses on purpose - "not_assessed" means a
+    # check failed, not that the step is actually missing/partial;
+    # conflating them would misreport a real gap where there may be
+    # none (same "never conflate" principle as the NOT_ASSESSED/
+    # CheckStatus.NOT_RUN states themselves).
+    clauses = []
+    if gaps:
+        clauses.append("missing or partial step(s): " + "; ".join(gaps))
+    if unconfirmed:
+        clauses.append("step(s) that could not be checked due to a failed dependency: " + "; ".join(unconfirmed))
+    reason = "Structural validation found " + " and ".join(clauses) + ", so a polish suggestion was not generated."
+
+    return LanguagePolishingResult(
+        status=LanguagePolishingStatus.SKIPPED,
+        suggested_text=None,
+        reason=reason,
+        guardrail=None,
+    )
 
 
 def polish_draft_cached(draft_text: str) -> LanguagePolishingResult:

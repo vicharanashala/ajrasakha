@@ -255,6 +255,72 @@ def test_llm_second_opinion_flagging_a_change_rejects(monkeypatch):
     assert any("second-opinion" in d.lower() for d in result.details)
 
 
+# The second opinion runs per-section (mirrors generate_polish's own
+# per-section split) rather than once on the whole document - live-
+# confirmed the whole-document call reliably stalls the same way the
+# whole-document rewrite did.
+def test_llm_second_opinion_skips_identical_sections(monkeypatch):
+    seen_calls = []
+
+    def _record(original, rewrite):
+        seen_calls.append((original, rewrite))
+        return (False, "")
+
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", _record)
+
+    guardrails.run_guardrail(
+        "First section unchanged.\n\nSecond section are wrong.",
+        "First section unchanged.\n\nSecond section is wrong.",
+    )
+    # Only the changed section is sent to the model - the identical one
+    # is skipped, nothing to ask about.
+    assert seen_calls == [("Second section are wrong.", "Second section is wrong.")]
+
+
+def test_llm_second_opinion_one_changed_section_rejects(monkeypatch):
+    def _check(original, rewrite):
+        return (True, "meaning shifted") if original != rewrite else (False, "")
+
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", _check)
+
+    result = guardrails.run_guardrail(
+        "Section one.\n\nSection two.",
+        "Section one.\n\nSection two, now stronger.",
+    )
+    assert result.status == GuardrailStatus.FAILED
+
+
+def test_llm_second_opinion_one_failed_section_rejects_even_if_others_matched(monkeypatch):
+    def _check(original, rewrite):
+        if original == "Second section.":
+            raise LLMUnavailableError("simulated outage")
+        return (False, "")
+
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", _check)
+
+    result = guardrails.run_guardrail(
+        "First section rewritten.\n\nSecond section.",
+        "First section, rewritten.\n\nSecond section, slightly different.",
+    )
+    assert result.status == GuardrailStatus.FAILED
+    assert any("could not run" in d.lower() for d in result.details)
+
+
+def test_llm_second_opinion_falls_back_to_whole_document_on_section_count_mismatch(monkeypatch):
+    seen_calls = []
+
+    def _record(original, rewrite):
+        seen_calls.append((original, rewrite))
+        return (False, "")
+
+    monkeypatch.setattr(llm_client, "check_meaning_preserved", _record)
+
+    original = "One section only."
+    rewrite = "First part.\n\nSecond part - an extra section appeared."
+    guardrails.run_guardrail(original, rewrite)
+    assert seen_calls == [(original, rewrite)]
+
+
 def test_chemical_name_drift_is_rejected(monkeypatch):
     calls = iter([{"Endrin": "Banned"}, {}])
     monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: next(calls))

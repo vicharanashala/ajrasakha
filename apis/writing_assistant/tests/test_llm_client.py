@@ -2,7 +2,11 @@
 backend/src/bootstrap/tailnetProxy.ts's isTailnetHost so both services
 agree on what needs the local Tailscale SOCKS proxy (scripts/start.sh)."""
 
+import httpx
+import pytest
+
 from assistant import config, llm_client
+from assistant.models import LLMUnavailableError
 
 
 def test_tailnet_cgnat_range_detected():
@@ -25,6 +29,10 @@ def test_non_tailnet_hosts_not_detected():
 def test_chat_completion_routes_tailnet_host_through_socks_proxy(monkeypatch):
     monkeypatch.setattr(config, "MINIMAX_BASE_URL", "http://100.100.108.41:8001/v1")
     monkeypatch.setattr(config, "MINIMAX_CHAT_PATH", "/chat/completions")
+    # Explicit, not assumed - a local .env with MINIMAX_USE_TAILNET_PROXY=false
+    # (a dev machine already tailnet-joined, see the opt-out test below)
+    # would otherwise make this test depend on whoever's running it.
+    monkeypatch.setattr(config, "MINIMAX_USE_TAILNET_PROXY", True)
     seen = {}
 
     def _fake_post(url, json, headers, timeout, proxy):
@@ -39,6 +47,33 @@ def test_chat_completion_routes_tailnet_host_through_socks_proxy(monkeypatch):
     monkeypatch.setattr("httpx.post", _fake_post)
     llm_client._chat_completion([{"role": "user", "content": "hi"}])
     assert seen["proxy"] == llm_client._TAILNET_SOCKS_PROXY
+
+
+# A host already tailnet-joined at the OS level (e.g. a dev machine with
+# Tailscale installed) has a real route to 100.x without the container's
+# userspace-networking SOCKS proxy - live-confirmed that proxy assumption
+# breaks an otherwise-working direct connection there ("connection
+# refused", nothing listens on the proxy port). MINIMAX_USE_TAILNET_PROXY
+# exists for exactly this, mirroring backend/src/config/ai.ts's
+# USE_TAILNET_PROXY.
+def test_chat_completion_skips_proxy_when_disabled_even_for_a_tailnet_host(monkeypatch):
+    monkeypatch.setattr(config, "MINIMAX_BASE_URL", "http://100.100.108.41:8001/v1")
+    monkeypatch.setattr(config, "MINIMAX_CHAT_PATH", "/chat/completions")
+    monkeypatch.setattr(config, "MINIMAX_USE_TAILNET_PROXY", False)
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["proxy"] = proxy
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert seen["proxy"] is None
 
 
 def test_chat_completion_does_not_proxy_a_public_host(monkeypatch):
@@ -58,3 +93,278 @@ def test_chat_completion_does_not_proxy_a_public_host(monkeypatch):
     monkeypatch.setattr("httpx.post", _fake_post)
     llm_client._chat_completion([{"role": "user", "content": "hi"}])
     assert seen["proxy"] is None
+
+
+# A real timeout like this (reported by the testing team) left zero trace
+# in the server logs - llm_client had no logging at all. This confirms a
+# failure is now actually diagnosable: which call, how long it ran, and
+# how much input it was given, not just "MiniMax call failed" with
+# nothing else to go on.
+def test_chat_completion_logs_call_name_elapsed_and_input_size_on_failure(monkeypatch, caplog):
+    def _raise(*a, **kw):
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    monkeypatch.setattr("httpx.post", _raise)
+    with caplog.at_level("ERROR", logger="writing_assistant.llm_client"):
+        with pytest.raises(LLMUnavailableError):
+            llm_client._chat_completion(
+                [{"role": "system", "content": "sys"}, {"role": "user", "content": "a" * 500}],
+                call_name="generate_polish",
+            )
+    assert len(caplog.records) == 1
+    message = caplog.records[0].getMessage()
+    assert "generate_polish" in message
+    assert "input 503" in message  # "sys" (3 chars) + "a"*500 = 503
+    assert "The read operation timed out" in message
+
+
+# The self-hosted reasoning model occasionally stalls on a prompt and
+# fails once before a plain retry succeeds - live-confirmed this exact
+# pattern on real requests, no sign of a real connectivity problem. One
+# retry on a genuine network-level failure should recover the result
+# instead of surfacing a step as not_assessed.
+def test_chat_completion_retries_once_and_returns_the_successful_result(monkeypatch):
+    calls = {"count": 0}
+
+    def _fail_then_succeed(*a, **kw):
+        calls["count"] += 1
+        if calls["count"] == 1:
+            raise httpx.ReadTimeout("The read operation timed out")
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "recovered"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fail_then_succeed)
+    result = llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert result == "recovered"
+    assert calls["count"] == 2
+
+
+def test_chat_completion_gives_up_after_the_retry_also_fails(monkeypatch):
+    calls = {"count": 0}
+
+    def _always_fail(*a, **kw):
+        calls["count"] += 1
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    monkeypatch.setattr("httpx.post", _always_fail)
+    with pytest.raises(LLMUnavailableError):
+        llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert calls["count"] == 2  # tried twice, not endlessly
+
+
+# A malformed response (not a network failure) is never retried - the
+# identical request would just produce the identical malformed response.
+def test_chat_completion_does_not_retry_a_malformed_response(monkeypatch):
+    calls = {"count": 0}
+
+    def _malformed(*a, **kw):
+        calls["count"] += 1
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": []}  # no [0] to index - raises IndexError
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _malformed)
+    with pytest.raises(LLMUnavailableError):
+        llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert calls["count"] == 1  # not retried
+
+
+# The self-hosted model sometimes wraps its answer in a markdown code
+# fence even when asked for plain JSON - live-confirmed: a real
+# classify_and_select response broke json.loads with "Expecting value:
+# line 3 column 1 (char 2)", the exact signature of content starting
+# '\n\n```json\n{...}'. M3 (public API) never produced this.
+def test_strip_markdown_fence_removes_a_json_fence():
+    content = '\n\n```json\n{"domain": "Pest Management", "question_type": "Broad"}\n```\n'
+    assert llm_client._strip_markdown_fence(content) == '{"domain": "Pest Management", "question_type": "Broad"}'
+
+
+def test_strip_markdown_fence_removes_a_bare_fence():
+    content = "```\nplain text answer\n```"
+    assert llm_client._strip_markdown_fence(content) == "plain text answer"
+
+
+def test_strip_markdown_fence_leaves_unfenced_content_unchanged():
+    content = '{"domain": "Pest Management"}'
+    assert llm_client._strip_markdown_fence(content) == content
+
+
+def test_strip_markdown_fence_leaves_a_partial_fence_unchanged():
+    # Only a real backtick-containing answer, not this service's own
+    # confirmed failure shape - don't risk mangling it.
+    content = 'The answer mentions a ```code``` style convention.'
+    assert llm_client._strip_markdown_fence(content) == content
+
+
+def test_chat_completion_strips_a_json_fence_so_the_caller_can_parse_it(monkeypatch):
+    def _fenced_response(*a, **kw):
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {
+                    "content": '\n\n```json\n{"domain": "Pest Management", "question_type": "Broad"}\n```\n'
+                }}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fenced_response)
+    content = llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert content == '{"domain": "Pest Management", "question_type": "Broad"}'
+    import json
+    json.loads(content)  # must not raise - this is the real bug being fixed
+
+
+def test_chat_completion_defaults_to_the_shared_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "ok"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert seen["timeout"] == config.MINIMAX_TIMEOUT_SECONDS
+
+
+# classify_step_coverage runs up to 3x per expected step (majority vote) -
+# 30 calls per request (10 fixed steps) - so it gets a conservative bump
+# over the shared default rather than a large one, but live testing still
+# showed it failing both the initial attempt and the retry at the shared
+# 20s budget on a larger-than-typical draft/step-list input.
+def test_classify_step_coverage_uses_its_own_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"coverage": "covered", "section_index": 1}'}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.classify_step_coverage("draft text", "a step", "an example")
+    assert seen["timeout"] == config.MINIMAX_COVERAGE_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+# generate_polish and check_meaning_preserved each run once per request
+# (not 3x like step coverage) - live-confirmed both failing at the shared
+# 20s budget on a similar-sized (~4700-5000 char) input, so they share a
+# dedicated budget, same reasoning as classify_step_coverage's.
+def test_generate_polish_uses_the_polish_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "polished text"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.generate_polish("draft text")
+    assert seen["timeout"] == config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+def test_check_meaning_preserved_uses_the_polish_timeout_budget(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        seen["timeout"] = timeout
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": '{"changed": false}'}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    llm_client.check_meaning_preserved("original", "rewrite")
+    assert seen["timeout"] == config.MINIMAX_POLISH_TIMEOUT_SECONDS
+    assert seen["timeout"] != config.MINIMAX_TIMEOUT_SECONDS
+
+
+# generate_polish now rewrites one section at a time rather than the
+# whole draft in one call - live-confirmed the whole-document version
+# reliably stalls/times out (the identical draft failed the identical way
+# twice in separate requests), while short, narrowly-scoped calls run
+# fine. A single-section draft (no blank lines) still makes exactly one
+# call, identical to the old behavior.
+def test_generate_polish_makes_one_call_per_section_and_reassembles(monkeypatch):
+    seen_inputs = []
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        content = json["messages"][1]["content"]
+        seen_inputs.append(content)
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": content.upper()}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("First section.\n\nSecond section.")
+    assert seen_inputs == ["First section.", "Second section."]
+    assert result == "FIRST SECTION.\n\nSECOND SECTION."
+
+
+def test_generate_polish_single_section_draft_makes_one_call(monkeypatch):
+    calls = {"n": 0}
+
+    def _fake_post(url, json, headers, timeout, proxy):
+        calls["n"] += 1
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": "polished"}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("Just one paragraph, no blank lines.")
+    assert calls["n"] == 1
+    assert result == "polished"
+
+
+def test_generate_polish_one_failed_section_falls_back_to_original_text(monkeypatch):
+    def _fake_post(url, json, headers, timeout, proxy):
+        content = json["messages"][1]["content"]
+        if content == "Bad section.":
+            raise httpx.ReadTimeout("The read operation timed out")
+        class _Resp:
+            def raise_for_status(self):
+                pass
+            def json(self):
+                return {"choices": [{"message": {"content": content.upper()}}]}
+        return _Resp()
+
+    monkeypatch.setattr("httpx.post", _fake_post)
+    result = llm_client.generate_polish("Good section.\n\nBad section.\n\nAnother good one.")
+    assert result == "GOOD SECTION.\n\nBad section.\n\nANOTHER GOOD ONE."
+
+
+def test_generate_polish_raises_only_when_every_section_fails(monkeypatch):
+    def _raise(*a, **kw):
+        raise httpx.ReadTimeout("The read operation timed out")
+
+    monkeypatch.setattr("httpx.post", _raise)
+    with pytest.raises(LLMUnavailableError):
+        llm_client.generate_polish("One section.\n\nAnother section.")

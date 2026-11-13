@@ -14,51 +14,18 @@ class CamelModel(BaseModel):
     model_config = ConfigDict(alias_generator=to_camel, populate_by_name=True)
 
 
-class SourceType(str, Enum):
-    DOMAIN = "domain"
-    DIRECT_TOPIC = "direct_topic"
-    CROP_VARIANT = "crop_variant"
-    # Team Question.csv has no Domain/Code key at all (verified - Writing
-    # Assistant Build Plan, CSV findings). It is a calibration/test corpus,
-    # never a live reference-selection candidate - reference_selector must
-    # never return this source type as a match.
-    TEAM_QUESTION = "team_question"
-
-
-class QuestionType(str, Enum):
-    BROAD = "Broad"
-    NARROW = "Narrow"
-
-
 class ReferenceStep(BaseModel):
+    """One expected step of the fixed, domain-neutral checklist every
+    draft is scored against (structural_validator.FIXED_STEPS) - no
+    longer tied to a per-question matched CSV reference (explicit team
+    simplification: same checklist for every request, regardless of
+    subject)."""
+
     sl_no: int
     step: str
     example: str
     suggestion_1: str | None = None
     suggestion_2: str | None = None
-
-
-class ReferenceStructure(BaseModel):
-    source_type: SourceType
-    domain: str | None = None
-    code: str | None = None
-    question_type: QuestionType | None = None
-    crop: str | None = None
-    question: str
-    full_written_answer: str
-    steps: list[ReferenceStep]
-
-
-class ReferenceDataset(BaseModel):
-    structures: list[ReferenceStructure]
-    # None for the local-directory source (no release concept there).
-    release_id: str | None = None
-
-
-class ReferenceDataUnavailableError(Exception):
-    """Raised whenever the reference dataset cannot be loaded or fails
-    validation. Callers must treat this as 'reference_data_unavailable',
-    never as 'no reference applies' - the two are different outcomes."""
 
 
 # ---- Phase 2: language polishing + technical-content guardrail ----
@@ -122,6 +89,12 @@ class LanguagePolishingStatus(str, Enum):
     SUGGESTED = "suggested"
     REJECTED = "rejected"
     UNAVAILABLE = "unavailable"
+    # Not attempted at all - distinct from UNAVAILABLE (a check that ran but
+    # couldn't be completed). Team requirement: polish is only offered once
+    # structural validation finds every step covered; a draft missing or
+    # partially covering steps gets the step report, never a polish
+    # suggestion, so running the LLM rewrite for it would be wasted latency.
+    SKIPPED = "skipped"
 
 
 class LanguagePolishingResult(CamelModel):
@@ -137,34 +110,21 @@ class LLMUnavailableError(Exception):
     reject-and-explain, never as permission to skip the guardrail."""
 
 
-# ---- Phase 3: structural reference selection + coverage validation ----
-
-
-class SelectionClassification(BaseModel):
-    """The LLM's structured domain/topic/crop classification of a question
-    against the candidates it was shown. reference_selector.py applies the
-    deterministic precedence rules on top of this - the LLM only classifies,
-    it never decides precedence."""
-
-    domain: str | None = None
-    question_type: QuestionType | None = None
-    matched_direct_topic: int | None = None
-    ambiguous_direct_topics: list[int] = []
-    matched_crop_variants: list[int] = []
-
-
-class MatchedReference(CamelModel):
-    source_type: SourceType
-    domain: str | None = None
-    code: str | None = None
-    question_type: QuestionType | None = None
-    crop: str | None = None
+# ---- Phase 3: structural coverage validation ----
 
 
 class StepCoverage(str, Enum):
     COVERED = "covered"
     PARTIAL = "partial"
     MISSING = "missing"
+    # Every majority-vote call for this step failed (self-hosted model
+    # timeout) - distinct from MISSING on purpose, same reasoning as
+    # CheckStatus.NOT_RUN above: "could not verify" must never be
+    # reported as "confirmed absent" (Writing Assistant Build Plan,
+    # ISS-01/03's "never conflate" principle, applied here too). A draft
+    # that genuinely covers this step would otherwise be told it's
+    # missing just because the LLM stalled on it.
+    NOT_ASSESSED = "not_assessed"
 
 
 class StepCoverageResult(CamelModel):
@@ -180,15 +140,13 @@ class StructuralValidationStatus(str, Enum):
     COMPLETE = "complete"
     INCOMPLETE = "incomplete"
     PARTIAL = "partial"
-    NEEDS_CLARIFICATION = "needs_clarification"
-    REFERENCE_DATA_UNAVAILABLE = "reference_data_unavailable"
 
 
 class StructuralValidationResult(CamelModel):
     status: StructuralValidationStatus
-    matched_reference: MatchedReference | None = None
-    steps: list[StepCoverageResult] | None = None
-    clarification_reason: str | None = None
+    # Always populated - the fixed checklist is scored on every request,
+    # unconditionally (no more "nothing to check" outcome).
+    steps: list[StepCoverageResult]
     # Populated only when a step's position in the draft can be confidently
     # located and is out of order relative to an earlier-slNo step that was
     # also located - never fabricated for a step scored "missing" (it has
