@@ -139,13 +139,14 @@ export type QuestionSource =
   | 'AGRI_EXPERT'
   | 'WHATSAPP'
   | 'OUTREACH'
-  | 'QUESTION_COLLECTION';
+  | 'QUESTION_COLLECTION'
+  | 'ACC';
 
 /** Time-bound questions (SLA-driven, handled by the time-bound reallocation cron). */
 export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 
 /** Manual / non-time-bound questions (added by moderators or via outreach). */
-export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION'];
+export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION', 'ACC'];
 export interface IQuestion {
   _id?: string | ObjectId;
   userId?: ObjectId | string;
