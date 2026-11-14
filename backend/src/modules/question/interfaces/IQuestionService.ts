@@ -1086,4 +1086,13 @@ export interface IQuestionService {
    * Get all RDQA check records for a question from the dedicated rdqa_checks collection.
    */
   getRdqaCheckHistory(questionId: string): Promise<any[]>;
+   /* Export all questions for a given state as an Excel file.
+   * The Excel contains separate tabs for:
+   * - "Questions" tab with Sl No, Question
+   * - "Details" tab with detailed question details including Status
+   *
+   * @param state - The state name to filter questions by details.state
+   * @returns Excel file as Buffer, or null if no questions found
+   */
+  exportQuestionsByState(state: string): Promise<Buffer | null>;
 }

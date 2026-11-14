@@ -1004,6 +1004,15 @@ export interface IQuestionRepository {
     pipeline: object[],
     session?: ClientSession,
   ): Promise<T[]>;
+   /* Find all questions where details.state matches the given state name.
+   * Returns a cursor for streaming large datasets.
+   */
+  findByDetailsState(state: string): Promise<IQuestion[]>;
+
+  /**
+   * Count questions where details.state matches the given state name.
+   */
+  countByDetailsState(state: string): Promise<number>;
 }
 
 export interface IUserActivityMetrics {

@@ -1144,6 +1144,20 @@ export class AllocatedQuestionsBodyDto {
   crops?: string[];
 }
 
+/**
+ * DTO for exporting questions by state - used in POST /questions/export-by-state
+ */
+export class ExportQuestionsByStateBodyDto {
+  @JSONSchema({
+    description: 'State name to filter questions by details.state',
+    example: 'Kerala',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  state!: string;
+}
+
 
 
 export class DetailedQuestionsBodyDto {
@@ -1246,6 +1260,7 @@ export const QUESTION_VALIDATORS = [
   AddQuestionCollectionBodyDto,
   RdqaListQuery,
   RdqaCheckBody,
+  ExportQuestionsByStateBodyDto,
 ];
 
 export {

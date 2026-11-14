@@ -17,6 +17,8 @@ import {
   BadRequestError,
   UseBefore,
   InternalServerError,
+  Res,
+  ContentType,
 } from 'routing-controllers';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
 import { ObjectId } from 'mongodb';
@@ -39,6 +41,7 @@ import {
   QuestionResponse,
   RdqaListQuery,
   RdqaCheckBody,
+  ExportQuestionsByStateBodyDto,
 } from '../classes/validators/QuestionVaidators.js';
 import { startRdqaCheckJob, getRdqaCheckJobById } from '#root/workers/rdqaCheck.manager.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
@@ -785,5 +788,73 @@ export class QuestionController {
   async getRdqaCheckHistory(@Param('questionId') questionId: string) {
     const history = await this.questionService.getRdqaCheckHistory(questionId);
     return { success: true, data: history };
+  }
+
+  //endpoint for getting the excel with questions of a specific state
+  @Post('/export-by-state')
+  @HttpCode(200)
+  @Authorized()
+  @ContentType('application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+  @OpenAPI({
+    summary: 'Export questions by state as Excel',
+    description: 'Returns an Excel file with questions filtered by details.state field. Contains two tabs: Questions and Details.',
+  })
+  async exportQuestionsByState(
+    @Body() body: ExportQuestionsByStateBodyDto,
+    @CurrentUser() user: IUser,
+    @Res() response: any,
+  ) {
+    const { state } = body;
+    const auditPayload: ModeratorAuditTrail = {
+      category: AuditCategory.DOWNLOAD_REPORTS,
+      action: AuditAction.DOWNLOAD,
+      actor: roleAuditActor(user),
+      context: {
+        state,
+        endPoint: 'exportQuestionsByState',
+      },
+      outcome: {
+        status: OutComeStatus.SUCCESS,
+      },
+    };
+
+    try {
+      const data = await this.questionService.exportQuestionsByState(state);
+
+      if (!data) {
+        this.auditTrailsService.createAuditTrail(auditPayload);
+        response.status(200).json({
+          success: false,
+          message: `No questions found for state: ${state}`,
+        });
+        return;
+      }
+
+      this.auditTrailsService.createAuditTrail(auditPayload);
+
+      // Set headers for file download
+      response.setHeader(
+        'Content-Disposition',
+        `attachment; filename="questions_${state.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.xlsx"`,
+      );
+
+      return Buffer.from(data);
+    } catch (err: any) {
+      auditPayload.outcome = {
+        status: OutComeStatus.FAILED,
+        errorCode: err?.errorCode || 'INTERNAL_ERROR',
+        errorMessage: err?.message || 'Failed to export questions',
+        errorName: err?.name || 'Error',
+        errorStack:
+          err?.stack?.split('\n')?.slice(0, 5)?.join('\n') ||
+          'No stack trace available',
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload);
+
+      if (err instanceof InternalServerError) {
+        throw new InternalServerError(err.message);
+      }
+      throw new BadRequestError(err?.message || 'Failed to export questions');
+    }
   }
 }
