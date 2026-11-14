@@ -10,6 +10,8 @@ import {
   CurrentUser,
   QueryParam,
   ForbiddenError,
+  HeaderParam,
+  UnauthorizedError,
 } from 'routing-controllers';
 import { OpenAPI } from 'routing-controllers-openapi';
 import { inject, injectable } from 'inversify';
@@ -18,6 +20,8 @@ import type { IWhatsAppService } from '../interfaces/IWhatsAppService.js';
 import { IUser } from '#root/shared/index.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import { WhatsappUsers } from '#root/utils/dummyWhatsAppUsers.js';
+import { appConfig } from '#root/config/app.js';
+import { FarmerFeedbackCorrelationService } from '../services/FarmerFeedbackCorrelationService.js';
 
 @OpenAPI({
   tags: ['whatsapp'],
@@ -29,7 +33,15 @@ export class WhatsAppController {
   constructor(
     @inject(WHATSAPP_TYPES.WhatsAppService)
     private readonly whatsappService: IWhatsAppService,
+    @inject(WHATSAPP_TYPES.FarmerFeedbackCorrelationService)
+    private readonly farmerFeedbackCorrelationService: FarmerFeedbackCorrelationService,
   ) { }
+
+  private assertWhatsAppWebhookKey(apiKey?: string): void {
+    if (!appConfig.WA_WEBHOOK_API_KEY || apiKey !== appConfig.WA_WEBHOOK_API_KEY) {
+      throw new UnauthorizedError('Invalid WhatsApp webhook API key');
+    }
+  }
 
   @OpenAPI({
     summary: 'Get all WhatsApp threads',
@@ -77,6 +89,55 @@ export class WhatsAppController {
     );
     console.log('[WhatsAppController] Message sent successfully');
     return { success: true, message: 'Message sent successfully' };
+  }
+
+  @OpenAPI({
+    summary: 'Register an answer for farmer feedback',
+    description:
+      'Stores the GDB identity for a WhatsApp answer before the bot sends its helpfulness prompt. The returned sessionId can be included in interactive button replies.',
+  })
+  @Post('/feedback/prompts')
+  @HttpCode(201)
+  async registerFarmerFeedbackPrompt(
+    @Body()
+    body: {
+      phoneNumber: string;
+      gdbEntryId: string;
+      questionId?: string;
+      domain?: string;
+      language?: string;
+      state?: string;
+      expiresInHours?: number;
+    },
+    @HeaderParam('x-internal-api-key') apiKey?: string,
+  ) {
+    this.assertWhatsAppWebhookKey(apiKey);
+    const session = await this.farmerFeedbackCorrelationService.registerPrompt(body);
+    return {
+      ...session,
+      prompt: 'Was this helpful? Reply 1 for Yes, 2 for No.',
+    };
+  }
+
+  @OpenAPI({
+    summary: 'Record a farmer feedback reply',
+    description:
+      'Links an incoming WhatsApp reply to its registered answer. Replies are claimed once using the provider message ID; plain-text replies are accepted only when the farmer has exactly one pending prompt.',
+  })
+  @Post('/feedback/replies')
+  @HttpCode(200)
+  async recordFarmerFeedbackReply(
+    @Body()
+    body: {
+      phoneNumber: string;
+      inboundMessageId: string;
+      response: '1' | '2';
+      sessionId?: string;
+    },
+    @HeaderParam('x-internal-api-key') apiKey?: string,
+  ) {
+    this.assertWhatsAppWebhookKey(apiKey);
+    return this.farmerFeedbackCorrelationService.recordReply(body);
   }
 
   @OpenAPI({
