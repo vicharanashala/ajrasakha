@@ -188,11 +188,17 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
 // send them via updateDashboardUniqueDocument. Rendered manually in UniqueDocumentEditForm (not via
 // MetadataFieldInput) since their options are fetched dynamically, scoped to the document's anchor
 // placement's state — same reason `language` is rendered manually there too.
+// ministry_or_department_id — an organization id (same vocabulary as Folder's organisations,
+// GET /dashboard/organizations), optional, one per document. Added here (not
+// DOCUMENT_METADATA_FIELDS) and rendered manually in each form, same reasons as district_id/
+// kvk_id: its options are fetched dynamically and an explicit "" is what clears it on PATCH
+// (omitted/null both mean "unchanged" — confirmed by the backend, same convention as district/kvk).
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
   { key: "shareable_name", label: "Document Name", type: "text", group: "Identity" },
   { key: "language", label: "Language", type: "select", optionsSource: "language", group: "Language" },
   { key: "district_id", label: "District", type: "text", group: "Location" },
   { key: "kvk_id", label: "KVK", type: "text", group: "Location" },
+  { key: "ministry_or_department_id", label: "Ministry/Department", type: "text", group: "Advisory Details" },
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.
