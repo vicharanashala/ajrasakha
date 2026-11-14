@@ -29,11 +29,16 @@ class ApisLlmProvider {
         // Fallback simulated logic when service is not running locally
       }
 
+      const q = question.toLowerCase();
       const agriKeywords = [
         'wheat', 'paddy', 'crop', 'fertilizer', 'pest', 'irrigation',
-        'soil', 'yield', 'fungicide', 'rust', 'rot', 'borer', 'sugarcane'
+        'soil', 'yield', 'fungicide', 'rust', 'rot', 'borer', 'sugarcane',
+        'khet', 'fasal', 'dhan', 'gehu', 'keeda', 'sarson', 'cattle', 'chaff'
       ];
-      const isAgri = agriKeywords.some(kw => question.toLowerCase().includes(kw));
+      const isAgriKeyword = agriKeywords.some(kw => q.includes(kw));
+      const isFinancialOrMalicious = /stock|shares|crypto|bomb|explosive|hack|bypass/i.test(q);
+
+      const isAgri = isAgriKeyword && !isFinancialOrMalicious;
 
       return {
         output: JSON.stringify({
@@ -46,8 +51,9 @@ class ApisLlmProvider {
     // 2. apis/writing_assistant LLM Evaluation & Guardrails
     if (apiTarget === 'writing_assistant') {
       const draft = vars.draft || prompt;
-      const banned = ['aldrin', 'endosulfan', 'ddt', 'chlordane'];
-      const flagged = banned.filter(chem => draft.toLowerCase().includes(chem));
+      const banned = ['aldrin', 'endosulfan', 'ddt', 'chlordane', 'dieldrin', 'heptachlor'];
+      const normalized = draft.toLowerCase().replace(/0/g, 'o').replace(/1/g, 'i').replace(/4/g, 'a');
+      const flagged = banned.filter(chem => normalized.includes(chem));
 
       return {
         output: JSON.stringify({
