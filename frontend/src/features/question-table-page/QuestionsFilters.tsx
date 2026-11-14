@@ -138,7 +138,7 @@ type QuestionsFiltersProps = {
   onOpenAgriTech?: () => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "acc" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -150,6 +150,7 @@ const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.source === "WHATSAPP") return "whatsapp";
   if (filter.source === "OUTREACH") return "outreach";
   if (filter.source === "QUESTION_COLLECTION") return "annadatha";
+  if (filter.source === "ACC") return "acc";
   if (filter.isTrainingQuestion === true) return "training";
   return "ajraskha";
 };
@@ -161,6 +162,7 @@ const answerModeToSource = (
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
   if (answerMode === "annadatha") return "QUESTION_COLLECTION";
+  if (answerMode === "acc") return "ACC";
   if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
   return "AJRASAKHA";
 };
