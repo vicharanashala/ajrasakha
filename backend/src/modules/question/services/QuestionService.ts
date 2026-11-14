@@ -49,6 +49,7 @@ import { normalizeKeysToLower } from '#root/utils/normalizeKeysToLower.js';
 import { appConfig } from '#root/config/app.js';
 import { AiService } from '#root/modules/ai/services/AiService.js';
 import {
+  AddAccQuestionAnswerDto,
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
@@ -525,6 +526,251 @@ export class QuestionService extends BaseService implements IQuestionService {
     });
 
     return { success: true, count: insertedIds.length, questionIds: insertedIds };
+  }
+
+  // ─── ACC Question & Answer Ingestion ────────────────────────────────────────
+
+  /**
+   * Ingest a question and answer from ACC source.
+   * Stores question in question collection with source='ACC' and status='in-review',
+   * stores answer in answer collection with status='in-review',
+   * records submission history, and directly assigns the review to a moderator.
+   */
+  async addAccQuestionAnswer(
+    userId: string | undefined,
+    body: AddAccQuestionAnswerDto,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    question_id: string;
+  }> {
+    const questionText = body.question?.trim();
+    const answerText = body.aiInitialAnswer?.trim();
+
+    if (!questionText) {
+      throw new BadRequestError('Question text is required');
+    }
+    if (!answerText) {
+      throw new BadRequestError('aiInitialAnswer is required');
+    }
+    if (!body.details || typeof body.details !== 'object') {
+      throw new BadRequestError('Details object is required');
+    }
+
+    const { state, district, crop, season, domain } = body.details;
+    if (!state?.trim() || !district?.trim() || !crop?.trim() || !season?.trim() || !domain) {
+      throw new BadRequestError(
+        'details must include non-empty state, district, crop, season, and domain',
+      );
+    }
+
+    const normalizedDomain = Array.isArray(domain)
+      ? domain.filter((d: any) => typeof d === 'string' && d.trim().length > 0)
+      : typeof domain === 'string' && domain.trim()
+      ? [domain.trim()]
+      : [];
+
+    if (normalizedDomain.length === 0) {
+      throw new BadRequestError('details.domain must have at least one valid topic/domain');
+    }
+
+    const rawCrop = crop.trim();
+    let normalised_crop: string | undefined;
+    try {
+      const existingCrop = await this.cropRepository.findByNameOrAlias(rawCrop);
+      if (existingCrop) {
+        normalised_crop = existingCrop.name;
+      }
+    } catch (_) {
+      /* ignore lookup error */
+    }
+
+    const titleCasedDetails: IQuestion['details'] = {
+      state: toTitleCase(state.trim()),
+      district: toTitleCase(district.trim()),
+      crop: toTitleCase(rawCrop),
+      season: toTitleCase(season.trim()),
+      domain: normalizedDomain,
+      ...(normalised_crop ? { normalised_crop } : {}),
+    };
+
+    // Determine author user ID for the answer
+    let resolvedAuthorId: ObjectId;
+    if (userId && ObjectId.isValid(userId)) {
+      resolvedAuthorId = new ObjectId(userId);
+    } else {
+      // Find default admin user to attribute the answer
+      const admins = await this.userRepo.findAdmins();
+      if (admins && admins.length > 0 && admins[0]._id) {
+        resolvedAuthorId = new ObjectId(admins[0]._id.toString());
+      } else {
+        resolvedAuthorId = new ObjectId();
+      }
+    }
+
+    // Determine Moderator assignment: find an available STF moderator
+    let targetModeratorId: string | null = null;
+    try {
+      const availableMods = await this.userRepo.findAvailableStfModeratorsForSources(MANUAL_SOURCES);
+      if (availableMods && availableMods.length > 0) {
+        const mod = availableMods.find(m => !m.isTrainingUser) || availableMods[0];
+        targetModeratorId = mod._id!.toString();
+      }
+    } catch (err: any) {
+      console.warn('[addAccQuestionAnswer] Could not query available moderators:', err?.message);
+    }
+
+    const result = await this._withTransaction(async (session: ClientSession) => {
+      const text = `Question: ${questionText}\n\nanswer: ${answerText}`;
+
+      // 1. Base Question Document
+      const baseQuestion: IQuestion = {
+        userId: resolvedAuthorId,
+        question: questionText,
+        priority: 'medium',
+        source: 'ACC',
+        status: 'in-review',
+        totalAnswersCount: 1,
+        details: titleCasedDetails,
+        isAutoAllocate: false,
+        autoAllocateModerator: true,
+        autoAllocateGateKeeper: false,
+        autoAllocateAuditor: false,
+        autoAllocatePaeValidationExpert: false,
+        autoAllocateFeedback: true,
+        moderatorId: targetModeratorId ? new ObjectId(targetModeratorId) : null,
+        moderatorAssignedAt: targetModeratorId ? new Date() : null,
+        aiInitialAnswer: answerText,
+        embedding: [],
+        metrics: null,
+        text,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const savedQuestion = await this.questionRepo.addQuestion(baseQuestion, session);
+      const questionId = savedQuestion._id.toString();
+
+      // 2. Answer Document
+      const answerSources = Array.isArray(body.sources)
+        ? body.sources
+            .map(s => ({
+              source: s.source?.trim(),
+              ...(s.sourceName?.trim() ? { sourceName: s.sourceName.trim() } : {}),
+              ...(s.page !== undefined && s.page !== null ? { page: s.page } : {}),
+            }))
+            .filter(s => Boolean(s.source))
+        : [];
+
+      const { insertedId: answerInsertedId } = await this.answerRepo.addAnswer(
+        questionId,
+        resolvedAuthorId.toString(),
+        answerText,
+        answerSources,
+        [], // embedding generated in background
+        false, // isFinalAnswer
+        1, // updatedAnswerCount
+        session,
+        'in-review',
+        'Ingested from ACC source',
+      );
+      const answerId = answerInsertedId.toString();
+
+      // 4. Question Submission Record
+      const submissionData: IQuestionSubmission = {
+        questionId: new ObjectId(questionId),
+        lastRespondedBy: resolvedAuthorId,
+        history: [
+          {
+            updatedBy: resolvedAuthorId,
+            answer: new ObjectId(answerId),
+            status: 'in-review',
+            createdAt: new Date(),
+            updatedAt: new Date(),
+          },
+        ],
+        queue: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const submissionResult = await this.questionSubmissionRepo.addSubmission(submissionData, session);
+
+      // 5. If moderator was assigned, update user and create notification
+      if (targetModeratorId) {
+        await this.userRepo.addAssignedQuestion(
+          targetModeratorId,
+          questionId,
+          'in-review',
+          'ACC',
+          session,
+        );
+        await this.notificationService.saveTheNotifications(
+          'A question from ACC has been assigned to you for moderation',
+          'Moderation Assigned',
+          questionId,
+          targetModeratorId,
+          'moderator_approval',
+          session,
+        );
+      }
+
+      return {
+        questionId,
+        answerId,
+        submissionId: (submissionResult as any)?._id?.toString() ?? (submissionResult as any)?.insertedId?.toString(),
+        moderatorId: targetModeratorId,
+        isModeratorAssigned: Boolean(targetModeratorId),
+      };
+    });
+
+    // 6. Post-transaction event: trigger moderator queue allocation if no moderator was immediately assigned
+    if (!result.isModeratorAssigned) {
+      this.triggerModeratorQueueAllocation('addAccQuestionAnswer');
+    }
+
+    // 7. Background: generate embeddings
+    setImmediate(async () => {
+      try {
+        if (appConfig.ENABLE_AI_SERVER) {
+          const { embedding: qEmb } = await this.aiService.getEmbedding(questionText);
+          const { embedding: aEmb } = await this.aiService.getEmbedding(answerText);
+          if (qEmb?.length) {
+            await this.questionRepo.updateQuestion(result.questionId, { embedding: qEmb });
+          }
+          if (aEmb?.length) {
+            await this.answerRepo.updateAnswer(result.answerId, { embedding: aEmb });
+          }
+        }
+      } catch (err: any) {
+        console.error('[addAccQuestionAnswer] Background embedding generation failed:', err?.message);
+      }
+    });
+
+    // 8. Audit trail
+    try {
+      const auditPayload = {
+        category: AuditCategory.QUESTION,
+        action: AuditAction.QUESTION_ADD,
+        actor: userId ? { id: userId, source: 'ACC' } : { id: 'ACC_INGESTION', source: 'ACC' },
+        context: {
+          questionId: [result.questionId],
+          answerId: result.answerId,
+          source: 'ACC',
+          moderatorId: result.moderatorId,
+        },
+        outcome: { status: OutComeStatus.SUCCESS },
+        createdAt: new Date(),
+      };
+      this.auditTrailsService.createAuditTrail(auditPayload as any);
+    } catch (_) {
+      /* ignore audit logging failure */
+    }
+
+    return {
+      success: true,
+      message: 'Question submitted successfully.',
+      question_id: result.questionId,
+    };
   }
 
   async getAllocatedQuestions(

@@ -1,6 +1,7 @@
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import {
     BookOpen,
+    Bot,
     ChevronLeft,
     ChevronRight,
     FileText,
@@ -23,6 +24,7 @@ export const MODES = [
     { id: "outreach", label: "Outreach", icon: Radio },
     { id: "whatsapp", label: "WhatsApp", icon: MessageCircle },
     { id: "annadatha", label: "AnnaDatha", icon: Sprout },
+    { id: "acc", label: "ACC", icon: Bot },
     { id: "draft", label: "Draft", icon: FileText },
     { id: "pae", label: "PAE", icon: UserCheck },
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
@@ -41,6 +43,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Questions collected via outreach programs (Source: OUTREACH)",
     annadatha:
         "Questions from AnnaDatha collection (Source: QUESTION_COLLECTION)",
+    acc:
+        "Questions coming from ACC (Source: ACC)",
     draft:
         "Questions saved as draft (Status: Draft)",
     pae:
@@ -63,6 +67,7 @@ const SOURCE_TO_MODE: Record<string, string> = {
     WHATSAPP: "whatsapp",
     OUTREACH: "outreach",
     QUESTION_COLLECTION: "annadatha",
+    ACC: "acc",
 };
 
 export type DedicatedSubTab = "questions" | "feedbacks";

@@ -7,21 +7,22 @@ import { getFromContainer } from 'routing-controllers';
 /**
  * Accepts either:
  *   - a valid Firebase JWT  (Authorization: Bearer <token>)  — used by the browser frontend
- *   - a valid internal API key (x-internal-api-key: <key>)   — used by external services
- *       (WhatsApp webhook, LangGraph adapter, etc.)
- *       Valid keys: INTERNAL_API_KEY, WEB_WEBHOOK_API_KEY, WA_WEBHOOK_API_KEY
+ *   - a valid API key (x-api-key: <key> or x-internal-api-key: <key>)   — used by external services
+ *       (WhatsApp webhook, LangGraph adapter, ACC, etc.)
+ *       Valid keys: INTERNAL_API_KEY, WEB_WEBHOOK_API_KEY, WA_WEBHOOK_API_KEY, ACC_API_KEY
  */
 @injectable()
 export class FlexibleAuth implements ExpressMiddlewareInterface {
   async use(req: any, res: any, next: (err?: any) => any): Promise<any> {
     try {
       // 1. Try internal API key first (fast, no async)
-      const apiKey = req.headers['x-internal-api-key'];
+      const apiKey = req.headers['x-internal-api-key'] || req.headers['x-api-key'];
       if (apiKey) {
         const validKeys = [
           process.env.INTERNAL_API_KEY,
           process.env.WEB_WEBHOOK_API_KEY,
           process.env.WA_WEBHOOK_API_KEY,
+          process.env.ACC_API_KEY,
         ].filter(Boolean);
 
         if (validKeys.includes(apiKey)) {

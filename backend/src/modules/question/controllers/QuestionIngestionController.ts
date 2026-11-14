@@ -21,6 +21,7 @@ import { BadRequestErrorResponse } from '#shared/middleware/errorHandler.js';
 import { verifyNotTester } from '#root/shared/functions/verifyNotTester.js';
 import {
   AddQuestionBodyDto,
+  AddAccQuestionAnswerDto,
   GeneratedQuestionResponse,
   GenerateQuestionsBody,
   AddQuestionCollectionBodyDto,
@@ -165,6 +166,27 @@ export class QuestionIngestionController {
     }
   }
 
+  // ─── ACC Ingestion Endpoint ───────────────────────────────────────────────
+
+  @Post('/acc')
+  @HttpCode(201)
+  @UseBefore(FlexibleAuth)
+  @ResponseSchema(BadRequestErrorResponse, { statusCode: 400 })
+  @OpenAPI({
+    summary: 'Add a new question and answer from ACC source',
+    description: 'Saves question in question collection with source ACC and answer in answer collection, and directly assigns review to a moderator.',
+  })
+  async addAccQuestion(
+    @Body() body: AddAccQuestionAnswerDto,
+    @CurrentUser() user?: IUser,
+  ): Promise<{ success: boolean; message: string; question_id: string }> {
+    if (user) {
+      verifyNotTester(user);
+    }
+    const userId = user?._id?.toString();
+    return this.questionService.addAccQuestionAnswer(userId, body);
+  }
+
   // ─── Question Ingestion (Single / Bulk) ────────────────────────────────────
 
   @Post('/')
@@ -203,6 +225,12 @@ export class QuestionIngestionController {
       !file
     ) {
       return this.addQuestionCollection(userId, body.question_collection_questions, name);
+    }
+
+    // ── Route to ACC handler if source is ACC and answer/aiInitialAnswer is provided ──
+    const src = body.source?.toUpperCase();
+    if (src === 'ACC' && ((body as any).answer || (body as any).aiInitialAnswer) && !file) {
+      return this.questionService.addAccQuestionAnswer(userId, body as any);
     }
 
     let auditPayload: ModeratorAuditTrail = {

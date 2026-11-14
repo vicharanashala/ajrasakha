@@ -20,6 +20,7 @@ export function buildBaseQuestionMatch(source?: string, isTrainingQuestion?: boo
         // Handle special case mappings
         if (lower === "annam" || lower === "web application") return "AJRASAKHA";
         if (lower === "question_collection") return "QUESTION_COLLECTION";
+        if (lower === "acc") return "ACC";
         return s.trim().toUpperCase();
       });
       matchStage.source = { $in: sourcesArray };
@@ -30,6 +31,8 @@ export function buildBaseQuestionMatch(source?: string, isTrainingQuestion?: boo
         matchStage.source = "AJRASAKHA";
       } else if (lower === "question_collection") {
         matchStage.source = "QUESTION_COLLECTION";
+      } else if (lower === "acc") {
+        matchStage.source = "ACC";
       } else {
         matchStage.source = source.toUpperCase();
       }
