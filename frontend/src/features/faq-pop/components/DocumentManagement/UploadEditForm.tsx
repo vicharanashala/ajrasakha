@@ -9,6 +9,7 @@ import {
   getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
+  getDashboardOrganizations,
 } from "../../api";
 import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
@@ -77,6 +78,12 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
   const [districtId, setDistrictId] = useState(metadata.district_id || "");
   const [kvkId, setKvkId] = useState(metadata.kvk_id || "");
   const [locationTouched, setLocationTouched] = useState(false);
+  const [ministryId, setMinistryId] = useState(metadata.ministry_or_department_id || "");
+  const [ministryTouched, setMinistryTouched] = useState(false);
+  const [organizationOptions, setOrganizationOptions] = useState([]);
+  useEffect(() => {
+    getDashboardOrganizations().then((d) => setOrganizationOptions(d || [])).catch(() => {});
+  }, []);
 
   const [groups, setGroups] = useState(() => {
     const g = groupPlacementsByState(item.placements);
@@ -231,6 +238,7 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
       payload.district_id = districtId || null;
       payload.kvk_id = kvkId || null;
     }
+    if (ministryTouched) payload.ministry_or_department_id = ministryId || "";
     if (placementsTouched) {
       const placements = groups
         .filter((g) => g.state && g.folders.length > 0)
@@ -370,6 +378,25 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
             <span className="text-[11px] text-muted-foreground italic py-1.5">Select a district first</span>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-muted-foreground">Ministry/Department</span>
+        <select
+          className={`${selectClass} sm:max-w-xs`}
+          value={ministryId}
+          onChange={(e) => {
+            setMinistryId(e.target.value);
+            setMinistryTouched(true);
+          }}
+        >
+          <option value="">— none —</option>
+          {organizationOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex items-center gap-1.5">

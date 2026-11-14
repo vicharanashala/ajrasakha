@@ -9,6 +9,7 @@ import {
   getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
+  getDashboardOrganizations,
   submitPendingUpload,
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
@@ -120,12 +121,16 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
   const [language, setLanguage] = useState("");
   const [districtId, setDistrictId] = useState("");
   const [kvkId, setKvkId] = useState("");
+  const [ministryId, setMinistryId] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   const [stateOptions, setStateOptions] = useState([]);
   const [languageOptions, setLanguageOptions] = useState([]);
   const [domainOptions, setDomainOptions] = useState([]);
   const [folderOptions, setFolderOptions] = useState([]);
+  // Ministry/Department dropdown — same organisation vocabulary as Folder (GET
+  // /dashboard/organizations), but its own flat, unscoped list (no state/advisory-type narrowing).
+  const [organizationOptions, setOrganizationOptions] = useState([]);
   // /api/pop has no auth, so the backend just stores whatever name it's sent, unverified — per the
   // user's decision (same as translated_by/reviewed_by, see TranslateReviewCell.tsx), uploaded_by
   // is always the signed-in user's display name, auto-captured on submit. There is no dropdown or
@@ -141,6 +146,9 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
       .catch(() => {});
     getDashboardDomains()
       .then((d) => setDomainOptions(d || []))
+      .catch(() => {});
+    getDashboardOrganizations()
+      .then((d) => setOrganizationOptions(d || []))
       .catch(() => {});
   }, []);
 
@@ -291,6 +299,7 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
     // group — sent alongside language/placements_json (see submitPendingUpload in api.ts).
     if (districtId) fields.district_id = districtId;
     if (kvkId) fields.kvk_id = kvkId;
+    if (ministryId) fields.ministry_or_department_id = ministryId;
     setSubmitting(true);
     try {
       const result = await submitPendingUpload(file, fields, placements, language);
@@ -307,6 +316,7 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
       setLanguage("");
       setDistrictId("");
       setKvkId("");
+      setMinistryId("");
       onUploadQueued?.(result);
     } catch (err) {
       toast.error(err.message || "Upload failed");
@@ -434,6 +444,22 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
             backend change) — scoped here by the first placement's state above.
           </p>
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
+        <label className={labelClass}>Ministry/Department</label>
+        <select
+          className={`${selectClass} sm:max-w-xs`}
+          value={ministryId}
+          onChange={(e) => setMinistryId(e.target.value)}
+        >
+          <option value="">— none —</option>
+          {organizationOptions.map((o) => (
+            <option key={o.id} value={o.id}>
+              {o.name}
+            </option>
+          ))}
+        </select>
       </div>
 
       <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
