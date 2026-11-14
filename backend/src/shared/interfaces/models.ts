@@ -549,6 +549,11 @@ export interface IAnswer {
    *  for each source, copied from that record's `sources` array. */
   source_details?: IAnswerSourceDetail[];
   embedding: number[];
+  lastCheckId?: ObjectId;
+  rdqaChecked?: boolean;
+  rdqaCheckedAt?: Date;
+  flags?: string[];
+  notEvaluated?: string[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -1123,4 +1128,26 @@ export interface IGdbCleaning {
   model: string | null;
   reviewedBy: ObjectId | null;
   reviewedAt: Date | null;
+}
+
+export interface IRdqaCheck {
+  _id?: string | ObjectId;
+  questionId: ObjectId;
+  answerId: ObjectId;
+  checkedAt: Date;
+  checkedBy?: string;
+  passed: boolean;
+  flags: string[];
+  notEvaluated: string[];
+  checks: IGdbCleaningCheck[];
+  answerSnapshot?: string;
+  sourcesSnapshot?: Array<{
+    source: string;
+    sourceType?: string;
+    sourceName?: string;
+    page?: string | number;
+  }>;
+  trigger?: 'batch' | 'single_recheck' | string;
+  createdAt?: Date;
+  updatedAt?: Date;
 }

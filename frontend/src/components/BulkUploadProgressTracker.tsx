@@ -9,6 +9,7 @@ import {
   ChevronUp,
   Trash2,
   AlertTriangle,
+  CheckCheck,
 } from "lucide-react";
 
 export const BulkUploadProgressTracker: React.FC = () => {
@@ -21,6 +22,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
     deleted,
     duplicates,
     failed,
+    passed,
+    flagged,
     status,
     latestLog,
     isMinimized,
@@ -56,6 +59,7 @@ export const BulkUploadProgressTracker: React.FC = () => {
   }
 
   const isDelete = operationType === "delete";
+  const isRdqaCheck = operationType === "rdqa_check";
   const safeTotal = total > 0 ? total : 1;
   const currentProcessed = Math.max(0, Math.min(processed, safeTotal));
   const percentage = Math.min(
@@ -81,6 +85,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
           className={`flex items-center gap-3 px-4 py-2.5 bg-white/95 dark:bg-zinc-900/95 backdrop-blur-md shadow-xl border border-zinc-200 dark:border-zinc-800 rounded-full cursor-pointer transition-all text-xs font-medium text-zinc-800 dark:text-zinc-200 group ${
             isDelete
               ? "hover:border-rose-500/50 dark:hover:border-rose-400/50"
+              : isRdqaCheck
+              ? "hover:border-indigo-500/50 dark:hover:border-indigo-400/50"
               : "hover:border-emerald-500/50 dark:hover:border-emerald-400/50"
           }`}
         >
@@ -89,6 +95,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
               className={`h-4 w-4 animate-spin ${
                 isDelete
                   ? "text-rose-600 dark:text-rose-400"
+                  : isRdqaCheck
+                  ? "text-indigo-600 dark:text-indigo-400"
                   : "text-emerald-600 dark:text-emerald-400"
               }`}
             />
@@ -107,6 +115,12 @@ export const BulkUploadProgressTracker: React.FC = () => {
                 : isCompleted
                 ? `Delete Complete (${deleted}/${total})`
                 : "Delete Finished with Errors"
+              : isRdqaCheck
+              ? isRunning
+                ? `Checking RDQA: ${percentage}%`
+                : isCompleted
+                ? `RDQA Check Complete (${processed}/${total})`
+                : "RDQA Check Finished with Errors"
               : isRunning
               ? `Processing Questions: ${percentage}%`
               : isCompleted
@@ -127,6 +141,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
     ? "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400"
     : isDelete
     ? "bg-rose-50 dark:bg-rose-950/50 text-rose-600 dark:text-rose-400"
+    : isRdqaCheck
+    ? "bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400"
     : "bg-emerald-50 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400";
 
   return (
@@ -138,6 +154,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
             isRunning
               ? isDelete
                 ? "bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 animate-pulse"
+                : isRdqaCheck
+                ? "bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 animate-pulse"
                 : "bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 animate-pulse"
               : isCompleted
               ? "bg-emerald-500"
@@ -154,6 +172,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
               {isRunning && (
                 isDelete ? (
                   <Trash2 className="h-4 w-4 animate-pulse" />
+                ) : isRdqaCheck ? (
+                  <CheckCheck className="h-4 w-4 animate-pulse" />
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )
@@ -172,6 +192,12 @@ export const BulkUploadProgressTracker: React.FC = () => {
                     : isCompleted
                     ? "Bulk Delete Completed"
                     : "Bulk Delete Finished"
+                  : isRdqaCheck
+                  ? isRunning
+                    ? "Checking RDQA Quality"
+                    : isCompleted
+                    ? "RDQA Quality Check Completed"
+                    : "RDQA Quality Check Finished"
                   : isRunning
                   ? "Bulk Uploading Questions"
                   : isCompleted
@@ -182,6 +208,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
                 {isRunning
                   ? isDelete
                     ? "Removing questions in background"
+                    : isRdqaCheck
+                    ? "Running quality checks on finalized answers"
                     : "Processing in background workers"
                   : dismissCountdown !== null
                   ? `Dismissing in ${dismissCountdown}s...`
@@ -212,7 +240,7 @@ export const BulkUploadProgressTracker: React.FC = () => {
         <div className="space-y-1.5 pt-1 pb-3">
           <div className="flex justify-between text-xs font-medium">
             <span className="text-zinc-600 dark:text-zinc-300">
-              {currentProcessed} of {total} {isDelete ? "deleted" : "processed"}
+              {currentProcessed} of {total} {isDelete ? "deleted" : isRdqaCheck ? "checked" : "processed"}
             </span>
             <span
               className={`font-semibold ${
@@ -220,6 +248,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
                   ? "text-emerald-600 dark:text-emerald-400"
                   : isDelete
                   ? "text-rose-600 dark:text-rose-400"
+                  : isRdqaCheck
+                  ? "text-indigo-600 dark:text-indigo-400"
                   : "text-zinc-700 dark:text-zinc-200"
               }`}
             >
@@ -233,6 +263,8 @@ export const BulkUploadProgressTracker: React.FC = () => {
                 isRunning
                   ? isDelete
                     ? "bg-gradient-to-r from-rose-500 via-red-500 to-amber-500 shadow-sm"
+                    : isRdqaCheck
+                    ? "bg-gradient-to-r from-blue-500 via-indigo-500 to-violet-500 shadow-sm"
                     : "bg-gradient-to-r from-emerald-500 via-teal-400 to-cyan-500 shadow-sm"
                   : isCompleted
                   ? "bg-emerald-500"
@@ -272,6 +304,38 @@ export const BulkUploadProgressTracker: React.FC = () => {
                 Errors
               </span>
               <span className="text-sm font-bold text-amber-800 dark:text-amber-300 mt-0.5">
+                {failed}
+              </span>
+            </div>
+          </div>
+        ) : isRdqaCheck ? (
+          <div className="grid grid-cols-3 gap-2 pt-1 pb-2">
+            {/* Passed */}
+            <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-emerald-50/60 dark:bg-emerald-950/20 border border-emerald-200/50 dark:border-emerald-800/30">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-emerald-700 dark:text-emerald-400">
+                Passed
+              </span>
+              <span className="text-sm font-bold text-emerald-800 dark:text-emerald-300 mt-0.5">
+                {passed}
+              </span>
+            </div>
+
+            {/* Flagged */}
+            <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-amber-50/60 dark:bg-amber-950/20 border border-amber-200/50 dark:border-amber-800/30">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-amber-700 dark:text-amber-400">
+                Flagged
+              </span>
+              <span className="text-sm font-bold text-amber-800 dark:text-amber-300 mt-0.5">
+                {flagged}
+              </span>
+            </div>
+
+            {/* Failed / Errors */}
+            <div className="flex flex-col items-center justify-center p-2 rounded-xl bg-rose-50/60 dark:bg-rose-950/20 border border-rose-200/50 dark:border-rose-800/30">
+              <span className="text-[10px] uppercase font-bold tracking-wider text-rose-700 dark:text-rose-400">
+                Errors
+              </span>
+              <span className="text-sm font-bold text-rose-800 dark:text-rose-300 mt-0.5">
                 {failed}
               </span>
             </div>
