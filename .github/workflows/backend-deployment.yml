@@ -72,6 +72,7 @@ jobs:
             DB_NAME=${{ secrets.DB_NAME }}
             POP_DB_URL=${{ secrets.POP_DB_URL }}
             POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+            POP_SERVICE_KEY=${{ secrets.POP_SERVICE_KEY }}
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
             VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
