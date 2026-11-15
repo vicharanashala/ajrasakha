@@ -27,7 +27,7 @@ import {
   submitPendingUpload,
   getDashboardStates,
 } from "../../api";
-import { subscribeDashboardEvents } from "../../dashboardEvents";
+import { subscribeDashboardEvents, isDashboardEventsHealthy } from "../../dashboardEvents";
 import { NotificationService } from "@/hooks/services/notificationService";
 
 const notificationService = new NotificationService();
@@ -163,7 +163,16 @@ export default function DocumentManagementPanel({
     }
   }
 
+  // In-flight guards — a scheduled refetch (poll tick or SSE "open") is skipped if the previous
+  // call to the same endpoint hasn't resolved yet, so a slow backend/proxy can't pile up
+  // overlapping requests to the same route.
+  const uploadsInFlightRef = useRef(false);
+  const translationJobsInFlightRef = useRef(false);
+  const terminalJobsInFlightRef = useRef(false);
+
   async function refetchUploads() {
+    if (uploadsInFlightRef.current) return;
+    uploadsInFlightRef.current = true;
     try {
       const items = (await getDashboardUploads()) || [];
       setQueueItems(items);
@@ -195,10 +204,14 @@ export default function DocumentManagementPanel({
       });
     } catch {
       // ignore transient errors, next poll/manual refresh will retry
+    } finally {
+      uploadsInFlightRef.current = false;
     }
   }
 
   async function refetchTranslationJobs() {
+    if (translationJobsInFlightRef.current) return;
+    translationJobsInFlightRef.current = true;
     try {
       const jobs = (await getDashboardTranslationJobs()) || [];
       setTranslationJobs(jobs);
@@ -206,6 +219,8 @@ export default function DocumentManagementPanel({
       setStoppingJobIds((prev) => new Set([...prev].filter((id) => stillActive.has(id))));
     } catch {
       // ignore transient errors, next poll/manual refresh will retry
+    } finally {
+      translationJobsInFlightRef.current = false;
     }
   }
 
@@ -214,6 +229,8 @@ export default function DocumentManagementPanel({
   }
 
   async function refetchTerminalJobs() {
+    if (terminalJobsInFlightRef.current) return;
+    terminalJobsInFlightRef.current = true;
     try {
       const [failed, cancelled] = await Promise.all([
         getDashboardTranslationJobs("failed"),
@@ -226,6 +243,8 @@ export default function DocumentManagementPanel({
       setTerminalJobsByDocId(map);
     } catch {
       // ignore transient errors, next poll/manual refresh will retry
+    } finally {
+      terminalJobsInFlightRef.current = false;
     }
   }
 
@@ -313,12 +332,25 @@ export default function DocumentManagementPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live. Runs
-  // unconditionally every 60s (no user-facing toggle — SSE is the real mechanism now). Recreated
-  // on finishedFilter too, so it doesn't leave the interval's refetchAll closure stale (it
-  // decides whether to include the finished-jobs fetch).
+  // Fallback only, and only while GET /dashboard/events (below) is actually down/reconnecting —
+  // while it's open and healthy, this fires no requests at all: SSE pushes every real-time change,
+  // every reconnect already does its own full refetch (the "open" handler below), and the watchdog
+  // there forces a reconnect on a stream that's gone silently dead, so there's nothing left for a
+  // poll to catch except the manual Refresh button's own job. The 5s tick below is a local check
+  // only (isDashboardEventsHealthy() reads a plain boolean, no network call) — it's what notices
+  // SSE going unhealthy in the first place, including well after mount; a real refetchAll only
+  // fires out of it at most once every 5 minutes, and only while actually unhealthy. Recreated on
+  // finishedFilter too, so it doesn't leave the closure stale (it decides whether to include the
+  // finished-jobs fetch).
   useEffect(() => {
-    const id = setInterval(refetchAll, 60000);
+    let lastPolledAt = 0;
+    const id = setInterval(() => {
+      if (isDashboardEventsHealthy()) return;
+      const now = Date.now();
+      if (now - lastPolledAt < 5 * 60 * 1000) return;
+      lastPolledAt = now;
+      refetchAll();
+    }, 5000);
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finishedFilter]);
