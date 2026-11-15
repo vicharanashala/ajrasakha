@@ -332,29 +332,26 @@ export default function DocumentManagementPanel({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Fallback only — GET /dashboard/events (below) is the primary way these queues stay live. Backs
-  // off to every 5 minutes while that SSE connection is open and healthy (a manual Refresh button
-  // is right there for anyone who wants it sooner), and drops to every 30 minutes while it's
-  // down/reconnecting, since at that cadence a stale screen is still bounded without hammering the
-  // backend for a case that's otherwise rare. Re-reads isDashboardEventsHealthy() on every tick
-  // rather than once, so a health change mid-cycle is picked up by the very next scheduling.
-  // Recreated on finishedFilter too, so it doesn't leave the loop's refetchAll closure stale (it
-  // decides whether to include the finished-jobs fetch).
+  // Fallback only, and only while GET /dashboard/events (below) is actually down/reconnecting —
+  // while it's open and healthy, this fires no requests at all: SSE pushes every real-time change,
+  // every reconnect already does its own full refetch (the "open" handler below), and the watchdog
+  // there forces a reconnect on a stream that's gone silently dead, so there's nothing left for a
+  // poll to catch except the manual Refresh button's own job. The 5s tick below is a local check
+  // only (isDashboardEventsHealthy() reads a plain boolean, no network call) — it's what notices
+  // SSE going unhealthy in the first place, including well after mount; a real refetchAll only
+  // fires out of it at most once every 5 minutes, and only while actually unhealthy. Recreated on
+  // finishedFilter too, so it doesn't leave the closure stale (it decides whether to include the
+  // finished-jobs fetch).
   useEffect(() => {
-    let timer;
-    let cancelled = false;
-    function schedule() {
-      const delay = isDashboardEventsHealthy() ? 5 * 60 * 1000 : 30 * 60 * 1000;
-      timer = setTimeout(async () => {
-        await refetchAll();
-        if (!cancelled) schedule();
-      }, delay);
-    }
-    schedule();
-    return () => {
-      cancelled = true;
-      clearTimeout(timer);
-    };
+    let lastPolledAt = 0;
+    const id = setInterval(() => {
+      if (isDashboardEventsHealthy()) return;
+      const now = Date.now();
+      if (now - lastPolledAt < 5 * 60 * 1000) return;
+      lastPolledAt = now;
+      refetchAll();
+    }, 5000);
+    return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [finishedFilter]);
 
