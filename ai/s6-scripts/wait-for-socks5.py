@@ -35,5 +35,5 @@ while time.time() - start < TIMEOUT_SEC:
         sys.exit(0)
     time.sleep(RETRY_INTERVAL)
 
-print("WARNING: SOCKS5 not ready after timeout, continuing")
-sys.exit(0)
+print("ERROR: SOCKS5 proxy not ready after timeout")
+sys.exit(1)
