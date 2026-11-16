@@ -249,6 +249,20 @@ export function folderDisplayLabel(
   return suffix ? `${base} — ${suffix}` : base;
 }
 
+// Ministry/Department (ministry_or_department_id below) is picked from the same flat organisation
+// list as Folder's organisation half (GET /dashboard/organizations) — same duplicate-name problem
+// folderDisplayLabel above exists for: several organisation names repeat in the master data (e.g.
+// "Department of Agriculture" once per state), and type+state is how a person tells them apart.
+// Always appended, not just on a name collision — same rule as folderDisplayLabel's organisation
+// case, and for the same reason (there's no "(crop)"/"(organisation)" ambiguity to solve here,
+// just the type+state one).
+export function organizationDisplayLabel(org: { name?: string; type?: string | null; state?: string | null }) {
+  const name = org.name || "(no name)";
+  const typeLabel = org.type ? org.type.charAt(0).toUpperCase() + org.type.slice(1) : null;
+  const suffix = [typeLabel, org.state].filter(Boolean).join(" · ");
+  return suffix ? `${name} — ${suffix}` : name;
+}
+
 // An organisation's `type` ("central"|"state"|"district") should match the document's Advisory
 // Scope (Central/State/District/Town/Village, see ADVISORY_SCOPE_OPTIONS) — only offer orgs of the
 // matching type once a scope is picked. No scope picked yet → don't filter (every org stays

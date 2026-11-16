@@ -175,6 +175,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   const listRef = useRef(null);
   const containerRef = useRef(null);
   const dropdownRef = useRef(null);
+  const textareaRef = useRef(null);
 
   const displayText = value || search;
   const filtered = (stateNames || []).filter(
@@ -187,6 +188,18 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
       if (item) item.scrollIntoView({ block: 'nearest' });
     }
   }, [highlightedIndex]);
+
+  // A picked value (especially an organisation's "Name — Type · State" label, see
+  // organizationDisplayLabel in fields.ts) can be longer than one line fits — grow the field
+  // instead of clipping/scrolling it sideways the way a single-line <input> would. A plain
+  // <textarea> already wraps text on its own; this just keeps its height matched to that wrapped
+  // content (shrinking back down too, e.g. after switching from a long value to a short one).
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${el.scrollHeight}px`;
+  }, [displayText]);
 
   // click-outside closes the inline dropdown
   useEffect(() => {
@@ -207,7 +220,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   function computePos() {
     if (containerRef.current) {
       const r = containerRef.current.getBoundingClientRect();
-      const input = containerRef.current.querySelector('input');
+      const input = containerRef.current.querySelector('textarea');
       const font = input ? getComputedStyle(input).font : '14px sans-serif';
       const textWidth = measureMaxTextWidth(stateNames, font);
       const idealWidth = Math.max(r.width * 2, textWidth + 56, 260);
@@ -234,7 +247,7 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
     e.preventDefault();
     if (containerRef.current) {
       const rect = containerRef.current.getBoundingClientRect();
-      const input = containerRef.current.querySelector('input');
+      const input = containerRef.current.querySelector('textarea');
       const font = input ? getComputedStyle(input).font : '14px sans-serif';
       const textWidth = measureMaxTextWidth(stateNames, font);
       const idealWidth = Math.max(rect.width * 2, textWidth + 56, 320);
@@ -256,12 +269,13 @@ export function StateSelector({ value, onChange, stateNames, placeholder = 'Sear
   return (
     <div className="flex flex-col gap-1">
       <div className="relative" ref={containerRef}>
-        <input type="text" autoComplete="off" className={inputClass} placeholder={placeholder} value={displayText}
+        <textarea ref={textareaRef} rows={1} autoComplete="off"
+          className={`${inputClass} resize-none overflow-hidden leading-normal ${value ? 'pr-6' : ''}`} placeholder={placeholder} value={displayText}
           onChange={handleInput} onFocus={() => { computePos(); setOpen(true); }}
           onBlur={() => { if (!expanded) setTimeout(() => { setOpen(false); setHighlightedIndex(-1); }, 150); }}
           onKeyDown={handleKeyDown} />
         {value && (
-          <button type="button" className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-destructive leading-none cursor-pointer" onMouseDown={handleClear}>×</button>
+          <button type="button" className="absolute right-2 top-1.5 text-muted-foreground hover:text-destructive leading-none cursor-pointer" onMouseDown={handleClear}>×</button>
         )}
         {open && filtered.length > 0 && !expanded && dropdownPos && createPortal(
           <div ref={dropdownRef}

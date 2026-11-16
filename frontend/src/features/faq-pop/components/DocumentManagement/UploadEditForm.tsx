@@ -11,7 +11,12 @@ import {
   getDashboardKvks,
   getDashboardOrganizations,
 } from "../../api";
-import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+  organizationDisplayLabel,
+} from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 import { PlacementGroupRow } from "./AddDocumentForm";
 import { StateSelector } from "../FunctionsPanel/RunTile";
@@ -384,13 +389,18 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
       <div className="flex flex-col gap-1">
         <span className="text-[10px] text-muted-foreground">Ministry/Department</span>
         <StateSelector
-          value={organizationOptions.find((o) => o.id === ministryId)?.name || ""}
-          onChange={(name) => {
-            const opt = organizationOptions.find((o) => o.name === name);
+          value={
+            (() => {
+              const opt = organizationOptions.find((o) => o.id === ministryId);
+              return opt ? organizationDisplayLabel(opt) : "";
+            })()
+          }
+          onChange={(label) => {
+            const opt = organizationOptions.find((o) => organizationDisplayLabel(o) === label);
             setMinistryId(opt ? opt.id : "");
             setMinistryTouched(true);
           }}
-          stateNames={organizationOptions.map((o) => o.name)}
+          stateNames={organizationOptions.map((o) => organizationDisplayLabel(o))}
           placeholder="Search ministry/department…"
         />
       </div>

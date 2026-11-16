@@ -14,7 +14,12 @@ import {
 } from "../../api";
 import { useAuthStore } from "@/stores/auth-store";
 import { MultiSelector, StateSelector } from "../FunctionsPanel/RunTile";
-import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+  organizationDisplayLabel,
+} from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 
 const inputClass =
@@ -392,12 +397,17 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
                 <div className="flex flex-col gap-1">
                   <label className={labelClass}>Ministry/Department</label>
                   <StateSelector
-                    value={organizationOptions.find((o) => o.id === ministryId)?.name || ""}
-                    onChange={(name) => {
-                      const opt = organizationOptions.find((o) => o.name === name);
+                    value={
+                      (() => {
+                        const opt = organizationOptions.find((o) => o.id === ministryId);
+                        return opt ? organizationDisplayLabel(opt) : "";
+                      })()
+                    }
+                    onChange={(label) => {
+                      const opt = organizationOptions.find((o) => organizationDisplayLabel(o) === label);
                       setMinistryId(opt ? opt.id : "");
                     }}
-                    stateNames={organizationOptions.map((o) => o.name)}
+                    stateNames={organizationOptions.map((o) => organizationDisplayLabel(o))}
                     placeholder="Search ministry/department…"
                   />
                 </div>

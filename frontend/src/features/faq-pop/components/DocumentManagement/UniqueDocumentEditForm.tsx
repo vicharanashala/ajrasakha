@@ -18,7 +18,12 @@ import {
   getDashboardKvks,
   getDashboardOrganizations,
 } from "../../api";
-import { DOCUMENT_METADATA_FIELDS, EDITABLE_DOCUMENT_ONLY_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  EDITABLE_DOCUMENT_ONLY_FIELDS,
+  DISPLAY_ONLY_FIELDS,
+  organizationDisplayLabel,
+} from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 import { StateSelector } from "../FunctionsPanel/RunTile";
 
@@ -343,14 +348,20 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                       <label className={labelClass}>Ministry/Department</label>
                       <StateSelector
                         value={
-                          organizationOptions.find((o) => o.id === values.ministry_or_department_id)
-                            ?.name || ""
+                          (() => {
+                            const opt = organizationOptions.find(
+                              (o) => o.id === values.ministry_or_department_id,
+                            );
+                            return opt ? organizationDisplayLabel(opt) : "";
+                          })()
                         }
-                        onChange={(name) => {
-                          const opt = organizationOptions.find((o) => o.name === name);
+                        onChange={(label) => {
+                          const opt = organizationOptions.find(
+                            (o) => organizationDisplayLabel(o) === label,
+                          );
                           setValue("ministry_or_department_id", opt ? opt.id : "");
                         }}
-                        stateNames={organizationOptions.map((o) => o.name)}
+                        stateNames={organizationOptions.map((o) => organizationDisplayLabel(o))}
                         placeholder="Search ministry/department…"
                       />
                     </div>
