@@ -104,6 +104,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # Copy s6 service scripts
 COPY s6-scripts/tailscale-run /etc/services.d/tailscale/run
 COPY s6-scripts/langgraph-run /etc/services.d/langgraph/run
+COPY --chmod=0755 s6-scripts/postgres-forward-run /etc/services.d/postgres-forward/run
 COPY s6-scripts/wait-for-socks5.py /app/s6-scripts/wait-for-socks5.py
 
 # Make scripts executable
