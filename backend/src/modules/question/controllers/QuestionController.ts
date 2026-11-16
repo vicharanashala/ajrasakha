@@ -7,6 +7,7 @@ import {
   Body,
   HttpCode,
   Params,
+  Param,
   QueryParams,
   Authorized,
   CurrentUser,
@@ -38,8 +39,11 @@ import {
   GetDetailedQuestionsQuery,
   QuestionIdParam,
   QuestionResponse,
+  RdqaListQuery,
+  RdqaCheckBody,
   ExportQuestionsByStateBodyDto,
 } from '../classes/validators/QuestionVaidators.js';
+import { startRdqaCheckJob, getRdqaCheckJobById } from '#root/workers/rdqaCheck.manager.js';
 import { ContextIdParam } from '#root/modules/context/classes/validators/ContextValidator.js';
 import { QuestionLevelResponse } from '#root/modules/question/classes/transformers/QuestionLevel.js';
 import { IQuestionService } from '../interfaces/IQuestionService.js';
@@ -724,7 +728,68 @@ export class QuestionController {
     this.auditTrailsService.createAuditTrail(auditPayload);
     return response;
   }
-  
+
+  @Get('/list/rdqa')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get finalized questions for RDQA review',
+    description:
+      'Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true). Questions are distributed equally among moderators based on their approvedBy field. If no date is provided, defaults to yesterday. Maximum 50 questions are returned by default, configurable via the limit parameter (max 50).',
+  })
+  async getRdqaQuestions(@QueryParams() query: RdqaListQuery) {
+    const result = await this.questionService.getRdqaQuestions(query.date, query.limit);
+    return { success: true, data: result };
+  }
+
+  @Post('/rdqa/check')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Trigger RDQA quality check for a list of questions',
+    description: 'Runs answer quality checks on finalized answers for the given questions in a background job',
+  })
+  async checkRdqaQuestions(
+    @Body() body: RdqaCheckBody,
+    @CurrentUser() user: IUser,
+  ) {
+    if (!body?.questionIds || !Array.isArray(body.questionIds) || body.questionIds.length === 0) {
+      throw new BadRequestError('questionIds array cannot be empty');
+    }
+    const userId = user?._id?.toString() || 'admin';
+    const jobId = startRdqaCheckJob(body.questionIds, userId);
+    return {
+      message: `RDQA quality check job started for ${body.questionIds.length} question(s)`,
+      jobId,
+      totalCount: body.questionIds.length,
+    };
+  }
+
+  @Get('/rdqa/check/jobs/:id')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get RDQA quality check job status',
+  })
+  getRdqaCheckJob(@Param('id') id: string) {
+    const job = getRdqaCheckJobById(id);
+    if (!job) {
+      throw new NotFoundError('RDQA check job not found');
+    }
+    return job;
+  }
+
+  @Get('/rdqa/checks/:questionId/history')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({
+    summary: 'Get RDQA check history for a question',
+  })
+  async getRdqaCheckHistory(@Param('questionId') questionId: string) {
+    const history = await this.questionService.getRdqaCheckHistory(questionId);
+    return { success: true, data: history };
+  }
+
   //endpoint for getting the excel with questions of a specific state
   @Post('/export-by-state')
   @HttpCode(200)

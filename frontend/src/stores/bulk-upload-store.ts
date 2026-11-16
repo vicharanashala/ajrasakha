@@ -1,6 +1,6 @@
 import { create } from "zustand";
 
-export type BulkOperationType = "upload" | "delete";
+export type BulkOperationType = "upload" | "delete" | "rdqa_check";
 
 export interface BulkUploadState {
   jobId: string | null;
@@ -11,6 +11,8 @@ export interface BulkUploadState {
   deleted: number;
   duplicates: number;
   failed: number;
+  passed: number;
+  flagged: number;
   status: "idle" | "running" | "completed" | "failed";
   latestLog: string;
   isMinimized: boolean;
@@ -27,6 +29,8 @@ export interface BulkUploadState {
     deleted?: number;
     duplicates?: number;
     failed?: number;
+    passed?: number;
+    flagged?: number;
     latestLog?: string;
   }) => void;
   finishJob: (payload: {
@@ -34,6 +38,8 @@ export interface BulkUploadState {
     deleted?: number;
     duplicates?: number;
     failed?: number;
+    passed?: number;
+    flagged?: number;
     status: "completed" | "failed";
   }) => void;
   toggleMinimize: () => void;
@@ -50,6 +56,8 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
   deleted: 0,
   duplicates: 0,
   failed: 0,
+  passed: 0,
+  flagged: 0,
   status: "idle",
   latestLog: "",
   isMinimized: false,
@@ -65,10 +73,14 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
       deleted: 0,
       duplicates: 0,
       failed: 0,
+      passed: 0,
+      flagged: 0,
       status: "running",
       latestLog:
         operationType === "delete"
           ? "Initializing bulk delete worker..."
+          : operationType === "rdqa_check"
+          ? "Initializing RDQA quality checks..."
           : "Initializing background worker...",
       isMinimized: false,
       autoDismissCountdown: null,
@@ -82,22 +94,28 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
       deleted: payload.deleted ?? state.deleted,
       duplicates: payload.duplicates ?? state.duplicates,
       failed: payload.failed ?? state.failed,
+      passed: payload.passed ?? state.passed,
+      flagged: payload.flagged ?? state.flagged,
       latestLog: payload.latestLog ?? state.latestLog,
     })),
 
-  finishJob: ({ created, deleted, duplicates, failed, status }) =>
+  finishJob: ({ created, deleted, duplicates, failed, passed, flagged, status }) =>
     set((state) => ({
       ...state,
       created: created ?? state.created,
       deleted: deleted ?? state.deleted,
       duplicates: duplicates ?? state.duplicates,
       failed: failed ?? state.failed,
+      passed: passed ?? state.passed,
+      flagged: flagged ?? state.flagged,
       processed: state.total,
       status,
       latestLog:
         status === "completed"
           ? state.operationType === "delete"
             ? "All selected questions deleted successfully!"
+            : state.operationType === "rdqa_check"
+            ? "RDQA quality checks completed!"
             : "All questions processed successfully!"
           : "Processing finished with some issues.",
     })),
@@ -115,6 +133,8 @@ export const useBulkUploadStore = create<BulkUploadState>((set) => ({
       deleted: 0,
       duplicates: 0,
       failed: 0,
+      passed: 0,
+      flagged: 0,
       status: "idle",
       latestLog: "",
       isMinimized: false,

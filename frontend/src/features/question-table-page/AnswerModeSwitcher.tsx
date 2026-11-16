@@ -30,6 +30,7 @@ export const MODES = [
     { id: "non_agri", label: "Non-Agri", icon: LeafyGreen },
     { id: "training", label: "Training", icon: BookOpen },
     { id: "dynamic", label: "Dynamic", icon: Shuffle },
+    { id: "rdqa", label: "RDQA", icon: FileText },
 ] as const;
 
 const MODE_DESCRIPTIONS: Record<string, string> = {
@@ -57,6 +58,8 @@ const MODE_DESCRIPTIONS: Record<string, string> = {
         "Search results across all sources",
     training:
         "Questions used for training purposes",
+    rdqa:
+        "Random Daily Question Assessment - Daily random question reviews",
 };
 
 type Mode = typeof MODES[number]["id"] | "search";
@@ -118,9 +121,13 @@ export function AnswerModeSwitcher({
 
     const visibleModes = currentUserIsTrainingUser
         ? MODES.filter((mode) => mode.id === "training")
-        : (currentUserIsAdmin || canViewTraining)
-            ? MODES
-            : MODES.filter((mode) => mode.id !== "training");
+        : MODES.filter((mode) => {
+                // training tab: only for auditors/gate_keepers
+                if (mode.id === "training") return canViewTraining;
+                // rdqa tab: only for admins
+                if (mode.id === "rdqa") return currentUserIsAdmin;
+                return true;
+            });
 
     const updateGlider = useCallback(() => {
         const activeBtn = groupRef.current?.querySelector<HTMLButtonElement>(

@@ -2555,4 +2555,19 @@ export class AnswerRepository implements IAnswerRepository {
       );
     }
   }
+
+  async aggregate<T = any>(
+    pipeline: object[],
+    session?: ClientSession,
+  ): Promise<T[]> {
+    try {
+      await this.init();
+      const options = session ? { session } : {};
+      return await this.AnswerCollection.aggregate(pipeline, options).toArray() as T[];
+    } catch (error) {
+      throw new InternalServerError(
+        `Error executing aggregation on answers: ${error}`,
+      );
+    }
+  }
 }
