@@ -20,6 +20,7 @@ import {
 } from "../../api";
 import { DOCUMENT_METADATA_FIELDS, EDITABLE_DOCUMENT_ONLY_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -340,18 +341,18 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                   {isAdvisoryDetails && (
                     <div className="flex flex-col gap-1">
                       <label className={labelClass}>Ministry/Department</label>
-                      <select
-                        className={inputClass}
-                        value={values.ministry_or_department_id}
-                        onChange={(e) => setValue("ministry_or_department_id", e.target.value)}
-                      >
-                        <option value="">— none —</option>
-                        {organizationOptions.map((o) => (
-                          <option key={o.id} value={o.id}>
-                            {o.name}
-                          </option>
-                        ))}
-                      </select>
+                      <StateSelector
+                        value={
+                          organizationOptions.find((o) => o.id === values.ministry_or_department_id)
+                            ?.name || ""
+                        }
+                        onChange={(name) => {
+                          const opt = organizationOptions.find((o) => o.name === name);
+                          setValue("ministry_or_department_id", opt ? opt.id : "");
+                        }}
+                        stateNames={organizationOptions.map((o) => o.name)}
+                        placeholder="Search ministry/department…"
+                      />
                     </div>
                   )}
                   {displayInGroup.map((f) => (

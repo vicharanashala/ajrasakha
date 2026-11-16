@@ -44,8 +44,30 @@ const DETAIL_GRID_FIELDS = [
   { key: "language", label: "Language", type: "text", group: "Language" },
   { key: "district", label: "District", type: "text", group: "Location" },
   { key: "kvk", label: "KVK", type: "text", group: "Location" },
+  // ministry_or_department — the display name alongside ministry_or_department_id (fields.ts),
+  // same "name for display, id for editing" split as district/kvk above. Not in
+  // EDITABLE_DOCUMENT_ONLY_FIELDS/DISPLAY_ONLY_FIELDS (those are keyed for the edit form), so
+  // added here the same way district/kvk are.
+  { key: "ministry_or_department", label: "Ministry/Department", type: "text", group: "Advisory Details" },
   ...DISPLAY_ONLY_FIELDS,
 ];
+
+// Section header order for the grid below — same grouping/order convention as
+// UniqueDocumentEditForm's GROUP_ORDER (minus "Identity", which this modal shows in its own
+// header, not the grid).
+const DETAIL_GROUP_ORDER = [
+  "Location",
+  "Advisory Classification",
+  "Advisory Details",
+  "Release & Collection",
+  "Language",
+  "Status",
+  "Translation & Review",
+  "File Info",
+];
+
+const sectionTitleClass =
+  "text-[11px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border/40 pb-1";
 
 function formatMergedAtIst(iso) {
   if (!iso) return "unknown date";
@@ -400,27 +422,40 @@ export default function DocumentDetailModal({
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
-                {DETAIL_GRID_FIELDS.map((f) => (
-                  <div key={f.key} className="flex flex-col gap-0.5">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
-                      {f.label}
-                    </span>
-                    <span className="text-xs text-foreground break-words rounded border border-border/50 bg-muted/20 px-2 py-1">
-                      {f.key === "domain" ? (
-                        formatDomainValue(doc.domain) || <span className="text-muted-foreground/40">—</span>
-                      ) : doc[f.key] ? (
-                        f.formatDate ? (
-                          formatDate(new Date(doc[f.key]))
-                        ) : (
-                          doc[f.key]
-                        )
-                      ) : (
-                        <span className="text-muted-foreground/40">—</span>
-                      )}
-                    </span>
-                  </div>
-                ))}
+              <div className="flex flex-col gap-4">
+                {DETAIL_GROUP_ORDER.map((group) => {
+                  const fieldsInGroup = DETAIL_GRID_FIELDS.filter((f) => f.group === group);
+                  if (fieldsInGroup.length === 0) return null;
+                  return (
+                    <div key={group} className="flex flex-col gap-2">
+                      <div className={sectionTitleClass}>{group}</div>
+                      <div className="grid grid-cols-2 md:grid-cols-3 gap-x-4 gap-y-2">
+                        {fieldsInGroup.map((f) => (
+                          <div key={f.key} className="flex flex-col gap-0.5">
+                            <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wide">
+                              {f.label}
+                            </span>
+                            <span className="text-xs text-foreground break-words rounded border border-border/50 bg-muted/20 px-2 py-1">
+                              {f.key === "domain" ? (
+                                formatDomainValue(doc.domain) || (
+                                  <span className="text-muted-foreground/40">—</span>
+                                )
+                              ) : doc[f.key] ? (
+                                f.formatDate ? (
+                                  formatDate(new Date(doc[f.key]))
+                                ) : (
+                                  doc[f.key]
+                                )
+                              ) : (
+                                <span className="text-muted-foreground/40">—</span>
+                              )}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
               </div>
 
               <div className="border-t border-border/50 pt-3">
