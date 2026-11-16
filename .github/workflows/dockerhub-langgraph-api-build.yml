@@ -36,8 +36,6 @@ jobs:
           file: ./ai/Dockerfile
           push: true
           platforms: linux/amd64
-          build-args: |
-            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
