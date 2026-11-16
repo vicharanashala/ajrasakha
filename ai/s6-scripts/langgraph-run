@@ -1,14 +1,11 @@
 #!/command/with-contenv bash
-
-# Start LangGraph API after Tailscale is ready
 set -e
 
-# Skip Tailscale checks only when explicitly requested
+# Skip Tailscale checks only when explicitly requested.
 if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
     echo "Waiting for Tailscale to become ready..."
 
     i=0
-
     while [ "$i" -lt 20 ]; do
         if [ -S /var/run/tailscale/tailscaled.sock ] && \
            tailscale status >/dev/null 2>&1; then
@@ -20,13 +17,11 @@ if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
         sleep 1
     done
 
-    # Fail if Tailscale is not ready
     if [ "$i" -ge 20 ]; then
         echo "ERROR: Tailscale not ready after 20 seconds"
         exit 1
     fi
 
-    # Wait for SOCKS5 proxy to become ready
     if [ -f /app/s6-scripts/wait-for-socks5.py ]; then
         echo "Waiting for SOCKS5 proxy..."
         python3 /app/s6-scripts/wait-for-socks5.py
@@ -40,11 +35,25 @@ else
     echo "Skipping Tailscale readiness checks"
 fi
 
-# Start LangGraph API
+# Verify that PostgreSQL responds through the local TCP forwarder.
+if [ "${POSTGRES_VIA_TAILSCALE:-false}" = "true" ]; then
+    echo "Checking PostgreSQL through the Tailscale forwarder..."
+
+    for attempt in {1..10}; do
+        if pg_isready -h 127.0.0.1 -p 5434 -t 2; then
+            break
+        fi
+
+        if [ "$attempt" -eq 10 ]; then
+            echo "ERROR: PostgreSQL did not respond through the Tailscale forwarder"
+            exit 1
+        fi
+
+        sleep 1
+    done
+fi
+
 echo "Starting LangGraph API..."
-
 cd /app
-
 source .venv/bin/activate
-
 exec aegra serve
