@@ -594,12 +594,16 @@ export class QuestionService extends BaseService implements IQuestionService {
       ...(normalised_crop ? { normalised_crop } : {}),
     };
 
-    // Determine author user ID for the answer
+    // For ACC questions ingested from an external system, question doc userId can be null if not provided
+    const questionUserId: ObjectId | null =
+      userId && ObjectId.isValid(userId) ? new ObjectId(userId) : null;
+
+    // Determine author user ID for the initial answer placeholder
     let resolvedAuthorId: ObjectId;
-    if (userId && ObjectId.isValid(userId)) {
-      resolvedAuthorId = new ObjectId(userId);
+    if (questionUserId) {
+      resolvedAuthorId = questionUserId;
     } else {
-      // Find default admin user to attribute the answer
+      // Find default admin user to attribute the answer until moderated
       const admins = await this.userRepo.findAdmins();
       if (admins && admins.length > 0 && admins[0]._id) {
         resolvedAuthorId = new ObjectId(admins[0]._id.toString());
@@ -625,7 +629,7 @@ export class QuestionService extends BaseService implements IQuestionService {
 
       // 1. Base Question Document
       const baseQuestion: IQuestion = {
-        userId: resolvedAuthorId,
+        userId: questionUserId,
         question: questionText,
         priority: 'medium',
         source: 'ACC',
@@ -679,10 +683,10 @@ export class QuestionService extends BaseService implements IQuestionService {
       // 4. Question Submission Record
       const submissionData: IQuestionSubmission = {
         questionId: new ObjectId(questionId),
-        lastRespondedBy: resolvedAuthorId,
+        lastRespondedBy: questionUserId || resolvedAuthorId,
         history: [
           {
-            updatedBy: resolvedAuthorId,
+            updatedBy: questionUserId || resolvedAuthorId,
             answer: new ObjectId(answerId),
             status: 'in-review',
             createdAt: new Date(),
@@ -746,22 +750,32 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     });
 
-    // 8. Audit trail
+    // 8. Audit trail (ensure not repeated)
     try {
-      const auditPayload = {
-        category: AuditCategory.QUESTION,
-        action: AuditAction.QUESTION_ADD,
-        actor: userId ? { id: userId, source: 'ACC' } : { id: 'ACC_INGESTION', source: 'ACC' },
-        context: {
-          questionId: [result.questionId],
-          answerId: result.answerId,
-          source: 'ACC',
-          moderatorId: result.moderatorId,
-        },
-        outcome: { status: OutComeStatus.SUCCESS },
-        createdAt: new Date(),
-      };
-      this.auditTrailsService.createAuditTrail(auditPayload as any);
+      const existingAudits = await this.auditTrailsService.getAuditTrailsByQuestionId(
+        result.questionId,
+        1,
+        1,
+        AuditAction.QUESTION_ADD,
+      );
+      if (!existingAudits?.data?.length) {
+        const auditPayload = {
+          category: AuditCategory.QUESTION,
+          action: AuditAction.QUESTION_ADD,
+          actor: userId
+            ? { id: userId, source: 'ACC', name: 'ACC User', role: 'user' }
+            : { id: 'ACC_INGESTION', source: 'ACC', name: 'ACC Ingestion', role: 'system' },
+          context: {
+            questionId: [result.questionId],
+            answerId: result.answerId,
+            source: 'ACC',
+            moderatorId: result.moderatorId,
+          },
+          outcome: { status: OutComeStatus.SUCCESS },
+          createdAt: new Date(),
+        };
+        await this.auditTrailsService.createAuditTrail(auditPayload as any);
+      }
     } catch (_) {
       /* ignore audit logging failure */
     }

@@ -227,9 +227,9 @@ export class QuestionIngestionController {
       return this.addQuestionCollection(userId, body.question_collection_questions, name);
     }
 
-    // ── Route to ACC handler if source is ACC and answer/aiInitialAnswer is provided ──
+    // ── Route to ACC handler if source is ACC ──
     const src = body.source?.toUpperCase();
-    if (src === 'ACC' && ((body as any).answer || (body as any).aiInitialAnswer) && !file) {
+    if (src === 'ACC' && !file) {
       return this.questionService.addAccQuestionAnswer(userId, body as any);
     }
 
