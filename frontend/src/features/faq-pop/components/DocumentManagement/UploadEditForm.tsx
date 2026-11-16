@@ -14,6 +14,7 @@ import {
 import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 import { PlacementGroupRow } from "./AddDocumentForm";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -382,21 +383,16 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
 
       <div className="flex flex-col gap-1">
         <span className="text-[10px] text-muted-foreground">Ministry/Department</span>
-        <select
-          className={`${selectClass} sm:max-w-xs`}
-          value={ministryId}
-          onChange={(e) => {
-            setMinistryId(e.target.value);
+        <StateSelector
+          value={organizationOptions.find((o) => o.id === ministryId)?.name || ""}
+          onChange={(name) => {
+            const opt = organizationOptions.find((o) => o.name === name);
+            setMinistryId(opt ? opt.id : "");
             setMinistryTouched(true);
           }}
-        >
-          <option value="">— none —</option>
-          {organizationOptions.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
+          stateNames={organizationOptions.map((o) => o.name)}
+          placeholder="Search ministry/department…"
+        />
       </div>
 
       <div className="flex items-center gap-1.5">

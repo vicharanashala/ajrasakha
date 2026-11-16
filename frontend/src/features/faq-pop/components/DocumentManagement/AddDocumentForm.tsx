@@ -20,6 +20,22 @@ import MetadataFieldInput from "./MetadataFieldInput";
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
 const labelClass = "text-xs font-medium text-foreground/70";
+const sectionTitleClass =
+  "text-[11px] font-bold text-muted-foreground uppercase tracking-wide border-b border-border/40 pb-1";
+
+// Section order for the grouped layout below — same grouping/order convention as
+// UniqueDocumentEditForm's GROUP_ORDER, minus the groups that don't apply to a brand-new upload
+// (Identity/Translation & Review/File Info are all system-computed, nothing to fill in here).
+// Location covers both the State/Folder placements and District/KVK; Advisory Details also carries
+// the manually-rendered Ministry/Department field, same position it has in the edit modal.
+const SECTION_ORDER = [
+  "Advisory Classification",
+  "Advisory Details",
+  "Release & Collection",
+  "Language",
+  "Location",
+  "Status",
+];
 
 function emptyValues() {
   const v = {};
@@ -334,133 +350,148 @@ export default function AddDocumentForm({ onUploadQueued, disabled }) {
         </p>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        {DOCUMENT_METADATA_FIELDS.map((f) => (
-          <div key={f.key} className="flex flex-col gap-1">
-            <label className={labelClass}>{f.label}</label>
-            <MetadataFieldInput
-              field={f}
-              value={values[f.key]}
-              onChange={(v) => setValue(f.key, v)}
-              className={inputClass}
-              options={f.key === "domain" ? domainOptions : undefined}
-            />
-          </div>
-        ))}
-      </div>
-
-      <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
-        <label className={labelClass}>Language</label>
-        <select
-          className={`${inputClass} sm:max-w-xs`}
-          value={language}
-          onChange={(e) => setLanguage(e.target.value)}
-        >
-          <option value="">Select language…</option>
-          {languageOptions.map((l) => (
-            <option key={l.code} value={l.code}>
-              {l.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-3 border-t border-border/50 pt-4">
-        <div className="flex items-center justify-between">
-          <label className={labelClass}>Placements (state → folder)</label>
-          <button
-            className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
-            onClick={addGroup}
-          >
-            <Plus size={11} /> Add another state
-          </button>
-        </div>
-        {groups.map((g) => (
-          <PlacementGroupRow
-            key={g.key}
-            group={g}
-            folderOptions={visibleFolderOptions}
-            allFolderOptions={folderOptions}
-            stateOptions={stateOptions}
-            scopeIsCentral={values.advisory_scope === "Central"}
-            onChange={(patch) => updateGroup(g.key, patch)}
-            onRemove={() => removeGroup(g.key)}
-            removable={groups.length > 1}
-          />
-        ))}
-
-        <p className="text-[10px] text-muted-foreground/70 -mt-1">
-          Crops and organisations both come from a read-only vocabulary and can't be added here
-          (2026-10-05 backend change — every vocabulary write route is gone). States now cover
-          every Indian state and union territory, so there's no "add state" option either. Folder
-          options above are every crop/organisation this document's Advisory Type allows — not
-          narrowed by state.
-        </p>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-muted-foreground">District</span>
-            {primaryStateId ? (
-              <select
-                className={selectClass}
-                value={districtId}
-                onChange={(e) => {
-                  setDistrictId(e.target.value);
-                  setKvkId("");
-                }}
-              >
-                <option value="">— none —</option>
-                {districtOptions.map((d) => (
-                  <option key={d.id} value={d.id}>
-                    {d.name}
-                  </option>
+      {SECTION_ORDER.map((section) => {
+        const fieldsInSection = DOCUMENT_METADATA_FIELDS.filter((f) => f.group === section);
+        const isLanguage = section === "Language";
+        const isLocation = section === "Location";
+        const isAdvisoryDetails = section === "Advisory Details";
+        return (
+          <div key={section} className="flex flex-col gap-2 border-t border-border/50 pt-4 first:border-t-0 first:pt-0">
+            <div className={sectionTitleClass}>{section}</div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {fieldsInSection.map((f) => (
+                <div key={f.key} className="flex flex-col gap-1">
+                  <label className={labelClass}>{f.label}</label>
+                  <MetadataFieldInput
+                    field={f}
+                    value={values[f.key]}
+                    onChange={(v) => setValue(f.key, v)}
+                    className={inputClass}
+                    options={f.key === "domain" ? domainOptions : undefined}
+                  />
+                </div>
+              ))}
+              {isLanguage && (
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Language</label>
+                  <select
+                    className={inputClass}
+                    value={language}
+                    onChange={(e) => setLanguage(e.target.value)}
+                  >
+                    <option value="">Select language…</option>
+                    {languageOptions.map((l) => (
+                      <option key={l.code} value={l.code}>
+                        {l.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              {isAdvisoryDetails && (
+                <div className="flex flex-col gap-1">
+                  <label className={labelClass}>Ministry/Department</label>
+                  <StateSelector
+                    value={organizationOptions.find((o) => o.id === ministryId)?.name || ""}
+                    onChange={(name) => {
+                      const opt = organizationOptions.find((o) => o.name === name);
+                      setMinistryId(opt ? opt.id : "");
+                    }}
+                    stateNames={organizationOptions.map((o) => o.name)}
+                    placeholder="Search ministry/department…"
+                  />
+                </div>
+              )}
+            </div>
+            {isLocation && (
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <label className={labelClass}>Placements (state → folder)</label>
+                  <button
+                    className="flex items-center gap-1 text-[11px] text-primary hover:underline cursor-pointer"
+                    onClick={addGroup}
+                  >
+                    <Plus size={11} /> Add another state
+                  </button>
+                </div>
+                {groups.map((g) => (
+                  <PlacementGroupRow
+                    key={g.key}
+                    group={g}
+                    folderOptions={visibleFolderOptions}
+                    allFolderOptions={folderOptions}
+                    stateOptions={stateOptions}
+                    scopeIsCentral={values.advisory_scope === "Central"}
+                    onChange={(patch) => updateGroup(g.key, patch)}
+                    onRemove={() => removeGroup(g.key)}
+                    removable={groups.length > 1}
+                  />
                 ))}
-              </select>
-            ) : (
-              <span className="text-[11px] text-muted-foreground italic py-1.5">
-                Pick a state above first
-              </span>
+
+                <p className="text-[10px] text-muted-foreground/70 -mt-1">
+                  Crops and organisations both come from a read-only vocabulary and can't be added
+                  here (2026-10-05 backend change — every vocabulary write route is gone). States
+                  now cover every Indian state and union territory, so there's no "add state"
+                  option either. Folder options above are every crop/organisation this document's
+                  Advisory Type allows — not narrowed by state.
+                </p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-1">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-muted-foreground">District</span>
+                    {primaryStateId ? (
+                      <select
+                        className={selectClass}
+                        value={districtId}
+                        onChange={(e) => {
+                          setDistrictId(e.target.value);
+                          setKvkId("");
+                        }}
+                      >
+                        <option value="">— none —</option>
+                        {districtOptions.map((d) => (
+                          <option key={d.id} value={d.id}>
+                            {d.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground italic py-1.5">
+                        Pick a state above first
+                      </span>
+                    )}
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[10px] text-muted-foreground">KVK</span>
+                    {districtId ? (
+                      <select
+                        className={selectClass}
+                        value={kvkId}
+                        onChange={(e) => setKvkId(e.target.value)}
+                      >
+                        <option value="">— none —</option>
+                        {kvkOptions.map((k) => (
+                          <option key={k.id} value={k.id}>
+                            {k.name}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="text-[11px] text-muted-foreground italic py-1.5">
+                        Select a district first
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-muted-foreground/70 col-span-full">
+                    District/KVK belong to the document as a whole, not to any one placement
+                    (2026-10-06 backend change) — scoped here by the first placement's state above.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
-          <div className="flex flex-col gap-1">
-            <span className="text-[10px] text-muted-foreground">KVK</span>
-            {districtId ? (
-              <select className={selectClass} value={kvkId} onChange={(e) => setKvkId(e.target.value)}>
-                <option value="">— none —</option>
-                {kvkOptions.map((k) => (
-                  <option key={k.id} value={k.id}>
-                    {k.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <span className="text-[11px] text-muted-foreground italic py-1.5">
-                Select a district first
-              </span>
-            )}
-          </div>
-          <p className="text-[10px] text-muted-foreground/70 col-span-full">
-            District/KVK belong to the document as a whole, not to any one placement (2026-10-06
-            backend change) — scoped here by the first placement's state above.
-          </p>
-        </div>
-      </div>
-
-      <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
-        <label className={labelClass}>Ministry/Department</label>
-        <select
-          className={`${selectClass} sm:max-w-xs`}
-          value={ministryId}
-          onChange={(e) => setMinistryId(e.target.value)}
-        >
-          <option value="">— none —</option>
-          {organizationOptions.map((o) => (
-            <option key={o.id} value={o.id}>
-              {o.name}
-            </option>
-          ))}
-        </select>
-      </div>
+        );
+      })}
 
       <div className="flex flex-col gap-1 border-t border-border/50 pt-4">
         <label className={labelClass}>File (PDF)</label>
