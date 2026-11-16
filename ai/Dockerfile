@@ -20,11 +20,7 @@
 #   SKIP_TAILSCALE_STATUS - Set to "true" to skip Tailscale checks (for local dev)
 # =============================================================================
 
-ARG TAILSCALE_AUTHKEY
-
 FROM python:3.12-slim-bookworm AS base
-
-ENV TAILSCALE_AUTHKEY=${TAILSCALE_AUTHKEY}
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1
