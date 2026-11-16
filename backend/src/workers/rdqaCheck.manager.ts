@@ -40,7 +40,7 @@ function cleanupOldJobs() {
 }
 
 function getAnswerCheckBaseUrl(): string {
-  const raw = process.env.ANSWER_CHECK_SERVER_URL || 'http://localhost:8012';
+  const raw = process.env.ANSWER_CHECK_SERVER_URL || `http://${process.env.AI_SERVER_IP || '127.0.0.1'}:${process.env.ANSWER_CHECK_PORT || '8012'}`;
   return raw.replace('0.0.0.0', '127.0.0.1').replace(/\/+$/, '');
 }
 
