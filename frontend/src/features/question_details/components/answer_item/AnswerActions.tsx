@@ -15,6 +15,7 @@ interface AnswerActionsProps {
   answer: IAnswer;
   userRole: UserRole;
   questionStatus: QuestionStatus;
+  questionSource?: string;
   lastAnswerId: string;
   lastReroutedTo: any;
   editOpen: boolean;
@@ -66,6 +67,7 @@ export const AnswerActions = ({
   answer,
   userRole,
   questionStatus,
+  questionSource,
   lastAnswerId,
   lastReroutedTo,
   editOpen,
@@ -107,26 +109,29 @@ export const AnswerActions = ({
   assignedModerator,
   isAssignedModerator = false,
 }: AnswerActionsProps) => {
-  // Approve and Re-route are restricted to the Dedicated (moderator-assigned) tab.
-  // For pae_submitted questions (PAE tab) they are restricted to the assigned moderator
-  // only — other moderators viewing the PAE tab don't see Approve/Re-route.
-  const canModerate =
-    isDedicatedView ||
-    (questionStatus === "pae_submitted" && isAssignedModerator);
+  const isAcc = questionSource?.toUpperCase() === "ACC";
 
+  // Approve and Re-route are available when in dedicated view OR when the current user is the assigned moderator.
+  const canModerate = isDedicatedView || isAssignedModerator;
+
+  // Re-route button is hidden for ACC questions
   const showActions =
+    !isAcc &&
     userRole !== "expert" &&
     userRole !== "tester" &&
     canModerate &&
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
+
+  // For ACC questions, assigned moderator can approve immediately without requiring 3 peer approvals
   const showAprroveButton =
     userRole !== "tester" &&
     userRole !== "expert" &&
     canModerate &&
-    (((questionStatus === "in-review" || questionStatus === "re-routed") &&
-      (lastAnswerApprovalCount ?? 0) >= 3) ||
-      questionStatus === "pae_submitted");
+    (isAcc ||
+      questionStatus === "pae_submitted" ||
+      ((questionStatus === "in-review" || questionStatus === "re-routed") &&
+        (lastAnswerApprovalCount ?? 0) >= 3));
 
   return (
     <div className="flex items-center justify-center gap-2">
@@ -149,6 +154,7 @@ export const AnswerActions = ({
             approvalCount={answer.approvalCount}
             questionStatus={questionStatus}
             paeReview={paeReview}
+            isAcc={isAcc}
           />
         )
       }
