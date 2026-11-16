@@ -464,9 +464,22 @@ export const AuditTrailModal = ({ open, onClose, questionId, cropId, entityLabel
 
           {!isLoading && !error && data?.data && data.data.length > 0 && (
             <div className="space-y-3">
-              {data.data.map((audit, index) => (
-                <AuditItem key={`${audit.actor?.id || 'unknown'}-${index}`} audit={audit} entityLabel={entityLabel} />
-              ))}
+              {data.data
+                .filter(
+                  (item, index, self) =>
+                    index ===
+                    self.findIndex(
+                      (t) =>
+                        ((t as any)._id && (item as any)._id
+                          ? (t as any)._id === (item as any)._id
+                          : t.action === item.action &&
+                            t.createdAt === item.createdAt &&
+                            JSON.stringify(t.context) === JSON.stringify(item.context))
+                    )
+                )
+                .map((audit, index) => (
+                  <AuditItem key={`${audit.actor?.id || 'unknown'}-${index}`} audit={audit} entityLabel={entityLabel} />
+                ))}
             </div>
           )}
         </div>
