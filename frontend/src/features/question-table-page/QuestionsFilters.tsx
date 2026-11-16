@@ -147,7 +147,7 @@ type QuestionsFiltersProps = {
   onOpenAgriTech?: () => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training" | "rdqa" | "acc" |;
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training" | "rdqa" | "acc" ;
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
