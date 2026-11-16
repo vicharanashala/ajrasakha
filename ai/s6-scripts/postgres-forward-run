@@ -1,0 +1,9 @@
+#!/command/with-contenv bash
+set -e
+
+if [ "${POSTGRES_VIA_TAILSCALE:-false}" != "true" ]; then
+    exec sleep infinity
+fi
+
+exec ncat --listen --keep-open 127.0.0.1 5434 \
+    --sh-exec 'exec ncat -w 5s --proxy 127.0.0.1:1055 --proxy-type socks5 100.100.108.44 5434'
