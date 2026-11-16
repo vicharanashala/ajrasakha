@@ -149,7 +149,7 @@ export const TIME_BOUND_SOURCES: QuestionSource[] = ['AJRASAKHA', 'WHATSAPP'];
 export const MANUAL_SOURCES: QuestionSource[] = ['AGRI_EXPERT', 'OUTREACH', 'QUESTION_COLLECTION', 'ACC'];
 export interface IQuestion {
   _id?: string | ObjectId;
-  userId?: ObjectId | string;
+  userId?: ObjectId | string | null;
   question: string;
   contextId?: ObjectId | string | null;
   status: QuestionStatus;
