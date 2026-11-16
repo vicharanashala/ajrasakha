@@ -1,29 +1,51 @@
-#!/bin/bash
-# Starts LangGraph API after Tailscale is ready
 
-# Skip Tailscale check if requested
+#!/command/with-contenv bash
+
+# Start LangGraph API after Tailscale is ready
+set -e
+
+# Skip Tailscale checks only when explicitly requested
 if [ "${SKIP_TAILSCALE_STATUS:-false}" != "true" ]; then
+    echo "Waiting for Tailscale to become ready..."
+
     i=0
-    while [ $i -lt 20 ]; do
+
+    while [ "$i" -lt 20 ]; do
         if [ -S /var/run/tailscale/tailscaled.sock ] && \
            tailscale status >/dev/null 2>&1; then
+            echo "Tailscale is ready"
             break
         fi
+
         i=$((i + 1))
         sleep 1
     done
 
-    if [ $i -ge 20 ]; then
-        echo "WARNING: Tailscale not ready, proceeding anyway"
+    # Fail if Tailscale is not ready
+    if [ "$i" -ge 20 ]; then
+        echo "ERROR: Tailscale not ready after 20 seconds"
+        exit 1
     fi
 
-    # Wait for SOCKS5 proxy
+    # Wait for SOCKS5 proxy to become ready
     if [ -f /app/s6-scripts/wait-for-socks5.py ]; then
-        python3 /app/s6-scripts/wait-for-socks5.py || true
+        echo "Waiting for SOCKS5 proxy..."
+        python3 /app/s6-scripts/wait-for-socks5.py
+    else
+        echo "ERROR: SOCKS5 readiness script not found"
+        exit 1
     fi
+
+    echo "Tailscale and SOCKS5 proxy are ready"
+else
+    echo "Skipping Tailscale readiness checks"
 fi
 
-# Start LangGraph API using aegra serve
+# Start LangGraph API
+echo "Starting LangGraph API..."
+
 cd /app
+
 source .venv/bin/activate
+
 exec aegra serve
