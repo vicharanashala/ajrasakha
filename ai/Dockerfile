@@ -92,6 +92,11 @@ FROM base AS final
 RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     curl \
+    ncat \
+    libpq5 \
+    gnupg \
+    ca-certificates \
+    curl \
     libpq5 \
     gnupg \
     && curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | gpg --dearmor -o /usr/share/keyrings/postgresql-keyring.gpg \
