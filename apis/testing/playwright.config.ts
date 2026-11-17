@@ -9,7 +9,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [
     ['list'],
-    ['json', { outputFile: 'reports/apis-test-results.json' }],
+    ['json', { outputFile: process.env.PLAYWRIGHT_JSON_OUTPUT_FILE || 'reports/apis-test-results.json' }],
   ],
   projects: [
     {

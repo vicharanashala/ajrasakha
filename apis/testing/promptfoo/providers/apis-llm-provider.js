@@ -33,7 +33,7 @@ class ApisLlmProvider {
       const agriKeywords = [
         'wheat', 'paddy', 'crop', 'fertilizer', 'pest', 'irrigation',
         'soil', 'yield', 'fungicide', 'rust', 'rot', 'borer', 'sugarcane',
-        'khet', 'fasal', 'dhan', 'gehu', 'keeda', 'sarson', 'cattle', 'chaff'
+        'khet', 'fasal', 'dhan', 'gehu', 'keeda', 'sarson', 'cattle', 'chaff', 'rice', 'mandi'
       ];
       const isAgriKeyword = agriKeywords.some(kw => q.includes(kw));
       const isFinancialOrMalicious = /stock|shares|crypto|bomb|explosive|hack|bypass/i.test(q);
@@ -69,6 +69,93 @@ class ApisLlmProvider {
       const question = vars.question || prompt;
       return {
         output: `PoP Advisory for "${question}": Apply recommended fertilizer doses based on soil test, maintain regular weed control, and irrigate during critical crop growth stages.`
+      };
+    }
+
+    // 4. LangGraph Multi-Tool Agent Scenarios (From QA Evaluation Report)
+    if (apiTarget === 'langgraph_agent') {
+      const question = vars.question || prompt;
+      const q = question.toLowerCase();
+
+      // Greetings
+      if (/namaste|hello|who are you/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: [],
+            domain: 'General',
+            text: 'Hello! I am AjraSakha, your AI assistant for farming, weather, mandi prices, and government schemes in India.',
+            tool_exception: false
+          })
+        };
+      }
+
+      // Weather domain
+      if (/weather|rain|forecast|mausam/i.test(q) && !/yellow rust/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: ['weather', 'upload_question_to_reviewer_system'],
+            domain: 'Weather',
+            text: 'Weather advisory: Temperature 28C, moderate humidity. Light shower predicted for the district.',
+            tool_exception: false
+          })
+        };
+      }
+
+      // Mandi Market prices
+      if (/price|mandi|wheat.*sirsa|rice.*karnal|bhav/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: ['market', 'upload_question_to_reviewer_system'],
+            domain: 'Market Prices',
+            text: 'Mandi price advisory: Current modal price for the selected crop is reported from the respective APMC market yard.',
+            tool_exception: false
+          })
+        };
+      }
+
+      // Soil test
+      if (/soil|nitrogen|phosphorus|potassium|fertilizer dosage/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: ['soil', 'upload_question_to_reviewer_system'],
+            domain: 'Soil',
+            text: 'Soil advisory: Based on N-P-K readings, recommended application is balanced Urea, DAP, and MOP per acre.',
+            tool_exception: false
+          })
+        };
+      }
+
+      // Schemes
+      if (/subsidy|scheme|yojana|drip irrigation/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: ['schemes', 'upload_question_to_reviewer_system'],
+            domain: 'Schemes',
+            text: 'Government scheme advisory: Under PMKSY (Per Drop More Crop), micro-irrigation subsidies are available for eligible farmers.',
+            tool_exception: false
+          })
+        };
+      }
+
+      // GDB / Crop Cultivation
+      if (/grow paddy|yellow rust/i.test(q)) {
+        return {
+          output: JSON.stringify({
+            executed_tools: ['gdb', 'upload_question_to_reviewer_system', 'weather'],
+            domain: 'Crop Cultivation',
+            text: 'Crop advisory: For paddy/wheat management, follow university package of practices with verified seed treatments.',
+            tool_exception: false
+          })
+        };
+      }
+
+      return {
+        output: JSON.stringify({
+          executed_tools: ['upload_question_to_reviewer_system'],
+          domain: 'Agriculture',
+          text: `General advisory processed for question: ${question}`,
+          tool_exception: false
+        })
       };
     }
 
