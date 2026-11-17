@@ -1161,9 +1161,8 @@ export const RdqaPage = () => {
         {!isLoading && !error && filteredAndSortedQuestions.length > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border/70 bg-card/70 shadow-2xs">
             <div className="text-xs text-muted-foreground">
-              Showing <strong className="text-foreground">{(currentPage - 1) * ITEMS_PER_PAGE + 1}</strong> to{" "}
-              <strong className="text-foreground">
-                {Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedQuestions.length)}
+              Showing <strong className="text-foreground">
+                { Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedQuestions.length)}
               </strong>{" "}
               of <strong className="text-foreground">{filteredAndSortedQuestions.length}</strong> questions
             </div>
