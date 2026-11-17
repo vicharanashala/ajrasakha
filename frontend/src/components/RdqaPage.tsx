@@ -1565,34 +1565,10 @@ export const RdqaPage = () => {
             </Tabs>
 
             {/* Modal Footer */}
-            <div className="flex items-center justify-between gap-3 px-5 py-3 border-t bg-muted/10 shrink-0">
-              <span className="text-xs text-muted-foreground">
-                Quality Status:{" "}
-                <strong className="text-foreground font-medium">
-                  {isAnswerModifiedAfterCheck(selectedQuestion)
-                    ? "Modified (Needs Recheck)"
-                    : (selectedQuestion.flags || selectedQuestion.answer?.flags || []).length > 0
-                    ? `${(selectedQuestion.flags || selectedQuestion.answer?.flags || []).length} Flags`
-                    : "Passed"}
-                </strong>
-              </span>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setEditQuestion(selectedQuestion);
-                    setShowEditModal(true);
-                  }}
-                  className="gap-1.5 text-xs h-8"
-                >
-                  <Pencil className="w-3.5 h-3.5" />
-                  Edit Answer
-                </Button>
-                <Button variant="default" size="sm" onClick={() => setSelectedQuestion(null)} className="text-xs h-8">
-                  Close
-                </Button>
-              </div>
+            <div className="flex items-center justify-end gap-2 px-5 py-3 border-t bg-muted/10 shrink-0">
+              <Button variant="default" size="sm" onClick={() => setSelectedQuestion(null)} className="text-xs h-8">
+                Close
+              </Button>
             </div>
           </div>
         </div>
