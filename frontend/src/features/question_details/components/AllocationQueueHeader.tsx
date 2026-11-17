@@ -162,7 +162,9 @@ export const AllocationQueueHeader = ({
   // an expert. The backend will reopen the question to 'open' on allocation so the
   // expert can see it in their dashboard.
   // Gate keepers and auditors manage expert allocation alongside moderators/admins.
-  const canManageAllocation = currentUser.role !== "expert";
+  const canManageAllocation = currentUser.role !== "expert" && currentUser.role !== "tester";
+  // Testers can view allocation status but cannot toggle it
+  const canToggleAllocation = currentUser.role !== "expert" && currentUser.role !== "tester";
   const isExpertStatus =
     question.status !== "non_agri" &&
     question.status !== "queue_duplicate" &&
@@ -200,44 +202,58 @@ export const AllocationQueueHeader = ({
             questions are unaffected.
             Queue-duplicate questions: NO auto-allocate / Select Experts until the
             status is changed away from 'queue_duplicate'. */}
-        {canManageAllocation ? (
+        {canManageAllocation || currentUser.role === "tester" ? (
           <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 w-full md:w-auto">
-            {/* Auto-Allocate Block */}
-            <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
-              <Switch
-                id="auto-allocate"
-                checked={autoAllocate}
-                onCheckedChange={handleToggle}
-              />
-              <Label
-                htmlFor="auto-allocate"
-                className="cursor-pointer font-medium text-sm flex items-center gap-2"
-              >
-                {changingStatus && (
-                  <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
-                )}
-                Auto-allocate Experts
-              </Label>
+            {/* Auto-Allocate Block - Show toggle for users who can toggle, status only for testers */}
+            {canToggleAllocation ? (
+              <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                <Switch
+                  id="auto-allocate"
+                  checked={autoAllocate}
+                  onCheckedChange={handleToggle}
+                />
+                <Label
+                  htmlFor="auto-allocate"
+                  className="cursor-pointer font-medium text-sm flex items-center gap-2"
+                >
+                  {changingStatus && (
+                    <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                  )}
+                  Auto-allocate Experts
+                </Label>
 
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Info className="h-4 w-4 text-muted-foreground cursor-help" />
-                  </TooltipTrigger>
-                  <TooltipContent side="bottom" className="max-w-xs">
-                    <div className="space-y-1.5 text-sm">
-                      <p>
-                        <strong>ON:</strong> Questions are automatically
-                        assigned to available experts…
-                      </p>
-                      <p>
-                        <strong>OFF:</strong> You must manually add experts…
-                      </p>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-            </div>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="h-4 w-4 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs">
+                      <div className="space-y-1.5 text-sm">
+                        <p>
+                          <strong>ON:</strong> Questions are automatically
+                          assigned to available experts…
+                        </p>
+                        <p>
+                          <strong>OFF:</strong> You must manually add experts…
+                        </p>
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            ) : (
+              // Read-only status display for testers
+              <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+                  }`}
+                />
+                <span className="font-medium text-sm text-foreground">
+                  Auto-allocate: {autoAllocate ? "On" : "Off"}
+                </span>
+              </div>
+            )}
 
             {/* Select Experts Button — only when auto-allocate is OFF and the question
                 is in a normal expert-answering status (not a triage status). */}
