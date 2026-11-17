@@ -284,12 +284,16 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
       const authorId = answer.authorId.toString();
       const author = await this.userRepo.findById(authorId, session);
 
-      // UPDATE AUTHOR INCENTIVE
-      await this.userRepo.updatePenaltyAndIncentive(
-        authorId,
-        'incentive',
-        session,
-      );
+      const isAcc = question.source?.toUpperCase() === 'ACC';
+
+      // UPDATE AUTHOR INCENTIVE (skip for ACC questions as there is no human author)
+      if (!isAcc) {
+        await this.userRepo.updatePenaltyAndIncentive(
+          authorId,
+          'incentive',
+          session,
+        );
+      }
 
       // CLOSE QUESTION
       const isDuplicateApproval = question.status === 'duplicate';
@@ -332,6 +336,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         embedding: answerEmbedding,
         isFinalAnswer: true,
         status: 'approved',
+        ...(isAcc ? { authorId: new ObjectId(userId) } : {}),
       };
 
       const result = await this.answerRepo.updateAnswer(
@@ -340,9 +345,25 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         session,
       );
 
-      const authorName =
-        `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
-        'Expert';
+      if (isAcc && submission) {
+        await this.questionSubmissionRepo.updateById(
+          submission._id!.toString(),
+          {
+            $set: {
+              lastRespondedBy: new ObjectId(userId),
+              'history.0.updatedBy': new ObjectId(userId),
+              'history.0.status': 'approved',
+              updatedAt: new Date(),
+            },
+          },
+          session,
+        );
+      }
+
+      const authorName = isAcc
+        ? 'Moderator'
+        : `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
+          'Expert';
 
       // Propagate the close to confirmed-duplicate children
       try {
