@@ -45,10 +45,12 @@ const qs = new QuestionService();
 export const FeedbackReviewTimeline = ({
   questionId,
   canManage = false,
+  canViewStatus = false,
   initialOpen = false,
 }: {
   questionId: string;
   canManage?: boolean;
+  canViewStatus?: boolean;
   initialOpen?: boolean;
 }) => {
   const queryClient = useQueryClient();
@@ -180,7 +182,8 @@ export const FeedbackReviewTimeline = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {canManage && (
+            {/* Show toggle and controls for users who can manage, show status only for testers */}
+            {canManage ? (
               <>
                 <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
                   <Switch
@@ -230,7 +233,19 @@ export const FeedbackReviewTimeline = ({
                     </Button>
                   ))}
               </>
-            )}
+            ) : canViewStatus ? (
+              // Read-only status display for testers
+              <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    autoOn ? "bg-green-500" : "bg-muted-foreground/50"
+                  }`}
+                />
+                <span className="font-medium text-sm text-foreground">
+                  Auto-allocate Feedback: {autoOn ? "On" : "Off"}
+                </span>
+              </div>
+            ) : null}
 
             <Button
               variant="default"
