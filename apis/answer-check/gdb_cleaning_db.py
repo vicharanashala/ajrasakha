@@ -2,8 +2,9 @@
 
     python gdb_cleaning_db.py seed --limit 1 --state Punjab --crop Paddy
     python gdb_cleaning_db.py run --limit 1
+    python gdb_cleaning_db.py run --limit 40000 --slice 500
     python gdb_cleaning_db.py rerun
-    python gdb_cleaning_db.py dose-pass --yes
+    python gdb_cleaning_db.py dose-pass --since 2026-11-18 --yes
     python gdb_cleaning_db.py correct --limit 20
     python gdb_cleaning_db.py correct --apply
     python gdb_cleaning_db.py chem-pass
@@ -12,8 +13,11 @@
 seed  copies final answers (with their question) into gdb_cleaning as "pending".
       It only reads answers and questions, and never replaces a document that exists.
 run   runs the 13 checks on pending documents and saves the result on the same document.
+      It works in slices and saves each slice as soon as it is done, so a stopped run
+      keeps everything finished and the next run carries on with what is still pending.
 rerun runs again the answers where a check could not run, and replaces only those checks.
-dose-pass compares doses across all answers in the collection and updates the dose check.
+dose-pass compares doses across all answers in the collection and updates the dose check
+      only on the answers checked since --since, so earlier answers are not touched.
 correct drafts a corrected answer for flagged answers a rewrite can help, into a local preview file.
 chem-pass runs the current chemical check, with its model step, on answers already checked.
 
@@ -25,6 +29,7 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -52,6 +57,14 @@ from uniformity_checker import run_uniformity_checks  # noqa: E402
 DATABASE = os.getenv("MONGODB_DATABASE", "agriai")
 COLLECTION = "gdb_cleaning"
 BATCH = 200
+
+# set from --since: only answers checked on or after this moment may be read or changed
+# by rerun, chem-pass, correct and dose-pass, so answers checked earlier are left as they are
+SINCE: datetime | None = None
+
+
+def _new_only(query: dict) -> dict:
+    return query if SINCE is None else {**query, "checkedAt": {"$gte": SINCE}}
 
 
 def get_db():
@@ -144,30 +157,24 @@ def seed(limit: int, state: str | None, crop: str | None) -> None:
     print(f"{created} document(s) added to {COLLECTION}")
 
 
-def run(limit: int, workers: int | None) -> None:
-    db = get_db()
-    pending = list(db[COLLECTION].find({"status": "pending"}).limit(limit))
-    if not pending:
-        sys.exit("No pending documents to run.")
-    raws = [
-        {
-            "answer_id": str(doc["answerId"]),
-            "question_text": doc["question"],
-            "answer_text": doc["answer"],
-            "crop": doc["crop"],
-            "state": doc["state"],
-            "domain": doc["domain"],
-            "sources": doc["sources"],
-        }
-        for doc in pending
-    ]
-    # the dose comparison needs the whole batch, so results go to Mongo at the end;
-    # the checkpoint lets a stopped run carry on where it left off
-    checkpoint = PROJECT_DIRECTORY / "data" / "gdb_cleaning_run.partial.json"
-    results = run_until_complete(raws, max_workers=workers, checkpoint_path=checkpoint, chunk_size=50)
-    for doc, raw, result in zip(pending, raws, results):
-        item = to_item(raw, result)
-        db[COLLECTION].update_one(
+def _raw(doc: dict) -> dict:
+    return {
+        "answer_id": str(doc["answerId"]),
+        "question_text": doc["question"],
+        "answer_text": doc["answer"],
+        "crop": doc["crop"],
+        "state": doc["state"],
+        "domain": doc["domain"],
+        "sources": doc["sources"],
+    }
+
+
+def _save_slice(db, pending: list[dict], results: list[dict]) -> tuple[int, int]:
+    """Save the result of every answer in the slice. Returns (saved, with a check that could not run)."""
+    saved = incomplete = 0
+    for doc, result in zip(pending, results):
+        item = to_item(_raw(doc), result)
+        written = db[COLLECTION].update_one(
             {"_id": doc["_id"], "status": "pending"},
             {"$set": {
                 "checks": item["checks"],
@@ -179,8 +186,47 @@ def run(limit: int, workers: int | None) -> None:
                 "model": item["model"],
             }},
         )
-        print(f"{doc['answerId']} -> {item['status']} | flags: {item['flags']} | could not run: {item['notEvaluated']}")
-    checkpoint.unlink(missing_ok=True)
+        saved += written.modified_count
+        incomplete += bool(item["notEvaluated"])
+    return saved, incomplete
+
+
+def run(limit: int, workers: int | None, slice_size: int = 500) -> None:
+    """Check the pending answers a slice at a time, saving each slice before starting the next.
+
+    A finished answer is no longer pending, so a stopped run loses at most one slice and
+    the next run carries on where it stopped. The dose comparison needs all answers
+    together, so it is left to dose-pass.
+    """
+    db = get_db()
+    target = min(limit, db[COLLECTION].count_documents({"status": "pending"}))
+    if not target:
+        sys.exit("No pending documents to run.")
+    print(f"{target} pending answers to check, {slice_size} at a time", flush=True)
+    done = 0
+    started = time.monotonic()
+    while done < target:
+        pending = list(db[COLLECTION].find({"status": "pending"}).limit(min(slice_size, target - done)))
+        if not pending:
+            break
+        results = run_until_complete([_raw(doc) for doc in pending], max_workers=workers, checkpoint_path=None)
+        saved, incomplete = _save_slice(db, pending, results)
+        done += len(pending)
+        rate = (time.monotonic() - started) / done
+        left_hours = rate * (target - done) / 3600
+        print(
+            f"{done} of {target} checked, {saved} saved, {incomplete} in this slice with a check that "
+            f"could not run | about {left_hours:.1f} hours left",
+            flush=True,
+        )
+        if not saved:
+            sys.exit("Nothing was saved from the last slice, so the run stopped. Nothing is lost; run it again.")
+        if incomplete * 2 > len(pending):
+            sys.exit(
+                "More than half of the last slice had checks that could not run, so the model looks unreachable. "
+                "The run stopped. Those answers are saved and can be repaired later with the rerun command."
+            )
+    print(f"done: {done} answers checked and saved")
 
 
 def _summarise(checks: list[dict]) -> dict:
@@ -197,7 +243,7 @@ def _summarise(checks: list[dict]) -> dict:
 def rerun_incomplete(limit: int) -> None:
     """Run again the answers where a check could not run, and replace only those checks."""
     db = get_db()
-    docs = list(db[COLLECTION].find({"status": "todo", "notEvaluated.0": {"$exists": True}}).limit(limit))
+    docs = list(db[COLLECTION].find(_new_only({"status": "todo", "notEvaluated.0": {"$exists": True}})).limit(limit))
     if not docs:
         sys.exit("No answers with a check that could not run.")
     raws = [
@@ -226,15 +272,19 @@ def rerun_incomplete(limit: int) -> None:
         summary = _summarise(checks)
         if len(summary["notEvaluated"]) < len(doc["notEvaluated"]) or summary["flags"] != doc["flags"]:
             fixed += 1
-        db[COLLECTION].update_one({"_id": doc["_id"], "status": "todo"}, {"$set": summary})
+        db[COLLECTION].update_one(_new_only({"_id": doc["_id"], "status": "todo"}), {"$set": summary})
     still = db[COLLECTION].count_documents({"status": "todo", "notEvaluated.0": {"$exists": True}})
     print(f"re-ran {len(docs)} answers, {fixed} changed, {still} still have a check that could not run")
 
 
-def dose_pass(write: bool) -> None:
-    """Compare doses across every answer in the collection and update the dose check."""
+def dose_pass(write: bool, since: datetime | None = None) -> None:
+    """Compare doses across every answer in the collection and update the dose check.
+
+    All answers are compared, so the new ones are judged against the old ones, but only the
+    answers checked on or after `since` are changed.
+    """
     db = get_db()
-    docs = list(db[COLLECTION].find({}, {"answerId": 1, "answer": 1, "crop": 1, "checks": 1, "status": 1, "flags": 1}))
+    docs = list(db[COLLECTION].find({}, {"answerId": 1, "answer": 1, "crop": 1, "checks": 1, "status": 1, "flags": 1, "checkedAt": 1}))
     raws = [{"answer_id": str(d["answerId"]), "answer_text": d["answer"], "crop": d["crop"]} for d in docs]
     uniformity = run_uniformity_checks(raws)
 
@@ -243,6 +293,8 @@ def dose_pass(write: bool) -> None:
     for doc in docs:
         # unchecked answers have nothing to update and reviewed ones are never touched
         if doc["status"] not in ("todo", "clean") or not doc.get("checks"):
+            continue
+        if since and not (doc.get("checkedAt") and doc["checkedAt"] >= since):
             continue
         fake = {"parameters": {"chemical": {"uniformity_of_dose": uniformity[str(doc["answerId"])]["uniformity_of_dose"]}}}
         _dose_uniformity_not_applicable(fake)
@@ -309,7 +361,7 @@ def chem_pass(limit: int, workers: int, apply: bool, rebuild: bool = False) -> N
         written = skipped = 0
         for entry in done:
             result = db[COLLECTION].update_one(
-                {"answerId": ObjectId(entry["answerId"]), "status": {"$in": ["todo", "clean"]}},
+                _new_only({"answerId": ObjectId(entry["answerId"]), "status": {"$in": ["todo", "clean"]}}),
                 {"$set": {**_summarise(entry["checks"]), "chemicalModelCheck": OK}},
             )
             written += result.modified_count
@@ -321,7 +373,7 @@ def chem_pass(limit: int, workers: int, apply: bool, rebuild: bool = False) -> N
         return
 
     if rebuild:
-        by_id = {str(d["answerId"]): d for d in db[COLLECTION].find({"status": {"$in": ["todo", "clean"]}})}
+        by_id = {str(d["answerId"]): d for d in db[COLLECTION].find(_new_only({"status": {"$in": ["todo", "clean"]}}))}
         for answer_id, entry in list(preview.items()):
             if answer_id in by_id:
                 preview[answer_id] = chem_entry(by_id[answer_id], entry["mentions"], entry["modelCheck"])
@@ -332,7 +384,7 @@ def chem_pass(limit: int, workers: int, apply: bool, rebuild: bool = False) -> N
         return
 
     docs = [
-        d for d in db[COLLECTION].find({"status": {"$in": ["todo", "clean"]}}).limit(limit)
+        d for d in db[COLLECTION].find(_new_only({"status": {"$in": ["todo", "clean"]}})).limit(limit)
         if preview.get(str(d["answerId"]), {}).get("modelCheck") != OK
     ]
     print(f"{len(docs)} answers to run, {workers} at a time ({len(preview)} already in the preview file)", flush=True)
@@ -386,7 +438,7 @@ def correct_pass(limit: int, workers: int, apply: bool) -> None:
             if entry["status"] != "ok":
                 continue
             result = db[COLLECTION].update_one(
-                {"answerId": ObjectId(entry["answerId"]), "status": "todo", "correctedAnswer": None},
+                _new_only({"answerId": ObjectId(entry["answerId"]), "status": "todo", "correctedAnswer": None}),
                 {"$set": {
                     "correctedAnswer": entry["correctedAnswer"],
                     "correctionSource": "system",
@@ -401,7 +453,7 @@ def correct_pass(limit: int, workers: int, apply: bool) -> None:
         return
 
     candidates = [
-        d for d in db[COLLECTION].find({"status": "todo", "correctedAnswer": None})
+        d for d in db[COLLECTION].find(_new_only({"status": "todo", "correctedAnswer": None}))
         if problems_for(d["checks"]) and preview.get(str(d["answerId"]), {}).get("status") in (None, "failed")
     ]
     random.Random(1).shuffle(candidates)
@@ -430,6 +482,22 @@ def correct_pass(limit: int, workers: int, apply: bool) -> None:
     print("nothing written to Mongo; run with --apply to write the good drafts")
 
 
+def _scope_arguments(parser) -> None:
+    parser.add_argument("--since", help="only touch answers checked on or after this date, YYYY-MM-DD")
+    parser.add_argument("--all", action="store_true", help="touch every answer, including earlier ones")
+
+
+def _set_scope(args) -> None:
+    """Writing to answers that already exist needs --since (or --all), so earlier ones stay as they are."""
+    global SINCE
+    SINCE = datetime.strptime(args.since, "%Y-%m-%d") if getattr(args, "since", None) else None
+    writes = args.command in ("rerun",) or (args.command in ("chem-pass", "correct") and args.apply) or (
+        args.command == "dose-pass" and args.yes
+    )
+    if writes and SINCE is None and not args.all:
+        sys.exit("Add --since YYYY-MM-DD so answers checked earlier are not changed (or --all to change every answer).")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -440,20 +508,27 @@ def main() -> None:
     run_parser = sub.add_parser("run")
     run_parser.add_argument("--limit", type=int, default=1)
     run_parser.add_argument("--workers", type=int, default=None)
+    run_parser.add_argument("--slice", type=int, default=500, dest="slice_size")
     rerun_parser = sub.add_parser("rerun")
     rerun_parser.add_argument("--limit", type=int, default=500)
+    _scope_arguments(rerun_parser)
     chem_parser = sub.add_parser("chem-pass")
     chem_parser.add_argument("--limit", type=int, default=100000)
     chem_parser.add_argument("--workers", type=int, default=8)
     chem_parser.add_argument("--apply", action="store_true")
     chem_parser.add_argument("--rebuild", action="store_true")
+    _scope_arguments(chem_parser)
     correct_parser = sub.add_parser("correct")
     correct_parser.add_argument("--limit", type=int, default=100000)
     correct_parser.add_argument("--workers", type=int, default=6)
     correct_parser.add_argument("--apply", action="store_true")
+    _scope_arguments(correct_parser)
     dose_parser = sub.add_parser("dose-pass")
     dose_parser.add_argument("--yes", action="store_true")
+    _scope_arguments(dose_parser)
     args = parser.parse_args()
+    if args.command != "seed" and args.command != "run":
+        _set_scope(args)
     if args.command == "rerun":
         rerun_incomplete(args.limit)
     elif args.command == "correct":
@@ -461,11 +536,11 @@ def main() -> None:
     elif args.command == "chem-pass":
         chem_pass(args.limit, args.workers, args.apply, args.rebuild)
     elif args.command == "dose-pass":
-        dose_pass(args.yes)
+        dose_pass(args.yes, SINCE)
     elif args.command == "seed":
         seed(args.limit, args.state, args.crop)
     else:
-        run(args.limit, args.workers)
+        run(args.limit, args.workers, args.slice_size)
 
 
 if __name__ == "__main__":
