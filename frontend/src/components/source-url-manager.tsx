@@ -211,7 +211,7 @@ export const SourceUrlManager = ({
   };
 
   return (
-    <div className={`grid gap-3 ${className}`}>
+    <div className={`flex flex-col gap-3 overflow-hidden ${className}`}>
       <label className="text-sm font-medium text-foreground">
         {label}
         {required ? " *" : ""}
@@ -275,8 +275,8 @@ export const SourceUrlManager = ({
         )}
 
         {/* Added sources list */}
-        {sources.length > 0 && (
-          <ScrollArea className="h-[7rem] rounded-lg border p-2">
+        {(sources?.length ?? 0) > 0 && (
+          <div className="rounded-lg border p-2 flex-1 overflow-auto">
             <div className="flex flex-col gap-2">
               {sources.map((item, idx) => (
                 <div
@@ -400,7 +400,7 @@ export const SourceUrlManager = ({
                 </div>
               ))}
             </div>
-          </ScrollArea>
+          </div>
         )}
       </div>
     </div>

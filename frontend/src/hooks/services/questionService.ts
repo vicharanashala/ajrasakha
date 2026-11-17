@@ -17,6 +17,7 @@ import type { AdvanceFilterValues } from "@/components/advanced-question-filter"
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 import type { ReviewLevelsApiResponse } from "@/features/questions/types";
+import type { IGdbCheck } from "@/features/gdb-cleaning/types";
 import { auth } from "@/config/firebase";
 import { getIdToken } from "firebase/auth";
 
@@ -68,6 +69,103 @@ export type QueueSectionResponse = {
 export type RespectiveFeedbackItem = QueueQuestionItem & {
   approverId: string;
   approverName: string;
+};
+
+/** RDQA question structure for review - flattened for frontend consumption */
+export type RdqaQuestion = {
+  _id: string;
+  questionId: string;
+  authorId: string;
+  authorIdEmail: string | null;
+  context: string | null;
+  question: {
+    _id: string;
+    question: string; // The actual question text
+    userId: string;
+    details: {
+      crop?: string;
+      state?: string;
+      district?: string;
+      season?: string;
+      domain?: string[];
+    };
+    source?: string;
+    status?: string;
+    priority?: string;
+    isAutoAllocate?: boolean;
+    createdAt?: string;
+    closedAt?: string;
+    checks?: IGdbCheck[];
+    flags?: string[];
+    notEvaluated?: string[];
+    rdqaCheckedAt?: string | null;
+  };
+  answer: {
+    _id: string;
+    answer: string; // The actual answer text
+    sources: Array<{
+      source: string;
+      sourceType?: string;
+      sourceName?: string;
+      page?: string;
+    }>;
+    status?: string;
+    approvalCount?: number;
+    createdAt?: string;
+    updatedAt?: string;
+    isFinalAnswer: boolean;
+    modifiedBy: string | null;
+    approvedBy: string;
+    approvedByEmail: string | null;
+    checks?: IGdbCheck[];
+    flags?: string[];
+    notEvaluated?: string[];
+    checkedAt?: string | null;
+  };
+  approvedBy: string;
+  closedAt: string;
+  checks?: IGdbCheck[];
+  flags?: string[];
+  notEvaluated?: string[];
+  checkedAt?: string | null;
+};
+
+export interface IRdqaCheckJobStatus {
+  id: string;
+  total: number;
+  processed: number;
+  passed: number;
+  flagged: number;
+  failed: number;
+  status: "running" | "completed" | "failed";
+  startedAt: string;
+  finishedAt?: string;
+  logs: string[];
+  errors: any[];
+  results?: Array<{
+    questionId: string;
+    answerId?: string;
+    passed: boolean;
+    flags: string[];
+    notEvaluated: string[];
+    error?: string;
+  }>;
+}
+
+/** Backend response structure for RDQA endpoint */
+export type RdqaQuestionsResponse = {
+  date: string;
+  limit: number;
+  totalModerators: number;
+  questionsPerModerator: number;
+  totalQuestions: number;
+  moderatorDistribution: Array<{
+    approvedBy: string;
+    approvedByEmail?: string;
+    totalAvailable: number;
+    selectedCount: number;
+  }>;
+  questions: RdqaQuestion[];
 };
 
 /** Data for the dedicated Feedback tab. */
@@ -1194,6 +1292,49 @@ export class QuestionService {
 
   async manualCheckDuplicate(questionId: string): Promise<{ message: string; isDuplicate: boolean; referenceQuestionId?: string } | null> {
     return apiFetch(`${this._baseUrl}/${questionId}/check-duplicate`, { method: "POST" });
+  }
+
+  /** RDQA review - fetch finalized questions from a specific date */
+  async getRdqaQuestions(date?: string, limit?: number): Promise<RdqaQuestionsResponse> {
+    const params = new URLSearchParams();
+    if (date) params.append("date", date);
+    if (limit) params.append("limit", String(limit));
+    const queryString = params.toString();
+    const url = queryString
+      ? `${this._baseUrl}/list/rdqa?${queryString}`
+      : `${this._baseUrl}/list/rdqa`;
+    const response = await apiFetch<{ success: boolean; data: RdqaQuestionsResponse }>(url);
+    // Return the full response object including metadata
+    return response?.data ?? {
+      date: date || "",
+      limit: limit || 12,
+      totalModerators: 0,
+      questionsPerModerator: 0,
+      totalQuestions: 0,
+      moderatorDistribution: [],
+      questions: [],
+    };
+  }
+
+  /** Trigger RDQA quality checks on multiple questions in background */
+  async checkRdqaQuestions(questionIds: string[]): Promise<{ message: string; jobId: string } | null> {
+    return apiFetch<{ message: string; jobId: string }>(`${this._baseUrl}/rdqa/check`, {
+      method: "POST",
+      body: JSON.stringify({ questionIds }),
+    });
+  }
+
+  /** Fetch status of an RDQA quality check background job */
+  async getRdqaCheckJobStatus(jobId: string): Promise<IRdqaCheckJobStatus | null> {
+    return apiFetch<IRdqaCheckJobStatus>(`${this._baseUrl}/rdqa/check/jobs/${jobId}`);
+  }
+
+  /** Fetch check history for a question from the rdqa_checks collection */
+  async getRdqaCheckHistory(questionId: string): Promise<any[]> {
+    const res = await apiFetch<{ success: boolean; data: any[] }>(
+      `${this._baseUrl}/rdqa/checks/${questionId}/history`
+    );
+    return res?.data ?? [];
   }
 
   /** Gate keeper / auditor dashboard — assigned + submitted counts and their questions.
