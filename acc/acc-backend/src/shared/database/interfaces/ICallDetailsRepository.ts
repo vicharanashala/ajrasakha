@@ -18,9 +18,14 @@ export interface CallParticipant {
   email?: string;
 }
 
+export type QueryType = 'GDB' | 'AI-drafted';
+export type ReviewStatus = 'not_submitted' | 'pending_review' | 'approved' | 'rejected' | 'submission_failed';
+export type FarmerFollowUpStatus = 'pending' | 'called' | 'resolved';
+
 export interface CallQuery {
   _id?: string | ObjectId;
   callUuid: string;
+  type?: QueryType;
   metadata: {
     extracted_query?: string;
     extracted_crop?: string;
@@ -37,12 +42,28 @@ export interface CallQuery {
   };
   question: string;
   answer: string;
+  citations?: any[];
   agri_specialist?: string;
   referenceSource?: string;
   authorName?: string;
   sourceName?: string;
   sourceLink?: string;
   weather?: any;
+
+  // Review System & SLA tracking
+  reviewQuestionId?: string;
+  reviewStatus?: ReviewStatus;
+  reviewSlaExpiresAt?: Date;
+  reviewedAnswer?: string;
+  reviewedSources?: any[];
+  reviewedBy?: string;
+  reviewedAt?: Date;
+
+  // Follow-up tracking
+  farmerFollowUpStatus?: FarmerFollowUpStatus;
+  farmerFollowUpAt?: Date;
+  farmerFollowUpNotes?: string;
+
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -187,6 +208,25 @@ export interface ICallDetailsRepository {
     },
     session?: ClientSession
   ): Promise<{ queries: any[]; total: number }>;
+  updateQueryByReviewQuestionId(
+    reviewQuestionId: string,
+    updateData: Partial<CallQuery>,
+    session?: ClientSession
+  ): Promise<CallQuery | null>;
+  updateQueryById(
+    queryId: string | ObjectId,
+    updateData: Partial<CallQuery>,
+    session?: ClientSession
+  ): Promise<CallQuery | null>;
+  getFollowUps(
+    filter?: {
+      reviewStatus?: ReviewStatus | ReviewStatus[];
+      farmerFollowUpStatus?: FarmerFollowUpStatus | FarmerFollowUpStatus[];
+      limit?: number;
+      offset?: number;
+    },
+    session?: ClientSession
+  ): Promise<{ queries: CallQuery[]; total: number }>;
 }
 
 

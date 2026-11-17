@@ -35,6 +35,7 @@ import {
   Gauge,
   MapPin,
   Clock,
+  AlertCircle,
 } from "lucide-react";
 import WeatherWidget from "./WeatherWidget";
 import { useAccAgentThread } from "@/hooks/api/acc-agent/useAccAgentThread";
@@ -611,6 +612,10 @@ export const CallInterface = () => {
     domain: string[];
     isGenerated?: boolean;
     aiDraft?: AnaraDraftResponse | null;
+    reviewStatus?: string | null;
+    reviewQuestionId?: string | null;
+    reviewSlaExpiresAt?: string | null;
+    accQueryId?: string | null;
   }>>([]);
   const [activeQueryIndex, setActiveQueryIndex] = useState(0);
   const [isAiDraftModalOpen, setIsAiDraftModalOpen] = useState(false);
@@ -2630,6 +2635,26 @@ export const CallInterface = () => {
                       >
                         Cancel
                       </Button>
+                      {/* AI Draft Review Status Badge if submitted */}
+                      {queryCards[activeQueryIndex]?.reviewStatus === "pending_review" && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700/60 shadow-2xs">
+                          <Clock className="h-3.5 w-3.5 animate-pulse text-amber-600 dark:text-amber-400" />
+                          <span>Review Pending (2h SLA)</span>
+                        </span>
+                      )}
+                      {queryCards[activeQueryIndex]?.reviewStatus === "approved" && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700/60 shadow-2xs">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-emerald-600 dark:text-emerald-400" />
+                          <span>Approved by Moderator</span>
+                        </span>
+                      )}
+                      {queryCards[activeQueryIndex]?.reviewStatus === "submission_failed" && (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-xs font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-700/60 shadow-2xs">
+                          <AlertCircle className="h-3.5 w-3.5 text-rose-600 dark:text-rose-400" />
+                          <span>Submission Failed</span>
+                        </span>
+                      )}
+
                       <Button
                         type="button"
                         variant="outline"
@@ -3015,8 +3040,44 @@ export const CallInterface = () => {
           farmerProfile?.stateName ||
           null
         }
+        district={editableDistrict || activeProfileRef.current?.district || extractedFarmerProfile?.district || null}
+        block={editableBlock || activeProfileRef.current?.blockName || extractedFarmerProfile?.blockName || null}
+        village={editableVillage || activeProfileRef.current?.villageName || extractedFarmerProfile?.villageName || null}
+        season={editableSeason || null}
+        callUuid={callUuid || lastCallUuid || lastCallUuidRef.current || null}
+        reviewStatus={queryCards[activeQueryIndex]?.reviewStatus || null}
+        reviewQuestionId={queryCards[activeQueryIndex]?.reviewQuestionId || null}
         initialDraft={currentCardDraft}
         onDraftChange={handleSaveDraft}
+        onSubmitForReviewSuccess={(result) => {
+          setQueryCards((prev) => {
+            if (prev.length === 0) return prev;
+            const copy = [...prev];
+            if (copy[activeQueryIndex]) {
+              copy[activeQueryIndex] = {
+                ...copy[activeQueryIndex],
+                reviewStatus: result.reviewStatus,
+                reviewQuestionId: result.reviewQuestionId,
+                reviewSlaExpiresAt: result.reviewSlaExpiresAt,
+                accQueryId: result.queryId,
+              };
+            }
+            return copy;
+          });
+
+          // Also add to generated questions list so Call Agent sees it in the right column
+          setQuestions((prev) => [
+            ...prev,
+            {
+              id: result.queryId || `ai-draft-${Date.now()}`,
+              question: editableQuery,
+              answer: currentCardDraft?.answer || "",
+              agri_specialist: "AI Draft",
+              referenceSource: "anara_pop_library",
+              weather: null,
+            },
+          ]);
+        }}
       />
     </div>
   );

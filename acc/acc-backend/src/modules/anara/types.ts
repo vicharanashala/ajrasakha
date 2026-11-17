@@ -1,3 +1,5 @@
+import type { CallQuery, FarmerFollowUpStatus } from '#root/shared/database/interfaces/ICallDetailsRepository.js';
+
 export interface AnaraCitation {
   passageNumber: number;
   documentName: string | null;
@@ -13,6 +15,38 @@ export interface AnaraDraftResponse {
   note: string;
 }
 
+export interface SubmitForReviewDto {
+  callUuid: string;
+  question: string;
+  answer: string;
+  citations?: AnaraCitation[];
+  crop?: string | null;
+  state?: string | null;
+  district?: string | null;
+  block?: string | null;
+  village?: string | null;
+  season?: string | null;
+  domain?: string | string[] | null;
+}
+
+export interface SubmitForReviewResponse {
+  success: boolean;
+  queryId: string;
+  reviewQuestionId?: string;
+  reviewStatus: string;
+  reviewSlaExpiresAt?: Date;
+  message: string;
+}
+
+export interface ReviewWebhookPayload {
+  question_id: string;
+  status: string;
+  answer?: string;
+  author?: string;
+  sources?: any[];
+  [key: string]: any;
+}
+
 export interface IAnaraService {
   draft(
     question: string,
@@ -21,5 +55,10 @@ export interface IAnaraService {
     state?: string | null,
   ): Promise<AnaraDraftResponse>;
   getDocumentPdf(documentId: string): Promise<Buffer>;
+  submitForReview(dto: SubmitForReviewDto, agentUserId?: string): Promise<SubmitForReviewResponse>;
+  retryReviewSubmission(queryId: string): Promise<SubmitForReviewResponse>;
+  handleReviewWebhook(payload: ReviewWebhookPayload, webhookSecretHeader?: string): Promise<{ success: boolean; message: string }>;
+  getFollowUps(status?: string, followUpStatus?: string, limit?: number, offset?: number): Promise<{ queries: CallQuery[]; total: number }>;
+  updateFollowUpStatus(queryId: string, status: FarmerFollowUpStatus, notes?: string): Promise<CallQuery | null>;
 }
 

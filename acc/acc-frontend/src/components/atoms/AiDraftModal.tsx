@@ -23,6 +23,9 @@ import {
   Loader2,
   Pencil,
   X,
+  Send,
+  Clock,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -32,10 +35,23 @@ interface AiDraftModalProps {
   query: string;
   crop?: string | null;
   state?: string | null;
+  district?: string | null;
+  block?: string | null;
+  village?: string | null;
+  season?: string | null;
   domain?: string | null;
+  callUuid?: string | null;
   initialDraft?: AnaraDraftResponse | null;
+  reviewStatus?: string | null;
+  reviewQuestionId?: string | null;
   onDraftChange?: (draft: AnaraDraftResponse) => void;
   onInsertAnswer?: (answer: string) => void;
+  onSubmitForReviewSuccess?: (result: {
+    queryId: string;
+    reviewQuestionId?: string;
+    reviewStatus: string;
+    reviewSlaExpiresAt?: string;
+  }) => void;
 }
 
 export const AiDraftModal: React.FC<AiDraftModalProps> = ({
@@ -44,10 +60,18 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
   query,
   crop,
   state,
+  district,
+  block,
+  village,
+  season,
   domain,
+  callUuid,
   initialDraft,
+  reviewStatus,
+  reviewQuestionId: _reviewQuestionId,
   onDraftChange,
   onInsertAnswer,
+  onSubmitForReviewSuccess,
 }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [data, setData] = useState<AnaraDraftResponse | null>(null);
@@ -59,6 +83,14 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
   const [answerText, setAnswerText] = useState<string>("");
   const [isEditing, setIsEditing] = useState<boolean>(false);
   const [editedAnswer, setEditedAnswer] = useState<string>("");
+
+  // Review submission state
+  const [isSubmittingReview, setIsSubmittingReview] = useState<boolean>(false);
+  const [localReviewStatus, setLocalReviewStatus] = useState<string | null>(reviewStatus || null);
+
+  useEffect(() => {
+    setLocalReviewStatus(reviewStatus || null);
+  }, [reviewStatus]);
 
   // Guard refs to strictly prevent duplicate or infinite fetch loops
   const hasLoadedRef = useRef(false);
@@ -128,6 +160,42 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
     }
   }, [isOpen]);
 
+  // const loadDummyTestData = () => {
+  //   const dummyCrop = crop?.trim() || "Wheat";
+  //   const dummyState = state?.trim() || "Punjab";
+  //   const dummyData: AnaraDraftResponse = {
+  //     answer: `For controlling weeds in ${dummyCrop}, application of Sulfosulfuron 75% WG @ 13.5 g/acre dissolved in 150 liters of water at 30-35 days after sowing is recommended [P1]. Ensure adequate soil moisture at the time of application [P2].`,
+  //     citations: [
+  //       {
+  //         passageNumber: 1,
+  //         documentId: `doc_pau_${dummyCrop.toLowerCase().replace(/[^a-z0-9]/g, "_")}_2024`,
+  //         documentName: `Package of Practices for Rabi Crops - PAU Ludhiana (${dummyCrop})`,
+  //         pageNumber: 42,
+  //         sourcePages: [41, 42],
+  //         passageId: "pau_p42_p1",
+  //       },
+  //       {
+  //         passageNumber: 2,
+  //         documentId: `doc_icar_${dummyCrop.toLowerCase().replace(/[^a-z0-9]/g, "_")}_pop`,
+  //         documentName: `${dummyCrop} Crop Advisory - ICAR (${dummyState})`,
+  //         pageNumber: 18,
+  //         sourcePages: [18],
+  //         passageId: "icar_p18_p2",
+  //       },
+  //     ],
+  //     note: "Sample dummy POP draft loaded for review system testing.",
+  //   };
+
+  //   setData(dummyData);
+  //   setAnswerText(dummyData.answer);
+  //   setEditedAnswer(dummyData.answer);
+  //   setError(null);
+  //   setLoading(false);
+  //   setIsEditing(false);
+  //   onDraftChange?.(dummyData);
+  //   toast.success("Loaded test dummy draft data with citations!");
+  // };
+
   const handleCopy = () => {
     if (!answerText) return;
     navigator.clipboard.writeText(answerText);
@@ -165,6 +233,61 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
       onDraftChange?.(updatedDraft);
     }
     toast.success("AI draft answer updated successfully");
+  };
+
+  const handleSubmitForReview = async () => {
+    const finalAnswer = isEditing ? editedAnswer.trim() : answerText.trim();
+    if (!finalAnswer) {
+      toast.error("Answer cannot be empty for review submission.");
+      return;
+    }
+    if (!callUuid) {
+      toast.error("Active call UUID is missing. Please start or select a call first.");
+      return;
+    }
+
+    if (isEditing) {
+      setAnswerText(finalAnswer);
+      setIsEditing(false);
+      if (data) {
+        const updated = { ...data, answer: finalAnswer };
+        setData(updated);
+        onDraftChange?.(updated);
+      }
+    }
+
+    setIsSubmittingReview(true);
+    try {
+      const result = await anaraService.submitForReview({
+        callUuid,
+        question: query.trim(),
+        answer: finalAnswer,
+        citations: data?.citations || [],
+        crop: crop?.trim() || null,
+        state: state?.trim() || null,
+        district: district?.trim() || null,
+        block: block?.trim() || null,
+        village: village?.trim() || null,
+        season: season?.trim() || null,
+        domain: domain?.trim() || null,
+      });
+
+      setLocalReviewStatus(result.reviewStatus);
+      if (result.success) {
+        toast.success("Draft submitted to Review System! 2-Hour SLA clock active.", {
+          description: "Moderator will review and verify within 2 hours.",
+        });
+      } else {
+        toast.warning(result.message || "Saved locally, but Review System connection failed. You can retry later.");
+      }
+
+      onSubmitForReviewSuccess?.(result);
+    } catch (err: any) {
+      console.error("[AiDraftModal] Failed to submit for review:", err);
+      toast.error(err?.message || "Failed to submit draft to Review System.");
+    } finally {
+      setIsSubmittingReview(false);
+    }
   };
 
   const handleOpenPdf = async (citation: AnaraCitation) => {
@@ -330,6 +453,20 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
                 </DialogDescription>
               </div>
             </div>
+
+            {/* <div className="flex items-center gap-2 pr-6">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={loadDummyTestData}
+                className="h-8 text-xs font-semibold bg-amber-50 hover:bg-amber-100 dark:bg-amber-950/40 dark:hover:bg-amber-950/70 text-amber-800 dark:text-amber-200 border-amber-300 dark:border-amber-700 flex items-center gap-1.5 shadow-sm transition-all"
+                title="Populate with sample Wheat/Weed Management POP draft citations for testing review submission"
+              >
+                <FlaskConical className="h-3.5 w-3.5 text-amber-600 dark:text-amber-400" />
+                <span>Load Test Dummy Data</span>
+              </Button>
+            </div> */}
           </div>
         </DialogHeader>
 
@@ -601,6 +738,39 @@ export const AiDraftModal: React.FC<AiDraftModalProps> = ({
             </Button>
           </div>
           <div className="flex items-center gap-2">
+            {localReviewStatus === "pending_review" ? (
+              <Badge className="h-8 px-3 text-xs bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 flex items-center gap-1.5 font-semibold">
+                <Clock className="h-3.5 w-3.5 animate-pulse text-amber-600" />
+                <span>Under Review (2h SLA)</span>
+              </Badge>
+            ) : localReviewStatus === "approved" ? (
+              <Badge className="h-8 px-3 text-xs bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1.5 font-semibold">
+                <ShieldCheck className="h-3.5 w-3.5 text-emerald-600" />
+                <span>Approved by Moderator</span>
+              </Badge>
+            ) : (
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSubmitForReview}
+                disabled={isSubmittingReview || loading || !answerText.trim() || !query?.trim() || !crop?.trim()}
+                className="h-8 px-3 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-lg flex items-center gap-1.5 shadow-xs cursor-pointer disabled:opacity-50"
+                title="Submit this drafted answer to Review System for Moderator verification within 2h SLA"
+              >
+                {isSubmittingReview ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin mr-1" />
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <Send className="h-3.5 w-3.5" />
+                    <span>Submit for Review</span>
+                  </>
+                )}
+              </Button>
+            )}
+
             {onInsertAnswer && answerText && (
               <Button
                 type="button"

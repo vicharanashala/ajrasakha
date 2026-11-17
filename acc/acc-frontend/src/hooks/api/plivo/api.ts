@@ -33,24 +33,40 @@ export interface QAPairs {
 export interface CallQuery {
   _id?: string;
   callUuid: string;
+  type?: 'GDB' | 'AI-drafted';
   metadata: {
     extracted_query?: string;
     extracted_crop?: string;
     extracted_state?: string;
     extracted_district?: string;
+    extracted_block?: string;
+    extracted_village?: string;
     extracted_domain?: string | string[];
     extracted_season?: string;
     standardized_domains?: string[];
+    [key: string]: any;
   };
   question: string;
   answer: string;
+  citations?: any[];
   agri_specialist?: string;
   referenceSource?: string;
   authorName?: string;
   sourceName?: string;
   sourceLink?: string;
   weather?: any;
+  reviewQuestionId?: string;
+  reviewStatus?: 'not_submitted' | 'pending_review' | 'approved' | 'rejected' | 'submission_failed';
+  reviewSlaExpiresAt?: string;
+  reviewedAnswer?: string;
+  reviewedSources?: any[];
+  reviewedBy?: string;
+  reviewedAt?: string;
+  farmerFollowUpStatus?: 'pending' | 'called' | 'resolved';
+  farmerFollowUpAt?: string;
+  farmerFollowUpNotes?: string;
   createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface CallRecordingItem {

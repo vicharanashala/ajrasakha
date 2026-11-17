@@ -59,5 +59,10 @@ export const appConfig = {
     draftUrl: env('ANARA_DRAFT_URL') || 'https://gdb-draft-239934307367.asia-south1.run.app',
     draftToken: env('ANARA_DRAFT_TOKEN') || '',
   },
+  reviewSystem: {
+    apiUrl: env('REVIEW_SYSTEM_API_URL') || 'https://reviewer-backend-staging-239934307367.asia-south2.run.app/api/questions/acc',
+    apiKey: env('ACC_API_KEY_STAGING') || env('REVIEW_SYSTEM_API_KEY') || env('ACC_API_KEY') || '',
+    webhookSecret: env('ACC_WEBHOOK_SECRET') || env('ACC_API_KEY_STAGING') || env('REVIEW_SYSTEM_API_KEY') || '',
+  },
 };
 

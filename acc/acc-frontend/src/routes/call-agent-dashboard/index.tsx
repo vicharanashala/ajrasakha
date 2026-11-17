@@ -10,6 +10,7 @@ import {
 } from "@/components/atoms/tabs";
 import { ThemeToggleCompact } from "@/components/atoms/ThemeToggle";
 import { UserProfileActions } from "@/components/atoms/user-profile-actions";
+import { ReviewNotificationsBell } from "@/components/ReviewNotificationsBell";
 import { CallAgentDashboard } from "@/components/CallAgentDashboard";
 import { CallInterface } from "@/components/CallInterface";
 import { CallHistory } from "@/components/CallHistory";
@@ -62,6 +63,15 @@ function DashboardComponent() {
       navigate({ to: "/auth" });
     }
   }, [authUser, navigate]);
+
+  // Listen for View Details event from Review Notifications Bell
+  useEffect(() => {
+    const handleViewCallQuery = () => {
+      setActiveTab("call_history");
+    };
+    window.addEventListener("acc:view-call-query", handleViewCallQuery);
+    return () => window.removeEventListener("acc:view-call-query", handleViewCallQuery);
+  }, []);
 
   // Heartbeat for Call Agents
   useEffect(() => {
@@ -269,6 +279,8 @@ function DashboardComponent() {
                   {isNetworkWeak || Boolean(networkLatency?.isWeak) ? "Internet: Weak" : "Internet: Strong"}
                 </span>
               )}
+
+              <ReviewNotificationsBell />
 
               <ThemeToggleCompact />
 

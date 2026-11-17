@@ -156,6 +156,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       const now = new Date();
       const queryDoc: CallQuery = {
         callUuid,
+        type: queryData.type || 'GDB',
         metadata: queryData.metadata || {
           extracted_query: '',
           extracted_crop: '',
@@ -168,12 +169,23 @@ export class CallDetailsRepository implements ICallDetailsRepository {
         },
         question: queryData.question || '',
         answer: queryData.answer || '',
+        citations: queryData.citations || [],
         agri_specialist: queryData.agri_specialist || 'ACC_AGENT',
-        referenceSource: queryData.referenceSource || 'acc_agent_hitl',
+        referenceSource: queryData.referenceSource || (queryData.type === 'AI-drafted' ? 'anara_pop_library' : 'acc_agent_hitl'),
         authorName: queryData.authorName || '',
         sourceName: queryData.sourceName || '',
         sourceLink: queryData.sourceLink || '',
         weather: queryData.weather || null,
+        reviewQuestionId: queryData.reviewQuestionId,
+        reviewStatus: queryData.reviewStatus || (queryData.type === 'AI-drafted' ? 'pending_review' : 'not_submitted'),
+        reviewSlaExpiresAt: queryData.reviewSlaExpiresAt,
+        reviewedAnswer: queryData.reviewedAnswer,
+        reviewedSources: queryData.reviewedSources,
+        reviewedBy: queryData.reviewedBy,
+        reviewedAt: queryData.reviewedAt,
+        farmerFollowUpStatus: queryData.farmerFollowUpStatus || (queryData.type === 'AI-drafted' ? 'pending' : undefined),
+        farmerFollowUpAt: queryData.farmerFollowUpAt,
+        farmerFollowUpNotes: queryData.farmerFollowUpNotes,
         createdAt: queryData.createdAt || now,
         updatedAt: now,
       };
@@ -1173,6 +1185,124 @@ export class CallDetailsRepository implements ICallDetailsRepository {
     } catch (error: any) {
       console.error(`[CALL_DETAILS_FLOW] CallDetailsRepository.getQueriesByPeriod: Error retrieving queries:`, error.stack || error);
       throw new InternalServerError(`Failed to get queries by period: ${error}`);
+    }
+  }
+
+  async updateQueryByReviewQuestionId(
+    reviewQuestionId: string,
+    updateData: Partial<CallQuery>,
+    session?: ClientSession
+  ): Promise<CallQuery | null> {
+    try {
+      await this.init();
+      const now = new Date();
+      const result = await this.callQueriesCollection.findOneAndUpdate(
+        { reviewQuestionId },
+        {
+          $set: {
+            ...updateData,
+            updatedAt: now,
+          },
+        },
+        { session, returnDocument: 'after' }
+      );
+      return (result as any) || null;
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] updateQueryByReviewQuestionId error for ${reviewQuestionId}:`, error.stack || error);
+      throw new InternalServerError(`Failed to update query by reviewQuestionId: ${error}`);
+    }
+  }
+
+  async updateQueryById(
+    queryId: string | ObjectId,
+    updateData: Partial<CallQuery>,
+    session?: ClientSession
+  ): Promise<CallQuery | null> {
+    try {
+      await this.init();
+      const now = new Date();
+      const objectId = typeof queryId === 'string' && ObjectId.isValid(queryId) ? new ObjectId(queryId) : queryId;
+      const result = await this.callQueriesCollection.findOneAndUpdate(
+        { _id: objectId as any },
+        {
+          $set: {
+            ...updateData,
+            updatedAt: now,
+          },
+        },
+        { session, returnDocument: 'after' }
+      );
+      return (result as any) || null;
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] updateQueryById error for ${queryId}:`, error.stack || error);
+      throw new InternalServerError(`Failed to update query by ID: ${error}`);
+    }
+  }
+
+  async getFollowUps(
+    filter?: {
+      reviewStatus?: any;
+      farmerFollowUpStatus?: any;
+      limit?: number;
+      offset?: number;
+    },
+    session?: ClientSession
+  ): Promise<{ queries: CallQuery[]; total: number }> {
+    try {
+      await this.init();
+      const matchCriteria: any = {
+        type: 'AI-drafted',
+      };
+
+      if (filter?.reviewStatus) {
+        matchCriteria.reviewStatus = Array.isArray(filter.reviewStatus)
+          ? { $in: filter.reviewStatus }
+          : filter.reviewStatus;
+      }
+
+      if (filter?.farmerFollowUpStatus) {
+        matchCriteria.farmerFollowUpStatus = Array.isArray(filter.farmerFollowUpStatus)
+          ? { $in: filter.farmerFollowUpStatus }
+          : filter.farmerFollowUpStatus;
+      }
+
+      const total = await this.callQueriesCollection.countDocuments(matchCriteria, { session });
+      let cursor = this.callQueriesCollection.find(matchCriteria, { session }).sort({ createdAt: -1 });
+
+      if (filter?.offset !== undefined) cursor = cursor.skip(filter.offset);
+      if (filter?.limit !== undefined) cursor = cursor.limit(filter.limit);
+
+      const queryDocs = await cursor.toArray();
+
+      // Enrich with call phone numbers
+      const callUuidSet = [...new Set(queryDocs.map(q => q.callUuid).filter(Boolean))];
+      const callDocs = await this.callDetailsCollection.find(
+        { callUuid: { $in: callUuidSet } },
+        { projection: { callUuid: 1, from: 1, to: 1, direction: 1, createdAt: 1 }, session }
+      ).toArray();
+
+      const callMap = new Map<string, any>();
+      for (const call of callDocs) {
+        callMap.set(call.callUuid, call);
+      }
+
+      const enrichedQueries = queryDocs.map(qDoc => {
+        const parentCall = callMap.get(qDoc.callUuid);
+        const isOutbound = parentCall?.direction === 'outbound';
+        const effectivePhone = isOutbound
+          ? (parentCall?.to || parentCall?.from || '')
+          : (parentCall?.from || parentCall?.to || '');
+
+        return {
+          ...qDoc,
+          from: effectivePhone || (qDoc.metadata as any)?.farmerPhone || '',
+        };
+      });
+
+      return { queries: enrichedQueries, total };
+    } catch (error: any) {
+      console.error(`[CallDetailsRepository] getFollowUps error:`, error.stack || error);
+      throw new InternalServerError(`Failed to get follow-ups: ${error}`);
     }
   }
 }

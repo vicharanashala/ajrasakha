@@ -20,3 +20,4 @@ tsconfig.tsbuildinfo
 .vscode
 .idea
 .gemini
+.tanstack

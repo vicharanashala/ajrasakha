@@ -292,6 +292,7 @@ export class AccAgentController {
 
         // Add individual query with its own metadata to call_queries collection
         await this.callDetailsRepository.addQueryToCall(targetCallUuid, {
+          type: 'GDB',
           metadata: {
             extracted_query: extractedQuery,
             extracted_crop: extractedCrop,

@@ -18,6 +18,10 @@ import {
   MicOff,
   Loader2,
   ExternalLink,
+  CheckCircle2,
+  Clock,
+  Check,
+  Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { plivoApi } from "@/hooks/api/plivo/api";
@@ -26,6 +30,7 @@ import { format } from "date-fns";
 import { FarmerDetails } from "./FarmerDetails";
 import { AudioPlayer } from "./atoms/AudioPlayer";
 import { usePlivo } from "@/context/PlivoContext";
+import { anaraService } from "@/hooks/services/anaraService";
 
 import { toast } from "sonner";
 import {
@@ -309,6 +314,24 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
   const [selectedCallForDetails, setSelectedCallForDetails] = useState<
     string | null
   >(null);
+
+  // Listen for view-call-query event from Review Notifications Bell
+  useEffect(() => {
+    const handleViewCallQuery = (e: any) => {
+      const { callUuid, queryId } = e.detail || {};
+      if (callUuid) {
+        setSelectedCallForDetails(callUuid);
+        setTimeout(() => {
+          const el = document.getElementById(`call-query-${queryId}`);
+          if (el) {
+            el.scrollIntoView({ behavior: "smooth", block: "center" });
+          }
+        }, 350);
+      }
+    };
+    window.addEventListener("acc:view-call-query", handleViewCallQuery);
+    return () => window.removeEventListener("acc:view-call-query", handleViewCallQuery);
+  }, []);
 
   // Message
   const [messageRow, setMessageRow] = useState<string | null>(null);
@@ -1229,6 +1252,7 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                 <AccordionItem
                                                   key={qItem._id || `query-${index}`}
                                                   value={`query-${index}`}
+                                                    id={qItem._id ? `call-query-${qItem._id}` : undefined}
                                                   className="border-b border-zinc-100 dark:border-zinc-800/80 last:border-b-0"
                                                 >
                                                   <div className="flex items-center justify-between py-2 sm:py-2.5 w-full gap-2 group">
@@ -1236,8 +1260,33 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                       <span className="flex-shrink-0 w-6.5 h-6.5 rounded-full bg-emerald-55 dark:bg-emerald-950/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center text-xs font-bold mt-0.5 border border-emerald-200/50 dark:border-emerald-800/50">
                                                         {index + 1}
                                                       </span>
-                                                      <div className="font-bold text-[16px] text-zinc-950 dark:text-zinc-50 leading-snug flex-1 min-w-0">
-                                                        {renderMarkdown(qItem.question)}
+                                                      <div className="flex-1 min-w-0">
+                                                        <div className="font-bold text-[16px] text-zinc-950 dark:text-zinc-50 leading-snug">
+                                                          {renderMarkdown(qItem.question)}
+                                                        </div>
+                                                        {qItem.type === "AI-drafted" && (
+                                                          <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                                                            {qItem.reviewStatus === "approved" ? (
+                                                              <Badge className="h-5 px-2 text-[10px] font-semibold bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border border-emerald-300 dark:border-emerald-700 flex items-center gap-1">
+                                                                <CheckCircle2 className="h-3 w-3 text-emerald-600" />
+                                                                <span>Approved by Moderator</span>
+                                                              </Badge>
+                                                            ) : qItem.reviewStatus === "pending_review" ? (
+                                                              <Badge className="h-5 px-2 text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-300 dark:border-amber-700 flex items-center gap-1">
+                                                                <Clock className="h-3 w-3 animate-pulse text-amber-600" />
+                                                                <span>Under Review (2h SLA)</span>
+                                                              </Badge>
+                                                            ) : qItem.reviewStatus === "submission_failed" ? (
+                                                              <Badge className="h-5 px-2 text-[10px] font-semibold bg-rose-500/10 text-rose-700 dark:text-rose-400 border border-rose-300 dark:border-rose-700 flex items-center gap-1">
+                                                                <span>Submission Failed</span>
+                                                              </Badge>
+                                                            ) : (
+                                                              <Badge className="h-5 px-2 text-[10px] font-semibold bg-zinc-100 text-zinc-600 border border-zinc-200">
+                                                                <span>AI Draft</span>
+                                                              </Badge>
+                                                            )}
+                                                          </div>
+                                                        )}
                                                       </div>
                                                     </AccordionTrigger>
 
@@ -1250,11 +1299,111 @@ export const CallHistory = ({ onRedial }: CallHistoryProps) => {
                                                   </div>
                                                   <AccordionContent className="pt-0.5 pb-2.5">
                                                     <div className="pl-7 sm:pl-8 space-y-2">
-                                                      <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-3 sm:p-3.5 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
-                                                        <div className="space-y-1 font-normal text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100">
-                                                          {renderMarkdown(qItem.answer)}
+                                                      {/* Moderator Verified Answer if approved */}
+                                                      {qItem.reviewStatus === "approved" && (
+                                                        <div className="bg-emerald-50/40 dark:bg-emerald-950/20 rounded-xl p-3 sm:p-3.5 border border-emerald-200/70 dark:border-emerald-900/40 shadow-xs mb-2">
+                                                          <div className="flex items-center justify-between text-xs mb-1.5 pb-1 border-b border-emerald-200/50 dark:border-emerald-900/30">
+                                                            <span className="font-bold text-emerald-800 dark:text-emerald-300 flex items-center gap-1">
+                                                              <CheckCircle2 className="h-3.5 w-3.5" />
+                                                              <span>Moderator Verified Answer</span>
+                                                            </span>
+                                                            {qItem.reviewedBy && (
+                                                              <span className="text-[11px] text-emerald-700/80 dark:text-emerald-400">
+                                                                Reviewed by: {qItem.reviewedBy}
+                                                              </span>
+                                                            )}
+                                                          </div>
+                                                          <div className="text-[15px] leading-relaxed text-zinc-900 dark:text-zinc-100 font-normal">
+                                                            {renderMarkdown(qItem.reviewedAnswer || qItem.answer)}
+                                                          </div>
                                                         </div>
-                                                      </div>
+                                                      )}
+
+                                                      {/* Callback banner if follow-up pending */}
+                                                      {qItem.reviewStatus === "approved" && qItem.farmerFollowUpStatus !== "resolved" && (
+                                                        <div className="p-3 bg-indigo-50/70 dark:bg-indigo-950/40 border border-indigo-200/80 dark:border-indigo-800/60 rounded-xl flex items-center justify-between gap-3 mb-2">
+                                                          <div>
+                                                            <p className="text-xs font-bold text-indigo-950 dark:text-indigo-200 flex items-center gap-1.5">
+                                                              <Phone className="h-3.5 w-3.5 text-indigo-600 dark:text-indigo-400" />
+                                                              <span>Farmer Callback Required</span>
+                                                            </p>
+                                                            <p className="text-[11px] text-indigo-700 dark:text-indigo-300 mt-0.5">
+                                                              Call farmer with verified advice: {getFarmerPhoneNumber(call)}
+                                                            </p>
+                                                          </div>
+                                                          <div className="flex items-center gap-2 shrink-0">
+                                                            <Button
+                                                              size="sm"
+                                                              variant="outline"
+                                                              onClick={async () => {
+                                                                if (qItem._id) {
+                                                                  await anaraService.updateFollowUpStatus(qItem._id, "resolved");
+                                                                  toast.success("Follow-up marked as resolved");
+                                                                  handleRefresh();
+                                                                }
+                                                              }}
+                                                              className="h-7 text-xs border-zinc-300 dark:border-zinc-700 cursor-pointer"
+                                                            >
+                                                              <Check className="h-3 w-3 mr-1" />
+                                                              <span>Mark Resolved</span>
+                                                            </Button>
+                                                            <Button
+                                                              size="sm"
+                                                              onClick={async () => {
+                                                                const farmerPhone = getFarmerPhoneNumber(call);
+                                                                if (farmerPhone) {
+                                                                  await initiateRedial(farmerPhone);
+                                                                  if (qItem._id) {
+                                                                    await anaraService.updateFollowUpStatus(qItem._id, "called");
+                                                                  }
+                                                                } else {
+                                                                  toast.error("Farmer phone number not found");
+                                                                }
+                                                              }}
+                                                              className="h-7 px-3 text-xs bg-emerald-600 hover:bg-emerald-700 text-white font-semibold flex items-center gap-1.5 cursor-pointer rounded-lg shadow-xs"
+                                                            >
+                                                              <Phone className="h-3 w-3" />
+                                                              <span>Call Farmer</span>
+                                                            </Button>
+                                                          </div>
+                                                        </div>
+                                                      )}
+
+                                                      {/* Standard answer box if not approved */}
+                                                      {(!qItem.reviewStatus || qItem.reviewStatus !== "approved") && (
+                                                        <div className="bg-emerald-50/15 dark:bg-emerald-950/10 rounded-xl p-3 sm:p-3.5 border border-emerald-100/50 dark:border-emerald-900/30 shadow-inner">
+                                                          <div className="space-y-1 font-normal text-[15px] sm:text-[15.5px] leading-relaxed text-zinc-850 dark:text-zinc-100">
+                                                            {renderMarkdown(qItem.answer)}
+                                                          </div>
+                                                        </div>
+                                                      )}
+
+                                                      {/* Cited POP Passages if present */}
+                                                      {Array.isArray(qItem.citations) && qItem.citations.length > 0 && (
+                                                        <div className="mt-2 pt-2 border-t border-zinc-100 dark:border-zinc-800">
+                                                          <div className="text-[11px] font-bold text-zinc-500 uppercase tracking-wider mb-1 flex items-center gap-1">
+                                                            <Sparkles className="h-3 w-3 text-emerald-600" />
+                                                            <span>Cited POP Documents & Passages:</span>
+                                                          </div>
+                                                          <div className="flex items-center gap-1.5 flex-wrap">
+                                                            {qItem.citations.map((c, cIdx) => (
+                                                              <button
+                                                                key={cIdx}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                  if (c.documentId) {
+                                                                    anaraService.openLibraryPdf(c.documentId, c.pageNumber || c.sourcePages?.[0]);
+                                                                  }
+                                                                }}
+                                                                className="px-2 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-700 dark:text-zinc-300 hover:bg-indigo-50 hover:text-indigo-600 text-[11px] border border-zinc-200/60 dark:border-zinc-700/60 transition-colors cursor-pointer flex items-center gap-1"
+                                                              >
+                                                                <span>[P{c.passageNumber}] {c.documentName || `Document`} {c.pageNumber ? `(p. ${c.pageNumber})` : ""}</span>
+                                                                <ExternalLink className="h-2.5 w-2.5 text-zinc-400" />
+                                                              </button>
+                                                            ))}
+                                                          </div>
+                                                        </div>
+                                                      )}
                                                       {(qItem.sourceName || qItem.sourceLink) && (
                                                         <div className="flex items-center gap-2 text-xs text-zinc-400 dark:text-zinc-500 font-semibold uppercase tracking-wider pl-1 mt-1">
                                                           <span>Source:</span>
