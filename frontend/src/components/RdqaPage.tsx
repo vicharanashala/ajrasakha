@@ -1408,7 +1408,10 @@ export const RdqaPage = () => {
                             size="sm"
                             disabled={isChecking}
                             onClick={() => {
-                              if (modalQId) handleRecheckSingle(modalQId);
+                              if (modalQId) {
+                                setSelectedQuestion(null);
+                                handleRecheckSingle(modalQId);
+                              }
                             }}
                             className={cn(
                               "h-7 text-xs font-medium gap-1.5",
@@ -1448,7 +1451,10 @@ export const RdqaPage = () => {
                               size="sm"
                               disabled={isChecking}
                               onClick={() => {
-                                if (modalQId) handleRecheckSingle(modalQId);
+                                if (modalQId) {
+                                  setSelectedQuestion(null);
+                                  handleRecheckSingle(modalQId);
+                                }
                               }}
                               className="text-xs"
                             >
