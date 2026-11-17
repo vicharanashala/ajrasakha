@@ -128,10 +128,10 @@ export const AnswerActions = ({
     userRole !== "tester" &&
     userRole !== "expert" &&
     canModerate &&
+    (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     (isAcc ||
       questionStatus === "pae_submitted" ||
-      ((questionStatus === "in-review" || questionStatus === "re-routed") &&
-        (lastAnswerApprovalCount ?? 0) >= 3));
+      (lastAnswerApprovalCount ?? 0) >= 3);
 
   return (
     <div className="flex items-center justify-center gap-2">

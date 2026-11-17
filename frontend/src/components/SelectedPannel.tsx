@@ -89,6 +89,7 @@ export default function SelectedAnswerPanel({
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!",
       );
+      question.status = "closed";
       clearApproveAnswerDraft(question._id);
       setEditOpen(false);
     } catch (error: any) {

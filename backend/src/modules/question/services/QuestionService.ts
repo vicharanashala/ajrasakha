@@ -598,20 +598,6 @@ export class QuestionService extends BaseService implements IQuestionService {
     const questionUserId: ObjectId | null =
       userId && ObjectId.isValid(userId) ? new ObjectId(userId) : null;
 
-    // Determine author user ID for the initial answer placeholder
-    let resolvedAuthorId: ObjectId;
-    if (questionUserId) {
-      resolvedAuthorId = questionUserId;
-    } else {
-      // Find default admin user to attribute the answer until moderated
-      const admins = await this.userRepo.findAdmins();
-      if (admins && admins.length > 0 && admins[0]._id) {
-        resolvedAuthorId = new ObjectId(admins[0]._id.toString());
-      } else {
-        resolvedAuthorId = new ObjectId();
-      }
-    }
-
     // Determine Moderator assignment: find an available STF moderator
     let targetModeratorId: string | null = null;
     try {
@@ -622,6 +608,22 @@ export class QuestionService extends BaseService implements IQuestionService {
       }
     } catch (err: any) {
       console.warn('[addAccQuestionAnswer] Could not query available moderators:', err?.message);
+    }
+
+    // Determine author user ID for the initial answer placeholder:
+    // Prefer explicit questionUserId, then the assigned STF moderator, and fallback to admin if neither exists
+    let resolvedAuthorId: ObjectId;
+    if (questionUserId) {
+      resolvedAuthorId = questionUserId;
+    } else if (targetModeratorId && ObjectId.isValid(targetModeratorId)) {
+      resolvedAuthorId = new ObjectId(targetModeratorId);
+    } else {
+      const admins = await this.userRepo.findAdmins();
+      if (admins && admins.length > 0 && admins[0]._id) {
+        resolvedAuthorId = new ObjectId(admins[0]._id.toString());
+      } else {
+        resolvedAuthorId = new ObjectId();
+      }
     }
 
     const result = await this._withTransaction(async (session: ClientSession) => {

@@ -345,6 +345,21 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         session,
       );
 
+      if (isAcc && submission) {
+        await this.questionSubmissionRepo.updateById(
+          submission._id!.toString(),
+          {
+            $set: {
+              lastRespondedBy: new ObjectId(userId),
+              'history.0.updatedBy': new ObjectId(userId),
+              'history.0.status': 'approved',
+              updatedAt: new Date(),
+            },
+          },
+          session,
+        );
+      }
+
       const authorName = isAcc
         ? 'Moderator'
         : `${author?.firstName ?? ''} ${author?.lastName ?? ''}`.trim() ||
