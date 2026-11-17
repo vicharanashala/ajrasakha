@@ -86,6 +86,31 @@ describe('AnswerApprovalService.notifyCustomerOnClose — per-question customer 
     expect(result).toBe(false);
   });
 
+  it('fires the ACC webhook when ACC_WEBHOOK_API_URL is configured', async () => {
+    (appConfig as any).ACC_WEBHOOK_API_URL = 'https://acc.example.com/api/webhook';
+    (appConfig as any).ACC_WEBHOOK_API_KEY = 'test_acc_key';
+
+    const result = await call({
+      _id: 'q5',
+      source: 'ACC',
+      question: 'How to manage weeds in wheat?',
+      details: { crop: 'Wheat' },
+    });
+
+    expect(triggerWebhook).toHaveBeenCalledWith(
+      'https://acc.example.com/api/webhook',
+      'test_acc_key',
+      expect.objectContaining({
+        question_id: 'q5',
+        question: 'How to manage weeds in wheat?',
+        source: 'ACC',
+        details: { crop: 'Wheat' },
+      }),
+      'ACC',
+    );
+    expect(result).toBe(true);
+  });
+
   it('records isCustomerNotified=false when the webhook throws (best-effort, never rethrows)', async () => {
     (triggerWebhook as any).mockRejectedValueOnce(new Error('webhook down'));
 
