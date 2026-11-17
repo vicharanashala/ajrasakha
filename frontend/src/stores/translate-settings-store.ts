@@ -4,8 +4,8 @@ import type { TranslateMode, TranslateModel } from "@/features/faq-pop/api";
 
 // Global translation settings for whoever is signed in on this browser — one mode and one
 // pipeline for every translation they start (Main Table, document detail, "Translate again").
-// pipeline 1 = OCR then Gemini Flash, 0 = single Gemini Pro call per page. PoP only accepts
-// pipeline 1 with mode "normal" (flex/batch → 400), so picking either of those forces 0.
+// pipeline 1 = OCR then Gemini Flash, 0 = single Gemini Pro call per page. PoP now accepts
+// pipeline 1 with any mode (normal, flex or batch).
 interface TranslateSettingsStore {
   mode: TranslateMode;
   pipeline: 0 | 1;
@@ -21,7 +21,7 @@ export const useTranslateSettings = create<TranslateSettingsStore>()(
       mode: "normal",
       pipeline: 1,
       model: "gemini-3.8-flash",
-      setMode: (mode) => set(mode === "normal" ? { mode } : { mode, pipeline: 0 }),
+      setMode: (mode) => set({ mode }),
       setPipeline: (pipeline) => set({ pipeline }),
       setModel: (model) => set({ model }),
     }),

@@ -9,10 +9,17 @@ import {
   getDashboardDomains,
   getDashboardDistricts,
   getDashboardKvks,
+  getDashboardOrganizations,
 } from "../../api";
-import { DOCUMENT_METADATA_FIELDS, folderDisplayLabel, filterFoldersByAdvisoryScope } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  folderDisplayLabel,
+  filterFoldersByAdvisoryScope,
+  organizationDisplayLabel,
+} from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
 import { PlacementGroupRow } from "./AddDocumentForm";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -77,6 +84,12 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
   const [districtId, setDistrictId] = useState(metadata.district_id || "");
   const [kvkId, setKvkId] = useState(metadata.kvk_id || "");
   const [locationTouched, setLocationTouched] = useState(false);
+  const [ministryId, setMinistryId] = useState(metadata.ministry_or_department_id || "");
+  const [ministryTouched, setMinistryTouched] = useState(false);
+  const [organizationOptions, setOrganizationOptions] = useState([]);
+  useEffect(() => {
+    getDashboardOrganizations().then((d) => setOrganizationOptions(d || [])).catch(() => {});
+  }, []);
 
   const [groups, setGroups] = useState(() => {
     const g = groupPlacementsByState(item.placements);
@@ -231,6 +244,7 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
       payload.district_id = districtId || null;
       payload.kvk_id = kvkId || null;
     }
+    if (ministryTouched) payload.ministry_or_department_id = ministryId || "";
     if (placementsTouched) {
       const placements = groups
         .filter((g) => g.state && g.folders.length > 0)
@@ -370,6 +384,25 @@ export default function UploadEditForm({ item, onSave, onCancel, saving }) {
             <span className="text-[11px] text-muted-foreground italic py-1.5">Select a district first</span>
           )}
         </div>
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <span className="text-[10px] text-muted-foreground">Ministry/Department</span>
+        <StateSelector
+          value={
+            (() => {
+              const opt = organizationOptions.find((o) => o.id === ministryId);
+              return opt ? organizationDisplayLabel(opt) : "";
+            })()
+          }
+          onChange={(label) => {
+            const opt = organizationOptions.find((o) => organizationDisplayLabel(o) === label);
+            setMinistryId(opt ? opt.id : "");
+            setMinistryTouched(true);
+          }}
+          stateNames={organizationOptions.map((o) => organizationDisplayLabel(o))}
+          placeholder="Search ministry/department…"
+        />
       </div>
 
       <div className="flex items-center gap-1.5">

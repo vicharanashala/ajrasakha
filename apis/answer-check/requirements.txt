@@ -2,4 +2,5 @@ fastapi
 uvicorn
 requests
 python-dotenv
+pydantic
 pypdf
