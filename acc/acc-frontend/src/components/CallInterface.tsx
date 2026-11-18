@@ -63,6 +63,8 @@ import {
 import { Tooltip, TooltipContent, TooltipTrigger } from "./atoms/tooltip";
 import { AiDraftModal } from "./atoms/AiDraftModal";
 import type { AnaraDraftResponse } from "@/hooks/services/anaraService";
+import { useAuthStore } from "@/stores/auth-store";
+import { useGetCurrentUser } from "@/hooks/api/user/useGetCurrentUser";
 import { Input } from "./atoms/input";
 import { Textarea } from "./atoms/textarea";
 import { Label } from "./atoms/label";
@@ -521,6 +523,12 @@ const renderWeatherInsights = (weatherInput: any) => {
 
 export const CallInterface = () => {
   const { undeliveredCallAlert, clearUndeliveredCallAlert, resetCallState } = usePlivo();
+  const { user: authUser } = useAuthStore();
+  const { data: user } = useGetCurrentUser({ enabled: !!authUser });
+
+  const isAgentOnline =
+    Boolean(user?.isCallAgentActive) ||
+    (Boolean(user?.agent) && user?.agent !== "not_available");
   const [transcriptsList, setTranscriptsList] = useState<CallTranscript[]>([]);
   const [isCallActive, setIsCallActive] = useState(false);
   const [callUuid, setCallUuid] = useState<string | null>(null);
@@ -2655,31 +2663,55 @@ export const CallInterface = () => {
                         </span>
                       )}
 
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setIsAiDraftModalOpen(true)}
-                        disabled={!editableQuery.trim() || !editableCrop.trim()}
-                        className="ml-auto h-10 px-3.5 text-xs md:text-sm font-bold border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
-                        title={
-                          !editableQuery.trim() || !editableCrop.trim()
-                            ? "Both Query and Crop are mandatory to enable AI Draft"
-                            : currentCardDraft?.answer
-                            ? "View generated AI draft (cached for this query)"
-                            : "Draft grounded answer from Package of Practices library"
-                        }
-                      >
-                        {currentCardDraft?.answer ? (
-                          <span className="relative flex h-2 w-2 mr-0.5">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
-                          </span>
-                        ) : (
-                          <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
-                        )}
-                        <span>{currentCardDraft?.answer ? "View AI Draft" : "AI Draft"}</span>
-                      </Button>
+                      {(() => {
+                        const isAiDraftDisabled = !isAgentOnline || !editableQuery.trim() || !editableCrop.trim();
+                        const aiDraftTooltipText = !isAgentOnline
+                          ? "Please go online to use AI Draft"
+                          : !editableQuery.trim() || !editableCrop.trim()
+                          ? "Both Query and Crop are mandatory to enable AI Draft"
+                          : currentCardDraft?.answer
+                          ? "View generated AI draft (cached for this query)"
+                          : "Draft grounded answer from Package of Practices library";
+
+                        return (
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <span
+                                className={`inline-flex ml-auto ${isAiDraftDisabled ? "cursor-not-allowed" : ""}`}
+                                title={aiDraftTooltipText}
+                              >
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => {
+                                    if (!isAgentOnline) {
+                                      toast.warning("Please go online to use AI Draft");
+                                      return;
+                                    }
+                                    setIsAiDraftModalOpen(true);
+                                  }}
+                                  disabled={isAiDraftDisabled}
+                                  className="h-10 px-3.5 text-xs md:text-sm font-bold border-emerald-300 dark:border-emerald-800 hover:bg-emerald-50 dark:hover:bg-emerald-950/40 text-emerald-700 dark:text-emerald-300 rounded-xl flex items-center gap-1.5 shadow-xs transition-all hover:scale-[1.02] active:scale-[0.98] cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:scale-100"
+                                >
+                                  {currentCardDraft?.answer ? (
+                                    <span className="relative flex h-2 w-2 mr-0.5">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
+                                    </span>
+                                  ) : (
+                                    <Sparkles className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                                  )}
+                                  <span>{currentCardDraft?.answer ? "View AI Draft" : "AI Draft"}</span>
+                                </Button>
+                              </span>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>{aiDraftTooltipText}</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        );
+                      })()}
                       <Button
                         onClick={handleApproveAndResume}
                         disabled={
@@ -3065,18 +3097,18 @@ export const CallInterface = () => {
             return copy;
           });
 
-          // Also add to generated questions list so Call Agent sees it in the right column
-          setQuestions((prev) => [
-            ...prev,
-            {
-              id: result.queryId || `ai-draft-${Date.now()}`,
-              question: editableQuery,
-              answer: currentCardDraft?.answer || "",
-              agri_specialist: "AI Draft",
-              referenceSource: "anara_pop_library",
-              weather: null,
-            },
-          ]);
+          // Commented out: Testing/review queries should not be prematurely displayed in the Q&A list
+          // setQuestions((prev) => [
+          //   ...prev,
+          //   {
+          //     id: result.queryId || `ai-draft-${Date.now()}`,
+          //     question: editableQuery,
+          //     answer: currentCardDraft?.answer || "",
+          //     agri_specialist: "AI Draft",
+          //     referenceSource: "anara_pop_library",
+          //     weather: null,
+          //   },
+          // ]);
         }}
       />
     </div>

@@ -32,7 +32,11 @@ export const ReviewNotificationsBell: React.FC = () => {
     try {
       setLoading(true);
       const res = await anaraService.getFollowUps();
-      setItems(res?.queries || []);
+      // Strictly ignore any testing queries (callUuid starting with testing_)
+      const cleanQueries = (res?.queries || []).filter(
+        (q) => q.callUuid && !q.callUuid.startsWith("testing_")
+      );
+      setItems(cleanQueries);
     } catch (err: any) {
       console.warn("[ReviewNotificationsBell] Error fetching follow-ups:", err);
     } finally {
@@ -46,13 +50,18 @@ export const ReviewNotificationsBell: React.FC = () => {
     return () => clearInterval(timer);
   }, [fetchNotifications]);
 
+  // Exclude any testing queries from all notification lists
+  const validItems = items.filter(
+    (i) => i.callUuid && !i.callUuid.startsWith("testing_")
+  );
+
   // Approved items waiting for Call Agent to call farmer back
-  const pendingCallbacks = items.filter(
+  const pendingCallbacks = validItems.filter(
     (i) => i.reviewStatus === "approved" && i.farmerFollowUpStatus !== "resolved"
   );
 
   // Items currently under 2h review in Review System
-  const inReviewItems = items.filter((i) => i.reviewStatus === "pending_review");
+  const inReviewItems = validItems.filter((i) => i.reviewStatus === "pending_review");
 
   const unreadCount = pendingCallbacks.length;
 
@@ -120,7 +129,7 @@ export const ReviewNotificationsBell: React.FC = () => {
       ? pendingCallbacks
       : activeTab === "in_review"
       ? inReviewItems
-      : items;
+      : validItems;
 
   return (
     <Popover open={isOpen} onOpenChange={setIsOpen}>

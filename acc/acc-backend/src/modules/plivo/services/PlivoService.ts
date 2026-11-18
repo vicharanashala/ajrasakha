@@ -35,6 +35,7 @@ interface SarvamStreamSession {
 @injectable()
 export class PlivoService {
 
+  /*
   // SOCKS5 proxy agent for Tailscale network (localhost:1055)
   private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055', {
     keepAlive: true,
@@ -47,9 +48,10 @@ export class PlivoService {
       httpsAgent: this.httpAgent,
     });
   }
+  */
   private sarvamApiKey: string;
-  private readonly TIMEOUT = aiConfig.accAgentTimeout;
-  private readonly translateApiUrl = aiConfig.accTranslateApiUrl || 'http://100.100.108.44:8110/v1/translate/to-english';
+  // private readonly TIMEOUT = aiConfig.accAgentTimeout;
+  // private readonly translateApiUrl = aiConfig.accTranslateApiUrl || 'http://100.100.108.44:8110/v1/translate/to-english';
   private activeTranscriptions: Map<string, string> = new Map();
   private activeTranslations: Map<string, string> = new Map();
   private activeTranscriptTurns: Map<string, CallTranscriptMessage[]> = new Map();
@@ -186,25 +188,28 @@ export class PlivoService {
 
     try {
       const sourceLangCode = sourceLang && sourceLang !== 'unknown' ? sourceLang : 'auto';
-      // const response = await axios.post(
-      //   'https://api.sarvam.ai/translate',
-      //   {
-      //     input: cleanText,
-      //     source_language_code: sourceLangCode,
-      //     target_language_code: 'en-IN',
-      //     model: 'sarvam-translate:v1',
-      //     mode: 'formal',
-      //   },
-      //   {
-      //     headers: {
-      //       'api-subscription-key': this.sarvamApiKey,
-      //       'Content-Type': 'application/json',
-      //     },
-      //     timeout: 2500,
-      //   }
-      // );
-      const api = this.createAxiosInstance();
 
+      const response = await axios.post(
+        'https://api.sarvam.ai/translate',
+        {
+          input: cleanText,
+          source_language_code: sourceLangCode,
+          target_language_code: 'en-IN',
+          model: 'sarvam-translate:v1',
+          mode: 'formal',
+        },
+        {
+          headers: {
+            'api-subscription-key': this.sarvamApiKey,
+            'Content-Type': 'application/json',
+          },
+          timeout: 5000,
+        }
+      );
+
+      /*
+      // Previously used VM endpoint via SOCKS5 proxy:
+      const api = this.createAxiosInstance();
       const response = await api.post(
         this.translateApiUrl,
         {
@@ -215,9 +220,8 @@ export class PlivoService {
           headers: { 'Content-Type': 'application/json' },
           timeout: this.TIMEOUT,
         }
-
       );
-
+      */
 
       const translated = response.data?.translated_text?.trim();
       return translated || cleanText;

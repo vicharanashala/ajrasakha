@@ -1252,6 +1252,7 @@ export class CallDetailsRepository implements ICallDetailsRepository {
       await this.init();
       const matchCriteria: any = {
         type: 'AI-drafted',
+        callUuid: { $exists: true, $ne: null, $not: /^testing_/ },
       };
 
       if (filter?.reviewStatus) {

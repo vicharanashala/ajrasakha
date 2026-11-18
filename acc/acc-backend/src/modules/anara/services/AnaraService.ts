@@ -370,14 +370,21 @@ export class AnaraService implements IAnaraService {
     const isClosedOrApproved = payload.status === 'closed' || payload.status === 'approved';
     const finalReviewStatus = isClosedOrApproved ? 'approved' : payload.status === 'rejected' ? 'rejected' : 'pending_review';
 
-    const updated = await this.callDetailsRepository.updateQueryByReviewQuestionId(questionId, {
+    const updateFields: Partial<CallQuery> = {
       reviewStatus: finalReviewStatus,
       reviewedAnswer: payload.answer || undefined,
       reviewedSources: payload.sources || undefined,
       reviewedBy: payload.author || undefined,
       reviewedAt: new Date(),
       farmerFollowUpStatus: 'pending',
-    });
+    };
+
+    // Update query question text if reviewer modified or refined it
+    if (payload.question && payload.question.trim()) {
+      updateFields.question = payload.question.trim();
+    }
+
+    const updated = await this.callDetailsRepository.updateQueryByReviewQuestionId(questionId, updateFields);
 
     if (!updated) {
       console.warn(`[AnaraService] Webhook received for question_id "${questionId}", but no matching query found in call_queries`);

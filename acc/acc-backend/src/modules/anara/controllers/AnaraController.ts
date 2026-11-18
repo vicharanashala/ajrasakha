@@ -51,9 +51,12 @@ class SubmitForReviewBodyDto implements SubmitForReviewDto {
 class ReviewWebhookBodyDto implements ReviewWebhookPayload {
   question_id!: string;
   status!: string;
+  question?: string;
   answer?: string;
   author?: string;
+  source?: string;
   sources?: any[];
+  details?: any;
   [key: string]: any;
 }
 

@@ -38,12 +38,29 @@ export interface SubmitForReviewResponse {
   message: string;
 }
 
+export interface ReviewWebhookSourceItem {
+  title?: string;
+  url?: string;
+  text?: string;
+  sourceName?: string;
+  page?: string | number;
+  [key: string]: any;
+}
+
 export interface ReviewWebhookPayload {
   question_id: string;
   status: string;
+  question?: string;
   answer?: string;
   author?: string;
-  sources?: any[];
+  source?: string;
+  sources?: ReviewWebhookSourceItem[];
+  details?: {
+    crop?: string;
+    district?: string;
+    state?: string;
+    [key: string]: any;
+  };
   [key: string]: any;
 }
 

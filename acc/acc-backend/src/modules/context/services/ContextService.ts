@@ -12,9 +12,12 @@ const MAX_TOTAL_CHARS = 30000;
 
 @injectable()
 export class ContextService extends BaseService {
+  /*
+  // SOCKS5 proxy agent for Tailscale network (localhost:1055)
   private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
   private readonly translateApiUrl = aiConfig.accTranslateApiUrl || 'http://100.100.108.44:8110/v1/translate/to-english';
   private readonly TIMEOUT = aiConfig.accAgentTimeout || 15000;
+  */
 
   constructor(
     @inject(GLOBAL_TYPES.Database)
@@ -23,12 +26,14 @@ export class ContextService extends BaseService {
     super(database);
   }
 
+  /*
   private createAxiosInstance(): AxiosInstance {
     return axios.create({
       httpAgent: this.httpAgent,
       httpsAgent: this.httpAgent,
     });
   }
+  */
 
   async addContext(text: string): Promise<{ insertedId: string }> {
     try {
@@ -116,7 +121,8 @@ export class ContextService extends BaseService {
       return { translated_text: cleanText };
     }
 
-    // When translating to English, use Claude translation API on Annam servers
+    /*
+    // When translating to English, previously used Claude translation API on Annam VM servers:
     if (isTargetEnglish) {
       try {
         const sourceLangCode = resolvedSourceLang !== 'auto' ? resolvedSourceLang : 'auto';
@@ -140,8 +146,9 @@ export class ContextService extends BaseService {
         console.warn(`⚠️ [ContextService] Claude translate API warning (${claudeErr.message}). Falling back to Sarvam.`);
       }
     }
+    */
 
-    // Fallback or non-English target: Sarvam translate
+    // Sarvam translate
     const apiKey = appConfig.sarvamAPI;
     if (!apiKey) throw new BadRequestError('Sarvam API key not configured');
 

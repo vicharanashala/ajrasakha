@@ -980,7 +980,7 @@ export const CallLog = () => {
                                                     <div className="pl-9 space-y-2.5">
                                                       <div className="chat-bubble-farmer rounded-xl p-4 shadow-inner">
                                                         <div className="space-y-1 font-medium">
-                                                          {renderMarkdown(qItem.answer)}
+                                                          {renderMarkdown(qItem.reviewedAnswer || qItem.answer)}
                                                         </div>
                                                       </div>
                                                       {(qItem.sourceName || qItem.sourceLink) && (
