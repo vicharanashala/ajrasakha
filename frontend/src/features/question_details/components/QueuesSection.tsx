@@ -50,6 +50,8 @@ export const QueuesSection = ({
     currentUser?.role === "moderator" ||
     currentUser?.role === "gate_keeper" ||
     currentUser?.role === "auditor";
+  // Testers can view feedback allocation status but cannot toggle it
+  const canViewFeedbackStatus = canManageFeedback || currentUser?.role === "tester";
 
   const showPaeValidationQueue = !!question?._id && !!currentUser && currentUser.role !== "expert" && closedStatus;
   const canManagePaeValidation =
@@ -429,6 +431,7 @@ export const QueuesSection = ({
             <FeedbackReviewTimeline
               questionId={question._id}
               canManage={canManageFeedback}
+              canViewStatus={canViewFeedbackStatus}
               initialOpen={true}
             />
           )}

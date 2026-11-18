@@ -363,9 +363,10 @@ export default function SelectedAnswerPanel({
       {/* ACTIONS */}
       {(() => {
         const isAcc = question.source?.toUpperCase() === "ACC";
+        const isPae = Boolean((question as any)?.pae_review === true || String((question as any)?.pae_review) === "true" || question.status === "pae_submitted");
         return (
           <div className="flex gap-3">
-            {(isAcc || answer.approvalCount >= 3) && question.status === "in-review" && (
+            {(isAcc || isPae || answer.approvalCount >= 3) && (question.status === "in-review" || question.status === "pae_submitted") && (
               <ApproveAnswerDialog
                 questionId={question._id}
                 editOpen={editOpen}
@@ -378,6 +379,8 @@ export default function SelectedAnswerPanel({
                 handleUpdateAnswer={handleUpdateAnswer}
                 lastReroutedTo={lastReroutedTo}
                 approvalCount={answer.approvalCount}
+                questionStatus={question.status}
+                paeReview={(question as any)?.pae_review}
                 isAcc={isAcc}
               />
             )}
