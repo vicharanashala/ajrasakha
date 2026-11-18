@@ -88,7 +88,7 @@ describe('AnswerApprovalService.notifyCustomerOnClose — per-question customer 
 
   it('fires the ACC webhook when ACC_WEBHOOK_API_URL is configured', async () => {
     (appConfig as any).ACC_WEBHOOK_API_URL = 'https://acc.example.com/api/webhook';
-    (appConfig as any).ACC_WEBHOOK_API_KEY = 'test_acc_key';
+    (appConfig as any).ACC_API_KEY = 'test_acc_key';
 
     const result = await call({
       _id: 'q5',

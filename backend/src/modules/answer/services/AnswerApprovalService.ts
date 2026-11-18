@@ -639,7 +639,7 @@ export class AnswerApprovalService extends BaseService implements IAnswerApprova
         if (appConfig.ACC_WEBHOOK_API_URL) {
           await triggerWebhook(
             appConfig.ACC_WEBHOOK_API_URL,
-            appConfig.ACC_WEBHOOK_API_KEY,
+            appConfig.ACC_API_KEY,
             {
               ...webhookPayload,
               question: q.question,
