@@ -86,7 +86,7 @@ export type QuestionDateRangeFilter =
   | "quarter"
   | "year";
 
-export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH" | "QUESTION_COLLECTION";
+export type QuestionSourceFilter = "all" | "AJRASAKHA" | "AGRI_EXPERT" | "WHATSAPP" | "OUTREACH" | "QUESTION_COLLECTION" | "ACC";
 // New Type
 export type QuestionPriorityFilter = "all" | "high" | "low" | "medium" | "critical";
 export type QuestionTimeRange = {
@@ -572,6 +572,13 @@ export const AdvanceFilterDialog: React.FC<AdvanceFilterDialogProps> = ({
                       <div className="flex items-center gap-2">
                         <FileText className="w-4 h-4 text-primary" />
                         <span>AnnaData</span>
+                      </div>
+                    </SelectItem>
+
+                    <SelectItem value="ACC">
+                      <div className="flex items-center gap-2">
+                        <Bot className="w-4 h-4 text-primary" />
+                        <span>ACC</span>
                       </div>
                     </SelectItem>
                   </SelectContent>

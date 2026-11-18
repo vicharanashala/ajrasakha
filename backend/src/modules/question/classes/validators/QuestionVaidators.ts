@@ -19,8 +19,140 @@ import {
 } from 'class-validator';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { ObjectId } from 'mongodb';
-import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource } from '#shared/interfaces/models.js';
+import { IQuestionPriority, ICropRef, QuestionStatus, QuestionSource, SourceType } from '#shared/interfaces/models.js';
 import { Type, Transform } from 'class-transformer';
+
+// ─── ACC DTOs ───────────────────────────────────────────────
+
+/**
+ * DTO for reference source items in ACC question/answer payload.
+ */
+export class AccSourceItemDto {
+  @JSONSchema({
+    description: 'URL or reference link of the source',
+    example: 'https://gdb-draft-239934307367.asia-south1.run.app/documents/doc_pau_wheat_2024/pdf',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  source!: string;
+
+  @JSONSchema({
+    description: 'Title or name of the source',
+    example: 'Package of Practices for Rabi Crops - PAU Ludhiana',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  sourceName?: string;
+
+  @JSONSchema({
+    description: 'Page number or section within the source (e.g. "41, 42" or 18)',
+    example: '41, 42',
+  })
+  @IsOptional()
+  page?: string | number;
+}
+
+/**
+ * DTO for question details in ACC payload.
+ */
+export class AccQuestionDetailsDto {
+  @JSONSchema({
+    description: 'Crop name',
+    example: 'Wheat',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  crop!: string;
+
+  @JSONSchema({
+    description: 'State name',
+    example: 'Punjab',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  state!: string;
+
+  @JSONSchema({
+    description: 'District name',
+    example: 'Ropar',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  district!: string;
+
+  @JSONSchema({
+    description: 'Season name',
+    example: 'Rabi',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  season!: string;
+
+  @JSONSchema({
+    description: 'Domain/topic classification (array of strings or single string)',
+    example: ['Weed Management'],
+  })
+  @IsNotEmpty()
+  domain!: string[] | string;
+}
+
+/**
+ * DTO for creating question and answer from ACC source.
+ */
+export class AddAccQuestionAnswerDto {
+  @JSONSchema({
+    description: 'The question text',
+    example: 'Farmer query about recommendation of pesticides for wheat crop',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  question!: string;
+
+  @JSONSchema({
+    description: 'Source identifier',
+    example: 'ACC',
+    type: 'string',
+  })
+  @IsOptional()
+  @IsString()
+  source?: string;
+
+  @JSONSchema({
+    description: 'The AI initial answer to store in question and answer collections',
+    example: 'For controlling weeds in wheat, application of Sulfosulfuron 75% WG @ 13.5 g/acre...',
+    type: 'string',
+  })
+  @IsNotEmpty()
+  @IsString()
+  aiInitialAnswer!: string;
+
+  @JSONSchema({
+    description: 'Question metadata including location and crop information',
+    type: 'object',
+  })
+  @ValidateNested()
+  @Type(() => AccQuestionDetailsDto)
+  @IsNotEmpty()
+  details!: AccQuestionDetailsDto;
+
+  @JSONSchema({
+    description: 'Array of reference sources supporting the answer',
+    type: 'array',
+    items: { $ref: '#/components/schemas/AccSourceItemDto' },
+  })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => AccSourceItemDto)
+  sources?: AccSourceItemDto[];
+}
 
 // ─── Question Collection DTOs (must be declared before AddQuestionBody / AddQuestionBodyDto) ───
 
@@ -460,7 +592,7 @@ class QuestionResponse {
   ])
   status?: QuestionStatus;
 
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH"])
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', "WHATSAPP", "OUTREACH", "QUESTION_COLLECTION", "ACC"])
   source!: QuestionSource;
 
   @IsOptional()
@@ -508,7 +640,7 @@ class AddQuestionBodyDto {
   priority!: 'low' | 'medium' | 'high' | 'critical';
 
   @IsOptional()
-  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH', 'QUESTION_COLLECTION'])
+  @IsEnum(['AJRASAKHA', 'AGRI_EXPERT', 'WHATSAPP', 'OUTREACH', 'QUESTION_COLLECTION', 'ACC'])
   source!: QuestionSource;
 
   @IsOptional()
@@ -797,7 +929,7 @@ class GetDetailedQuestionsQuery {
     type: 'string',
   })
   @IsOptional()
-  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH", "QUESTION_COLLECTION"])
+  @IsIn(['all', "AGRI_EXPERT", "AJRASAKHA", "WHATSAPP", "OUTREACH", "QUESTION_COLLECTION", "ACC"])
   source?: string;
 
   @JSONSchema({

@@ -89,6 +89,7 @@ export default function SelectedAnswerPanel({
       toast.success(
         "Answer approved successfully! The question is now closed. Thank you!",
       );
+      question.status = "closed";
       clearApproveAnswerDraft(question._id);
       setEditOpen(false);
     } catch (error: any) {
@@ -361,10 +362,11 @@ export default function SelectedAnswerPanel({
       />
       {/* ACTIONS */}
       {(() => {
+        const isAcc = question.source?.toUpperCase() === "ACC";
         const isPae = Boolean((question as any)?.pae_review === true || String((question as any)?.pae_review) === "true" || question.status === "pae_submitted");
         return (
           <div className="flex gap-3">
-            {(isPae || answer.approvalCount >= 3) && (question.status === "in-review" || question.status === "pae_submitted") && (
+            {(isAcc || isPae || answer.approvalCount >= 3) && (question.status === "in-review" || question.status === "pae_submitted") && (
               <ApproveAnswerDialog
                 questionId={question._id}
                 editOpen={editOpen}
@@ -379,9 +381,10 @@ export default function SelectedAnswerPanel({
                 approvalCount={answer.approvalCount}
                 questionStatus={question.status}
                 paeReview={(question as any)?.pae_review}
+                isAcc={isAcc}
               />
             )}
-            {(answer.approvalCount >= 3 || showActions) &&
+            {!isAcc && (answer.approvalCount >= 3 || showActions) &&
               answer.isFinalAnswer === false && (
                 <ReRouteDialog
                   isModalOpen={isModalOpen}

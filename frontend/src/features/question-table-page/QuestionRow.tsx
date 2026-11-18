@@ -335,7 +335,7 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
               {visibleColumns.priority && <PriorityBadge priority={q.priority} />}
               {isDedicatedView && q.source && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-blue-500/10 text-blue-600 border-blue-500/30 whitespace-nowrap">
-                  {q.source === "AGRI_EXPERT" ? "Manual" : q.source}
+                  {q.source === "AGRI_EXPERT" ? "Manual" : q.source === "QUESTION_COLLECTION" ? "AnnaData" : q.source === "ACC" ? "ACC" : q.source}
                 </span>
               )}
               {q.pae_review && (

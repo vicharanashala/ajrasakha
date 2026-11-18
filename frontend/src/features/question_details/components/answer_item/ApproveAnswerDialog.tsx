@@ -66,6 +66,7 @@ interface ApproveAnswerDialogProps {
   questionStatus?: string;
   paeReview?: boolean;
   mode?: DialogMode;
+  isAcc?: boolean;
 }
 
 export const ApproveAnswerDialog = ({
@@ -83,13 +84,14 @@ export const ApproveAnswerDialog = ({
   questionStatus,
   paeReview,
   mode = "approve",
+  isAcc = false,
 }: ApproveAnswerDialogProps) => {
   const isEdit = mode === "edit";
   const isPae = questionStatus === "pae_submitted" || Boolean(paeReview === true || String(paeReview) === "true");
   const isDisabled =
     !isEdit &&
     (lastReroutedTo?.status === "pending" ||
-      (!isPae && approvalCount < 3));
+      (!isPae && !isAcc && approvalCount < 3));
 
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
   const textareaRef = useRef<HTMLTextAreaElement | null>(null);

@@ -124,6 +124,7 @@ export const AnswerTimeline = ({
               submissionData={item.submission}
               currentUserId={currentUserId}
               questionStatus={question.status}
+              questionSource={question.source}
               questionId={question._id}
               ref={commentRef}
               userRole={userRole}

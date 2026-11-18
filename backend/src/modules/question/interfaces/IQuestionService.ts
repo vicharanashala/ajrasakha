@@ -6,6 +6,7 @@ import {
   AddQuestionResult,
 } from '#root/shared/interfaces/models.js';
 import {
+  AddAccQuestionAnswerDto,
   AddQuestionBodyDto,
   AllocatedQuestionsBodyDto,
   DetailedQuestionsBodyDto,
@@ -500,6 +501,16 @@ export interface IQuestionService {
     userId: string,
     body: AddQuestionBodyDto,
   ): Promise<AddQuestionResult>;
+
+  /** Ingest question and answer from ACC source directly to moderator review */
+  addAccQuestionAnswer(
+    userId: string | undefined,
+    body: AddAccQuestionAnswerDto,
+  ): Promise<{
+    success: boolean;
+    message: string;
+    question_id: string;
+  }>;
 
   /** Question detail page */
   getQuestionById(questionId: string): Promise<QuestionResponse>;
