@@ -172,8 +172,6 @@ export const BulkUploadProgressTracker: React.FC = () => {
               {isRunning && (
                 isDelete ? (
                   <Trash2 className="h-4 w-4 animate-pulse" />
-                ) : isRdqaCheck ? (
-                  <CheckCheck className="h-4 w-4 animate-pulse" />
                 ) : (
                   <Loader2 className="h-4 w-4 animate-spin" />
                 )
