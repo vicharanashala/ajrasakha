@@ -360,42 +360,49 @@ export default function SelectedAnswerPanel({
         isMine={answer.authorId === currentUser}
       />
       {/* ACTIONS */}
-      <div className="flex gap-3">
-        {answer.approvalCount >= 3 && question.status === "in-review" && (
-          <ApproveAnswerDialog
-            questionId={question._id}
-            editOpen={editOpen}
-            setEditOpen={setEditOpen}
-            editableAnswer={editableAnswer}
-            setEditableAnswer={setEditableAnswer}
-            sources={sources}
-            setSources={setSources}
-            isUpdatingAnswer={isUpdatingAnswer}
-            handleUpdateAnswer={handleUpdateAnswer}
-            lastReroutedTo={lastReroutedTo}
-            approvalCount={answer.approvalCount}
-          />
-        )}
-        {(answer.approvalCount >= 3 || showActions) &&
-          answer.isFinalAnswer === false && (
-            <ReRouteDialog
-              isModalOpen={isModalOpen}
-              setIsModalOpen={setIsModalOpen}
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              comment={comment}
-              setComment={setComment}
-              isUsersLoading={isUsersLoading}
-              filteredExperts={filteredExperts}
-              selectedExperts={selectedExperts}
-              handleSelectExpert={handleSelectExpert}
-              handleSubmit={handleSubmit}
-              handleCancel={handleCancel}
-              lastReroutedTo={lastReroutedTo}
-              isAllocatingExperts={allocatingExperts}
-            />
-          )}
-      </div>
+      {(() => {
+        const isPae = Boolean((question as any)?.pae_review === true || String((question as any)?.pae_review) === "true" || question.status === "pae_submitted");
+        return (
+          <div className="flex gap-3">
+            {(isPae || answer.approvalCount >= 3) && (question.status === "in-review" || question.status === "pae_submitted") && (
+              <ApproveAnswerDialog
+                questionId={question._id}
+                editOpen={editOpen}
+                setEditOpen={setEditOpen}
+                editableAnswer={editableAnswer}
+                setEditableAnswer={setEditableAnswer}
+                sources={sources}
+                setSources={setSources}
+                isUpdatingAnswer={isUpdatingAnswer}
+                handleUpdateAnswer={handleUpdateAnswer}
+                lastReroutedTo={lastReroutedTo}
+                approvalCount={answer.approvalCount}
+                questionStatus={question.status}
+                paeReview={(question as any)?.pae_review}
+              />
+            )}
+            {(answer.approvalCount >= 3 || showActions) &&
+              answer.isFinalAnswer === false && (
+                <ReRouteDialog
+                  isModalOpen={isModalOpen}
+                  setIsModalOpen={setIsModalOpen}
+                  searchTerm={searchTerm}
+                  setSearchTerm={setSearchTerm}
+                  comment={comment}
+                  setComment={setComment}
+                  isUsersLoading={isUsersLoading}
+                  filteredExperts={filteredExperts}
+                  selectedExperts={selectedExperts}
+                  handleSelectExpert={handleSelectExpert}
+                  handleSubmit={handleSubmit}
+                  handleCancel={handleCancel}
+                  lastReroutedTo={lastReroutedTo}
+                  isAllocatingExperts={allocatingExperts}
+                />
+              )}
+          </div>
+        );
+      })()}
 
       {lastReroutedTo?.status === "pending" && (
         <RejectReRouteDialog
