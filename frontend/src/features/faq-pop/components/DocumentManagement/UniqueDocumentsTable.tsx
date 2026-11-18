@@ -96,6 +96,9 @@ const FIELD_COLUMNS = [
   { key: "advisory_name", label: "Advisory Name", filterable: true },
   { key: "advisory_released_org", label: "Advisory Released Org", filterable: true },
   { key: "advisory_org_address", label: "Org Address", filterable: true },
+  // Not in the backend's filter whitelist for this endpoint (confirmed by the backend) — plain
+  // display column, no filter/sort.
+  { key: "ministry_or_department", label: "Ministry/Department" },
   { key: "live_source_link", label: "Live Source Link", link: true, filterable: true },
   { key: "language", label: "Language", filterType: "language" },
   { key: "language_source", label: "Language Source", filterable: true, options: LANGUAGE_SOURCE_OPTIONS },

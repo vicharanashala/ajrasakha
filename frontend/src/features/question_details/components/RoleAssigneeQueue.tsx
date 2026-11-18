@@ -79,6 +79,8 @@ export const RoleAssigneeQueue = ({
     : question.autoAllocateAuditor === true;
   const canManage =
     currentUser.role === "moderator" || currentUser.role === "admin"||currentUser.role==="gate_keeper"||currentUser.role==="auditor";
+  // Testers can view allocation status but cannot toggle it
+  const canViewAllocationStatus = canManage || currentUser.role === "tester";
 
   // Manual select/remove is only relevant while the question is actually in this
   // role's handling statuses (gate keeper: dynamic/duplicate/queue_duplicate;
@@ -179,7 +181,8 @@ export const RoleAssigneeQueue = ({
           </div>
 
           <div className="flex flex-wrap items-center gap-3">
-            {canManage && (
+            {/* Show toggle and controls for users who can manage, show status only for testers */}
+            {canManage ? (
               <>
                 <div className="flex items-center gap-3 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
                   <Switch
@@ -214,7 +217,19 @@ export const RoleAssigneeQueue = ({
                   </Button>
                 )}
               </>
-            )}
+            ) : canViewAllocationStatus ? (
+              // Read-only status display for testers
+              <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
+                <span
+                  className={`h-2.5 w-2.5 rounded-full ${
+                    autoAllocate ? "bg-green-500" : "bg-muted-foreground/50"
+                  }`}
+                />
+                <span className="font-medium text-sm text-foreground">
+                  Auto-allocate: {autoAllocate ? "On" : "Off"}
+                </span>
+              </div>
+            ) : null}
 
             <Button
               variant="default"

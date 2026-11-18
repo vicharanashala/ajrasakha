@@ -25,6 +25,7 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M3")
 # day), so retry a lot with short waits. max_completion_tokens doesn't help
 # and reasoning_split must stay on.
 MAX_RETRIES = 9
+REQUEST_TIMEOUT_SECONDS = 120
 RETRY_DELAYS_SECONDS = (1, 1, 2, 2, 3, 3, 3, 3, 3)
 
 RETRYABLE_EXCEPTIONS = (
@@ -60,24 +61,36 @@ def api_key_is_set() -> bool:
     return bool(os.getenv("MINIMAX_API_KEY", "").strip())
 
 
-def call_llm_once(prompt: str, max_completion_tokens: int = 2048) -> str:
-    """One request, returns the raw text. Raises on failure; use call_llm for retries."""
+def call_llm_once(
+    prompt: str,
+    max_completion_tokens: int = 2048,
+    *,
+    model: str | None = None,
+    url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
+) -> str:
+    """One request, returns the raw text. Raises on failure; use call_llm for retries.
+
+    model, url and api_key default to MINIMAX_MODEL, MINIMAX_URL and MINIMAX_API_KEY,
+    so the checks are unchanged.
+    """
     load_dotenv(PROJECT_DIRECTORY / ".env")
-    api_key = os.getenv("MINIMAX_API_KEY", "").strip()
+    api_key = api_key or os.getenv("MINIMAX_API_KEY", "").strip()
     if not api_key:
         raise ValueError("MINIMAX_API_KEY is not configured")
 
     response = requests.post(
-        MINIMAX_URL,
+        url or MINIMAX_URL,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
-            "model": MINIMAX_MODEL,
+            "model": model or MINIMAX_MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
             "max_completion_tokens": max_completion_tokens,
             "reasoning_split": True,
         },
-        timeout=120,
+        timeout=timeout,
     )
     if not response.ok:
         # include the server's message, e.g. "the model does not exist"
@@ -95,6 +108,10 @@ def call_llm(
     max_completion_tokens: int = 2048,
     max_retries: int = MAX_RETRIES,
     retry_delays: tuple[int, ...] = RETRY_DELAYS_SECONDS,
+    model: str | None = None,
+    url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Call the model with retries and return the parsed JSON.
 
@@ -106,7 +123,10 @@ def call_llm(
     for attempt in range(max_retries + 1):
         started = time.time()
         try:
-            content = call_llm_once(prompt, max_completion_tokens=max_completion_tokens)
+            content = call_llm_once(
+                prompt, max_completion_tokens=max_completion_tokens,
+                model=model, url=url, api_key=api_key, timeout=timeout,
+            )
             match = re.search(r"{.*}", content, re.DOTALL)
             if match is None:
                 raise ValueError("LLM response does not contain a JSON object")

@@ -7,6 +7,15 @@ type Listener = (data: any) => void;
 
 let es: EventSource | null = null;
 let refCount = 0;
+// Tracks whether the shared connection is currently open and known-good — used by callers to back
+// off their own fallback poll while SSE is doing the job, instead of polling at a fixed cadence
+// regardless of SSE health. Set true on "open" (first connect and every reconnect), false on a
+// native error event or a watchdog-triggered reconnect, so a caller checking this always gets the
+// current connection's real state.
+let healthy = false;
+export function isDashboardEventsHealthy() {
+  return healthy;
+}
 const listeners: Record<EventKind, Set<Listener>> = {
   upload: new Set(),
   translation: new Set(),
@@ -46,6 +55,7 @@ function startWatchdogTimer() {
   clearWatchdogTimer();
   watchdogTimer = setTimeout(() => {
     if (!es) return;
+    healthy = false;
     es.close();
     es = null;
     ensureConnection();
@@ -73,7 +83,11 @@ function ensureConnection() {
     // Disarm on every (re)connect — the watchdog only re-arms once a `ping` actually lands on
     // THIS connection, so reconnecting to an old, no-ping backend never leaves a stale armed timer.
     disarmWatchdog();
+    healthy = true;
     for (const fn of listeners.open) fn(null);
+  });
+  es.addEventListener("error", () => {
+    healthy = false;
   });
   es.addEventListener("ping", () => armOrResetWatchdog());
   for (const kind of ["upload", "translation", "document"] as const) {
@@ -101,6 +115,7 @@ function teardownIfUnused() {
     disarmWatchdog();
     es.close();
     es = null;
+    healthy = false;
   }
 }
 

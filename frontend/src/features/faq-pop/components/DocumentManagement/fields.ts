@@ -188,11 +188,17 @@ export const DOCUMENT_METADATA_FIELDS: FieldDef[] = [
 // send them via updateDashboardUniqueDocument. Rendered manually in UniqueDocumentEditForm (not via
 // MetadataFieldInput) since their options are fetched dynamically, scoped to the document's anchor
 // placement's state — same reason `language` is rendered manually there too.
+// ministry_or_department_id — an organization id (same vocabulary as Folder's organisations,
+// GET /dashboard/organizations), optional, one per document. Added here (not
+// DOCUMENT_METADATA_FIELDS) and rendered manually in each form, same reasons as district_id/
+// kvk_id: its options are fetched dynamically and an explicit "" is what clears it on PATCH
+// (omitted/null both mean "unchanged" — confirmed by the backend, same convention as district/kvk).
 export const EDITABLE_DOCUMENT_ONLY_FIELDS: FieldDef[] = [
   { key: "shareable_name", label: "Document Name", type: "text", group: "Identity" },
   { key: "language", label: "Language", type: "select", optionsSource: "language", group: "Language" },
   { key: "district_id", label: "District", type: "text", group: "Location" },
   { key: "kvk_id", label: "KVK", type: "text", group: "Location" },
+  { key: "ministry_or_department_id", label: "Ministry/Department", type: "text", group: "Advisory Details" },
 ];
 
 // Backend-derived, read-only — shown in the details grid but never submitted.
@@ -241,6 +247,20 @@ export function folderDisplayLabel(
   const typeLabel = folder.type ? folder.type.charAt(0).toUpperCase() + folder.type.slice(1) : null;
   const suffix = [typeLabel, folder.state].filter(Boolean).join(" · ");
   return suffix ? `${base} — ${suffix}` : base;
+}
+
+// Ministry/Department (ministry_or_department_id below) is picked from the same flat organisation
+// list as Folder's organisation half (GET /dashboard/organizations) — same duplicate-name problem
+// folderDisplayLabel above exists for: several organisation names repeat in the master data (e.g.
+// "Department of Agriculture" once per state), and type+state is how a person tells them apart.
+// Always appended, not just on a name collision — same rule as folderDisplayLabel's organisation
+// case, and for the same reason (there's no "(crop)"/"(organisation)" ambiguity to solve here,
+// just the type+state one).
+export function organizationDisplayLabel(org: { name?: string; type?: string | null; state?: string | null }) {
+  const name = org.name || "(no name)";
+  const typeLabel = org.type ? org.type.charAt(0).toUpperCase() + org.type.slice(1) : null;
+  const suffix = [typeLabel, org.state].filter(Boolean).join(" · ");
+  return suffix ? `${name} — ${suffix}` : name;
 }
 
 // An organisation's `type` ("central"|"state"|"district") should match the document's Advisory

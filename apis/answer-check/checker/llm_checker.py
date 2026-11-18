@@ -18,6 +18,7 @@ from chem_checker import BANNED_CHEMICALS, RESTRICTED_CHEMICALS
 from llm_client import MINIMAX_MODEL, LLMCallFailed, call_llm
 from local_names import detect_local_name_mismatch, find_local_name_records, get_relevant_names
 from normalizer import AnswerContext, normalize_answer
+from section_checker import check_required_sections
 from result_state import (
     FAIL,
     NOT_EVALUATED,
@@ -669,6 +670,13 @@ def run_llm_checks(context: AnswerContext) -> dict[str, Any]:
     result.update(
         apply_coverage_overrides(coverage, question_type, context["answer_text"])
     )
+    # the model's own verdict on the structure is lenient: every required section must have a verified quote
+    if not coverage_errored and not USE_MOCK_LLM and result["answer_structure"].get("status") == PASS:
+        missing = check_required_sections(
+            context["question_text"], context["answer_text"], question_type, answer_template, ask=call_llm
+        )
+        if missing:
+            result["answer_structure"] = missing
     # only when the context call worked, otherwise keep its ERROR result
     if not context_errored:
         result.update(

@@ -18,7 +18,7 @@ const TIERS = [
 
 const PIPELINES = [
   { value: 0, label: "0", title: "Pipeline 0 — one call per page transcribes and translates" },
-  { value: 1, label: "1", title: "Pipeline 1 — OCR transcribes each page, then a second model translates it (Normal mode only)" },
+  { value: 1, label: "1", title: "Pipeline 1 — OCR transcribes each page, then a second model translates it" },
 ];
 
 function Segmented({ label, options, value, onChange, isDisabled }) {
@@ -54,7 +54,7 @@ export default function TranslateSettingsToggle() {
   return (
     <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-2.5 py-1 shadow-sm">
       <Languages size={13} className="text-primary shrink-0" />
-      <Segmented label="Pipeline" options={PIPELINES} value={pipeline} onChange={setPipeline} isDisabled={(v) => v === 1 && mode !== "normal"} />
+      <Segmented label="Pipeline" options={PIPELINES} value={pipeline} onChange={setPipeline} />
       <Segmented label="Mode" options={MODES} value={mode} onChange={setMode} />
       <div className="flex items-center gap-1.5">
         <span className="text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Model</span>

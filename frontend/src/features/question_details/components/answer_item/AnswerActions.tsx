@@ -110,6 +110,7 @@ export const AnswerActions = ({
   isAssignedModerator = false,
 }: AnswerActionsProps) => {
   const isAcc = questionSource?.toUpperCase() === "ACC";
+  const isPae = Boolean(paeReview === true || String(paeReview) === "true" || questionStatus === "pae_submitted");
 
   // Approve and Re-route are available when in dedicated view OR when the current user is the assigned moderator.
   const canModerate = isDedicatedView || isAssignedModerator;
@@ -123,15 +124,13 @@ export const AnswerActions = ({
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
     lastAnswerId === answer?._id;
 
-  // For ACC questions, assigned moderator can approve immediately without requiring 3 peer approvals
+  // For ACC and PAE questions, assigned moderator can approve immediately without requiring 3 peer approvals
   const showAprroveButton =
     userRole !== "tester" &&
     userRole !== "expert" &&
     canModerate &&
     (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
-    (isAcc ||
-      questionStatus === "pae_submitted" ||
-      (lastAnswerApprovalCount ?? 0) >= 3);
+    (isAcc || isPae || (lastAnswerApprovalCount ?? 0) >= 3);
 
   return (
     <div className="flex items-center justify-center gap-2">
