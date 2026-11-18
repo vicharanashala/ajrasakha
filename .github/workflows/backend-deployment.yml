@@ -65,6 +65,7 @@ jobs:
           secrets: |
             DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
             STAGING_DB_URI=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+            TAILSCALE_AUTHKEY=Tailscale_Auth_Key:latest
             
           env_vars: |
             NODE_ENV=production
@@ -88,7 +89,6 @@ jobs:
             ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
-            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
             GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
             STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
