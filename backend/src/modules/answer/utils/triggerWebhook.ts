@@ -10,6 +10,7 @@ export const triggerWebhook = async (
             headers: {
                 'Content-Type': 'application/json',
                 'x-internal-api-key': apiKey,
+                'x-api-key': apiKey,
             },
             body: JSON.stringify(payload),
         });
