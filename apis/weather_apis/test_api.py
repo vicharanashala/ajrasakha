@@ -11,6 +11,7 @@ from unittest.mock import patch, MagicMock
 
 # Tests must never touch the real persistent cache file: point it at a throw-away dir BEFORE importing main.
 os.environ["WEATHER_CACHE_DIR"] = tempfile.mkdtemp(prefix="weather_test_cache_")
+os.environ["API_KEYS"] = "test-key"
 
 import pytest
 from fastapi.testclient import TestClient
@@ -20,7 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from main import app, cache_manager, calculate_apparent_temperature, haversine_km
 
-client = TestClient(app)
+client = TestClient(app, headers={"X-API-Key": "test-key"})
+anon = TestClient(app)
 
 
 @pytest.fixture(autouse=True)
@@ -899,3 +901,11 @@ def test_live_directory_coordinates_win_over_bundled_ones():
         coords = wc._get_imd_station_coords(26.27, 90.44)
     _reset_imd_caches()
     assert coords["42407"][:2] == (26.2741, 90.4432)
+
+
+def test_requires_api_key():
+    assert anon.get("/weather-live?lat=17.385&lon=78.4867").status_code == 401
+    assert anon.get("/weather-live?lat=17.385&lon=78.4867", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert anon.get("/weather-forecast?lat=17.385&lon=78.4867").status_code == 401
+    assert anon.post("/cache/clear").status_code == 401
+    assert anon.get("/health").status_code == 200

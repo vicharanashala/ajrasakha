@@ -1,182 +1,22 @@
 {
-  "17.39,78.49": {
-    "lat": 17.385,
-    "lon": 78.4867,
+  "30.98,76.54": {
+    "lat": 30.9764,
+    "lon": 76.5387,
     "data": {
-      "liveTemperature": 33.9,
-      "humidity": 49.3,
+      "liveTemperature": 25.0,
+      "humidity": 55.0,
       "rainfall": 0.0,
-      "windSpeed": 0.0,
-      "weatherCondition": "Haze",
-      "feelsLikeTemperature": 36.2,
+      "windSpeed": 0.6,
+      "weatherCondition": "Clear Sky",
+      "feelsLikeTemperature": 26.7,
       "source": "aws+imd",
-      "station_name": "Bandlaguda (Annam AWS: #20)",
-      "station_distance_km": 4.4,
-      "recorded_at": "06 Nov 2026, 03:23 PM IST",
-      "_station_lat": 17.347657,
-      "_station_lon": 78.500295
+      "station_name": "Rup Nagar tehsil (Annam AWS: #20)",
+      "station_distance_km": 0.48,
+      "recorded_at": "19 Nov 2026, 04:40 PM IST",
+      "_station_lat": 30.980386,
+      "_station_lon": 76.536797
     },
-    "timestamp_iso": "2026-11-06T09:53:36.422479+00:00",
-    "timestamp_epoch": 1793958816.422479
-  },
-  "32.37,75.52": {
-    "lat": 32.368,
-    "lon": 75.5235,
-    "data": {
-      "liveTemperature": 32.6,
-      "humidity": 45.0,
-      "rainfall": 0.0,
-      "windSpeed": 5.2,
-      "weatherCondition": "Clear",
-      "feelsLikeTemperature": 34.9,
-      "source": "aws",
-      "station_name": "Kathua tehsil (Annam AWS: #38)",
-      "station_distance_km": 6.95,
-      "recorded_at": "06 Nov 2026, 12:10 PM IST",
-      "_station_lat": 32.413743,
-      "_station_lon": 75.472987
-    },
-    "timestamp_iso": "2026-11-06T06:48:04.050879+00:00",
-    "timestamp_epoch": 1793947684.0508783
-  },
-  "28.61,77.21": {
-    "lat": 28.6139,
-    "lon": 77.209,
-    "data": {
-      "liveTemperature": 30.2,
-      "humidity": 64.0,
-      "rainfall": 0.0,
-      "windSpeed": 7.4,
-      "weatherCondition": "Haze",
-      "feelsLikeTemperature": 34.1,
-      "source": "imd",
-      "station_name": "New Delhi-Safdarjung",
-      "station_distance_km": 3.87,
-      "recorded_at": "06 Nov 2026, 02:30 PM IST",
-      "_station_lat": 28.58,
-      "_station_lon": 77.2
-    },
-    "timestamp_iso": "2026-11-06T09:35:03.228767+00:00",
-    "timestamp_epoch": 1793957703.2287662
-  },
-  "26.27,90.44": {
-    "lat": 26.2741,
-    "lon": 90.4432,
-    "data": {
-      "liveTemperature": 24.6,
-      "humidity": 83.0,
-      "rainfall": 0.0,
-      "windSpeed": 0.0,
-      "weatherCondition": "Clear Sky",
-      "feelsLikeTemperature": 24.6,
-      "source": "imd",
-      "station_name": "Goalpara",
-      "station_distance_km": 21.37,
-      "recorded_at": "06 Nov 2026, 08:30 AM IST",
-      "_station_lat": 26.18,
-      "_station_lon": 90.63
-    },
-    "timestamp_iso": "2026-11-06T10:00:20.815034+00:00",
-    "timestamp_epoch": 1793959220.8150334
-  },
-  "23.9,69.5": {
-    "lat": 23.9,
-    "lon": 69.5,
-    "data": {
-      "liveTemperature": 36.4,
-      "humidity": 20.0,
-      "rainfall": 0.0,
-      "windSpeed": 3.7,
-      "weatherCondition": "Clear Sky",
-      "feelsLikeTemperature": 34.7,
-      "source": "imd",
-      "station_name": "Bhuj",
-      "station_distance_km": 78.48,
-      "recorded_at": "06 Nov 2026, 02:30 PM IST",
-      "_station_lat": 23.25,
-      "_station_lon": 69.8
-    },
-    "timestamp_iso": "2026-11-06T09:35:05.054818+00:00",
-    "timestamp_epoch": 1793957705.0548167
-  },
-  "15.0,70.0": {
-    "lat": 15.0,
-    "lon": 70.0,
-    "data": {
-      "liveTemperature": 33.0,
-      "humidity": 67.0,
-      "rainfall": 0.0,
-      "windSpeed": 5.6,
-      "weatherCondition": "Cloudy Sky",
-      "feelsLikeTemperature": 42.2,
-      "source": "imd",
-      "station_name": "Panjim",
-      "station_distance_km": 412.22,
-      "recorded_at": "06 Nov 2026, 02:30 PM IST",
-      "_station_lat": 15.48,
-      "_station_lon": 73.81
-    },
-    "timestamp_iso": "2026-11-06T09:35:05.999998+00:00",
-    "timestamp_epoch": 1793957705.9999974
-  },
-  "27.7,85.3": {
-    "lat": 27.7,
-    "lon": 85.3,
-    "data": {
-      "liveTemperature": 20.8,
-      "humidity": 87.0,
-      "rainfall": 0.0,
-      "windSpeed": 0.0,
-      "weatherCondition": "Haze",
-      "feelsLikeTemperature": 20.8,
-      "source": "imd",
-      "station_name": "Motihari",
-      "station_distance_km": 120.54,
-      "recorded_at": "06 Nov 2026, 08:30 AM IST",
-      "_station_lat": 26.67,
-      "_station_lon": 84.92
-    },
-    "timestamp_iso": "2026-11-06T09:35:06.914361+00:00",
-    "timestamp_epoch": 1793957706.9143605
-  },
-  "6.75,93.85": {
-    "lat": 6.75,
-    "lon": 93.85,
-    "data": {
-      "liveTemperature": 30.1,
-      "humidity": 78.0,
-      "rainfall": 0.0,
-      "windSpeed": 0.0,
-      "weatherCondition": "Mainly Clear Sky",
-      "feelsLikeTemperature": 37.4,
-      "source": "imd",
-      "station_name": "Nancowrie",
-      "station_distance_km": 141.25,
-      "recorded_at": "06 Nov 2026, 08:30 AM IST",
-      "_station_lat": 7.98,
-      "_station_lon": 93.53
-    },
-    "timestamp_iso": "2026-11-06T09:35:07.898100+00:00",
-    "timestamp_epoch": 1793957707.8980997
-  },
-  "34.15,77.58": {
-    "lat": 34.1526,
-    "lon": 77.577,
-    "data": {
-      "liveTemperature": 9.4,
-      "humidity": 13.0,
-      "rainfall": 0.0,
-      "windSpeed": 5.6,
-      "weatherCondition": "Cloudy Sky",
-      "feelsLikeTemperature": 9.4,
-      "source": "imd",
-      "station_name": "Leh",
-      "station_distance_km": 0.96,
-      "recorded_at": "06 Nov 2026, 02:30 PM IST",
-      "_station_lat": 34.15,
-      "_station_lon": 77.567
-    },
-    "timestamp_iso": "2026-11-06T11:24:23.828489+00:00",
-    "timestamp_epoch": 1793964263.8284883
+    "timestamp_iso": "2026-11-19T11:14:11.844278+00:00",
+    "timestamp_epoch": 1795086851.8442783
   }
 }

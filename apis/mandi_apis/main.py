@@ -22,13 +22,15 @@ from __future__ import annotations
 import logging
 import os
 import re
+import secrets
 import sys
 from datetime import date, datetime, time, timedelta, timezone
 from typing import Any, Optional
 
 from bson import ObjectId
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query
+from fastapi import Depends, FastAPI, HTTPException, Query
+from fastapi.security import APIKeyHeader
 from fastapi.middleware.cors import CORSMiddleware
 from pymongo import MongoClient
 
@@ -52,6 +54,30 @@ _P = (os.getenv("V2_COLLECTION_PREFIX") or "v2_").strip()
 LISTINGS, PRICES = f"{_P}listings", f"{_P}price_records"
 PRODUCTS, CROPS = f"{_P}products", f"{_P}crops"
 MONGO_MAX_TIME_MS = int(os.getenv("MARKET_MONGO_MAX_TIME_MS", 10000))
+
+# --------------------------------------------------------------------------
+# API-key authentication (header: X-API-Key). Keys come from API_KEYS (comma-separated,
+# so a key can be rotated without downtime). If none is configured, every protected
+# request is rejected (fail closed).
+# --------------------------------------------------------------------------
+_API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
+if not _API_KEYS:
+    logger.error("API_KEYS is not set: all protected endpoints will return 503 until it is configured")
+
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False, description="Secret API key")
+
+
+def require_api_key(x_api_key: Optional[str] = Depends(_api_key_header)) -> None:
+    if not _API_KEYS:
+        raise HTTPException(503, "API authentication is not configured")
+    supplied = (x_api_key or "").encode()
+    ok = False
+    for k in _API_KEYS:  # check all keys, constant-time each
+        ok |= secrets.compare_digest(supplied, k.encode())
+    if not ok:
+        raise HTTPException(401, "Invalid or missing API key", headers={"WWW-Authenticate": "ApiKey"})
+
 
 DEFAULT_RADIUS_KM = 40
 MAX_RADIUS_KM = 100
@@ -141,7 +167,7 @@ def health() -> dict:
     return {"status": "ok"}
 
 
-@app.get("/v1/mandis/nearby")
+@app.get("/v1/mandis/nearby", dependencies=[Depends(require_api_key)])
 def mandis_nearby(
     lat: float = Query(..., description="Latitude, -90..90"),
     lng: float = Query(..., description="Longitude, -180..180"),
@@ -226,7 +252,7 @@ def mandis_nearby(
     return {"data": items, "pagination": _pagination(total, page, limit)}
 
 
-@app.get("/v1/mandi/{mandi_id}/prices/nearby")
+@app.get("/v1/mandi/{mandi_id}/prices/nearby", dependencies=[Depends(require_api_key)])
 def mandi_prices(
     mandi_id: str,
     search: Optional[str] = Query(None, description="Crop or variety name, case-insensitive substring"),

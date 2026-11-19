@@ -29,6 +29,7 @@ import math
 import os
 from pathlib import Path
 import re
+import secrets
 import socket
 import threading
 import time
@@ -36,7 +37,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from fastapi import FastAPI, HTTPException, Query, Request, Response, status
+from fastapi import Depends, FastAPI, HTTPException, Query, Request, Response, status
+from fastapi.security import APIKeyHeader
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -60,6 +62,30 @@ logging.basicConfig(
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
 )
 logger = logging.getLogger("live_weather_api")
+
+# --------------------------------------------------------------------------
+# API-key authentication (header: X-API-Key). Keys come from API_KEYS (comma-separated,
+# so a key can be rotated without downtime). If none is configured, every protected
+# request is rejected (fail closed).
+# --------------------------------------------------------------------------
+_API_KEYS = [k.strip() for k in os.getenv("API_KEYS", "").split(",") if k.strip()]
+if not _API_KEYS:
+    logger.error("API_KEYS is not set: all protected endpoints will return 503 until it is configured")
+
+
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False, description="Secret API key")
+
+
+def require_api_key(x_api_key: Optional[str] = Depends(_api_key_header)) -> None:
+    if not _API_KEYS:
+        raise HTTPException(503, "API authentication is not configured")
+    supplied = (x_api_key or "").encode()
+    ok = False
+    for k in _API_KEYS:  # check all keys, constant-time each
+        ok |= secrets.compare_digest(supplied, k.encode())
+    if not ok:
+        raise HTTPException(401, "Invalid or missing API key", headers={"WWW-Authenticate": "ApiKey"})
+
 
 # Configuration Constants
 WS_BASE_URL = os.getenv(
@@ -1377,9 +1403,10 @@ def _diag_headers(meta: Dict[str, Any]) -> Dict[str, str]:
 # -----------------------------------------------------------------------------
 # Endpoints
 # -----------------------------------------------------------------------------
-@app.head("/weather-live", include_in_schema=False)  # HEAD works but is not listed in /docs
+@app.head("/weather-live", include_in_schema=False, dependencies=[Depends(require_api_key)])  # HEAD works but is not listed in /docs
 @app.get(
     "/weather-live",
+    dependencies=[Depends(require_api_key)],
     response_model=LiveWeatherResponse,
     tags=["Weather"],
     summary="Get live weather observation",
@@ -1460,9 +1487,10 @@ async def get_live_weather_endpoint(
     return response
 
 
-@app.head("/weather-forecast", include_in_schema=False)  # HEAD works but is not listed in /docs
+@app.head("/weather-forecast", include_in_schema=False, dependencies=[Depends(require_api_key)])  # HEAD works but is not listed in /docs
 @app.get(
     "/weather-forecast",
+    dependencies=[Depends(require_api_key)],
     response_model=ForecastResponse,
     tags=["Weather"],
     summary="Get 7-day weather forecast",
@@ -1536,6 +1564,7 @@ async def health_check():
 
 @app.post(
     "/cache/clear",
+    dependencies=[Depends(require_api_key)],
     tags=["Diagnostics"],
     summary="Clear In-Memory Cache",
     description="Clears the in-memory hot cache for operational maintenance.",
