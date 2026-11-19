@@ -102,12 +102,28 @@ FIXED_STEPS = [
 # temperature=0 with a fixed seed - a known serving-stack property
 # (batch-size-dependent floating point reductions, MoE routing), not a
 # bug in this code (confirmed real-world recurrence: ISS-04/ISS-11, the
-# RL-01/02/03 flapping case). Majority-voting the one call that most
-# visibly flips a user-facing verdict (per-step coverage) trades 3x the
-# latency on that call for stability on borderline cases - it cannot fix
-# the model's own instability, only reduce how often it changes the
-# answer we show.
-_COVERAGE_VOTES = 3
+# RL-01/02/03 flapping case). Majority-voting trades extra latency for
+# stability on borderline cases - it cannot fix the model's own
+# instability, only reduce how often it changes the answer we show.
+#
+# Re-architected from per-step voting to per-CALL voting: a single call
+# (llm_client.classify_all_steps_coverage) now scores every step in the
+# checklist at once, so "3 votes" means up to 3 full-checklist calls,
+# not 30 (10 steps x 3). Votes 1 and 2 run concurrently; a 3rd call only
+# fires if some step's votes 1 and 2 disagree (or an attempt failed
+# outright) - on a draft where every step already agrees 2-for-2
+# (the common case), this costs 2 calls total for the ENTIRE checklist,
+# versus up to 30 before. Live-confirmed this doesn't trade away quality:
+# the combined call correctly handled a complete draft, a partial draft,
+# a mislabeled-heading draft, and a wrong-topic draft in testing.
+#
+# Trade-off this correlates that per-step voting didn't: a failed call
+# attempt now costs a vote for EVERY step at once, not just one unlucky
+# step - but the fail-closed guarantee is unchanged (a step still needs
+# ALL attempts to come back with no answer for it before it's
+# NOT_ASSESSED), and going from ~30 calls to ~2-3 means far fewer chances
+# for any single attempt to fail in the first place.
+_CHECKLIST_VOTES = 3
 
 # Tie-break for a genuine 3-way split (one vote each) - pick the most
 # cautious answer rather than an arbitrary one, consistent with this
@@ -115,28 +131,24 @@ _COVERAGE_VOTES = 3
 _CAUTION_ORDER = {StepCoverage.MISSING: 0, StepCoverage.PARTIAL: 1, StepCoverage.COVERED: 2}
 
 
-def _vote_step_coverage(
-    draft_text: str,
-    step: ReferenceStep,
-    all_step_names: list[str],
-    question: str,
-) -> tuple[StepCoverage, int | None]:
-    """One failed vote no longer fails the whole step (or, previously, the
-    whole request) - live-confirmed the self-hosted model's rare per-call
-    stall becomes near-certain to hit AT LEAST ONE of the ~30 coverage
-    calls a full request needs (10 steps x 3 votes), so a single call's
-    retry-exhausted failure must degrade gracefully, not abort everything.
-    Only when every one of this step's votes fails is there truly nothing
-    to go on - that step alone becomes NOT_ASSESSED; every other step
-    (and the request as a whole) is unaffected."""
-    votes = []
-    for _ in range(_COVERAGE_VOTES):
-        try:
-            votes.append(
-                llm_client.classify_step_coverage(draft_text, step.step, step.example, all_step_names, question)
-            )
-        except LLMUnavailableError as exc:
-            log.warning("a coverage vote for step %r failed, continuing with the remaining votes: %s", step.step, exc)
+def _attempt_checklist(
+    draft_text: str, question: str, steps: list[ReferenceStep], all_step_names: list[str]
+) -> dict[str, tuple[StepCoverage, int | None]] | None:
+    """One full-checklist call attempt. Returns None (not an exception) on
+    failure so callers can treat a failed attempt as "no votes from this
+    attempt" without a try/except at every call site."""
+    try:
+        return llm_client.classify_all_steps_coverage(draft_text, question, steps, all_step_names)
+    except LLMUnavailableError as exc:
+        log.warning("a full-checklist coverage call failed, continuing with the remaining attempts: %s", exc)
+        return None
+
+
+def _resolve_step_votes(votes: list[tuple[StepCoverage, int | None]]) -> tuple[StepCoverage, int | None]:
+    """Majority-vote across whichever attempts actually produced an
+    answer for this one step. Only when every attempt either failed
+    outright or omitted this step from its response is there truly
+    nothing to go on - NOT_ASSESSED."""
     if not votes:
         return StepCoverage.NOT_ASSESSED, None
     counts = Counter(coverage for coverage, _ in votes)
@@ -147,12 +159,60 @@ def _vote_step_coverage(
     return winning_coverage, section_index
 
 
-def score_coverage(draft_text: str, question: str) -> tuple[list[StepCoverageResult], list[int | None]]:
+def _vote_checklist(
+    draft_text: str, question: str, steps: list[ReferenceStep], all_step_names: list[str]
+) -> dict[str, tuple[StepCoverage, int | None]]:
+    """Runs up to _CHECKLIST_VOTES full-checklist calls (see this module's
+    own comment above _CHECKLIST_VOTES for why this is a call-level vote,
+    not a per-step one) and resolves each step's own majority across
+    whichever attempts actually answered for it."""
+    first_two = llm_client.run_concurrent(
+        [lambda: _attempt_checklist(draft_text, question, steps, all_step_names) for _ in range(2)]
+    )
+    votes_by_step: dict[str, list[tuple[StepCoverage, int | None]]] = {s.step: [] for s in steps}
+    for attempt_result in first_two:
+        if attempt_result is None:
+            continue
+        for step in steps:
+            if step.step in attempt_result:
+                votes_by_step[step.step].append(attempt_result[step.step])
+
+    # A 3rd call is a full-checklist call too (scores every step, not
+    # just the disagreeing ones), so it's cheap to fire whenever ANY step
+    # still needs it - either a genuine disagreement between votes 1 and
+    # 2, or an attempt that failed/omitted a step and left it with fewer
+    # than 2 votes so far.
+    needs_third = any(
+        len(votes_by_step[s.step]) < 2 or len({v[0] for v in votes_by_step[s.step]}) > 1
+        for s in steps
+    )
+    if needs_third:
+        third = _attempt_checklist(draft_text, question, steps, all_step_names)
+        if third is not None:
+            for step in steps:
+                if step.step in third:
+                    votes_by_step[step.step].append(third[step.step])
+
+    return {step.step: _resolve_step_votes(votes_by_step[step.step]) for step in steps}
+
+
+def score_coverage(
+    draft_text: str, question: str, steps: list[ReferenceStep] = FIXED_STEPS
+) -> tuple[list[StepCoverageResult], list[int | None]]:
+    """Scores `steps` (defaults to the full FIXED_STEPS checklist) against
+    the draft. A caller-supplied subset (PolishDraftRequest.skip_steps,
+    see validate_structure) still carries every other step's name as
+    context for the model - a step dropped from the list we actually
+    score is not dropped from what the model is told exists, since that
+    context is what tells "this is step N's own topic" apart from "this
+    merely overlaps a different step" (see classify_all_steps_coverage's
+    own docstring)."""
+    all_step_names = [s.step for s in FIXED_STEPS]
+    vote_results = _vote_checklist(draft_text, question, steps, all_step_names)
     results = []
     section_indices: list[int | None] = []
-    all_step_names = [s.step for s in FIXED_STEPS]
-    for step in FIXED_STEPS:
-        coverage, section_index = _vote_step_coverage(draft_text, step, all_step_names, question)
+    for step in steps:
+        coverage, section_index = vote_results[step.step]
         # No deterministic textual-evidence override here (removed) - that
         # safety net compared the draft against the STEP'S OWN example
         # text, which worked when examples were curated, topic-specific
@@ -221,8 +281,24 @@ def _order_warnings(steps: list[StepCoverageResult], section_indices: list[int |
     return warnings
 
 
-def validate_structure(question: str, draft_text: str) -> StructuralValidationResult:
-    steps, section_indices = score_coverage(draft_text, question)
+def validate_structure(
+    question: str, draft_text: str, skip_steps: list[str] | None = None
+) -> StructuralValidationResult:
+    """skip_steps names steps that don't apply to this draft (caller-
+    reported, e.g. PolishDraftRequest.skip_steps) - they're simply never
+    checked, so a draft missing them is never counted as incomplete for
+    them, and no call is made for them at all. An unrecognized name is a
+    no-op, not an error - logged so a caller-side typo is still visible
+    somewhere, but it doesn't fail or change the rest of the request."""
+    steps_to_check = FIXED_STEPS
+    if skip_steps:
+        skip_set = set(skip_steps)
+        unknown = skip_set - {s.step for s in FIXED_STEPS}
+        if unknown:
+            log.warning("skip_steps named unrecognized step(s), ignoring: %s", sorted(unknown))
+        steps_to_check = [s for s in FIXED_STEPS if s.step not in skip_set]
+
+    steps, section_indices = score_coverage(draft_text, question, steps_to_check)
     return StructuralValidationResult(
         status=_summarize(steps),
         steps=steps,
@@ -233,17 +309,23 @@ def validate_structure(question: str, draft_text: str) -> StructuralValidationRe
 _cache = ResultCache()
 
 
-def validate_structure_cached(question: str, draft_text: str) -> StructuralValidationResult:
+def validate_structure_cached(
+    question: str, draft_text: str, skip_steps: list[str] | None = None
+) -> StructuralValidationResult:
     """Deterministic entry point for the HTTP endpoint: the exact same
-    (question, draft) pair always returns the exact same result within
-    this process - closes the "identical input gives a different result
-    on repeated calls" gap (Writing Assistant Build Plan, Revision 17,
-    ISS-04/ISS-11) for the literal repeated-request case the real test
-    report exercised (RL-01/02/03, QT-01 vs AS-01 vs AG-02 with the same
-    text). Not a staleness risk - (question, draft) is the cache key, so
-    a changed draft is a cache miss by construction. Does not and cannot
-    make the model's judgment on two *different*-but-similar drafts
-    consistent with each other.
+    (question, draft, skip_steps) triple always returns the exact same
+    result within this process - closes the "identical input gives a
+    different result on repeated calls" gap (Writing Assistant Build
+    Plan, Revision 17, ISS-04/ISS-11) for the literal repeated-request
+    case the real test report exercised (RL-01/02/03, QT-01 vs AS-01 vs
+    AG-02 with the same text). skip_steps is part of the cache key (order-
+    independent - normalized to a sorted tuple) because two requests for
+    the same draft with different skip_steps are not the same request;
+    they check a different subset of the checklist. Not a staleness risk -
+    (question, draft, skip_steps) is the cache key, so a changed draft or
+    a changed skip_steps is a cache miss by construction. Does not and
+    cannot make the model's judgment on two *different*-but-similar
+    drafts consistent with each other.
 
     A result with any NOT_ASSESSED step is excluded from caching - it's a
     transient failure (an LLM call erroring, not a genuine judgment)
@@ -253,12 +335,13 @@ def validate_structure_cached(question: str, draft_text: str) -> StructuralValid
     perfectly good, stable judgment. Tests must clear this between cases
     - see conftest.py."""
     def _compute():
-        return validate_structure(question, draft_text)
+        return validate_structure(question, draft_text, skip_steps)
 
     def _is_stable(r: StructuralValidationResult) -> bool:
         return not any(s.coverage == StepCoverage.NOT_ASSESSED for s in r.steps)
 
-    return _cache.get_or_compute((question, draft_text), _compute, _is_stable)
+    cache_key = (question, draft_text, tuple(sorted(skip_steps)) if skip_steps else ())
+    return _cache.get_or_compute(cache_key, _compute, _is_stable)
 
 
 validate_structure_cached.cache_clear = _cache.cache_clear

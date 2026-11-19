@@ -13,9 +13,9 @@ from assistant.models import CheckStatus, GuardrailStatus, LLMUnavailableError
 @pytest.fixture(autouse=True)
 def _no_real_network(monkeypatch):
     """By default: chemical-detector finds nothing, LLM second opinion says
-    'no change'. Individual tests override one or the other."""
+    'no change' for every pair. Individual tests override one or the other."""
     monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", lambda o, r: (False, ""))
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", lambda pairs: [(False, "")] * len(pairs))
     yield
 
 
@@ -50,6 +50,79 @@ def test_dosage_change_is_rejected():
     assert result.checked_tokens.numbers_and_units == CheckStatus.CHANGED
 
 
+# Live-confirmed real rejection: a draft typo ("Avid" for "Avoid") got
+# correctly fixed by generate_polish, but the negation check read the
+# now-correct "avoid" as a negation marker being added, since "avid"
+# isn't a recognized negation word - a false positive, not a real
+# content change.
+# Live-confirmed real rejection: a grammar fix correctly pluralized
+# "mode of action" -> "modes of action" (and "rotate" -> "rotated"),
+# and the treatment-term check read the pluralization as the named
+# treatment itself changing.
+def test_grammar_fix_pluralizing_a_treatment_term_passes():
+    result = guardrails.run_guardrail(
+        "Insecticides should be rotate with different mode of action.",
+        "Insecticides should be rotated with different modes of action.",
+    )
+    assert result.checked_tokens.treatment_identity == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
+# Live-confirmed real rejection: "wheet" (a typo, not a real crop name)
+# corrected to "wheat" (a real one) - same false-positive shape as the
+# negation case, in a different category.
+def test_typo_fix_that_restores_a_crop_name_passes():
+    result = guardrails.run_guardrail(
+        "Leaf blight is a common fungal disease affecting wheet crops.",
+        "Leaf blight is a common fungal disease affecting wheat crops.",
+    )
+    assert result.checked_tokens.crop_names == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
+# Live-confirmed real rejection: the same polish pass fixed TWO typos in
+# one sentence ("disese"/"wheet" -> "disease"/"wheat"), not just the
+# crop name - must still pass.
+def test_typo_fix_with_two_corrections_in_one_sentence_passes():
+    result = guardrails.run_guardrail(
+        "Leaf blight is a common fungal disese affecting wheet crops.",
+        "Leaf blight is a common fungal disease affecting wheat crops.",
+    )
+    assert result.checked_tokens.crop_names == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
+# Same guard, proactively extended to certainty (hedge/absolute words)
+# and timing keywords - not yet reported live, but structurally the
+# identical risk (a typo'd "wil" corrected to "will", "beforre" to
+# "before", etc.).
+def test_typo_fix_that_restores_an_absolute_certainty_word_passes():
+    result = guardrails.run_guardrail(
+        "The treatment wil help reduce the disease.",
+        "The treatment will help reduce the disease.",
+    )
+    assert result.checked_tokens.certainty_language == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
+def test_typo_fix_that_restores_a_timing_keyword_passes():
+    result = guardrails.run_guardrail(
+        "Apply the spray beforre flowering.",
+        "Apply the spray before flowering.",
+    )
+    assert result.checked_tokens.timing == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
+def test_typo_fix_that_restores_a_negation_word_passes():
+    result = guardrails.run_guardrail(
+        "Cultural Control:\n- Avid excessive application of nitrogen fertilizers.",
+        "Cultural Control:\n- Avoid excessive application of nitrogen fertilizers.",
+    )
+    assert result.checked_tokens.negation == CheckStatus.UNCHANGED
+    assert result.status == GuardrailStatus.PASSED
+
+
 # Example F - negation flipped
 def test_negation_flip_is_rejected():
     result = guardrails.run_guardrail(
@@ -58,6 +131,19 @@ def test_negation_flip_is_rejected():
     )
     assert result.status == GuardrailStatus.FAILED
     assert result.checked_tokens.negation == CheckStatus.CHANGED
+
+
+# A rejection must point at the specific sentence that triggered it -
+# without this, diagnosing a real report means reproducing it live
+# (see the conditions test below for why that's expensive and unreliable).
+def test_negation_flip_detail_names_the_offending_sentence():
+    result = guardrails.run_guardrail(
+        "Do not apply the spray before flowering.",
+        "Apply the spray before flowering.",
+    )
+    detail = next(d for d in result.details if "negation marker" in d)
+    assert "Do not apply the spray before flowering." in detail
+    assert "Apply the spray before flowering." in detail
 
 
 # Example G - crop name swapped
@@ -123,6 +209,16 @@ def test_condition_dropped_is_rejected():
     )
     assert result.status == GuardrailStatus.FAILED
     assert result.checked_tokens.conditions == CheckStatus.CHANGED
+
+
+def test_condition_dropped_detail_names_the_offending_sentence():
+    result = guardrails.run_guardrail(
+        "Apply the spray only if infestation exceeds the threshold.",
+        "Apply the spray.",
+    )
+    detail = next(d for d in result.details if "conditional marker" in d)
+    assert "Apply the spray only if infestation exceeds the threshold." in detail
+    assert "Apply the spray." in detail
 
 
 # Example K - quantity/instruction reassociation across two sentences.
@@ -229,10 +325,10 @@ def test_chemical_detector_unavailable_rejects(monkeypatch):
 
 
 def test_llm_second_opinion_unavailable_rejects(monkeypatch):
-    def _raise(original, rewrite):
+    def _raise(pairs):
         raise LLMUnavailableError("simulated LLM outage")
 
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", _raise)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", _raise)
 
     result = guardrails.run_guardrail(
         "The treatment is effective when farmers apply it correctly.",
@@ -243,8 +339,8 @@ def test_llm_second_opinion_unavailable_rejects(monkeypatch):
 
 def test_llm_second_opinion_flagging_a_change_rejects(monkeypatch):
     monkeypatch.setattr(
-        llm_client, "check_meaning_preserved",
-        lambda o, r: (True, "The rewrite subtly strengthens the recommendation."),
+        llm_client, "check_meaning_preserved_batch",
+        lambda pairs: [(True, "The rewrite subtly strengthens the recommendation.")] * len(pairs),
     )
 
     result = guardrails.run_guardrail(
@@ -255,18 +351,19 @@ def test_llm_second_opinion_flagging_a_change_rejects(monkeypatch):
     assert any("second-opinion" in d.lower() for d in result.details)
 
 
-# The second opinion runs per-section (mirrors generate_polish's own
-# per-section split) rather than once on the whole document - live-
-# confirmed the whole-document call reliably stalls the same way the
-# whole-document rewrite did.
+# The second opinion checks every changed section in ONE batched call
+# (check_meaning_preserved_batch) rather than one call per section or one
+# call for the whole document - live-confirmed a single batch call still
+# correctly distinguishes a real dosage change, a negation flip, and a
+# pure-punctuation non-change across several pairs at once.
 def test_llm_second_opinion_skips_identical_sections(monkeypatch):
-    seen_calls = []
+    seen_pairs = []
 
-    def _record(original, rewrite):
-        seen_calls.append((original, rewrite))
-        return (False, "")
+    def _record(pairs):
+        seen_pairs.extend(pairs)
+        return [(False, "")] * len(pairs)
 
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", _record)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", _record)
 
     guardrails.run_guardrail(
         "First section unchanged.\n\nSecond section are wrong.",
@@ -274,14 +371,14 @@ def test_llm_second_opinion_skips_identical_sections(monkeypatch):
     )
     # Only the changed section is sent to the model - the identical one
     # is skipped, nothing to ask about.
-    assert seen_calls == [("Second section are wrong.", "Second section is wrong.")]
+    assert seen_pairs == [("Second section are wrong.", "Second section is wrong.")]
 
 
 def test_llm_second_opinion_one_changed_section_rejects(monkeypatch):
-    def _check(original, rewrite):
-        return (True, "meaning shifted") if original != rewrite else (False, "")
+    def _check(pairs):
+        return [(True, "meaning shifted") if o != r else (False, "") for o, r in pairs]
 
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", _check)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", _check)
 
     result = guardrails.run_guardrail(
         "Section one.\n\nSection two.",
@@ -290,13 +387,17 @@ def test_llm_second_opinion_one_changed_section_rejects(monkeypatch):
     assert result.status == GuardrailStatus.FAILED
 
 
-def test_llm_second_opinion_one_failed_section_rejects_even_if_others_matched(monkeypatch):
-    def _check(original, rewrite):
-        if original == "Second section.":
-            raise LLMUnavailableError("simulated outage")
-        return (False, "")
+# A batch failure fails the whole second opinion, even if some sections
+# in the batch would have matched - the batch call is now one call for
+# every changed section, so there's no more "this one section's own call
+# failed while the others succeeded"; a failure is all-or-nothing for the
+# whole batch, same fail-closed principle as before, just at the batch's
+# own granularity now.
+def test_llm_second_opinion_batch_failure_rejects_even_with_multiple_changed_sections(monkeypatch):
+    def _raise(pairs):
+        raise LLMUnavailableError("simulated outage")
 
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", _check)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", _raise)
 
     result = guardrails.run_guardrail(
         "First section rewritten.\n\nSecond section.",
@@ -307,18 +408,18 @@ def test_llm_second_opinion_one_failed_section_rejects_even_if_others_matched(mo
 
 
 def test_llm_second_opinion_falls_back_to_whole_document_on_section_count_mismatch(monkeypatch):
-    seen_calls = []
+    seen_pairs = []
 
-    def _record(original, rewrite):
-        seen_calls.append((original, rewrite))
-        return (False, "")
+    def _record(pairs):
+        seen_pairs.extend(pairs)
+        return [(False, "")] * len(pairs)
 
-    monkeypatch.setattr(llm_client, "check_meaning_preserved", _record)
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", _record)
 
     original = "One section only."
     rewrite = "First part.\n\nSecond part - an extra section appeared."
     guardrails.run_guardrail(original, rewrite)
-    assert seen_calls == [(original, rewrite)]
+    assert seen_pairs == [(original, rewrite)]
 
 
 def test_chemical_name_drift_is_rejected(monkeypatch):

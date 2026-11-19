@@ -90,11 +90,27 @@ class LanguagePolishingStatus(str, Enum):
     REJECTED = "rejected"
     UNAVAILABLE = "unavailable"
     # Not attempted at all - distinct from UNAVAILABLE (a check that ran but
-    # couldn't be completed). Team requirement: polish is only offered once
-    # structural validation finds every step covered; a draft missing or
-    # partially covering steps gets the step report, never a polish
-    # suggestion, so running the LLM rewrite for it would be wasted latency.
+    # couldn't be completed). Two different reasons share this one status
+    # (see reason for which): (1) team requirement - polish is only offered
+    # once structural validation finds every step covered, so a draft
+    # missing or partially covering steps gets the step report, never a
+    # polish suggestion, since running the LLM rewrite for it would be
+    # wasted latency; (2) PolishDraftRequest.skip_polish - the caller
+    # explicitly only wanted the structural checklist this request.
     SKIPPED = "skipped"
+
+
+class PolishChange(CamelModel):
+    """One spot where suggested_text actually differs from the original
+    draft - same alignment granularity the guardrail verifies against
+    (text_checks.align_sections_and_sentences: sentence-level within a
+    section, falling back to a whole section or whole document only on a
+    sentence-/section-count mismatch), so a change shown here is always
+    at the same granularity the guardrail actually checked, never a
+    separately-invented diff."""
+
+    before: str
+    after: str
 
 
 class LanguagePolishingResult(CamelModel):
@@ -102,6 +118,16 @@ class LanguagePolishingResult(CamelModel):
     suggested_text: str | None = None
     reason: str | None = None
     guardrail: GuardrailResult | None = None
+    # Populated only when status is SUGGESTED - the specific before/after
+    # pairs where the rewrite actually differs from the original, so a
+    # reviewer doesn't have to diff the whole document by hand. None
+    # whenever no rewrite is shown (rejected/unavailable/skipped) - a
+    # rejected suggestedText is never shown to the client either, and
+    # changes against a rewrite nobody sees would be meaningless. Still a
+    # real, populated list (possibly empty, if the rewrite is byte-
+    # identical to the original - e.g. a draft that needed no fix at
+    # all) whenever status IS suggested; never fabricated.
+    changes: list[PolishChange] | None = None
 
 
 class LLMUnavailableError(Exception):
@@ -140,6 +166,13 @@ class StructuralValidationStatus(str, Enum):
     COMPLETE = "complete"
     INCOMPLETE = "incomplete"
     PARTIAL = "partial"
+    # The caller explicitly asked to skip structural checking entirely
+    # (PolishDraftRequest.skip_structural_validation) - distinct from
+    # every other status, which all imply the checklist actually ran.
+    # Never silently omitted: structuralValidation stays a required
+    # response field, so a caller always sees that this didn't run,
+    # rather than guessing from an empty steps list.
+    SKIPPED = "skipped"
 
 
 class StructuralValidationResult(CamelModel):
@@ -161,6 +194,48 @@ class StructuralValidationResult(CamelModel):
 class PolishDraftRequest(CamelModel):
     question: str
     draft: str
+    # Step names (must match structural_validator.FIXED_STEPS' own "step"
+    # text) that don't apply to this particular draft, so they're never
+    # checked at all - cuts structural-validation calls proportionally.
+    # An unrecognized name is a no-op (logged, not an error) rather than
+    # failing the whole request over a caller-side typo. Defaults to
+    # empty, so an existing caller sending neither new field gets today's
+    # exact behavior unchanged.
+    skip_steps: list[str] = []
+    # True skips structural validation entirely (0 of its calls) and goes
+    # straight to polishing - for a caller who is already confident the
+    # draft's structure is fine and only wants language polishing.
+    # Bypasses the "only polish once structure is complete" gate, since
+    # the caller is the one vouching for completeness here, not this
+    # service. Defaults to False (today's behavior: always check first).
+    skip_structural_validation: bool = False
+    # True skips the technical-content preservation guardrail entirely -
+    # suggestedText is returned as soon as generate_polish produces one,
+    # with no check that it preserved facts/dosages/recommendations. For
+    # a caller who is already confident the rewrite is safe (or wants to
+    # verify it some other way) and would rather not risk the guardrail's
+    # own false-positive rate rejecting a genuinely safe polish.
+    # guardrail stays None on the response in this case (same nullable
+    # field already used for "no guardrail ran" elsewhere), with reason
+    # saying explicitly that it was skipped by request - never silently
+    # indistinguishable from a guardrail that actually ran and passed.
+    # Defaults to False (today's behavior: always verify).
+    skip_guardrail: bool = False
+    # True skips language polishing entirely (generate_polish, and
+    # therefore the guardrail too, never run) - the inverse of
+    # skip_structural_validation, for a caller who only wants the
+    # structural checklist this request and has no use for a polish
+    # suggestion. Saves generate_polish's ~10-20 calls (rewrite +
+    # guardrail second-opinion). languagePolishing.status comes back
+    # SKIPPED either way this request never attempted a rewrite, with
+    # `reason` distinguishing this from the pre-existing "structure was
+    # incomplete" SKIPPED case. Independent of skip_structural_validation
+    # and skip_guardrail - combining skip_structural_validation=true with
+    # skip_polish=true is a valid (if unusual) way to ask for neither
+    # check to run at all; both fields on the response then honestly
+    # report "skipped", nothing more. Defaults to False (today's
+    # behavior: always attempt polish once structure is complete).
+    skip_polish: bool = False
 
 
 class PolishDraftResponse(CamelModel):
