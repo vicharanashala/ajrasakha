@@ -38,6 +38,7 @@ on:
         options:
           - backup-db
           - gate-keeper-auditor-queue
+          - gdb-cleaning
 
 permissions:
   contents: read
@@ -244,3 +245,40 @@ jobs:
             --region="$GCP_REGION" \
             --project="$GCP_PROJECT_ID" \
             --wait
+
+      # ============================================================
+      # gdb-cleaning  (started by hand, no scheduler)
+      # Checks pending Punjab answers in the GDB cleaning collection with the
+      # answer_check image. Writes only to GDB_CLEANING_COLLECTION, which starts
+      # as gdb_cleaning_test; switch it to gdb_cleaning only after the test rows
+      # have been checked. Needs the secrets gdb-mongodb-uri and gdb-minimax-api-key
+      # and the service account gdb-cleaning-sa (secret accessor on both).
+      # One task only: two tasks would check the same pending answers twice.
+      # ============================================================
+      - name: Deploy Cloud Run Job (gdb-cleaning)
+        if: inputs.target_job == 'gdb-cleaning'
+        env:
+          GCP_REGION: ${{ steps.region.outputs.region }}
+          GCP_PROJECT_ID: ${{ steps.project.outputs.project }}
+        run: |
+          set -euo pipefail
+          REGION="$GCP_REGION"
+          PROJECT="$GCP_PROJECT_ID"
+          IMAGE="docker.io/${{ secrets.DOCKERHUB_USERNAME }}/answer_check:latest"
+
+          gcloud run jobs deploy gdb-cleaning \
+            --image="${IMAGE}" \
+            --region="${REGION}" \
+            --project="${PROJECT}" \
+            --memory=2Gi \
+            --cpu=2 \
+            --task-timeout=86400 \
+            --max-retries=0 \
+            --parallelism=1 \
+            --tasks=1 \
+            --command=python \
+            --args=gdb_cleaning_db.py,run,--state,Punjab,--limit,500 \
+            --service-account="gdb-cleaning-sa@${PROJECT}.iam.gserviceaccount.com" \
+            --set-env-vars="MONGODB_DATABASE=agriai,MINIMAX_URL=https://api.minimax.io/v1/chat/completions,MINIMAX_MODEL=MiniMax-M3,PIPELINE_WORKERS=1,GDB_CLEANING_COLLECTION=gdb_cleaning_test" \
+            --set-secrets="MONGODB_URI=gdb-mongodb-uri:latest,MINIMAX_API_KEY=gdb-minimax-api-key:latest" \
+            --labels="managed-by=github-actions,commit-sha=${{ github.sha }}"
