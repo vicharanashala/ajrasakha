@@ -3,12 +3,14 @@ an author's draft answer, called by the Node backend before the draft
 enters the existing review workflow. Never mutates the draft itself.
 """
 
+import hmac
 import logging
 import uuid
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException, Security, status
+from fastapi.security import APIKeyHeader
 
-from assistant import operations, structural_validator
+from assistant import config, operations, structural_validator
 from assistant.models import (
     PolishDraftRequest,
     PolishDraftResponse,
@@ -21,8 +23,26 @@ log = logging.getLogger("writing_assistant")
 
 app = FastAPI(title="Writing Assistant")
 
+_api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 
-@app.post("/polish-draft", response_model=PolishDraftResponse)
+
+def require_api_key(provided_key: str | None = Security(_api_key_header)) -> None:
+    """No-op when WRITING_ASSISTANT_API_KEY isn't set - same opt-in
+    scheme as answer_shortener's require_api_key, so a local run or test
+    needs no key configured. hmac.compare_digest is timing-safe; a plain
+    `==` would let a response-time difference leak how many leading
+    characters of the guess were already correct."""
+    expected_key = config.WRITING_ASSISTANT_API_KEY
+    if not expected_key:
+        return
+    if not provided_key or not hmac.compare_digest(provided_key.encode("utf-8"), expected_key.encode("utf-8")):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_API_KEY", "message": "A valid X-API-Key is required"},
+        )
+
+
+@app.post("/polish-draft", response_model=PolishDraftResponse, dependencies=[Security(require_api_key)])
 def polish_draft_endpoint(request: PolishDraftRequest) -> PolishDraftResponse:
     if request.skip_structural_validation:
         # Caller is already confident the draft's structure is fine and

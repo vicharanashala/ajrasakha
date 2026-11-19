@@ -258,6 +258,12 @@ already fail closed on their own, per request.
   domain-neutral by explicit team decision - it does not check for a
   specific pest/disease/scheme's own technical details, only whether the
   draft has real, substantive content addressing each generic step.
+- **`/polish-draft` auth is opt-in, off by default**: `WRITING_ASSISTANT_
+  API_KEY` unset means no `X-API-Key` check at all - the same scheme
+  `ai/ajrasakha/tools/answer_shortener` already uses, so a local run or
+  an existing caller needs no change until the key is actually set.
+  `/health` never requires it, even when the key is configured, since a
+  deploy/monitoring probe shouldn't need a secret just to check liveness.
 
 ## Setup
 
@@ -275,6 +281,7 @@ Copy `.env.example` to `.env` and fill in:
 | `GEMINI_POLISH_TIMEOUT_SECONDS` | `30` | Budget for `generate_polish` (whole-document, with a per-section fallback) and `check_meaning_preserved_batch` (one call per request in the common case). Starting value carried over from the MiniMax tuning. |
 | `GEMINI_MAX_CONCURRENT_CALLS` | `5` | Process-wide cap on real concurrent calls (primary + hedge). Carried over from the MiniMax tuning (derived from that model's own vLLM `/metrics` under load) - has no equivalent evidence behind it for Gemini's own rate limits yet. |
 | `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. Unaffected by the Gemini switch. |
+| `WRITING_ASSISTANT_API_KEY` | — (unset = auth off) | Shared secret the caller must send as `X-API-Key` on `/polish-draft` - same opt-in scheme `ai/ajrasakha/tools/answer_shortener` uses for its own `ANSWER_SHORTENER_API_KEY`. `/health` never requires it. |
 
 ## Deployment
 
