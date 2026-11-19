@@ -50,11 +50,6 @@ def test_dosage_change_is_rejected():
     assert result.checked_tokens.numbers_and_units == CheckStatus.CHANGED
 
 
-# Live-confirmed real rejection: a draft typo ("Avid" for "Avoid") got
-# correctly fixed by generate_polish, but the negation check read the
-# now-correct "avoid" as a negation marker being added, since "avid"
-# isn't a recognized negation word - a false positive, not a real
-# content change.
 # Live-confirmed real rejection: a grammar fix correctly pluralized
 # "mode of action" -> "modes of action" (and "rotate" -> "rotated"),
 # and the treatment-term check read the pluralization as the named
@@ -114,13 +109,24 @@ def test_typo_fix_that_restores_a_timing_keyword_passes():
     assert result.status == GuardrailStatus.PASSED
 
 
-def test_typo_fix_that_restores_a_negation_word_passes():
-    result = guardrails.run_guardrail(
-        "Cultural Control:\n- Avid excessive application of nitrogen fertilizers.",
-        "Cultural Control:\n- Avoid excessive application of nitrogen fertilizers.",
-    )
-    assert result.checked_tokens.negation == CheckStatus.UNCHANGED
-    assert result.status == GuardrailStatus.PASSED
+# Negation deliberately gets no typo-fix exemption: a one-letter edit can
+# reverse the instruction, so every negation presence flip is flagged -
+# including a genuine typo fix like "Avid" -> "Avoid" (accepted cost).
+@pytest.mark.parametrize(
+    "original,rewrite",
+    [
+        ("You should never apply it during rain.", "You should ever apply it during rain."),
+        ("Avoid spraying at noon.", "Void spraying at noon."),
+        (
+            "Cultural Control:\n- Avid excessive application of nitrogen fertilizers.",
+            "Cultural Control:\n- Avoid excessive application of nitrogen fertilizers.",
+        ),
+    ],
+)
+def test_one_letter_negation_flip_is_rejected(original, rewrite):
+    result = guardrails.run_guardrail(original, rewrite)
+    assert result.checked_tokens.negation == CheckStatus.CHANGED
+    assert result.status == GuardrailStatus.FAILED
 
 
 # Example F - negation flipped

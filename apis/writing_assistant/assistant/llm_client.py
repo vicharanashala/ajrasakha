@@ -608,6 +608,15 @@ def _chat_completion(
                     "%s failed after %.1fs on attempt %d (budget %.0fs, input %d chars, model %s): %s",
                     call_name, elapsed, attempt_num, attempt_timeout, content_chars, config.GEMINI_MODEL, exc,
                 )
+                # A 4xx (bad key, bad request, 429 quota exhausted) will
+                # fail the same way on an immediate second attempt - and a
+                # 429 retry only adds load to the exhausted quota. Raised as
+                # LLMUnavailableError so it's final, never hedged/retried.
+                # 408 is a timeout, retried like any other stall.
+                if isinstance(exc, httpx.HTTPStatusError):
+                    status = exc.response.status_code
+                    if 400 <= status < 500 and status != 408:
+                        raise LLMUnavailableError(f"Gemini call failed: {exc}") from exc
                 raise
             except (KeyError, IndexError, ValueError) as exc:
                 # Not retried/hedged - a response DID come back, just not
@@ -641,7 +650,7 @@ def _chat_completion(
                 try:
                     return fut.result()
                 except LLMUnavailableError as exc:
-                    last_exc = exc  # malformed response - final, no hedge
+                    last_exc = exc  # malformed response or 4xx - final, no hedge
                 except httpx.HTTPError as exc:
                     last_exc = exc
                     if attempts_started < 2:

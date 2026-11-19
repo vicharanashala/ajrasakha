@@ -62,14 +62,13 @@ def _presence_diff_check(
     permits" was rejected for using 'if' instead of 'when', despite the
     condition itself being unchanged.
 
-    marker_words (the category's own raw word set, e.g. NEGATION_WORDS)
+    marker_words (the category's own raw word set, e.g. CONDITIONAL_MARKERS)
     enables a second, narrower false-positive guard: a presence flip
     caused by a single-word spelling fix that happened to land on/off a
-    marker word (e.g. "Avid" -> "Avoid" - see
-    text_checks.is_single_word_typo_fix) is not a real content change,
-    just a typo crossing the marker boundary by accident - confirmed
-    live. Passing None skips this guard (used by callers with no single
-    well-defined word set, none currently).
+    marker word (see text_checks.is_single_word_typo_fix) is not a real
+    content change, just a typo crossing the marker boundary by accident.
+    Passing None skips this guard - negation does, since there a one-
+    letter edit can reverse the instruction ("never" -> "ever").
 
     Also returns the sentence pair that triggered a CHANGED verdict (or
     None otherwise) - without it, a rejection detail can only say "a
@@ -134,9 +133,12 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
             f"Original: {certainty_pair[0]!r} -> Rewrite: {certainty_pair[1]!r}"
         )
 
-    tokens.negation, negation_pair = _presence_diff_check(
-        pairs, text_checks.extract_negations, text_checks.NEGATION_WORDS
-    )
+    # No typo-fix exemption for negation (marker_words=None): a one-letter
+    # edit can reverse an instruction outright ("never" -> "ever", "avoid"
+    # -> "void"), and is_single_word_typo_fix can't tell that apart from a
+    # harmless spelling fix. Any negation presence flip is flagged, at the
+    # cost of also rejecting a genuine typo fix like "Avid" -> "Avoid".
+    tokens.negation, negation_pair = _presence_diff_check(pairs, text_checks.extract_negations)
     if tokens.negation == CheckStatus.CHANGED:
         details.append(
             "A negation marker (e.g. 'not'/'never'/'avoid') was added or removed. "

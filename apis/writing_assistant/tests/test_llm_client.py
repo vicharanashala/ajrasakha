@@ -68,6 +68,41 @@ def test_chat_completion_retries_once_and_returns_the_successful_result(monkeypa
     assert calls["count"] == 2
 
 
+def _status_response(status: int):
+    request = httpx.Request("POST", "https://example.invalid")
+    return httpx.Response(status, request=request, json={"error": {"code": status}})
+
+
+# A 4xx fails identically on an immediate retry, and retrying a 429 only
+# adds load to an already-exhausted quota - so no second attempt.
+@pytest.mark.parametrize("status", [400, 403, 429])
+def test_chat_completion_does_not_retry_a_4xx(monkeypatch, status):
+    calls = {"count": 0}
+
+    def _client_error(*a, **kw):
+        calls["count"] += 1
+        return _status_response(status)
+
+    monkeypatch.setattr(llm_client, "_post", _client_error)
+    with pytest.raises(LLMUnavailableError):
+        llm_client._chat_completion([{"role": "user", "content": "hi"}])
+    assert calls["count"] == 1
+
+
+# 408 is a timeout and 5xx a server-side hiccup - both still get the retry.
+@pytest.mark.parametrize("status", [408, 500, 503])
+def test_chat_completion_retries_a_408_or_5xx(monkeypatch, status):
+    calls = {"count": 0}
+
+    def _fail_then_succeed(*a, **kw):
+        calls["count"] += 1
+        return _status_response(status) if calls["count"] == 1 else _gemini_response("recovered")
+
+    monkeypatch.setattr(llm_client, "_post", _fail_then_succeed)
+    assert llm_client._chat_completion([{"role": "user", "content": "hi"}]) == "recovered"
+    assert calls["count"] == 2
+
+
 # Hedging (racing a second, independent attempt once the first runs past
 # the typical latency window) was built against evidence the self-hosted
 # MiniMax model's slow tail was transient GPU compute contention, not a
