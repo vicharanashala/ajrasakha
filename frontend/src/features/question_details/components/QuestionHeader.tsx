@@ -16,7 +16,7 @@ import { useConfirmDuplicate } from "@/hooks/api/answer/useConfirmDuplicate";
 import { Textarea } from "@/components/atoms/textarea";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/atoms/alert-dialog";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/atoms/dialog";
-import { CircleCheck, GitCompareArrows, History } from "lucide-react";
+import { CircleCheck, GitCompareArrows, GraduationCap, History } from "lucide-react";
 import { diffWords } from "@/utils/wordDifference";
 import { AuditTrailModal } from "./AuditTrailModal";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
@@ -395,6 +395,12 @@ export const QuestionHeader = ({ question, goBack, currentUser, isQuestionAlloca
                   {isCheckingDuplicate ? "Checking..." : "Check Duplicate"}
                 </Button>
               )
+            )}
+            {question.isTrainingQuestion && (
+              <Badge className="bg-sky-500/10 text-sky-700 border-sky-500/30 dark:bg-sky-500/15 dark:text-sky-300 dark:border-sky-500/30 gap-1">
+                <GraduationCap className="h-3 w-3" />
+                TMU
+              </Badge>
             )}
             {!isDuplicate && (
               <>
