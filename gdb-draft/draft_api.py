@@ -122,7 +122,9 @@ def agent_research(request: "DraftRequest", from_sources: list[dict[str, Any]]) 
     if os.getenv("DRAFT_ENGINE", "agent").strip().lower() == "search" or not anara_search.enabled():
         return None
     names = list(dict.fromkeys(str(p.get("documentName")) for p in from_sources if p.get("documentName")))
-    return anara_agent.research(request.question, request.crop, request.state, request.domain, names)
+    return anara_agent.research(
+        request.question, request.crop, request.state, request.domain, names, write_answer=anara_agent.ANSWER_BY_AGENT
+    )
 
 
 def _pdf_path(document_id: str):
@@ -190,10 +192,13 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
             passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        draft = draft_answer(
-            request.question, passages, request.crop, request.domain, notes=notes or None,
-            max_passages=anara_agent.MAX_PASSAGES if notes else None,
-        )
+        if researched is not None and researched.get("writes_answer"):
+            draft = anara_agent.finished_answer(notes, passages)
+        else:
+            draft = draft_answer(
+                request.question, passages, request.crop, request.domain, notes=notes or None,
+                max_passages=anara_agent.MAX_PASSAGES if notes else None,
+            )
         notes = [draft.get("note") or ""]
         if not draft.get("answer") and researched is not None:
             # the agent's own explanation says what the library does and does not hold, which is more use to the

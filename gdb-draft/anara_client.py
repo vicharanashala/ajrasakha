@@ -15,7 +15,7 @@ import re
 import threading
 import time
 import webbrowser
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from typing import Any
 from urllib.parse import parse_qs, urlparse
@@ -146,7 +146,7 @@ async def _wait_for_callback() -> AuthorizationCodeResult:
         def log_message(self, *args):
             pass
 
-    server = HTTPServer(("localhost", CALLBACK_PORT), Handler)
+    server = ThreadingHTTPServer(("localhost", CALLBACK_PORT), Handler)
     threading.Thread(target=server.serve_forever, daemon=True).start()
     await asyncio.to_thread(done.wait, 300)
     server.shutdown()

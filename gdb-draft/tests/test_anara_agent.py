@@ -109,7 +109,7 @@ class TheAgentRun(unittest.TestCase):
                 raise RuntimeError("connection reset")
             return {"text": "## Findings\nx", "citations": []}
 
-        async def fake_run(prompt):
+        async def fake_run(prompt, timeout=0):
             return run(prompt)
 
         with patch.object(anara_search, "prepare"), patch.object(anara_agent, "_run", fake_run), patch.object(
@@ -174,6 +174,20 @@ class TheWriterLaysOutTheFindings(unittest.TestCase):
         thin = {"answer": "thin", "used_passages": [1], "note": ""}
         _, llm = self.run_draft([thin, thin, thin, thin])
         self.assertEqual(llm.call_count, 3)
+
+
+class TheAgentWritesTheAnswer(unittest.TestCase):
+    def test_the_prompt_carries_the_domain_layout_and_asks_for_the_answer(self):
+        prompt = anara_agent.build_prompt("dose?", "Wheat", "Punjab", "Soil Health and Nutrient Management", None, True)
+        self.assertIn("Broad:", prompt)
+        self.assertIn("Write the answer itself", prompt)
+        self.assertNotIn("do not write a final farmer-facing answer", prompt)
+
+    def test_the_finished_answer_has_plain_text_and_the_passages_it_cites(self):
+        passages = [{"passageId": "a", "documentName": "POP", "documentId": "d1", "pageNumber": 4}, {"passageId": "b"}]
+        result = anara_agent.finished_answer("## Dose" + chr(10) + "**20 kg** per acre {a}.", passages)
+        self.assertEqual(result["answer"], "Dose" + chr(10) + "20 kg per acre [P1].")
+        self.assertEqual([(c["passageNumber"], c["documentId"]) for c in result["citations"]], [(1, "d1")])
 
 
 if __name__ == "__main__":
