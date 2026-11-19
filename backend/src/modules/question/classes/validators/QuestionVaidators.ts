@@ -1200,20 +1200,13 @@ export class RdqaListQuery {
   @IsString()
   date?: string;
 
-  @JSONSchema({
-    description:
-      'Maximum number of questions to return. Defaults to 50. Maximum allowed is 50.',
-    example: 25,
-    type: 'integer',
-    minimum: 1,
-    maximum: 50,
-  })
+  @JSONSchema({ description: 'Page number (12 questions per page)', example: 1, type: 'integer', minimum: 1 })
   @IsOptional()
   @IsInt()
   @Min(1)
-  @Max(50)
   @Type(() => Number)
-  limit?: number;
+  page?: number;
+
 }
 
 /**

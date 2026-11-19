@@ -241,14 +241,14 @@ describe('RdqaListQuery Validator', () => {
     expect(query.date).toBeUndefined();
   });
 
-  it('should accept valid limit', () => {
+  it('should accept a valid page number', () => {
     const query = new RdqaListQuery();
-    query.limit = 25;
-    expect(query.limit).toBe(25);
+    query.page = 2;
+    expect(query.page).toBe(2);
   });
 
-  it('should allow undefined limit', () => {
+  it('should allow an undefined page', () => {
     const query = new RdqaListQuery();
-    expect(query.limit).toBeUndefined();
+    expect(query.page).toBeUndefined();
   });
 });

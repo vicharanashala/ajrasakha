@@ -3,10 +3,10 @@ import { QuestionService, type RdqaQuestion, type RdqaQuestionsResponse } from "
 
 const questionService = new QuestionService();
 
-export function useRdqaQuestions(date?: string, limit?: number) {
+export function useRdqaQuestions(date?: string, page = 1) {
   return useQuery<RdqaQuestionsResponse>({
-    queryKey: ["rdqa-questions", date, limit],
-    queryFn: () => questionService.getRdqaQuestions(date, limit),
+    queryKey: ["rdqa-questions", date, page],
+    queryFn: () => questionService.getRdqaQuestions(date, page),
     staleTime: 30 * 1000, // 30 seconds
   });
 }
