@@ -16,7 +16,6 @@ import {
   Clock,
   Copy,
   Check,
-  ArrowUpDown,
   History,
   MoreVertical,
   X,
@@ -55,13 +54,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/atoms/dropdown-menu";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/atoms/select";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -112,7 +104,6 @@ function convertRdqaToDetailedQuestion(rdqaQuestion: RdqaQuestion): IDetailedQue
 }
 
 const ITEMS_PER_PAGE = 12;
-const API_LIMIT = 50;
 
 function formatDateStr(date: Date | undefined): string {
   return date ? format(date, "yyyy-MM-dd") : "";
@@ -150,7 +141,6 @@ function isAnswerModifiedAfterCheck(question: RdqaQuestion | null | undefined): 
 }
 
 type StatusFilter = "all" | "flagged" | "modified" | "clean" | "not_checked";
-type SortOption = "default" | "flags_desc" | "flags_asc" | "modified_first" | "crop_asc";
 
 export const RdqaPage = () => {
   const { data: currentUser } = useGetCurrentUser({});
@@ -158,7 +148,6 @@ export const RdqaPage = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
-  const [sortOption, setSortOption] = useState<SortOption>("default");
   const [checkingQuestionId, setCheckingQuestionId] = useState<string | null>(null);
   const [selectedQuestion, setSelectedQuestion] = useState<RdqaQuestion | null>(null);
   const [detailsTab, setDetailsTab] = useState<string>("overview");
@@ -176,7 +165,7 @@ export const RdqaPage = () => {
 
   const { data: rdqaResponse, isLoading, error, refetch, isFetching } = useRdqaQuestions(
     formatDateStr(selectedDate),
-    API_LIMIT
+    currentPage
   );
   const { mutateAsync: checkQuestionsMutation, isPending: isCheckingMutation } = useRdqaCheckQuestions();
 
@@ -288,46 +277,19 @@ export const RdqaPage = () => {
       );
     }
 
-    if (sortOption === "flags_desc") {
-      list.sort((a, b) => {
-        const flagsA = (a.flags || a.answer?.flags || a.question?.flags || []).length;
-        const flagsB = (b.flags || b.answer?.flags || b.question?.flags || []).length;
-        return flagsB - flagsA;
-      });
-    } else if (sortOption === "flags_asc") {
-      list.sort((a, b) => {
-        const flagsA = (a.flags || a.answer?.flags || a.question?.flags || []).length;
-        const flagsB = (b.flags || b.answer?.flags || b.question?.flags || []).length;
-        return flagsA - flagsB;
-      });
-    } else if (sortOption === "modified_first") {
-      list.sort((a, b) => {
-        const modA = isAnswerModifiedAfterCheck(a) ? 1 : 0;
-        const modB = isAnswerModifiedAfterCheck(b) ? 1 : 0;
-        return modB - modA;
-      });
-    } else if (sortOption === "crop_asc") {
-      list.sort((a, b) => {
-        const cropA = (a.question?.details?.crop || "").toLowerCase();
-        const cropB = (b.question?.details?.crop || "").toLowerCase();
-        return cropA.localeCompare(cropB);
-      });
-    }
-
     return list;
-  }, [questions, statusFilter, debouncedSearch, sortOption]);
+  }, [questions, statusFilter, debouncedSearch]);
 
-  const totalQuestions = filteredAndSortedQuestions.length;
-  const totalPages = Math.ceil(totalQuestions / ITEMS_PER_PAGE);
+  const totalQuestions = rdqaResponse?.totalQuestions ?? 0;
+  const totalPages = rdqaResponse?.totalPages ?? 0;
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [selectedDate, debouncedSearch, statusFilter, sortOption]);
+  }, [selectedDate, debouncedSearch, statusFilter]);
 
   const paginatedQuestions = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filteredAndSortedQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filteredAndSortedQuestions, currentPage]);
+    return filteredAndSortedQuestions;
+  }, [filteredAndSortedQuestions]);
 
   const handleRunCheck = async () => {
     if (!questions || questions.length === 0) {
@@ -738,33 +700,6 @@ export const RdqaPage = () => {
                 )}
               </div>
 
-              {/* Sort Dropdown */}
-              <div className="w-36 shrink-0">
-                <Select value={sortOption} onValueChange={(val: SortOption) => setSortOption(val)}>
-                  <SelectTrigger className="h-8 w-full text-xs bg-background shrink-0">
-                    <ArrowUpDown className="w-3 h-3 mr-1 text-muted-foreground shrink-0" />
-                    <SelectValue placeholder="Sort" />
-                  </SelectTrigger>
-                  <SelectContent align="end">
-                    <SelectItem value="default" className="text-xs">
-                      Default
-                    </SelectItem>
-                    <SelectItem value="flags_desc" className="text-xs">
-                      Most Flags
-                    </SelectItem>
-                    <SelectItem value="flags_asc" className="text-xs">
-                      Fewest Flags
-                    </SelectItem>
-                    <SelectItem value="modified_first" className="text-xs">
-                      Modified First
-                    </SelectItem>
-                    <SelectItem value="crop_asc" className="text-xs">
-                      Crop (A-Z)
-                    </SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
               {/* Reset Filters Link */}
               {(statusFilter !== "all" || search) && (
                 <Button
@@ -1158,20 +1093,22 @@ export const RdqaPage = () => {
         </div>
 
         {/* Bottom Pagination */}
-        {!isLoading && !error && filteredAndSortedQuestions.length > 0 && (
+        {!isLoading && !error && totalQuestions > 0 && (
           <div className="flex flex-col sm:flex-row items-center justify-between gap-3 px-4 py-3 rounded-xl border border-border/70 bg-card/70 shadow-2xs">
             <div className="text-xs text-muted-foreground">
               Showing <strong className="text-foreground">
-                { Math.min(currentPage * ITEMS_PER_PAGE, filteredAndSortedQuestions.length)}
+                {Math.min((currentPage - 1) * ITEMS_PER_PAGE + 1, totalQuestions)}
+                {"–"}
+                {Math.min(currentPage * ITEMS_PER_PAGE, totalQuestions)}
               </strong>{" "}
-              of <strong className="text-foreground">{filteredAndSortedQuestions.length}</strong> questions
+              of <strong className="text-foreground">{totalQuestions}</strong> questions
             </div>
             <div className="flex items-center gap-1.5">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
-                disabled={currentPage === 1}
+                disabled={currentPage === 1 || isFetching}
                 className="h-8 px-2.5 text-xs"
               >
                 <ChevronLeft className="h-3.5 w-3.5 mr-1" />
@@ -1184,7 +1121,7 @@ export const RdqaPage = () => {
                 variant="outline"
                 size="sm"
                 onClick={() => setCurrentPage((p) => Math.min(totalPages || 1, p + 1))}
-                disabled={currentPage >= (totalPages || 1)}
+                disabled={currentPage >= totalPages || isFetching}
                 className="h-8 px-2.5 text-xs"
               >
                 Next
@@ -1503,7 +1440,7 @@ export const RdqaPage = () => {
                         <span className="text-muted-foreground block text-[11px]">Closed At:</span>
                         <p className="font-medium text-foreground mt-0.5">
                           {selectedQuestion.question?.closedAt
-                            ? new Date(selectedQuestion.question.closedAt).toLocaleDateString()
+                            ? new Date(selectedQuestion.question.closedAt).toLocaleString()
                             : "N/A"}
                         </p>
                       </div>
@@ -1588,24 +1525,18 @@ export const RdqaPage = () => {
               RDQA Distribution Details
             </DialogTitle>
             <DialogDescription className="text-xs">
-              Overview of question balancing and moderator workload for{" "}
+              Moderator workload for{" "}
               {selectedDate ? format(selectedDate, "PPP") : "the selected date"}
             </DialogDescription>
           </DialogHeader>
 
           {/* Minimal Stats Strip */}
-          <div className="grid grid-cols-3 gap-2.5 my-3">
+          <div className="grid grid-cols-2 gap-2.5 my-3">
             <div className="rounded-lg border bg-muted/20 p-3 text-center">
               <p className="text-xl font-bold text-foreground">
-                {rdqaResponse?.totalModerators ?? 0}
+                {rdqaResponse?.moderatorDistribution.length ?? 0}
               </p>
               <p className="text-[11px] text-muted-foreground mt-0.5">Moderators</p>
-            </div>
-            <div className="rounded-lg border bg-muted/20 p-3 text-center">
-              <p className="text-xl font-bold text-primary">
-                {rdqaResponse?.questionsPerModerator ?? 0}
-              </p>
-              <p className="text-[11px] text-muted-foreground mt-0.5">Per Moderator</p>
             </div>
             <div className="rounded-lg border bg-muted/20 p-3 text-center">
               <p className="text-xl font-bold text-foreground">
@@ -1631,27 +1562,8 @@ export const RdqaPage = () => {
                       {moderator.approvedByEmail || moderator.approvedBy}
                     </p>
                     <p className="text-[11px] text-muted-foreground">
-                      {moderator.totalAvailable} available · {moderator.selectedCount} selected
+                      {moderator.totalAvailable} closed
                     </p>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-20 sm:w-28 h-1.5 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full"
-                        style={{
-                          width: `${Math.min(
-                            100,
-                            (moderator.selectedCount / Math.max(1, moderator.totalAvailable)) * 100
-                          )}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-[11px] font-mono text-muted-foreground w-8 text-right">
-                      {Math.round(
-                        (moderator.selectedCount / Math.max(1, moderator.totalAvailable)) * 100
-                      )}
-                      %
-                    </span>
                   </div>
                 </div>
               ))}
