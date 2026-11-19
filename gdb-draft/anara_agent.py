@@ -54,7 +54,7 @@ How to work:
 # web chat; the default (writer) has it report findings that a second model then lays out.
 ANSWER_BY_AGENT = os.getenv("DRAFT_ANSWER_BY", "agent").strip().lower() == "agent"
 # no second model runs after the agent, so it may use most of the backend's 420 seconds (the longest seen: 171)
-ANSWER_TIMEOUT_SECONDS = float(os.getenv("ANARA_ANSWER_TIMEOUT", "300"))
+ANSWER_TIMEOUT_SECONDS = float(os.getenv("ANARA_ANSWER_TIMEOUT", "270"))
 
 ANSWER_PROMPT = """You are helping write an agricultural answer for a farmer-facing database in India.
 
@@ -212,6 +212,7 @@ def research(
             cited = _cited(result)
             hits = anara_client.passages_for(cited) if cited else []
             passages = anara_search.finish_hits(hits, keep_unopenable=True)
+            passages = _as_record_sources(passages)
             break
         except Exception as error:
             # the MCP client wraps the real error in an ExceptionGroup ("unhandled errors in a TaskGroup")
@@ -226,6 +227,33 @@ def research(
     notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", text)
     notes = notes.strip() if write_answer else _drop_narration(notes.strip())
     return {"passages": passages, "notes": notes, "other_states": other_states, "writes_answer": write_answer}
+
+
+_SOURCE_NAME = re.compile(r"^src-([A-Za-z0-9]+)__(.+?)(?:\.pdf)?$")
+
+
+def _as_record_sources(passages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    import anara_client
+    import library_files
+    import record_sources
+
+    unknown = sorted({p["documentId"] for p in passages if p.get("documentId") and not library_files.name_for_document(p["documentId"])})
+    if not unknown:
+        return passages
+    try:
+        names = anara_client.execute(
+            f"RESULT = {{i: (anara('entities.get', {{'id': i}}) or {{}}).get('name') for i in {anara_client.literal(unknown)}}}"
+        ) or {}
+    except Exception as error:
+        logger.warning("could not look up the names of cited documents: %s", error)
+        return passages
+    renamed = []
+    for passage in passages:
+        found = _SOURCE_NAME.match(str(names.get(passage.get("documentId")) or ""))
+        if found:
+            passage = {**passage, "documentId": record_sources.document_id_for(found.group(1)), "documentName": found.group(2)}
+        renamed.append(passage)
+    return renamed
 
 
 def _keep_state(passages: list[dict[str, Any]], state: str | None) -> tuple[list[dict[str, Any]], list[str], set[str]]:
