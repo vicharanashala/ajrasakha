@@ -343,6 +343,11 @@ export const QuestionRow: React.FC<QuestionRowProps> = ({
                   PAE
                 </span>
               )}
+              {q.isTrainingQuestion && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium border bg-sky-500/10 text-sky-600 border-sky-500/30 dark:text-sky-400 dark:border-sky-500/30 whitespace-nowrap">
+                  TMU
+                </span>
+              )}
 
               <div className="flex flex-col gap-1 py-1">
                 <TooltipProvider delayDuration={200}>

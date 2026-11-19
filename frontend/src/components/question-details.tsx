@@ -15,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
+  Info,
   Loader2,
   RefreshCw,
 } from "lucide-react";
@@ -241,6 +242,15 @@ export const QuestionDetails = ({
           transition={{ duration: 0.3, ease: "easeInOut" }}
           className="mx-auto p-3 sm:p-6 pt-0 grid gap-4 sm:gap-6 w-full max-w-full overflow-x-hidden"
         >
+          {question?.tag?.toLowerCase() === "static_dynamic" && (
+            <div className="w-full px-4 py-3 rounded-lg border bg-blue-50 border-blue-200 dark:bg-blue-950/40 dark:border-blue-800/60 flex items-center gap-2.5 text-blue-900 dark:text-blue-200 shadow-sm">
+              <Info className="h-4 w-4 shrink-0 text-blue-600 dark:text-blue-400" />
+              <span className="text-sm font-medium">
+                This is a static dynamic question.
+              </span>
+            </div>
+          )}
+
           <QuestionHeader
             question={question}
             goBack={goBack}
