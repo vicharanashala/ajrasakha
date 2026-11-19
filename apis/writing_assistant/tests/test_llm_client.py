@@ -121,6 +121,31 @@ def test_chat_completion_hedge_fails_when_both_attempts_fail(monkeypatch):
     assert calls["n"] == 2
 
 
+# One deadline for the whole logical call: the hedge gets only what's left
+# of the budget, not a fresh full one - otherwise a hedge fired at 18s on
+# a 30s budget stretched a single call to ~48s.
+def test_chat_completion_hedge_only_gets_the_remaining_budget(monkeypatch):
+    monkeypatch.setattr(llm_client, "_HEDGE_DELAY_SECONDS", 0.3)
+    timeouts = []
+    lock = threading.Lock()
+    release = threading.Event()
+
+    def _fake_post(url, json, headers, timeout):
+        with lock:
+            timeouts.append(timeout)
+            n = len(timeouts)
+        if n == 1:
+            release.wait(timeout=5)  # primary stalls past the hedge delay
+        return _gemini_response(f"result-{n}")
+
+    monkeypatch.setattr(llm_client, "_post", _fake_post)
+    assert llm_client._chat_completion([{"role": "user", "content": "hi"}], timeout=10) == "result-2"
+    release.set()
+
+    assert timeouts[0] == 10
+    assert timeouts[1] <= 10 - 0.3
+
+
 def test_chat_completion_fast_success_never_triggers_a_hedge(monkeypatch):
     monkeypatch.setattr(llm_client, "_HEDGE_DELAY_SECONDS", 0.05)
     calls = {"n": 0}
@@ -296,6 +321,26 @@ def test_classify_all_steps_coverage_uses_its_own_timeout_budget(monkeypatch):
     llm_client.classify_all_steps_coverage("draft text", "a question", [step], ["a step"])
     assert seen["timeout"] == config.GEMINI_COVERAGE_TIMEOUT_SECONDS
     assert seen["timeout"] != config.GEMINI_TIMEOUT_SECONDS
+
+
+# Results are matched back by step name, so the response schema pins
+# "step" to the exact names being scored - a mis-echoed name (en-dash
+# for hyphen, different casing) can't silently cost a step its vote.
+def test_classify_all_steps_coverage_constrains_step_to_the_requested_names(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout):
+        seen["payload"] = json
+        return _gemini_response('[{"step": "Severity - impact", "coverage": "covered", "section_index": 1}]')
+
+    monkeypatch.setattr(llm_client, "_post", _fake_post)
+    steps = [
+        ReferenceStep(sl_no=1, step="Introduction", example="ex"),
+        ReferenceStep(sl_no=4, step="Severity - impact", example="ex"),
+    ]
+    llm_client.classify_all_steps_coverage("draft", "q", steps, [s.step for s in steps])
+    schema = seen["payload"]["generationConfig"]["responseSchema"]
+    assert schema["items"]["properties"]["step"]["enum"] == ["Introduction", "Severity - impact"]
 
 
 # generate_polish and check_meaning_preserved_batch each run once per

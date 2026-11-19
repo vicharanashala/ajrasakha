@@ -66,7 +66,7 @@ def health() -> dict:
     can always parse this body rather than branching on HTTP status. This
     service has no external data dependency to load at startup (no Golden
     Database CSVs - structural validation uses one fixed, built-in
-    checklist, see structural_validator.FIXED_STEPS); the MiniMax and
+    checklist, see structural_validator.FIXED_STEPS); the Gemini and
     chemical-DB dependencies it calls per-request already fail closed on
     their own, per request, rather than degrading the whole service."""
     return {"status": "ok"}

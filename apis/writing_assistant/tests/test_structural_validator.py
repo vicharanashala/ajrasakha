@@ -270,8 +270,9 @@ def test_vote_checklist_unanimous_passes_through(monkeypatch):
         llm_client, "classify_all_steps_coverage",
         lambda *a, **kw: {"Introduction": (StepCoverage.COVERED, 3)},
     )
-    result = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
+    result, corroborated = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
     assert result == {"Introduction": (StepCoverage.COVERED, 3)}
+    assert corroborated
 
 
 def test_vote_checklist_majority_wins_over_minority(monkeypatch):
@@ -283,8 +284,9 @@ def test_vote_checklist_majority_wins_over_minority(monkeypatch):
         ]
     )
     monkeypatch.setattr(llm_client, "classify_all_steps_coverage", lambda *a, **kw: next(votes))
-    result = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
+    result, corroborated = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
     assert result == {"Introduction": (StepCoverage.COVERED, 1)}
+    assert corroborated  # 2 of 3 agree
 
 
 def test_vote_checklist_three_way_split_takes_the_most_cautious(monkeypatch):
@@ -296,8 +298,9 @@ def test_vote_checklist_three_way_split_takes_the_most_cautious(monkeypatch):
         ]
     )
     monkeypatch.setattr(llm_client, "classify_all_steps_coverage", lambda *a, **kw: next(votes))
-    result = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
+    result, corroborated = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
     assert result == {"Introduction": (StepCoverage.MISSING, None)}
+    assert not corroborated  # the winner is a tie-break, backed by one vote
 
 
 # Live-confirmed: the combined-checklist call shape cuts a full request
@@ -313,8 +316,9 @@ def test_vote_checklist_one_failed_attempt_still_uses_the_others(monkeypatch):
         return {"Introduction": (StepCoverage.COVERED, 1)}
 
     monkeypatch.setattr(llm_client, "classify_all_steps_coverage", _side_effect)
-    result = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
+    result, corroborated = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
     assert result == {"Introduction": (StepCoverage.COVERED, 1)}
+    assert corroborated  # the two votes that came back agree
 
 
 def test_vote_checklist_all_attempts_failing_returns_not_assessed(monkeypatch):
@@ -322,5 +326,34 @@ def test_vote_checklist_all_attempts_failing_returns_not_assessed(monkeypatch):
         raise LLMUnavailableError("simulated outage")
 
     monkeypatch.setattr(llm_client, "classify_all_steps_coverage", _raise)
-    result = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
+    result, corroborated = structural_validator._vote_checklist("draft", "q", _VOTE_STEPS, ["Introduction"])
     assert result == {"Introduction": (StepCoverage.NOT_ASSESSED, None)}
+    assert not corroborated
+
+
+# Live-confirmed on a slow host: votes 1 and 2 both timed out, and the
+# fallback 3rd call alone marked a well-structured draft missing on every
+# step. That lone vote is still the answer for this request, but it must
+# not be cached - the next identical request re-runs instead of replaying
+# an uncorroborated verdict until restart.
+def test_single_surviving_vote_is_returned_but_not_cached(monkeypatch):
+    calls = {"n": 0}
+    lock = threading.Lock()
+
+    def _classify(draft, question, steps, all_step_names):
+        with lock:
+            calls["n"] += 1
+            n = calls["n"]
+        if n <= 2:
+            raise LLMUnavailableError("simulated timeout")
+        return {s.step: (StepCoverage.MISSING, None) for s in steps}
+
+    monkeypatch.setattr(llm_client, "classify_all_steps_coverage", _classify)
+
+    first = structural_validator.validate_structure_cached("q3", _FULL_DRAFT)
+    assert first.status == StructuralValidationStatus.INCOMPLETE
+    assert calls["n"] == 3
+
+    second = structural_validator.validate_structure_cached("q3", _FULL_DRAFT)
+    assert second is not first  # recomputed, not served from cache
+    assert calls["n"] > 3

@@ -131,7 +131,7 @@ class LanguagePolishingResult(CamelModel):
 
 
 class LLMUnavailableError(Exception):
-    """Raised when the MiniMax call itself cannot complete (network error,
+    """Raised when the Gemini call itself cannot complete (network error,
     timeout, bad response shape). Callers must treat this as a failure to
     reject-and-explain, never as permission to skip the guardrail."""
 

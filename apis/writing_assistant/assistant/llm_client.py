@@ -275,7 +275,7 @@ def _generate_polish_per_section(draft_text: str) -> tuple[str, list[int]]:
         try:
             content = _chat_completion(
                 messages, temperature=0.0, call_name=f"generate_polish[section {i}]",
-                timeout=config.GEMINI_POLISH_TIMEOUT_SECONDS,
+                timeout=config.GEMINI_POLISH_TIMEOUT_SECONDS, thinking_level="low",
             )
             return content.strip(), None
         except LLMUnavailableError as exc:
@@ -422,18 +422,23 @@ _ALL_STEPS_COVERAGE_SYSTEM_PROMPT = (
     "in the same order steps_to_score was given."
 )
 
-_STEP_COVERAGE_RESPONSE_SCHEMA = {
-    "type": "ARRAY",
-    "items": {
-        "type": "OBJECT",
-        "properties": {
-            "step": {"type": "STRING"},
-            "coverage": {"type": "STRING", "enum": ["covered", "partial", "missing"]},
-            "section_index": {"type": "INTEGER", "nullable": True},
+def _step_coverage_response_schema(step_names: list[str]) -> dict:
+    """"step" is constrained to the exact names being scored: results are
+    matched back by name, so a model echoing a name with any variation
+    (an en-dash for a hyphen, different casing) would otherwise silently
+    cost that step its vote and leave it NOT_ASSESSED."""
+    return {
+        "type": "ARRAY",
+        "items": {
+            "type": "OBJECT",
+            "properties": {
+                "step": {"type": "STRING", "enum": step_names},
+                "coverage": {"type": "STRING", "enum": ["covered", "partial", "missing"]},
+                "section_index": {"type": "INTEGER", "nullable": True},
+            },
+            "required": ["step", "coverage"],
         },
-        "required": ["step", "coverage"],
-    },
-}
+    }
 
 
 def classify_all_steps_coverage(
@@ -485,7 +490,7 @@ def classify_all_steps_coverage(
         temperature=0.0,
         call_name="classify_all_steps_coverage",
         timeout=config.GEMINI_COVERAGE_TIMEOUT_SECONDS,
-        response_schema=_STEP_COVERAGE_RESPONSE_SCHEMA,
+        response_schema=_step_coverage_response_schema([s.step for s in steps]),
         thinking_level="medium",
     )
     try:
@@ -564,6 +569,14 @@ def _chat_completion(
     # this costs nothing on the normal path.
     content_chars = sum(len(m.get("content", "")) for m in messages)
 
+    # One deadline for the whole logical call, primary + hedge/retry. A
+    # second attempt gets only what's left of the budget rather than a
+    # fresh full one - otherwise a hedge fired at _HEDGE_DELAY_SECONDS
+    # stretched one call to ~48s on a 30s budget, and with the structural
+    # vote's sequential 3rd call on top, a single request could approach
+    # two minutes on a slow host.
+    deadline = time.monotonic() + budget
+
     def _attempt(attempt_num: int) -> str:
         # Acquired before the real network call (both a primary attempt
         # and a hedge) so total concurrent model calls process-wide never
@@ -573,8 +586,9 @@ def _chat_completion(
         # latency, not time spent queued for a slot.
         with _concurrency_semaphore:
             t0 = time.monotonic()
+            attempt_timeout = budget if attempt_num == 1 else max(1.0, deadline - t0)
             try:
-                response = _post(url, json=payload, headers=headers, timeout=budget)
+                response = _post(url, json=payload, headers=headers, timeout=attempt_timeout)
                 response.raise_for_status()
                 data = response.json()
                 candidates = data.get("candidates") or []
@@ -592,7 +606,7 @@ def _chat_completion(
                 elapsed = time.monotonic() - t0
                 log.warning(
                     "%s failed after %.1fs on attempt %d (budget %.0fs, input %d chars, model %s): %s",
-                    call_name, elapsed, attempt_num, budget, content_chars, config.GEMINI_MODEL, exc,
+                    call_name, elapsed, attempt_num, attempt_timeout, content_chars, config.GEMINI_MODEL, exc,
                 )
                 raise
             except (KeyError, IndexError, ValueError) as exc:
@@ -607,8 +621,8 @@ def _chat_completion(
     # return on the losing, still-running one finishing too - exactly
     # defeating the point of hedging. shutdown(wait=False) below lets a
     # winning result return immediately; the loser's thread simply runs
-    # to its own natural end (bounded by its own httpx timeout=budget)
-    # and is discarded.
+    # to its own natural end (bounded by its own httpx timeout) and is
+    # discarded.
     racer = ThreadPoolExecutor(max_workers=2, thread_name_prefix="gemini-hedge")
     try:
         pending = {racer.submit(_attempt, 1)}

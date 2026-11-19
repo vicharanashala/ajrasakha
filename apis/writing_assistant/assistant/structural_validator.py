@@ -161,11 +161,20 @@ def _resolve_step_votes(votes: list[tuple[StepCoverage, int | None]]) -> tuple[S
 
 def _vote_checklist(
     draft_text: str, question: str, steps: list[ReferenceStep], all_step_names: list[str]
-) -> dict[str, tuple[StepCoverage, int | None]]:
+) -> tuple[dict[str, tuple[StepCoverage, int | None]], bool]:
     """Runs up to _CHECKLIST_VOTES full-checklist calls (see this module's
     own comment above _CHECKLIST_VOTES for why this is a call-level vote,
     not a per-step one) and resolves each step's own majority across
-    whichever attempts actually answered for it."""
+    whichever attempts actually answered for it.
+
+    Also returns whether the result is corroborated: every step's winning
+    verdict was backed by at least 2 agreeing votes. Not corroborated means
+    the answer rests on a single vote for some step - e.g. votes 1 and 2
+    both timed out and only the fallback 3rd call answered (live-confirmed
+    on a slow host, where that lone vote marked a well-structured draft
+    missing on every step), or a 3-way split resolved by the caution
+    tie-break. Still returned to the caller, but never cached (see
+    validate_structure_cached)."""
     first_two = llm_client.run_concurrent(
         [lambda: _attempt_checklist(draft_text, question, steps, all_step_names) for _ in range(2)]
     )
@@ -193,12 +202,16 @@ def _vote_checklist(
                 if step.step in third:
                     votes_by_step[step.step].append(third[step.step])
 
-    return {step.step: _resolve_step_votes(votes_by_step[step.step]) for step in steps}
+    resolved = {step.step: _resolve_step_votes(votes_by_step[step.step]) for step in steps}
+    corroborated = all(
+        sum(1 for coverage, _ in votes_by_step[s.step] if coverage == resolved[s.step][0]) >= 2 for s in steps
+    )
+    return resolved, corroborated
 
 
 def score_coverage(
     draft_text: str, question: str, steps: list[ReferenceStep] = FIXED_STEPS
-) -> tuple[list[StepCoverageResult], list[int | None]]:
+) -> tuple[list[StepCoverageResult], list[int | None], bool]:
     """Scores `steps` (defaults to the full FIXED_STEPS checklist) against
     the draft. A caller-supplied subset (PolishDraftRequest.skip_steps,
     see validate_structure) still carries every other step's name as
@@ -206,9 +219,10 @@ def score_coverage(
     score is not dropped from what the model is told exists, since that
     context is what tells "this is step N's own topic" apart from "this
     merely overlaps a different step" (see classify_all_steps_coverage's
-    own docstring)."""
+    own docstring). The third return value is _vote_checklist's
+    corroborated flag."""
     all_step_names = [s.step for s in FIXED_STEPS]
-    vote_results = _vote_checklist(draft_text, question, steps, all_step_names)
+    vote_results, corroborated = _vote_checklist(draft_text, question, steps, all_step_names)
     results = []
     section_indices: list[int | None] = []
     for step in steps:
@@ -241,7 +255,7 @@ def score_coverage(
             )
         )
         section_indices.append(section_index)
-    return results, section_indices
+    return results, section_indices, corroborated
 
 
 def _summarize(steps: list[StepCoverageResult]) -> StructuralValidationStatus:
@@ -290,6 +304,14 @@ def validate_structure(
     them, and no call is made for them at all. An unrecognized name is a
     no-op, not an error - logged so a caller-side typo is still visible
     somewhere, but it doesn't fail or change the rest of the request."""
+    return _validate_structure(question, draft_text, skip_steps)[0]
+
+
+def _validate_structure(
+    question: str, draft_text: str, skip_steps: list[str] | None
+) -> tuple[StructuralValidationResult, bool]:
+    """validate_structure plus _vote_checklist's corroborated flag, which
+    validate_structure_cached needs and the HTTP response doesn't."""
     steps_to_check = FIXED_STEPS
     if skip_steps:
         skip_set = set(skip_steps)
@@ -298,12 +320,13 @@ def validate_structure(
             log.warning("skip_steps named unrecognized step(s), ignoring: %s", sorted(unknown))
         steps_to_check = [s for s in FIXED_STEPS if s.step not in skip_set]
 
-    steps, section_indices = score_coverage(draft_text, question, steps_to_check)
-    return StructuralValidationResult(
+    steps, section_indices, corroborated = score_coverage(draft_text, question, steps_to_check)
+    result = StructuralValidationResult(
         status=_summarize(steps),
         steps=steps,
         order_warnings=_order_warnings(steps, section_indices),
     )
+    return result, corroborated
 
 
 _cache = ResultCache()
@@ -327,21 +350,19 @@ def validate_structure_cached(
     cannot make the model's judgment on two *different*-but-similar
     drafts consistent with each other.
 
-    A result with any NOT_ASSESSED step is excluded from caching - it's a
-    transient failure (an LLM call erroring, not a genuine judgment)
-    wearing a "partial"/"incomplete" status, and caching it would
-    permanently stick a bad answer to this input until the next restart
-    (Revision 18), even though every *other* step in it may be a
-    perfectly good, stable judgment. Tests must clear this between cases
-    - see conftest.py."""
+    Only a corroborated result is cached (see _vote_checklist): every
+    step's verdict backed by at least 2 agreeing votes. That excludes a
+    result with any NOT_ASSESSED step - a transient failure (an LLM call
+    erroring, not a genuine judgment) wearing a "partial"/"incomplete"
+    status, which would permanently stick a bad answer to this input
+    until the next restart (Revision 18) - and also one resting on a
+    single surviving vote, which is a real judgment but an uncorroborated
+    one. Tests must clear this between cases - see conftest.py."""
     def _compute():
-        return validate_structure(question, draft_text, skip_steps)
-
-    def _is_stable(r: StructuralValidationResult) -> bool:
-        return not any(s.coverage == StepCoverage.NOT_ASSESSED for s in r.steps)
+        return _validate_structure(question, draft_text, skip_steps)
 
     cache_key = (question, draft_text, tuple(sorted(skip_steps)) if skip_steps else ())
-    return _cache.get_or_compute(cache_key, _compute, _is_stable)
+    return _cache.get_or_compute(cache_key, _compute, lambda r: r[1])[0]
 
 
 validate_structure_cached.cache_clear = _cache.cache_clear
