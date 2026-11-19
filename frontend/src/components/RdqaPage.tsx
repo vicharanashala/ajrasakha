@@ -1440,7 +1440,7 @@ export const RdqaPage = () => {
                         <span className="text-muted-foreground block text-[11px]">Closed At:</span>
                         <p className="font-medium text-foreground mt-0.5">
                           {selectedQuestion.question?.closedAt
-                            ? new Date(selectedQuestion.question.closedAt).toLocaleDateString()
+                            ? new Date(selectedQuestion.question.closedAt).toLocaleString()
                             : "N/A"}
                         </p>
                       </div>
