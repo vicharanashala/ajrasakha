@@ -113,6 +113,13 @@ def record_source_passages(
             logger.exception("Anara could not search the record's files in time; their PDFs are read directly")
     rest = [s for s in sources if (record_sources.parse_link(s["url"]) or (None, None))[1] not in handled]
     own, own_problems = record_sources.search_sources(question, rest, crop) if rest else ([], [])
+    reading = {file_id for file_id, _name in anara_sources._pending.values()}
+    names = {(s.get("name") or "").strip(): (record_sources.parse_link(s["url"]) or (None, None))[1] for s in rest}
+    own_problems = [
+        f"{problem.split(':', 1)[0]}: Anara is still reading this file (it is scanned); draft again in a few minutes to use it"
+        if names.get(problem.split(":", 1)[0].strip()) in reading else problem
+        for problem in own_problems
+    ]
     return found + own, problems + own_problems
 
 
