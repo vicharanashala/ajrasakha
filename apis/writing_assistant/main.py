@@ -3,6 +3,7 @@ an author's draft answer, called by the Node backend before the draft
 enters the existing review workflow. Never mutates the draft itself.
 """
 
+import contextlib
 import hmac
 import logging
 import uuid
@@ -21,7 +22,25 @@ from assistant.models import (
 logging.basicConfig(level=logging.INFO, format="%(asctime)s | %(levelname)-7s | %(message)s")
 log = logging.getLogger("writing_assistant")
 
-app = FastAPI(title="Writing Assistant")
+
+@contextlib.asynccontextmanager
+async def lifespan(_app: FastAPI):
+    # The X-API-Key check (require_api_key below) is opt-in - unset, it's
+    # a silent no-op by design, so a misconfigured deployment that never
+    # set WRITING_ASSISTANT_API_KEY would otherwise run unauthenticated
+    # with nothing in the logs to say so. This is the one place that
+    # actually gets looked at on boot (a Render/Cloud Run deploy log),
+    # same spirit as answer-check/answer-scoring's own
+    # _log_startup_config - logs only whether the key is set, never the
+    # key itself.
+    if config.WRITING_ASSISTANT_API_KEY:
+        log.info("WRITING_ASSISTANT_API_KEY is set - /polish-draft requires X-API-Key")
+    else:
+        log.warning("WRITING_ASSISTANT_API_KEY is NOT set - /polish-draft is running UNAUTHENTICATED")
+    yield
+
+
+app = FastAPI(title="Writing Assistant", lifespan=lifespan)
 
 _api_key_header = APIKeyHeader(name="X-API-Key", auto_error=False)
 

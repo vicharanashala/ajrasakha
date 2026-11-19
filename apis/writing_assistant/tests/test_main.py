@@ -71,6 +71,26 @@ def test_health_never_requires_api_key_even_when_one_is_configured(monkeypatch):
     assert response.status_code == 200
 
 
+# The X-API-Key check is a silent no-op when unset, by design - this is
+# the one place that actually surfaces that fact (a deploy log), so a
+# misconfigured deployment that never set the key doesn't run
+# unauthenticated with nothing anywhere to say so.
+def test_startup_warns_when_api_key_is_not_set(monkeypatch, caplog):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "")
+    with caplog.at_level("WARNING", logger="writing_assistant"):
+        with TestClient(main.app):
+            pass
+    assert any("UNAUTHENTICATED" in r.getMessage() for r in caplog.records)
+
+
+def test_startup_does_not_warn_when_api_key_is_set(monkeypatch, caplog):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    with caplog.at_level("WARNING", logger="writing_assistant"):
+        with TestClient(main.app):
+            pass
+    assert not any("UNAUTHENTICATED" in r.getMessage() for r in caplog.records)
+
+
 def test_polish_draft_endpoint_offers_a_suggestion_when_structure_is_complete(monkeypatch):
     monkeypatch.setattr(llm_client, "generate_polish", lambda draft: ("The treatment is effective when farmers apply it correctly.", []))
     monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
