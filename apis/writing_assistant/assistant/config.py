@@ -30,6 +30,20 @@ GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
 # so a full request costs ~2-3 of these calls, not the ~30 single-step
 # calls this used to take.
 GEMINI_COVERAGE_TIMEOUT_SECONDS = float(os.getenv("GEMINI_COVERAGE_TIMEOUT_SECONDS", "30"))
+# The floor above is sized for a typical draft's call latency (~5-15s,
+# see llm_client._HEDGE_DELAY_SECONDS's own comment) - fine for a short
+# draft, but a guaranteed timeout on a long one: classify_all_steps_
+# coverage sends the WHOLE draft in a single call, so more draft text
+# means more for the model to read on top of reasoning about all 10
+# steps at once. A fixed budget doesn't just make that one call slow -
+# every one of _CHECKLIST_VOTES' repeated votes hits the identical wall
+# and fails the same way, so the request comes back not_assessed on
+# every step regardless of how many votes run (live-confirmed: a 7-
+# section draft returned not_assessed on all 10 steps after 62.6s).
+# This is the cap llm_client._coverage_timeout_for scales up to for a
+# large draft, leaving GEMINI_COVERAGE_TIMEOUT_SECONDS above as the
+# floor every draft still gets at minimum.
+GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS = float(os.getenv("GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS", "70"))
 # generate_polish (whole-document, with a per-section fallback) and
 # check_meaning_preserved_batch's own budget - each now runs once per
 # request in the common case (not once per section).

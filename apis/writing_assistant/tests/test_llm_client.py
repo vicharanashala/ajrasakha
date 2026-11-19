@@ -12,7 +12,7 @@ import httpx
 import pytest
 
 from assistant import config, llm_client
-from assistant.models import LLMUnavailableError, ReferenceStep
+from assistant.models import LLMUnavailableError, ReferenceStep, StepCoverage
 
 
 def _gemini_response(text: str):
@@ -356,6 +356,99 @@ def test_classify_all_steps_coverage_uses_its_own_timeout_budget(monkeypatch):
     llm_client.classify_all_steps_coverage("draft text", "a question", [step], ["a step"])
     assert seen["timeout"] == config.GEMINI_COVERAGE_TIMEOUT_SECONDS
     assert seen["timeout"] != config.GEMINI_TIMEOUT_SECONDS
+
+
+def test_coverage_timeout_for_is_flat_below_the_scaling_start():
+    assert llm_client._coverage_timeout_for(0) == config.GEMINI_COVERAGE_TIMEOUT_SECONDS
+    assert (
+        llm_client._coverage_timeout_for(llm_client._COVERAGE_SCALE_START_CHARS)
+        == config.GEMINI_COVERAGE_TIMEOUT_SECONDS
+    )
+
+
+def test_coverage_timeout_for_is_flat_at_and_above_the_scaling_end():
+    assert (
+        llm_client._coverage_timeout_for(llm_client._COVERAGE_SCALE_END_CHARS)
+        == config.GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS
+    )
+    assert (
+        llm_client._coverage_timeout_for(llm_client._COVERAGE_SCALE_END_CHARS * 10)
+        == config.GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS
+    )
+
+
+def test_coverage_timeout_for_scales_linearly_between_the_thresholds():
+    midpoint = (llm_client._COVERAGE_SCALE_START_CHARS + llm_client._COVERAGE_SCALE_END_CHARS) / 2
+    expected = (config.GEMINI_COVERAGE_TIMEOUT_SECONDS + config.GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS) / 2
+    assert llm_client._coverage_timeout_for(midpoint) == pytest.approx(expected)
+
+
+# A long draft is exactly the case that used to be a guaranteed timeout
+# (every vote sends the same oversized input and hits the same fixed
+# budget) - confirms the real call site actually gets the scaled-up
+# budget, not just the helper function in isolation.
+def test_classify_all_steps_coverage_scales_timeout_up_for_a_long_draft(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout):
+        seen["timeout"] = timeout
+        return _gemini_response('[{"step": "a step", "coverage": "covered", "section_index": 1}]')
+
+    monkeypatch.setattr(llm_client, "_post", _fake_post)
+    step = ReferenceStep(sl_no=1, step="a step", example="an example")
+    long_draft = "A fairly long sentence about crop management. " * 200
+    llm_client.classify_all_steps_coverage(long_draft, "a question", [step], ["a step"])
+    assert seen["timeout"] > config.GEMINI_COVERAGE_TIMEOUT_SECONDS
+    assert seen["timeout"] <= config.GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS
+
+
+# A short draft must stay exactly as fast as it is today - scaling must
+# never show up for the common case, only for a genuinely long draft.
+def test_classify_all_steps_coverage_does_not_scale_timeout_for_a_short_draft(monkeypatch):
+    seen = {}
+
+    def _fake_post(url, json, headers, timeout):
+        seen["timeout"] = timeout
+        return _gemini_response('[{"step": "a step", "coverage": "covered", "section_index": 1}]')
+
+    monkeypatch.setattr(llm_client, "_post", _fake_post)
+    step = ReferenceStep(sl_no=1, step="a step", example="an example")
+    llm_client.classify_all_steps_coverage("A short draft.", "a question", [step], ["a step"])
+    assert seen["timeout"] == config.GEMINI_COVERAGE_TIMEOUT_SECONDS
+
+
+# The hedge must defer proportionally with a scaled-up budget, not fire
+# at the flat default early on a call already expected to run long -
+# verified by making the primary attempt hang past the flat default
+# (18s) but resolve well within the scaled hedge delay, with only one
+# attempt ever reaching _post.
+def test_classify_all_steps_coverage_hedge_defers_for_a_long_draft(monkeypatch):
+    calls = {"count": 0}
+    release = threading.Event()
+
+    def _slow_then_done(url, json, headers, timeout):
+        calls["count"] += 1
+        release.wait(timeout=5)
+        return _gemini_response('[{"step": "a step", "coverage": "covered", "section_index": 1}]')
+
+    monkeypatch.setattr(llm_client, "_post", _slow_then_done)
+    monkeypatch.setattr(llm_client, "_HEDGE_DELAY_SECONDS", 0.2)
+    step = ReferenceStep(sl_no=1, step="a step", example="an example")
+    long_draft = "A fairly long sentence about crop management. " * 200
+
+    def _release_after(seconds):
+        time.sleep(seconds)
+        release.set()
+
+    releaser = threading.Thread(target=_release_after, args=(0.4,))
+    releaser.start()
+    result = llm_client.classify_all_steps_coverage(long_draft, "a question", [step], ["a step"])
+    releaser.join()
+    assert result["a step"][0] == StepCoverage.COVERED
+    # The flat 0.2s default would have hedged well before the 0.4s
+    # release and fired a second attempt; the scaled delay (60% of the
+    # long draft's bigger budget) must not have.
+    assert calls["count"] == 1
 
 
 # Results are matched back by step name, so the response schema pins

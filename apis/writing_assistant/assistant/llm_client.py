@@ -441,6 +441,43 @@ def _step_coverage_response_schema(step_names: list[str]) -> dict:
     }
 
 
+# classify_all_steps_coverage sends the whole draft in one call, so the
+# model has more to read AND more to reason about (all 10 steps at once,
+# thinkingLevel "medium") as the draft gets longer. A fixed budget sized
+# for a typical draft is a guaranteed timeout for a long one - not a bad-
+# luck timeout but a structural one, since every one of _CHECKLIST_VOTES'
+# repeated votes sends the same oversized input and hits the identical
+# wall. Scaling the budget keeps a short/typical draft exactly as fast as
+# GEMINI_COVERAGE_TIMEOUT_SECONDS always made it (unchanged below
+# _COVERAGE_SCALE_START_CHARS) while giving a long one real room to
+# finish instead of failing by construction.
+#
+# Scales on the draft's OWN length alone, not the full request payload -
+# the payload also carries a fixed ~2.3k chars of every FIXED_STEPS
+# step's name and example text (live-measured), present identically on
+# every call regardless of draft length. Including that fixed part would
+# make even a one-sentence draft look "long" and scale every call up,
+# defeating the point of keeping the common case fast.
+#
+# Linear between the two thresholds, flat outside them - deliberately
+# simple over a curve fit to data that doesn't exist yet; re-tune the
+# thresholds once real draft-length/latency pairs are logged.
+_COVERAGE_SCALE_START_CHARS = 1500  # below this draft length: flat GEMINI_COVERAGE_TIMEOUT_SECONDS (today's behavior)
+_COVERAGE_SCALE_END_CHARS = 4000  # at/above this draft length: flat GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS
+
+
+def _coverage_timeout_for(draft_chars: int) -> float:
+    base = config.GEMINI_COVERAGE_TIMEOUT_SECONDS
+    cap = config.GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS
+    if draft_chars <= _COVERAGE_SCALE_START_CHARS:
+        return base
+    if draft_chars >= _COVERAGE_SCALE_END_CHARS:
+        return cap
+    span = _COVERAGE_SCALE_END_CHARS - _COVERAGE_SCALE_START_CHARS
+    fraction = (draft_chars - _COVERAGE_SCALE_START_CHARS) / span
+    return base + fraction * (cap - base)
+
+
 def classify_all_steps_coverage(
     draft_text: str,
     question: str,
@@ -485,11 +522,22 @@ def classify_all_steps_coverage(
         {"role": "system", "content": _ALL_STEPS_COVERAGE_SYSTEM_PROMPT},
         {"role": "user", "content": json.dumps(payload)},
     ]
+    # draft_text's own length, not the full payload - see
+    # _coverage_timeout_for's own comment on why the fixed per-call
+    # overhead (every FIXED_STEPS step's name and example) is excluded.
+    timeout = _coverage_timeout_for(len(draft_text))
     content = _chat_completion(
         messages,
         temperature=0.0,
         call_name="classify_all_steps_coverage",
-        timeout=config.GEMINI_COVERAGE_TIMEOUT_SECONDS,
+        timeout=timeout,
+        # Hedge at the same 60% point of the budget that the flat
+        # defaults already sit at (_HEDGE_DELAY_SECONDS / GEMINI_COVERAGE_
+        # TIMEOUT_SECONDS = 18/30 = 0.6) - a short draft hedges exactly
+        # when it does today; a long one defers the hedge instead of
+        # firing a duplicate call early on a request already expected to
+        # run long.
+        hedge_delay=timeout * 0.6,
         response_schema=_step_coverage_response_schema([s.step for s in steps]),
         thinking_level="medium",
     )
@@ -525,6 +573,7 @@ def _chat_completion(
     messages: list[dict],
     call_name: str = "unknown",
     timeout: float | None = None,
+    hedge_delay: float | None = None,
     response_schema: dict | None = None,
     thinking_level: str | None = None,
     **kwargs,
@@ -533,6 +582,11 @@ def _chat_completion(
         raise LLMUnavailableError("GEMINI_API_KEY is not set")
 
     budget = timeout if timeout is not None else config.GEMINI_TIMEOUT_SECONDS
+    # Most callers get the flat, empirically-tuned default - only a
+    # caller whose own budget scales with input size (currently just
+    # classify_all_steps_coverage) passes a bigger one, so a call already
+    # expected to run long doesn't also pay for an early duplicate hedge.
+    delay_before_hedge = hedge_delay if hedge_delay is not None else _HEDGE_DELAY_SECONDS
     url = f"{config.GEMINI_BASE_URL.rstrip('/')}/models/{config.GEMINI_MODEL}:generateContent"
     # The key goes in a header, not the URL query string, so it never
     # ends up in access logs or history the way a ?key= param would.
@@ -641,7 +695,7 @@ def _chat_completion(
         # Give attempt 1 a head start up to the hedge delay before deciding
         # whether to hedge - most calls finish well within this and never
         # trigger a second attempt at all.
-        done, pending = wait(pending, timeout=_HEDGE_DELAY_SECONDS)
+        done, pending = wait(pending, timeout=delay_before_hedge)
         if not done:
             pending.add(racer.submit(_attempt, 2))
             attempts_started = 2
