@@ -180,7 +180,7 @@ export const QuestionRow = ({
             title="Training model question"
           >
             <GraduationCap className="h-3 w-3" />
-            Training
+            TMU
           </span>
         )}
         <p className="text-sm text-gray-900 dark:text-gray-100 line-clamp-2">
