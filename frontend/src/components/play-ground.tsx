@@ -35,6 +35,7 @@ import { TesterLogPage } from "@testers-dashboard/testerLog/TesterLogPage";
 import { CallAgentDashboard } from "./CallAgentDashboard";
 import { UserService } from "@/hooks/services/userService";
 import { canLogTestCases } from "@/lib/roles";
+import { RdqaPage } from "./RdqaPage";
 
 export const PlaygroundPage = () => {
   const { data: user } = useGetCurrentUser({});
@@ -417,6 +418,21 @@ export const PlaygroundPage = () => {
                     currentUser={user!}
                     autoOpenQuestionId={selectedCommentId || selectedQuestionId}
                   />
+                </TabsContent>
+              )}
+              {user && user.role === "admin" && (
+                <TabsContent
+                  value="rdqa"
+                  className={cn(
+                    "mt-0 border-0 md:px-8 outline-none",
+                    "data-[state=active]:animate-in",
+                    "data-[state=active]:fade-in-0",
+                    "data-[state=active]:zoom-in-[0.98]",
+                    "data-[state=active]:slide-in-from-bottom-3",
+                    "duration-500 ease-out",
+                  )}
+                >
+                  <RdqaPage />
                 </TabsContent>
               )}
               {user && user.role !== "call_agent" && (

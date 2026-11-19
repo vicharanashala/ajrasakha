@@ -1184,6 +1184,48 @@ class ReallocateExpertsSelectedQuestionsRequest {
   questionIds!: string[];
 }
 
+/**
+ * DTO for RDQA list endpoint query parameters.
+ * Retrieves finalized questions closed on a specific date for RDQA review.
+ */
+export class RdqaListQuery {
+  @JSONSchema({
+    description:
+      'Date to filter closed questions (YYYY-MM-DD format). Defaults to yesterday if not provided.',
+    example: '2026-11-03',
+    type: 'string',
+    format: 'date',
+  })
+  @IsOptional()
+  @IsString()
+  date?: string;
+
+  @JSONSchema({ description: 'Page number (12 questions per page)', example: 1, type: 'integer', minimum: 1 })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  @Type(() => Number)
+  page?: number;
+
+}
+
+/**
+ * DTO for RDQA check endpoint body.
+ * Accepts an array of question IDs to run quality checks on.
+ */
+export class RdqaCheckBody {
+  @JSONSchema({
+    description: 'Array of question IDs to run RDQA quality checks on',
+    example: ['6627e3d2f9b8c1a2b3c4d5e6'],
+    type: 'array',
+    items: { type: 'string' },
+  })
+  @IsNotEmpty()
+  @IsArray()
+  @IsString({ each: true })
+  questionIds!: string[];
+}
+
 export const QUESTION_VALIDATORS = [
   QuestionResponse,
   AddQuestionBody,
@@ -1209,6 +1251,8 @@ export const QUESTION_VALIDATORS = [
   QuestionCollectionItemDto,
   QuestionCollectionDetailsDto,
   AddQuestionCollectionBodyDto,
+  RdqaListQuery,
+  RdqaCheckBody,
   ExportQuestionsByStateBodyDto,
 ];
 

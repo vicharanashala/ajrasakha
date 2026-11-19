@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import type { DateRange } from "react-day-picker";
 import {
   Tooltip,
   TooltipContent,
@@ -7,6 +8,13 @@ import {
 } from "@/components/atoms/tooltip";
 import { Button } from "../../components/atoms/button";
 import { Input } from "../../components/atoms/input";
+import { Calendar } from "@/components/atoms/calendar";
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/atoms/popover";
+import { format } from "date-fns";
 
 // import { Select, SelectTrigger, SelectItem, SelectContent, SelectValue } from "../../components/atoms/select";
 
@@ -37,6 +45,7 @@ import {
   FileText,
   MessageSquareDiff,
   MapPin,
+  CalendarIcon,
 } from "lucide-react";
 import { useGetQuestionStatusSummary } from "@/hooks/api/question/useGetQuestionStatusSummary";
 import {
@@ -138,7 +147,7 @@ type QuestionsFiltersProps = {
   onOpenAgriTech?: () => void;
 };
 
-type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training";
+type AnswerMode = "ajraskha" | "manual" | "whatsapp" | "outreach" | "annadatha" | "draft" | "pae" | "non_agri" | "dynamic" | "search" | "training" | "rdqa";
 
 const filterToAnswerMode = (filter: AdvanceFilterValues): AnswerMode => {
   if (filter.is_non_agri === true) return "non_agri";
@@ -161,7 +170,7 @@ const answerModeToSource = (
   if (answerMode === "whatsapp") return "WHATSAPP";
   if (answerMode === "outreach") return "OUTREACH";
   if (answerMode === "annadatha") return "QUESTION_COLLECTION";
-  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic") return "all";
+  if (answerMode === "draft" || answerMode === "pae" || answerMode === "non_agri" || answerMode === "dynamic" || answerMode === "rdqa") return "all";
   return "AJRASAKHA";
 };
 
@@ -227,6 +236,12 @@ export const QuestionsFilters = ({
   const isAdmin = userRole === "admin";
   const [isEditPublicDashboardOpen, setIsEditPublicDashboardOpen] =
     useState(false);
+
+  // Date range picker state for calendar filter
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
+    from: appliedFilters.startTime,
+    to: appliedFilters.endTime,
+  });
 
   const { mutateAsync: addQuestion, isPending: addingQuestion } =
     useAddQuestion((count, isBulkUpload) => {
@@ -498,6 +513,30 @@ export const QuestionsFilters = ({
 
   const handleDialogChange = (key: string, value: any) => {
     setAdvanceFilterValues((prev) => ({ ...prev, [key]: value }));
+  };
+
+  // Handle date range selection from the calendar
+  const handleDateRangeChange = (range: DateRange | undefined) => {
+    setDateRange(range);
+    const nextFilters = {
+      ...advanceFilter,
+      startTime: range?.from,
+      endTime: range?.to,
+    };
+    setAdvanceFilterValues(nextFilters);
+    onChange(nextFilters);
+  };
+
+  // Reset date range
+  const handleClearDateRange = () => {
+    setDateRange(undefined);
+    const nextFilters = {
+      ...advanceFilter,
+      startTime: undefined,
+      endTime: undefined,
+    };
+    setAdvanceFilterValues(nextFilters);
+    onChange(nextFilters);
   };
 
   const handleAnswerModeChange = (nextAnswerMode: AnswerMode) => {
@@ -854,6 +893,53 @@ export const QuestionsFilters = ({
             )}
           </div>
         </div>
+
+        {/* Calendar date range picker - only visible when RDQA tab is active */}
+        {answerMode === "rdqa" && (
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button
+                variant="outline"
+                className="h-9 min-w-[180px] justify-start gap-2 rounded-md px-3 text-left font-normal bg-background border-input hover:bg-accent/50 transition-colors"
+              >
+                <CalendarIcon className="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span className={`truncate ${dateRange?.from ? "text-foreground" : "text-muted-foreground"}`}>
+                  {dateRange?.from
+                    ? dateRange.to
+                      ? `${format(dateRange.from, "MMM dd, yyyy")} - ${format(
+                          dateRange.to,
+                          "MMM dd, yyyy",
+                        )}`
+                      : format(dateRange.from, "MMM dd, yyyy")
+                    : "Select date range"}
+                </span>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0 z-[100]" align="start">
+              <Calendar
+                initialFocus
+                mode="range"
+                defaultMonth={dateRange?.from ?? new Date()}
+                selected={dateRange}
+                onSelect={handleDateRangeChange}
+                numberOfMonths={1}
+              />
+              {dateRange?.from && (
+                <div className="flex justify-end border-t px-3 py-2">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={handleClearDateRange}
+                    className="h-8 text-xs"
+                  >
+                    <RefreshCcw className="h-3 w-3 mr-1.5" />
+                    Reset
+                  </Button>
+                </div>
+              )}
+            </PopoverContent>
+          </Popover>
+        )}
 
         {/* Sub-tabs for dedicated view: Questions and Feedbacks - shown right of search */}
         {viewMode === "dedicated" && (

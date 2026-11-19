@@ -128,6 +128,10 @@ export const MobileSidebar = ({
       ? [{ id: "all_questions", label: "All Questions", icon: List }]
       : []),
 
+    ...(user && user.role === "admin"
+      ? [{ id: "rdqa", label: "RDQA", icon: ListChecks }]
+      : []),
+
     ...(user && user.role !== "call_agent"
       ? [{ id: "closed_answers", label: "Answer Sources", icon: CheckCircle2 }]
       : []),

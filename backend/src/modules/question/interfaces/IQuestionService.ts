@@ -1049,7 +1049,41 @@ export interface IQuestionService {
   }>;
 
   /**
-   * Export all questions for a given state as an Excel file.
+   * Get finalized questions for RDQA (Review Data Quality Assessment).
+   *
+   * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
+   * Returns all finalized questions closed on the requested date, newest first.
+   *
+   * @param date - Optional date string (YYYY-MM-DD). Defaults to yesterday.
+   * @returns Object containing the date, moderator counts, and questions with answers
+   */
+  getRdqaQuestions(date?: string, page?: number): Promise<{
+    date: string;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalQuestions: number;
+    moderatorDistribution: Array<{
+      approvedBy: string;
+      approvedByEmail?: string;
+      totalAvailable: number;
+    }>;
+    questions: Array<{
+      question: any;
+      answer: any;
+      authorIdEmail?: string | null;
+      checks?: any[];
+      flags?: string[];
+      notEvaluated?: string[];
+      checkedAt?: string | Date | null;
+    }>;
+  }>;
+
+  /**
+   * Get all RDQA check records for a question from the dedicated rdqa_checks collection.
+   */
+  getRdqaCheckHistory(questionId: string): Promise<any[]>;
+   /* Export all questions for a given state as an Excel file.
    * The Excel contains separate tabs for:
    * - "Questions" tab with Sl No, Question
    * - "Details" tab with detailed question details including Status

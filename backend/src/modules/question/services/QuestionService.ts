@@ -3110,7 +3110,248 @@ export class QuestionService extends BaseService implements IQuestionService {
   }
 
   /**
-   * Export all questions for a given state as an Excel file with separate tabs.
+   * Get finalized questions for RDQA (Review Data Quality Assessment).
+   *
+   * Retrieves all finalized questions closed on a specified date, newest first.
+   */
+  async getRdqaQuestions(date?: string, page = 1): Promise<{
+    date: string;
+    page: number;
+    pageSize: number;
+    totalPages: number;
+    totalQuestions: number;
+    moderatorDistribution: Array<{
+      approvedBy: string;
+      approvedByEmail?: string;
+      totalAvailable: number;
+    }>;
+    questions: Array<{
+      question: any;
+      answer: any;
+    }>;
+  }> {
+    // Determine the target date (default to yesterday)
+    let targetDate: Date;
+    let dateString: string;
+
+    if (date) {
+      // Parse the provided date string (YYYY-MM-DD)
+      const [year, month, day] = date.split('-').map(Number);
+      targetDate = new Date(year, month - 1, day);
+      dateString = date;
+    } else {
+      // Default to yesterday
+      targetDate = new Date();
+      targetDate.setDate(targetDate.getDate() - 1);
+      targetDate.setHours(0, 0, 0, 0);
+      dateString = targetDate.toISOString().split('T')[0];
+    }
+
+    // Calculate date range for the full day (00:00:00 to 23:59:59.999)
+    const startOfDay = new Date(targetDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    const endOfDay = new Date(targetDate);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    // Retrieve every finalized answer whose question closed on the target date.
+    const pipeline = [
+      { $match: { isFinalAnswer: true } },
+      {
+        $lookup: {
+          from: 'questions',
+          localField: 'questionId',
+          foreignField: '_id',
+          as: 'questionDoc',
+        },
+      },
+      { $unwind: { path: '$questionDoc', preserveNullAndEmptyArrays: false } },
+      {
+        $match: {
+          'questionDoc.closedAt': { $gte: startOfDay, $lte: endOfDay },
+          'questionDoc.status': 'closed',
+        },
+      },
+      {
+        $facet: {
+          total: [{ $count: 'count' }],
+          moderatorCounts: [
+            { $match: { approvedBy: { $ne: null } } },
+            { $group: { _id: '$approvedBy', totalAvailable: { $sum: 1 } } },
+          ],
+          questions: [
+            { $sort: { 'questionDoc.closedAt': -1, _id: 1 } },
+            { $skip: (Math.max(1, page) - 1) * 12 },
+            { $limit: 12 },
+            {
+              $lookup: {
+                from: 'rdqa_checks',
+                let: { ansId: '$_id', lastChkId: '$lastCheckId' },
+                pipeline: [
+                  { $match: { $expr: { $or: [{ $eq: ['$_id', '$$lastChkId'] }, { $eq: ['$answerId', '$$ansId'] }] } } },
+                  { $sort: { checkedAt: -1 } },
+                  { $limit: 1 },
+                ],
+                as: 'checkDoc',
+              },
+            },
+            { $addFields: { latestCheck: { $arrayElemAt: ['$checkDoc', 0] } } },
+            {
+              $project: {
+          _id: 1, approvedBy: 1, questionId: 1, authorId: 1, answerIteration: 1,
+          isFinalAnswer: 1, answer: 1, sources: 1, status: 1, remarks: 1,
+          modifications: 1, threshold: 1, approvalCount: 1, createdAt: 1,
+          updatedAt: 1, lastCheckId: 1,
+          checks: { $ifNull: ['$latestCheck.checks', '$checks', []] },
+          flags: { $ifNull: ['$latestCheck.flags', '$flags', []] },
+          notEvaluated: { $ifNull: ['$latestCheck.notEvaluated', '$notEvaluated', []] },
+          checkedAt: { $ifNull: ['$latestCheck.checkedAt', '$checkedAt', null] },
+          question: {
+            _id: '$questionDoc._id', question: '$questionDoc.question',
+            status: '$questionDoc.status', details: '$questionDoc.details',
+            userId: '$questionDoc.userId', context: '$questionDoc.context',
+            source: '$questionDoc.source', closedAt: '$questionDoc.closedAt',
+            passedAt: '$questionDoc.passedAt', isClosed: '$questionDoc.isClosed',
+            isAutoAllocate: '$questionDoc.isAutoAllocate', saved_to_draft: '$questionDoc.saved_to_draft',
+            pae_review: '$questionDoc.pae_review', createdAt: '$questionDoc.createdAt',
+            updatedAt: '$questionDoc.updatedAt', totalAnswersCount: '$questionDoc.totalAnswersCount',
+            priority: '$questionDoc.priority', metrics: '$questionDoc.metrics', text: '$questionDoc.text',
+            rdqaCheckedAt: { $ifNull: ['$latestCheck.checkedAt', '$questionDoc.rdqaCheckedAt', null] },
+          },
+              },
+            },
+          ],
+        },
+      },
+    ];
+
+    const [result = { questions: [], moderatorCounts: [], total: [] }] = await this.answerRepo.aggregate(pipeline);
+    const pairs = result.questions || [];
+    const counts = result.moderatorCounts || [];
+    const moderatorIds = counts.map((entry: any) => entry._id?.toString()).filter(Boolean);
+    const moderatorUsers = moderatorIds.length
+      ? await this.userRepo.getUsersByIds(moderatorIds, undefined, { email: 1 })
+      : [];
+    const moderatorEmailMap = new Map(moderatorUsers.map(u => [u._id.toString(), u.email]));
+
+    const moderatorDistribution = counts.map((entry: any) => ({
+      approvedBy: entry._id.toString(),
+      approvedByEmail: moderatorEmailMap.get(entry._id.toString()) || undefined,
+      totalAvailable: entry.totalAvailable,
+    }));
+    const selectedQuestions: Array<{ question: any; answer: any }> = [];
+    for (const pair of pairs) {
+        // Convert Buffer ObjectId fields to strings
+        const processedQuestion = pair.question
+          ? {
+              _id: pair.question._id?.toString(),
+              question: pair.question.question,
+              status: pair.question.status,
+              details: pair.question.details,
+              userId: pair.question.userId?.toString(),
+              context: pair.question.context?.toString(),
+              source: pair.question.source,
+              closedAt: pair.question.closedAt,
+              passedAt: pair.question.passedAt,
+              isClosed: pair.question.isClosed,
+              isAutoAllocate: pair.question.isAutoAllocate,
+              saved_to_draft: pair.question.saved_to_draft,
+              pae_review: pair.question.pae_review,
+              createdAt: pair.question.createdAt,
+              updatedAt: pair.question.updatedAt,
+              totalAnswersCount: pair.question.totalAnswersCount,
+              priority: pair.question.priority,
+              metrics: pair.question.metrics,
+              text: pair.question.text,
+              rdqaCheckedAt: pair.question.rdqaCheckedAt,
+            }
+          : null;
+
+        // Process answer: convert buffer fields and remove embedding
+        const processedAnswer = {
+          _id: pair._id?.toString(),
+          approvedBy: pair.approvedBy?.toString() || null,
+          questionId: pair.questionId?.toString(),
+          authorId: pair.authorId?.toString(),
+          answerIteration: pair.answerIteration,
+          isFinalAnswer: pair.isFinalAnswer,
+          answer: pair.answer,
+          sources: pair.sources,
+          status: pair.status,
+          remarks: pair.remarks,
+          modifications: pair.modifications?.map((mod: any) => ({
+            modifiedBy: mod.modifiedBy?.toString(),
+            oldAnswer: mod.oldAnswer,
+            newAnswer: mod.newAnswer,
+            modifiedAt: mod.modifiedAt,
+          })),
+          threshold: pair.threshold,
+          approvalCount: pair.approvalCount,
+          createdAt: pair.createdAt,
+          updatedAt: pair.updatedAt,
+          checks: pair.checks || [],
+          flags: pair.flags || [],
+          notEvaluated: pair.notEvaluated || [],
+          checkedAt: pair.checkedAt || null,
+        };
+
+        selectedQuestions.push({
+          question: processedQuestion,
+          answer: processedAnswer,
+        });
+    }
+
+    // Look up user emails for all user IDs in selected questions
+    const allUserIds = new Set<string>();
+    for (const { question: q, answer: a } of selectedQuestions) {
+      if (a?.approvedBy) allUserIds.add(a.approvedBy);
+      if (a?.authorId) allUserIds.add(a.authorId);
+      if (q?.userId) allUserIds.add(q.userId);
+    }
+
+    const userIdArray = [...allUserIds].filter(Boolean);
+    const users = userIdArray.length
+      ? await this.userRepo.getUsersByIds(userIdArray, undefined, { email: 1 })
+      : [];
+    const userEmailMap = new Map(users.map(u => [u._id.toString(), u.email]));
+
+    // Inject email fields into selected questions
+    const questionsWithEmails = selectedQuestions.map(({ question: q, answer: a }) => ({
+      question: q,
+      answer: {
+        ...a,
+        approvedByEmail: a?.approvedBy ? userEmailMap.get(a.approvedBy) || null : null,
+      },
+      authorIdEmail: a?.authorId ? userEmailMap.get(a.authorId) || null : null,
+      checks: a?.checks || [],
+      flags: a?.flags || [],
+      notEvaluated: a?.notEvaluated || [],
+      checkedAt: a?.checkedAt || null,
+    }));
+
+    return {
+      date: dateString,
+      page: Math.max(1, page),
+      pageSize: 12,
+      totalPages: Math.ceil((result.total?.[0]?.count || 0) / 12),
+      totalQuestions: result.total?.[0]?.count || 0,
+      moderatorDistribution,
+      questions: questionsWithEmails,
+    };
+  }
+
+  /**
+   * Get all RDQA check records for a question from the dedicated rdqa_checks collection.
+   */
+  async getRdqaCheckHistory(questionId: string): Promise<any[]> {
+    const col = await this.mongoDatabase.getCollection('rdqa_checks');
+    const qObjectId = new ObjectId(questionId);
+    return col
+      .find({ questionId: qObjectId })
+      .sort({ checkedAt: -1 })
+      .toArray();
+  }
+  
+   /* Export all questions for a given state as an Excel file with separate tabs.
    * Tab 1: "Questions" - Sl No, Question
    * Tab 2: "Details" - Full details object for each question including Status
    */
