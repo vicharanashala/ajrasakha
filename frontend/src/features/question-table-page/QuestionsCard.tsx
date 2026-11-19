@@ -238,6 +238,11 @@ const QuestionsCard: React.FC<QuestionsCardProps> = ({
           </span>
             )}
             <div className={`flex items-center gap-1.5 ${!visibleColumns.sl_No ? "ml-auto" : ""}`}>
+              {q.isTrainingQuestion && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-sky-500/10 text-sky-600 border-sky-500/30 dark:text-sky-400 dark:border-sky-500/30 whitespace-nowrap">
+                  TMU
+                </span>
+              )}
               {q.pae_review && (
                 <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold border bg-purple-500/10 text-purple-600 border-purple-500/30 dark:text-purple-400 dark:border-purple-500/30 whitespace-nowrap">
                   PAE
