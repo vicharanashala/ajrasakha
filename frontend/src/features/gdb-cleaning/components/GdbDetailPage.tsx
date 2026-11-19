@@ -80,14 +80,14 @@ export const GdbDetailPage = ({ id, onBack }: GdbDetailPageProps) => {
         try {
           const result = await libraryDraft.mutateAsync();
           if (!result.answer) {
-            toast.info(result.note || "The library had nothing for this question.");
+            toast.info(result.note || "The library had nothing for this question.", { duration: Infinity, closeButton: true });
             return null;
           }
           // a draft can still carry a warning: another state's documents, or a source file that could not be read
           if (result.note) toast.warning(result.note, { duration: 15000 });
           return result;
         } catch (error) {
-          toast.error((error as Error).message || "Failed to draft from the library.");
+          toast.error((error as Error).message || "Failed to draft from the library.", { duration: Infinity, closeButton: true });
           return null;
         }
       }}
