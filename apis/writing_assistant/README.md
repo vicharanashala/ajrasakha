@@ -59,7 +59,11 @@ Port `8004`.
 - **Deterministic on repeated identical requests**: the same `(question,
   draft)` always returns the same result within one running instance - a
   changed draft is a cache miss by construction, so this never serves stale
-  data.
+  data. Only cached once every step's winning verdict is *corroborated*
+  (backed by at least 2 of up to 3 agreeing votes) - a result resting on a
+  single surviving vote (the other 1-2 calls failed outright) is still
+  returned, but recomputed on the next identical request instead of
+  sticking a transient-failure answer in place for the life of the process.
 - **One stalled coverage check doesn't fail the whole request**: a step
   whose check fails even after a retry is reported as `not_assessed` for
   that step alone - every other step is still scored normally.
@@ -188,6 +192,33 @@ already fail closed on their own, per request.
   rare single call taking the full configured timeout before failing
   (hedged after `_HEDGE_DELAY_SECONDS`) is treated as expected,
   occasional model variance, not a hang to debug.
+- **A hedge/retry shares one deadline with the primary attempt, not a
+  fresh budget of its own**: a hedge fired at `_HEDGE_DELAY_SECONDS` gets
+  only what's left of the call's own configured timeout. Previously a
+  second attempt got a full fresh timeout, so one logical call could
+  stretch to roughly double its configured budget (and, stacked with the
+  structural vote's sequential 3rd call, a single request could approach
+  two minutes on a slow host). A 4xx response (bad key, a malformed
+  request, a 429 quota-exhausted response) is never retried or hedged -
+  an immediate second attempt would fail identically, and retrying a 429
+  specifically would only add load to a quota that's already exhausted.
+- **The structural-coverage timeout scales with the draft's own length**:
+  `classify_all_steps_coverage` scores the whole 10-step checklist
+  against the whole draft in one call, so a longer draft means more for
+  the model to both read and reason about. A fixed budget sized for a
+  typical draft is a guaranteed timeout for a long one, not a transient
+  one - every one of the (up to 3) majority-vote calls sends the same
+  oversized input and hits the identical wall, so a long, otherwise-
+  complete draft would come back `not_assessed` on every step regardless
+  of how many votes ran (live-confirmed: a 7-section draft returned
+  `not_assessed` on all 10 steps after 62.6s under the old fixed budget).
+  The timeout now stays at `GEMINI_COVERAGE_TIMEOUT_SECONDS` for a draft
+  under 1,500 characters (today's typical case, unchanged), scales
+  linearly up to `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` for a draft of
+  4,000+ characters, and the hedge delay scales with it (same 60% ratio
+  the flat default already used) so a call already expected to run long
+  doesn't also fire an early duplicate hedge. Live-verified: a 4,446-char
+  draft of this same shape now completes in 26s under its scaled budget.
 - **Determinism is per-process, not global**: the result cache lives in
   memory on the running instance. It resets on a redeploy/restart, and (if
   ever scaled beyond one instance) is not shared across instances.
@@ -213,6 +244,16 @@ already fail closed on their own, per request.
 - **Never claims semantic equivalence** - every guardrail result carries a
   disclaimer: these checks reduce the risk of an unintended technical
   change, they do not prove the rewrite means exactly the same thing.
+- **Negation gets no typo-fix exemption, on purpose**: every other marker
+  category (crop names, timing, conditions, certainty) excuses a presence
+  flip caused by a single-word spelling fix landing on/off a marker word
+  (e.g. "wheet" -> "wheat"). Negation doesn't, because a one-letter edit
+  can reverse an instruction outright ("never" -> "ever", "avoid" ->
+  "void") in a way spelling-similarity alone can't distinguish from a
+  harmless fix - live-confirmed both read as a typo fix to the same
+  check. The accepted cost: a genuine typo that happens to create a
+  negation word (e.g. "Avid" -> "Avoid") is also rejected, where it would
+  previously have passed.
 - **No per-topic reference content**: the 10-step checklist is fixed and
   domain-neutral by explicit team decision - it does not check for a
   specific pest/disease/scheme's own technical details, only whether the
@@ -229,7 +270,8 @@ Copy `.env.example` to `.env` and fill in:
 | `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini's public REST endpoint - no tailnet/proxy needed, unlike the self-hosted MiniMax model this replaced. |
 | `GEMINI_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. Not yet verified live that Gemini's own seed support has the same effect the old MiniMax client showed. |
 | `GEMINI_TIMEOUT_SECONDS` | `20` | Per-call budget - carried over unchanged from the self-hosted-MiniMax tuning at the team's request. Re-validate against real Gemini traffic. |
-| `GEMINI_COVERAGE_TIMEOUT_SECONDS` | `30` | Budget for `classify_all_steps_coverage` (one call scores the whole 10-step checklist, run up to 3x as a call-level majority vote - ~2-3 calls per request, not 30). Starting value carried over from the MiniMax tuning. |
+| `GEMINI_COVERAGE_TIMEOUT_SECONDS` | `30` | Floor budget for `classify_all_steps_coverage` (one call scores the whole 10-step checklist, run up to 3x as a call-level majority vote - ~2-3 calls per request, not 30). Used as-is for a draft under 1,500 characters; scales up toward `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` for a longer one. Starting value carried over from the MiniMax tuning. |
+| `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` | `70` | Cap the coverage budget scales up to for a draft of 4,000+ characters - see "Known behavior and limitations" above. |
 | `GEMINI_POLISH_TIMEOUT_SECONDS` | `30` | Budget for `generate_polish` (whole-document, with a per-section fallback) and `check_meaning_preserved_batch` (one call per request in the common case). Starting value carried over from the MiniMax tuning. |
 | `GEMINI_MAX_CONCURRENT_CALLS` | `5` | Process-wide cap on real concurrent calls (primary + hedge). Carried over from the MiniMax tuning (derived from that model's own vLLM `/metrics` under load) - has no equivalent evidence behind it for Gemini's own rate limits yet. |
 | `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. Unaffected by the Gemini switch. |
