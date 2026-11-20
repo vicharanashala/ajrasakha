@@ -90,9 +90,15 @@ docker run --gpus all -p 8000:8000 indic-ocr
 
 ## Requirements
 
-- NVIDIA GPU with CUDA 12.4+ support
+- NVIDIA GPU with a driver that supports CUDA 12.x or newer (the image is built on `vllm/vllm-openai:v0.32.0-cu129`, the last vLLM release with a CUDA 12 build)
 - Docker with NVIDIA Container Toolkit
-- ~8GB disk space for the model weights
+- ~30GB disk space for the image
+
+## GPU memory
+
+vLLM reserves 80% of the GPU's memory by default, and the layout model runs on the same GPU. If the GPU is shared with other workloads, lower the reservation with `-e VLLM_GPU_MEMORY_UTILIZATION=0.5`.
+
+The model loads when the container starts, so a GPU or memory problem shows up in the startup logs rather than on the first `/parse` request.
 
 ## License
 

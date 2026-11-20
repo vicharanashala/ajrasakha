@@ -11,7 +11,12 @@ type Props = {
   query: string;
   onTranslate: (translatedText: string) => void;
   sourceLang?: string;
+  // English answer taken from the GDB tool output. When set, an "English" option uses it instead of Sarvam.
+  gdbEnglishAnswer?: string | null;
 };
+
+const GDB_ENGLISH_CODE = "gdb-en";
+const SARVAM_ENGLISH_CODE = "en-IN";
 
 const LANGUAGES: Language[] = [
   { code: "en-IN", name: "English (English)" },
@@ -40,11 +45,20 @@ const LANGUAGES: Language[] = [
   // { code: "ur-IN", name: "Urdu (اردو)" },
 ];
 
-export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang }: Props) {
+export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang, gdbEnglishAnswer }: Props) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedLang, setSelectedLang] = useState<Language | null>(null);
   const {translate, loading, error} = useTranslate();
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  const languages: Language[] = gdbEnglishAnswer
+    ? [
+        { code: GDB_ENGLISH_CODE, name: "English" },
+        ...LANGUAGES.map((lang) =>
+          lang.code === SARVAM_ENGLISH_CODE ? { ...lang, name: "English (Sarvam)" } : lang
+        ),
+      ]
+    : LANGUAGES;
 
   // Close on outside click
   useEffect(() => {
@@ -73,6 +87,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang
     setIsOpen(false);
     setSelectedLang(lang);
     if(lang.code === 'default') return onTranslate(query);
+    if (lang.code === GDB_ENGLISH_CODE && gdbEnglishAnswer) return onTranslate(gdbEnglishAnswer);
     const result = await translate(query, lang.code, sourceLang);
     if (result) {
       onTranslate(result);
@@ -125,7 +140,7 @@ export default function SarvamTranslateDropdown({ query, onTranslate, sourceLang
             </p>
           </div>
           <div className="max-h-60 overflow-y-auto py-2">
-            {LANGUAGES.map((lang) => (
+            {languages.map((lang) => (
               <button
                 key={lang.code}
                 onClick={() => handleSelect(lang)}

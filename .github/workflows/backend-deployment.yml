@@ -65,6 +65,7 @@ jobs:
           secrets: |
             DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
             STAGING_DB_URI=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+            TAILSCALE_AUTHKEY=Tailscale_Auth_Key:latest
             
           env_vars: |
             NODE_ENV=production
@@ -72,6 +73,8 @@ jobs:
             DB_NAME=${{ secrets.DB_NAME }}
             POP_DB_URL=${{ secrets.POP_DB_URL }}
             POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+            POP_SERVICE_KEY=${{ secrets.POP_SERVICE_KEY }}
+            POP_API_URL=${{ secrets.POP_API_URL }}
             VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
             VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
             VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
@@ -87,14 +90,12 @@ jobs:
             ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
             DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
             DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
-            TAILSCALE_AUTHKEY=${{ secrets.TAILSCALE_AUTHKEY }}
             GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
             STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
             REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
             PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
             PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
-            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
             MINIMAX_API=${{ secrets.MINIMAX_API }}
             MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
             MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}

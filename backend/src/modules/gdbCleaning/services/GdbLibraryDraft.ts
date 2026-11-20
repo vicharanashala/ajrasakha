@@ -10,6 +10,12 @@ export interface GdbDraftCitation {
   passageId: string | null;
 }
 
+// a file attached to the record as its source; the draft service reads shared files from it
+export interface GdbDraftSource {
+  url: string;
+  name: string;
+}
+
 export interface GdbDraft {
   answer: string;
   citations: GdbDraftCitation[];
@@ -19,7 +25,7 @@ export interface GdbDraft {
 // the Anara search and the Minimax draft live in the gdb-quality-pipeline repo. On a server
 // the backend calls its draft service (GDB_DRAFT_URL); on a developer machine it can run the
 // bridge script directly with that repo's venv Python
-const DRAFT_TIMEOUT_MS = 240_000;
+const DRAFT_TIMEOUT_MS = 420_000;
 
 const draftUrl = () => process.env.GDB_DRAFT_URL;
 const draftToken = () => process.env.GDB_DRAFT_TOKEN;
@@ -30,6 +36,9 @@ const draftOverHttp = async (
   url: string,
   question: string,
   crop: string | null,
+  sources: GdbDraftSource[],
+  domain: string | null,
+  state: string | null,
 ): Promise<GdbDraft> => {
   const token = draftToken();
   const response = await fetch(`${url.replace(/\/+$/, '')}/draft`, {
@@ -38,7 +47,7 @@ const draftOverHttp = async (
       'content-type': 'application/json',
       ...(token ? {'x-draft-token': token} : {}),
     },
-    body: JSON.stringify({question, crop}),
+    body: JSON.stringify({question, crop, sources, domain, state}),
     signal: AbortSignal.timeout(DRAFT_TIMEOUT_MS),
   });
   if (!response.ok) {
@@ -48,13 +57,18 @@ const draftOverHttp = async (
   return (await response.json()) as GdbDraft;
 };
 
-// the crop of the record narrows the search to documents of that crop
+// the crop of the record narrows the search to documents of that crop, and the record's own
+// source files are searched first; the state puts its own documents first; the domain picks the
+// outline the answer follows
 export const draftFromLibrary = (
   question: string,
   crop: string | null = null,
+  sources: GdbDraftSource[] = [],
+  domain: string | null = null,
+  state: string | null = null,
 ): Promise<GdbDraft> => {
   const url = draftUrl();
-  if (url) return draftOverHttp(url, question, crop);
+  if (url) return draftOverHttp(url, question, crop, sources, domain, state);
 
   const python = pythonPath();
   const dir = pipelineDir();
@@ -91,7 +105,7 @@ export const draftFromLibrary = (
       }
     });
 
-    child.stdin.end(JSON.stringify({question, crop}));
+    child.stdin.end(JSON.stringify({question, crop, sources, domain, state}));
   });
 };
 

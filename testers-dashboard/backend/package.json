@@ -2,5 +2,26 @@
   "name": "testers-dashboard-backend",
   "version": "1.0.0",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "dependencies": {
+    "class-validator": "^0.14.4",
+    "class-validator-jsonschema": "^5.2.0",
+    "csv-parser": "^3.2.1",
+    "googleapis": "^189.0.0",
+    "inversify": "^8.2.3",
+    "mongodb": "^7.8.0",
+    "reflect-metadata": "^0.2.2",
+    "routing-controllers": "^0.11.3",
+    "routing-controllers-openapi": "^5.0.1",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@swc/core": "^1.16.21",
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.6.6",
+    "typescript": "^7.0.2",
+    "unplugin-swc": "^2.0.0",
+    "vite-tsconfig-paths": "^6.1.1",
+    "vitest": "^5.0.5"
+  }
 }

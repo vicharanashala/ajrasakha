@@ -103,7 +103,7 @@ const UserQuestionsModal = ({
   const activeData = useMemo(() => {
     if (viewType === "questions") return fullData?.questions;
     if (viewType === "non_agri") return fullData?.nonAgriQuestions;
-    return fullData?.messages;
+    return fullData?.allQuestions;
   }, [fullData, viewType]);
   const items = useMemo(
     () => (activeData?.items || []) as QuestionActivityItem[],
@@ -114,9 +114,15 @@ const UserQuestionsModal = ({
       ? (fullData?.questions?.total ?? 0)
       : viewType === "non_agri"
         ? (fullData?.nonAgriQuestions?.total ?? 0)
-        : `${fullData?.messages?.totalRaw ?? fullData?.messages?.total ?? 0} (${
-            fullData?.messages?.total ?? 0
-          } unique)`;
+        : (fullData?.questions?.total ?? 0) +
+          (fullData?.nonAgriQuestions?.total ?? 0);
+
+  const unpushedCount = Math.max(
+    0,
+    (fullData?.messages?.total ?? 0) -
+      ((fullData?.questions?.total ?? 0) +
+        (fullData?.nonAgriQuestions?.total ?? 0)),
+  );
 
   const handleRefresh = async () => {
     await queryClient.refetchQueries({ queryKey: ["user-questions-data"] });
@@ -193,6 +199,11 @@ const UserQuestionsModal = ({
         activityItems={items}
         isLoading={isLoading}
         totalCount={totalCount}
+        unpushedCount={unpushedCount}
+        messageCounts={{
+          raw: fullData?.messages?.totalRaw ?? fullData?.messages?.total ?? 0,
+          unique: fullData?.messages?.total ?? 0,
+        }}
         totalPages={activeData?.totalPages ?? 1}
         currentPage={currentPage}
         onPageChange={setCurrentPage}

@@ -113,6 +113,25 @@ def test_extract_treatment_terms():
     assert "neem oil" in text_checks.extract_treatment_terms("Spray neem oil on the affected leaves.")
 
 
+# Live-confirmed real rejection: generate_polish's grammar fix correctly
+# pluralized "mode of action" -> "modes of action" (also fixing
+# "rotate" -> "rotated"), and the old plain substring check read that as
+# the treatment term itself changing, since "mode of action" isn't a
+# substring of "modes of action".
+def test_extract_treatment_terms_tolerates_plural_forms():
+    assert "mode of action" in text_checks.extract_treatment_terms(
+        "Insecticides should be rotated with different modes of action."
+    )
+    assert "neem oil" in text_checks.extract_treatment_terms("Spray neem oils on the affected leaves.")
+
+
+def test_extract_treatment_terms_plural_tolerance_does_not_overmatch():
+    # The plural-tolerant pattern must not bleed into an unrelated,
+    # longer word that happens to start the same way.
+    assert text_checks.extract_treatment_terms("Try a new mode of transportation.") == frozenset()
+    assert text_checks.extract_treatment_terms("The field was oiled before planting.") == frozenset()
+
+
 def test_extract_timing_phrases():
     phrases = text_checks.extract_timing_phrases("Apply within 24 hours before flowering.")
     assert phrases == frozenset({"within", "before"})
@@ -127,6 +146,84 @@ def test_extract_timing_phrases_ignores_trailing_words():
 def test_extract_conditional_markers():
     assert "if" in text_checks.extract_conditional_markers("Apply only if infestation exceeds the threshold.")
     assert text_checks.extract_conditional_markers("Apply the treatment now.") == frozenset()
+
+
+# A spelling fix that happens to land on/off a marker word by accident
+# (e.g. "Avid" -> "Avoid") is not a content change - live-confirmed real
+# rejection, distinct from the already-handled word-choice-synonym case.
+def test_is_single_word_typo_fix_detects_a_typo_landing_on_a_marker():
+    assert text_checks.is_single_word_typo_fix(
+        "Avid excessive application of nitrogen fertilizers.",
+        "Avoid excessive application of nitrogen fertilizers.",
+        text_checks.NEGATION_WORDS,
+    )
+
+
+def test_is_single_word_typo_fix_false_for_a_genuine_negation_removal():
+    # "not" is deleted outright, not replaced by a close-spelling word -
+    # must stay flagged as a real change.
+    assert not text_checks.is_single_word_typo_fix(
+        "Do not apply the spray before flowering.",
+        "Apply the spray before flowering.",
+        text_checks.NEGATION_WORDS,
+    )
+
+
+def test_is_single_word_typo_fix_false_for_a_genuine_removal_in_a_long_sentence():
+    # Same shape, stress-tested on a long sentence where the removed
+    # word is a tiny fraction of the total text - must still be caught,
+    # not waved through just because the sentences are "mostly" similar.
+    assert not text_checks.is_single_word_typo_fix(
+        "The farmer should not spray the pesticide during the hot afternoon "
+        "hours when temperatures are at their highest peak.",
+        "The farmer should spray the pesticide during the hot afternoon "
+        "hours when temperatures are at their highest peak.",
+        text_checks.NEGATION_WORDS,
+    )
+
+
+def test_is_single_word_typo_fix_false_for_the_existing_synonym_swap_case():
+    # "Do not spray" -> "Avoid spraying" is a multi-word diff region
+    # (two words removed, one added, plus a word-form change) - not a
+    # single 1-for-1 replace, so this guard correctly stays out of the
+    # way; the pre-existing presence-based check already handles this
+    # case (both sides have a negation marker present).
+    assert not text_checks.is_single_word_typo_fix(
+        "Do not spray during windy conditions.",
+        "Avoid spraying during windy conditions.",
+        text_checks.NEGATION_WORDS,
+    )
+
+
+def test_is_single_word_typo_fix_false_when_neither_side_is_a_marker():
+    assert not text_checks.is_single_word_typo_fix(
+        "The crop recieved water.", "The crop received water.", text_checks.NEGATION_WORDS
+    )
+
+
+# Live-confirmed real rejection: a single polish pass fixed TWO typos in
+# the same sentence ("disese"/"wheet" -> "disease"/"wheat"), not just
+# one - the first version of this check bailed out as soon as it saw a
+# second diff region, even though "disese"/"disease" is just as harmless
+# as the crop-name fix itself.
+def test_is_single_word_typo_fix_handles_multiple_typos_in_one_sentence():
+    assert text_checks.is_single_word_typo_fix(
+        "Leaf blight is a common fungal disese affecting wheet crops.",
+        "Leaf blight is a common fungal disease affecting wheat crops.",
+        text_checks.CROP_NAMES,
+    )
+
+
+def test_is_single_word_typo_fix_false_when_one_of_several_regions_is_a_real_change():
+    # Even with multiple diffed regions, a single non-spelling change
+    # (here, a whole different crop swapped in) must still fail the
+    # check - the guard requires EVERY region to be a close-spelling
+    # fix, not just some of them.
+    assert not text_checks.is_single_word_typo_fix(
+        "Leaf blight is a common fungal disese affecting wheet crops.",
+        "Leaf blight is a common fungal disease affecting rice crops.",
+        text_checks.CROP_NAMES,
+    )
 
 
 def test_significant_words_filters_short_words_and_stopwords():

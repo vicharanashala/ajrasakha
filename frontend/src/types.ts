@@ -74,6 +74,7 @@ export interface IUser {
   currentCallUuid?: string | null; // UUID of the current call being handled
   isTrainingUser?: boolean; // true if the user is assigned as a training user
   feedbacksAssigned?: string[]; // question IDs assigned for feedback review
+  sendDailyReport?: boolean;
 }
 
 export interface IUserAdminEdit {
@@ -84,6 +85,7 @@ export interface IUserAdminEdit {
   mobile?: string;
   university?: string;
   kvkCovered?: IKVKCoveredItem[] | null;
+  sendDailyReport?: boolean;
 }
 
 export interface IUnverifiedUser {

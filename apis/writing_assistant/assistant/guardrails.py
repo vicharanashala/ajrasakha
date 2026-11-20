@@ -12,7 +12,28 @@ from .models import CheckedTokens, CheckStatus, GuardrailResult, GuardrailStatus
 log = logging.getLogger("writing_assistant.guardrails")
 
 
-def _diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
+def _diff_check(
+    pairs: list[tuple[str, str]], extractor, marker_words: frozenset[str] | None = None
+) -> tuple[CheckStatus, tuple[str, str] | None]:
+    """Returns the status plus the sentence pair that triggered a CHANGED
+    verdict (or None otherwise) - same reasoning as _presence_diff_check's
+    own pair-tracking: without it, a rejection detail can only name the
+    category, never the sentence, forcing a live reproduction hunt every
+    time (confirmed real: a treatmentIdentity rejection with no pair
+    attached took three live re-runs to even attempt pinning down).
+
+    marker_words enables the same single-word-typo-fix guard
+    _presence_diff_check already has (see its docstring and
+    text_checks.is_single_word_typo_fix) - a spelling correction landing
+    on/off a protected word is not a real content change. Confirmed real
+    for crop names too, not just negation: a typo'd "wheet" (not a real
+    crop name) corrected to "wheat" (a real one) read as "the set of
+    named crops differs" - the exact same false-positive shape, just
+    surfacing in a different category than the one first reported.
+    Passing None skips the guard (used by categories where the specific
+    word genuinely is the protected content and a near-miss typo isn't a
+    meaningful concept, e.g. numbers_and_units - a mis-typed digit is
+    never safe to treat as "probably the same number")."""
     any_present = False
     for orig_s, rew_s in pairs:
         o = extractor(orig_s)
@@ -20,11 +41,15 @@ def _diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
         if o or r:
             any_present = True
         if o != r:
-            return CheckStatus.CHANGED
-    return CheckStatus.UNCHANGED if any_present else CheckStatus.NA
+            if marker_words and text_checks.is_single_word_typo_fix(orig_s, rew_s, marker_words):
+                continue
+            return CheckStatus.CHANGED, (orig_s, rew_s)
+    return (CheckStatus.UNCHANGED if any_present else CheckStatus.NA), None
 
 
-def _presence_diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus:
+def _presence_diff_check(
+    pairs: list[tuple[str, str]], extractor, marker_words: frozenset[str] | None = None
+) -> tuple[CheckStatus, tuple[str, str] | None]:
     """Like _diff_check, but only compares whether the extractor found
     anything at all, not which specific word - correct for a marker
     category where every member is a safe synonym for another (negation:
@@ -35,7 +60,23 @@ def _presence_diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus
     real false-positive source from a live rejection (Writing Assistant
     Build Plan, Revision 13) - "only when permitted" -> "only if ...
     permits" was rejected for using 'if' instead of 'when', despite the
-    condition itself being unchanged."""
+    condition itself being unchanged.
+
+    marker_words (the category's own raw word set, e.g. CONDITIONAL_MARKERS)
+    enables a second, narrower false-positive guard: a presence flip
+    caused by a single-word spelling fix that happened to land on/off a
+    marker word (see text_checks.is_single_word_typo_fix) is not a real
+    content change, just a typo crossing the marker boundary by accident.
+    Passing None skips this guard - negation does, since there a one-
+    letter edit can reverse the instruction ("never" -> "ever").
+
+    Also returns the sentence pair that triggered a CHANGED verdict (or
+    None otherwise) - without it, a rejection detail can only say "a
+    marker was added or removed" with no pointer to which sentence,
+    forcing a live reproduction hunt to tell a genuine catch apart from a
+    sentence-alignment artifact (confirmed real: a draft that timed out
+    and retried mid-rewrite, under this service's own concurrency pool,
+    left no trace of which sentence pair the model actually touched)."""
     any_present = False
     for orig_s, rew_s in pairs:
         o_present = bool(extractor(orig_s))
@@ -43,8 +84,10 @@ def _presence_diff_check(pairs: list[tuple[str, str]], extractor) -> CheckStatus
         if o_present or r_present:
             any_present = True
         if o_present != r_present:
-            return CheckStatus.CHANGED
-    return CheckStatus.UNCHANGED if any_present else CheckStatus.NA
+            if marker_words and text_checks.is_single_word_typo_fix(orig_s, rew_s, marker_words):
+                continue
+            return CheckStatus.CHANGED, (orig_s, rew_s)
+    return (CheckStatus.UNCHANGED if any_present else CheckStatus.NA), None
 
 
 def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
@@ -74,33 +117,63 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
             "reassociation within it specifically."
         )
 
-    tokens.numbers_and_units = _diff_check(pairs, text_checks.extract_numbers_and_units)
+    tokens.numbers_and_units, numbers_pair = _diff_check(pairs, text_checks.extract_numbers_and_units)
     if tokens.numbers_and_units == CheckStatus.CHANGED:
-        details.append("A number/unit present in the original does not appear unchanged in the rewrite.")
+        details.append(
+            "A number/unit present in the original does not appear unchanged in the rewrite. "
+            f"Original: {numbers_pair[0]!r} -> Rewrite: {numbers_pair[1]!r}"
+        )
 
-    tokens.certainty_language = _diff_check(pairs, text_checks.extract_certainty_polarities)
+    tokens.certainty_language, certainty_pair = _diff_check(
+        pairs, text_checks.extract_certainty_polarities, text_checks.HEDGE_WORDS | text_checks.ABSOLUTE_WORDS
+    )
     if tokens.certainty_language == CheckStatus.CHANGED:
-        details.append("Claim strength shifted between hedged and absolute certainty.")
+        details.append(
+            "Claim strength shifted between hedged and absolute certainty. "
+            f"Original: {certainty_pair[0]!r} -> Rewrite: {certainty_pair[1]!r}"
+        )
 
-    tokens.negation = _presence_diff_check(pairs, text_checks.extract_negations)
+    # No typo-fix exemption for negation (marker_words=None): a one-letter
+    # edit can reverse an instruction outright ("never" -> "ever", "avoid"
+    # -> "void"), and is_single_word_typo_fix can't tell that apart from a
+    # harmless spelling fix. Any negation presence flip is flagged, at the
+    # cost of also rejecting a genuine typo fix like "Avid" -> "Avoid".
+    tokens.negation, negation_pair = _presence_diff_check(pairs, text_checks.extract_negations)
     if tokens.negation == CheckStatus.CHANGED:
-        details.append("A negation marker (e.g. 'not'/'never'/'avoid') was added or removed.")
+        details.append(
+            "A negation marker (e.g. 'not'/'never'/'avoid') was added or removed. "
+            f"Original: {negation_pair[0]!r} -> Rewrite: {negation_pair[1]!r}"
+        )
 
-    tokens.crop_names = _diff_check(pairs, text_checks.extract_crop_names)
+    tokens.crop_names, crop_pair = _diff_check(pairs, text_checks.extract_crop_names, text_checks.CROP_NAMES)
     if tokens.crop_names == CheckStatus.CHANGED:
-        details.append("The set of named crops differs between the original and the rewrite.")
+        details.append(
+            "The set of named crops differs between the original and the rewrite. "
+            f"Original: {crop_pair[0]!r} -> Rewrite: {crop_pair[1]!r}"
+        )
 
-    tokens.treatment_identity = _diff_check(pairs, text_checks.extract_treatment_terms)
+    tokens.treatment_identity, treatment_pair = _diff_check(pairs, text_checks.extract_treatment_terms)
     if tokens.treatment_identity == CheckStatus.CHANGED:
-        details.append("A named treatment/method term differs between the original and the rewrite.")
+        details.append(
+            "A named treatment/method term differs between the original and the rewrite. "
+            f"Original: {treatment_pair[0]!r} -> Rewrite: {treatment_pair[1]!r}"
+        )
 
-    tokens.timing = _diff_check(pairs, text_checks.extract_timing_phrases)
+    tokens.timing, timing_pair = _diff_check(pairs, text_checks.extract_timing_phrases, text_checks.TIMING_PHRASES)
     if tokens.timing == CheckStatus.CHANGED:
-        details.append("A timing phrase (before/after/within/every ...) differs between the original and the rewrite.")
+        details.append(
+            "A timing phrase (before/after/within/every ...) differs between the original and the rewrite. "
+            f"Original: {timing_pair[0]!r} -> Rewrite: {timing_pair[1]!r}"
+        )
 
-    tokens.conditions = _presence_diff_check(pairs, text_checks.extract_conditional_markers)
+    tokens.conditions, conditions_pair = _presence_diff_check(
+        pairs, text_checks.extract_conditional_markers, text_checks.CONDITIONAL_MARKERS
+    )
     if tokens.conditions == CheckStatus.CHANGED:
-        details.append("A conditional marker (if/when/unless/only ...) was added or removed.")
+        details.append(
+            "A conditional marker (if/when/unless/only ...) was added or removed. "
+            f"Original: {conditions_pair[0]!r} -> Rewrite: {conditions_pair[1]!r}"
+        )
 
     # Standalone chemical matching - whole-text, not per-sentence. In-process,
     # no network call to any sibling service (Writing Assistant Build Plan,
@@ -122,18 +195,43 @@ def run_guardrail(original_text: str, rewrite_text: str) -> GuardrailResult:
 
     # LLM second-opinion - adds coverage for what the deterministic checks
     # above can't name (e.g. a subtler recommendation change), is not proof.
+    # Section counts always match here when the rewrite came from
+    # generate_polish's whole-document path; if they don't (e.g. a hand-
+    # supplied rewrite in a test, or a per-section fallback rewrite
+    # introducing a new blank line), fall back to one whole-document
+    # comparison rather than inventing a new failure mode. A section
+    # identical to its original is skipped entirely - nothing to ask the
+    # model, it trivially can't have changed.
+    orig_sections = text_checks.split_sections(original_text)
+    rew_sections = text_checks.split_sections(rewrite_text)
+    section_pairs = (
+        list(zip(orig_sections, rew_sections))
+        if len(orig_sections) == len(rew_sections)
+        else [(original_text, rewrite_text)]
+    )
+    to_check = [(o, r) for o, r in section_pairs if o != r]
+
+    # One call checks every changed pair at once (check_meaning_preserved_batch)
+    # instead of one call per pair (run_concurrent over check_meaning_preserved) -
+    # live-confirmed this still catches a real dosage change, a negation
+    # flip, and a pure-punctuation non-change correctly in a single batch.
+    llm_flagged_change = False
+    llm_not_run = False
     try:
-        changed, explanation = llm_client.check_meaning_preserved(original_text, rewrite_text)
-        if changed:
-            details.append(f"LLM second-opinion check flagged a possible meaning change: {explanation}")
-        # The second opinion doesn't have its own CheckedTokens slot - it's
-        # folded into the overall pass/fail decision directly, below.
-        llm_flagged_change = changed
-        llm_not_run = False
+        batch_results = llm_client.check_meaning_preserved_batch(to_check)
     except LLMUnavailableError as exc:
-        details.append(f"LLM second-opinion check could not run: {exc}")
-        llm_flagged_change = False
+        # Never treat an unconfirmed section as safe - the batch call
+        # failing means the second opinion as a whole could not run, even
+        # if every section would otherwise have matched.
         llm_not_run = True
+        details.append(f"LLM second-opinion check could not run: {exc}")
+    else:
+        for (orig_section, rew_section), (changed, explanation) in zip(to_check, batch_results):
+            if changed:
+                llm_flagged_change = True
+                details.append(f"LLM second-opinion check flagged a possible meaning change: {explanation}")
+    # The second opinion doesn't have its own CheckedTokens slot - it's
+    # folded into the overall pass/fail decision directly, below.
 
     overall_failed = tokens.any_failed() or llm_flagged_change or llm_not_run
     status = GuardrailStatus.FAILED if overall_failed else GuardrailStatus.PASSED

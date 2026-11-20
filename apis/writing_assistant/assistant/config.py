@@ -4,59 +4,90 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# "local" (dev: read REFERENCE_DATA_DIR) or "gcs" (prod: read REFERENCE_GCS_BUCKET
-# at REFERENCE_RELEASE_ID, pinned per Cloud Run revision). No default - an unset
-# or unrecognized value must fail closed, never guess which source was meant.
-REFERENCE_DATA_SOURCE = os.getenv("REFERENCE_DATA_SOURCE")
+# Public Gemini API (team-provided access to gemini-3.8-flash for this
+# endpoint) - replaces the self-hosted MiniMax-M2.7 client this service
+# used before. A directly-reachable public HTTPS endpoint, so (unlike the
+# self-hosted model's 100.x tailnet address) no Tailscale/SOCKS proxy is
+# needed to reach it.
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.getenv("GEMINI_MODEL", "gemini-3.8-flash")
+GEMINI_BASE_URL = os.getenv("GEMINI_BASE_URL", "https://generativelanguage.googleapis.com/v1beta")
 
-# local source
-REFERENCE_DATA_DIR = os.getenv("REFERENCE_DATA_DIR")
+# Carried over unchanged from the self-hosted MiniMax tuning (same
+# numbers, same mechanism: the concurrency semaphore, these per-call
+# timeout budgets, and hedged requests, all in llm_client.py) at the
+# team's request, rather than stripped out - but these specific NUMBERS
+# were empirically derived against MiniMax's own serving stack (vLLM
+# GPU-contention behavior under load, 2-7s/call typical for that model).
+# They are a reasonable starting point for Gemini, not evidence about
+# Gemini's own latency or rate limits - re-validate against real Gemini
+# traffic before trusting them the way the original tuning trusted them
+# for MiniMax.
+GEMINI_TIMEOUT_SECONDS = float(os.getenv("GEMINI_TIMEOUT_SECONDS", "20"))
+# classify_all_steps_coverage's own budget - one call now scores the
+# WHOLE 10-step checklist at once (thinkingLevel "medium"), run up to 3x
+# as a call-level majority vote (structural_validator._CHECKLIST_VOTES),
+# so a full request costs ~2-3 of these calls, not the ~30 single-step
+# calls this used to take.
+GEMINI_COVERAGE_TIMEOUT_SECONDS = float(os.getenv("GEMINI_COVERAGE_TIMEOUT_SECONDS", "30"))
+# The floor above is sized for a typical draft's call latency (~5-15s,
+# see llm_client._HEDGE_DELAY_SECONDS's own comment) - fine for a short
+# draft, but a guaranteed timeout on a long one: classify_all_steps_
+# coverage sends the WHOLE draft in a single call, so more draft text
+# means more for the model to read on top of reasoning about all 10
+# steps at once. A fixed budget doesn't just make that one call slow -
+# every one of _CHECKLIST_VOTES' repeated votes hits the identical wall
+# and fails the same way, so the request comes back not_assessed on
+# every step regardless of how many votes run (live-confirmed: a 7-
+# section draft returned not_assessed on all 10 steps after 62.6s).
+# This is the cap llm_client._coverage_timeout_for scales up to for a
+# large draft, leaving GEMINI_COVERAGE_TIMEOUT_SECONDS above as the
+# floor every draft still gets at minimum.
+GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS = float(os.getenv("GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS", "70"))
+# generate_polish (whole-document, with a per-section fallback) and
+# check_meaning_preserved_batch's own budget - each now runs once per
+# request in the common case (not once per section).
+GEMINI_POLISH_TIMEOUT_SECONDS = float(os.getenv("GEMINI_POLISH_TIMEOUT_SECONDS", "30"))
 
-# gcs source - the running service only ever reads its own pinned release id;
-# it never polls a live "current" pointer (see Writing Assistant Build Plan,
-# "Production release consistency"). Not wired up yet - no cloud resources
-# have been created.
-REFERENCE_GCS_BUCKET = os.getenv("REFERENCE_GCS_BUCKET")
-REFERENCE_GCS_PREFIX = os.getenv("REFERENCE_GCS_PREFIX", "reference-data")
-REFERENCE_RELEASE_ID = os.getenv("REFERENCE_RELEASE_ID")
-
-# Same env var names already used elsewhere in this repo
-# (ai/ajrasakha/agents/config.py, backend/src/config/ai.ts) - reused on
-# purpose rather than inventing new ones.
-MINIMAX_BASE_URL = os.getenv("MINIMAX_BASE_URL")
-MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY", "")
-MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMaxAI/MiniMax-M2.7")
-# 90s, not 60s: a real re-test report hit 8 real "read operation timed
-# out" failures at the 60s budget under normal production load (not a
-# synthetic worst case) - 60s was itself an evidence-based bump from 30s
-# (Revision 11) that's no longer enough. Each /polish-draft request makes
-# several sequential calls (one per expected step, plus selection, the
-# rewrite, and the second opinion), so this is a per-call budget, not the
-# whole request's latency (Writing Assistant Build Plan, Revision 18).
-MINIMAX_TIMEOUT_SECONDS = float(os.getenv("MINIMAX_TIMEOUT_SECONDS", "90"))
-# The self-hosted production model (per ai/ajrasakha/agents/config.py's
-# get_minimax_chat_model) speaks the standard OpenAI-compatible path. The
-# official public MiniMax API (used as a fallback for testing when the
-# tailnet isn't reachable) uses its own path instead - confirmed by a live
-# probe: /text/chatcompletion_v2, same request/response shape otherwise.
-MINIMAX_CHAT_PATH = os.getenv("MINIMAX_CHAT_PATH", "/chat/completions")
-# temperature=0.0 alone didn't fully stop the step-coverage classification
-# from flipping between runs on identical input (Writing Assistant Build
-# Plan, Revision 14, ISS-04, confirmed in a real test report) - a known
-# property of some reasoning-model serving stacks even at zero temperature.
-# Live-verified the API accepts this field without erroring; not promising
-# this makes every call bit-for-bit reproducible, only that it removes one
-# more independent source of sampling variance.
-MINIMAX_SEED = int(os.getenv("MINIMAX_SEED", "0"))
+# Fixed seed on every call, to reduce (not guarantee-eliminate) run-to-run
+# sampling variance on identical input - same reasoning as the MiniMax
+# client this replaces (Writing Assistant Build Plan, Revision 14,
+# ISS-04). The Gemini API accepts a "seed" field in generationConfig;
+# not yet verified live that it has the same stabilizing effect MiniMax
+# showed.
+GEMINI_SEED = int(os.getenv("GEMINI_SEED", "0"))
 
 # The chemical-name-drift guardrail layer connects directly to the same
 # read-only staging cluster apis/chemical_detector uses, in-process - not
-# over HTTP to that sibling service. Same env var names/defaults as
-# apis/chemical_detector's own config, so the same connection string works
-# for both. This makes this service's guardrail immune to that sibling
-# service being removed, renamed, or rate-limited/cold-starting on its own
-# free-tier Render plan (Writing Assistant Build Plan, Revision 14, ISS-03 -
-# a real test report showed both failure modes live in production).
+# over HTTP to that sibling service. Unaffected by the Gemini switch.
 CHEMICAL_DB_URL = os.getenv("CHEMICAL_DB_URL")
 CHEMICAL_DB_NAME = os.getenv("CHEMICAL_DB_NAME", "agriai")
 CHEMICAL_COLLECTION_NAME = os.getenv("CHEMICAL_COLLECTION_NAME", "crop_master")
+
+# A single request now makes only ~4-5 independent model calls (2-3
+# whole-checklist coverage votes, 1 whole-document polish, 1 batched
+# second opinion) in the common case - down from the ~30-50 single-step/
+# per-section calls this used to take, now that each call scores/rewrites/
+# checks everything it can in one shot (see classify_all_steps_coverage,
+# generate_polish, and check_meaning_preserved_batch). The per-section
+# polish fallback (_generate_polish_per_section, only used if the whole-
+# document call fails or mismatches) can still make one call per
+# section, so the pool and its cap stay in place for that path.
+# Bounded by one process-wide pool (llm_client.run_concurrent) shared by
+# every request, not per-request. Carried over from the MiniMax tuning
+# (cap of 5) at the team's request - that number came from polling the
+# self-hosted model's own vLLM /metrics under load (GPU compute
+# contention); it has no equivalent evidence behind it for Gemini's
+# public API, whose real constraint is a per-minute request quota, not
+# GPU contention. Left in place as a conservative starting cap rather
+# than removed outright - re-tune against Gemini's actual rate limit
+# once this is live-tested.
+GEMINI_MAX_CONCURRENT_CALLS = int(os.getenv("GEMINI_MAX_CONCURRENT_CALLS", "5"))
+
+# Shared secret for the X-API-Key header on /polish-draft - same scheme
+# as apis/../ajrasakha/tools/answer_shortener's ANSWER_SHORTENER_API_KEY:
+# empty/unset means auth is OFF (today's behavior, so an existing local
+# run or test needs no change), not a misconfiguration to fail startup
+# over. Set this once the service is reachable publicly rather than only
+# from a trusted network.
+WRITING_ASSISTANT_API_KEY = os.getenv("WRITING_ASSISTANT_API_KEY", "").strip()

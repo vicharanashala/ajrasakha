@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tool
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { TopQuestionInstancesModal } from "./TopQuestionInstancesModal";
+import { formatCount } from "../utils/dashboardHelpers";
 
 interface TopFaqEntry {
   questionId?: string;
@@ -375,7 +376,9 @@ export function TopFaqsLeaderboard({
     "
                           >
                             <MessageSquare className="w-2.5 h-2.5" />
-                            {item.count.toLocaleString()}
+                            <span title={item.count >= 10000 ? item.count.toLocaleString() : undefined} className={item.count >= 10000 ? "cursor-help" : undefined}>
+                              {formatCount(item.count)}
+                            </span>
                           </span>
                         </div>
                         {/* Bubble tail */}
@@ -729,7 +732,9 @@ export function TopFaqsLeaderboard({
                                         }`}
                                       >
                                         <MessageSquare className="w-3.5 h-3.5" />
-                                        {item.count.toLocaleString()}
+                                        <span title={item.count >= 10000 ? item.count.toLocaleString() : undefined} className={item.count >= 10000 ? "cursor-help" : undefined}>
+                              {formatCount(item.count)}
+                            </span>
                                       </motion.span>
                                     </div>
 

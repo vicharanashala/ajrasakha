@@ -26,6 +26,7 @@ import { useGenerateInitialAnswer } from "@/hooks/api/question/useGenerateInitia
 import { ScrollArea } from "./atoms/scroll-area";
 import { toast,useToast } from "@/shared/components/toast";
 import { isEnglishCharacters } from "@/features/questions/utils/checkLanguage";
+import { extractGdbChosenAnswer } from "@/features/questions/utils/extractGdbAnswer";
 
 // The standard clarification / "please share more details" reply — e.g.
 //   "We're sorry, we couldn't fully understand your question. Could you please share more
@@ -104,6 +105,7 @@ const MessageDetail = ({
 
 
     const msg = messageDetails?.data
+    const gdbEnglishAnswer = extractGdbChosenAnswer(msg?.content);
 
     const isError = !!fetchError || (messageDetails && messageDetails.success === false);
 
@@ -362,6 +364,7 @@ const MessageDetail = ({
                                                             navigateToQuestionPage={
                                                                 navigateToQuestionPage
                                                             }
+                                                            gdbEnglishAnswer={gdbEnglishAnswer}
                                                         />
                                                     );
                                                 }
@@ -389,6 +392,7 @@ const MessageDetail = ({
                                                             navigateToQuestionPage={
                                                                 navigateToQuestionPage
                                                             }
+                                                            gdbEnglishAnswer={gdbEnglishAnswer}
                                                         />
                                                     );
                                                 }
@@ -602,9 +606,10 @@ interface ContentAnswerProps {
     question: IQuestionFullData;
     isQuestionAllocatedToExpert: boolean;
     navigateToQuestionPage(): void;
+    gdbEnglishAnswer?: string | null;
 }
 
-const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateToQuestionPage }: ContentAnswerProps) => {
+const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateToQuestionPage, gdbEnglishAnswer }: ContentAnswerProps) => {
     const parsed = parseChatbotText(text);
     const [approved, setApproved] = useState<boolean | null>(null);
     const [editedAnswerBody, setEditedAnswerBody] = useState(parsed.answerBody);
@@ -904,6 +909,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                                 <SarvamTranslateDropdown
                                     query={editedAnswerBody}
                                     onTranslate={(result) => setTranslatedText(result)}
+                                    gdbEnglishAnswer={gdbEnglishAnswer}
                                 />
                             )
                         }
@@ -1085,6 +1091,7 @@ const ContentAnswer = ({ text, question, isQuestionAllocatedToExpert, navigateTo
                 editedAnswerBody={editedAnswerBody}
                 onAnswerBodyChange={setEditedAnswerBody}
                 initialTranslatedText={translatedText}
+                gdbEnglishAnswer={gdbEnglishAnswer}
                 editedSpecialists={editedSpecialists}
                 onSpecialistsChange={setEditedSpecialists}
                 editedPdfSources={editedPdfSources}
@@ -1174,6 +1181,7 @@ interface EditAnswerModalProps {
     onCancel: () => void;
     initialTranslatedText?: string;
     saveLabel?: string;
+    gdbEnglishAnswer?: string | null;
 }
 
 const EditAnswerModal = ({
@@ -1189,6 +1197,7 @@ const EditAnswerModal = ({
     onCancel,
     initialTranslatedText,
     saveLabel = "Save Changes",
+    gdbEnglishAnswer,
 }: EditAnswerModalProps) => {
     const [pendingAction, setPendingAction] = useState<'save' | 'cancel' | null>(null);
     const [translatedText, setTranslatedText] = useState<string>(initialTranslatedText ?? "");
@@ -1259,6 +1268,7 @@ const EditAnswerModal = ({
                                         <SarvamTranslateDropdown
                                             query={editedAnswerBody}
                                             onTranslate={(result) => setTranslatedText(result)}
+                                            gdbEnglishAnswer={gdbEnglishAnswer}
                                         />
                                     )
                                 }

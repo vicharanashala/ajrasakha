@@ -3,3 +3,7 @@ uvicorn
 requests
 python-dotenv
 pydantic
+pypdf
+mcp
+httpx2
+pymongo

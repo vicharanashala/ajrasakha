@@ -78,6 +78,20 @@ const EXTERNAL_USER_ROLES = ['FARMER', ...COORDINATOR_ROLES] as const;
 //   ],
 // });
 
+// Values of `details.state` that mean "this question belongs to no state"
+// (null also matches a missing field). Used both to count the map's "No state" row
+// and to list those questions, so the count and the list always agree.
+const NO_STATE_VALUES: Array<string | null> = [
+  null,
+  '',
+  'all',
+  'All',
+  '<unknown>',
+  'Not Specified',
+];
+// Special `state` value the frontend sends to list the "No state" questions.
+const NO_STATE_KEY = '__no_state__';
+
 const buildExternalUserMatch = () => ({
   $or: [
     {userRole: {$in: EXTERNAL_USER_ROLES}},
@@ -2430,11 +2444,22 @@ export class ChatbotRepository implements IChatbotRepository {
         //   {session},
         // ),
 
+        // Total Installs represents verified farmers who submitted a profile.
+        // Keep this role predicate aligned with the Users-table Farmer filter,
+        // which accepts the role stored in either field.
         this.users.countDocuments(
           {
-            ...userDocFilter,
-            farmerProfile: {$exists: true, $ne: null},
-            isVerified: true,
+            $and: [
+              userDocFilter,
+              {farmerProfile: {$exists: true, $ne: null}},
+              {isVerified: true},
+              {
+                $or: [
+                  {userRole: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                  {role: {$in: ['FARMER', 'farmer', 'Farmer']}},
+                ],
+              },
+            ],
           },
           {session},
         ),
@@ -2968,9 +2993,6 @@ export class ChatbotRepository implements IChatbotRepository {
       // Top 15 domains
       const top15 = raw.slice(0, 15);
 
-      // Remaining domains
-      const remainingDomains = raw.slice(15);
-
       // Response for top 15
       const result: QueryCategoryEntry[] = top15.map(item => ({
         label: item._id,
@@ -2978,27 +3000,44 @@ export class ChatbotRepository implements IChatbotRepository {
         duplicateQuestionCount: item.duplicateCount,
       }));
 
-      // Aggregate remaining domains
-      if (remainingDomains.length > 0) {
-        const remainingAggregation = remainingDomains.reduce(
-          (acc, item) => ({
-            totalQuestions: acc.totalQuestions + item.uniqueCount,
-
-            totalDuplicates: acc.totalDuplicates + item.duplicateCount,
-          }),
-
+      // A question can have multiple domains. Count a question in Remaining
+      // Categories once when it has at least one domain outside the top 15;
+      // this is the same rule used when opening the modal for this bucket.
+      const topDomainLabels = top15.map(item => item._id).filter(Boolean);
+      const remainingAggregation = await this.QuestionCollection.aggregate(
+        [
+          {$match: matchQuery},
+          {$unwind: '$details.domain'},
+          {$match: {'details.domain': {$nin: topDomainLabels}}},
           {
-            totalQuestions: 0,
-            totalDuplicates: 0,
+            $group: {
+              _id: '$_id',
+              isDuplicate: {$first: {$eq: ['$status', 'duplicate']}},
+            },
           },
-        );
+          {
+            $group: {
+              _id: null,
+              totalQuestions: {
+                $sum: {$cond: ['$isDuplicate', 0, 1]},
+              },
+              totalDuplicates: {
+                $sum: {$cond: ['$isDuplicate', 1, 0]},
+              },
+            },
+          },
+        ],
+        {session},
+      ).toArray();
+      const remaining = remainingAggregation[0];
 
+      if (remaining) {
         result.push({
           label: 'Remaining Categories',
 
-          questionCount: remainingAggregation.totalQuestions,
+          questionCount: remaining.totalQuestions,
 
-          duplicateQuestionCount: remainingAggregation.totalDuplicates,
+          duplicateQuestionCount: remaining.totalDuplicates,
         });
       }
 
@@ -3063,8 +3102,7 @@ export class ChatbotRepository implements IChatbotRepository {
         const topDomains = await this.QuestionCollection.aggregate(
           [
             {$match: baseMatch},
-            // ...lookupStages,
-            // ...lookupStages,
+            {$unwind: '$details.domain'},
             {$group: {_id: '$details.domain', totalCount: {$sum: 1}}},
             {$sort: {totalCount: -1}},
             {$limit: 15},
@@ -3073,9 +3111,28 @@ export class ChatbotRepository implements IChatbotRepository {
           {session},
         ).toArray();
 
+        const topDomainLabels = topDomains
+          .map(item => item._id)
+          .filter(Boolean);
         domainMatch = {
-          'details.domain': {
-            $nin: topDomains.map(item => item._id).filter(Boolean),
+          $expr: {
+            $gt: [
+              {
+                $size: {
+                  $setDifference: [
+                    {
+                      $cond: [
+                        {$isArray: '$details.domain'},
+                        '$details.domain',
+                        ['$details.domain'],
+                      ],
+                    },
+                    topDomainLabels,
+                  ],
+                },
+              },
+              0,
+            ],
           },
         };
       } else {
@@ -7681,6 +7738,138 @@ export class ChatbotRepository implements IChatbotRepository {
     return result1;
   }
 
+  /**
+   * Distinct Agri / Non-Agri question counts per user, using the same
+   * ownership rule as the user-activity modal (queryUserQuestionsByStatus):
+   * a question belongs to a user when its messageId is one of the user's
+   * messages, or its userId (ObjectId) is the user. The userId match only
+   * applies to users that have at least one message with a messageId.
+   */
+  private async getQuestionCountsByUser(
+    userIds: string[],
+    sourceType: string,
+    startDate?: Date,
+    endDate?: Date,
+    session?: ClientSession,
+  ): Promise<{agri: Map<string, number>; nonAgri: Map<string, number>}> {
+    const agri = new Map<string, number>();
+    const nonAgri = new Map<string, number>();
+    if (userIds.length === 0) {
+      return {agri, nonAgri};
+    }
+
+    const dateRange: Record<string, Date> = {};
+    if (startDate) dateRange.$gte = startDate;
+    if (endDate) dateRange.$lte = endDate;
+    const dateFilter =
+      Object.keys(dateRange).length > 0 ? {createdAt: dateRange} : {};
+
+    const usersWithMessageIds = await this.messagesCollection
+      .aggregate(
+        [
+          {
+            $match: {
+              user: {$in: userIds},
+              messageId: {$exists: true, $ne: null},
+              ...dateFilter,
+            },
+          },
+          {$group: {_id: '$user'}},
+        ],
+        {session},
+      )
+      .toArray();
+    const eligibleUsers = new Set<string>(
+      usersWithMessageIds.map(u => String(u._id)),
+    );
+    const eligibleObjectIds = Array.from(eligibleUsers)
+      .map(id => {
+        try {
+          return new ObjectId(id);
+        } catch {
+          return null;
+        }
+      })
+      .filter((id): id is ObjectId => id !== null);
+
+    // Fetch Agri and Non-Agri together, so drop the base match's status exclusion.
+    const baseMatch: any = buildBaseQuestionMatch(sourceType);
+    baseMatch.$and = (baseMatch.$and || []).filter(
+      (condition: any) => !('status' in condition),
+    );
+
+    const rows = await this.QuestionCollection.aggregate(
+      [
+        {
+          $match: {
+            ...baseMatch,
+            ...dateFilter,
+            $or: [
+              {messageId: {$exists: true, $ne: null}},
+              {userId: {$in: eligibleObjectIds}},
+            ],
+          },
+        },
+        {
+          $group: {
+            _id: {
+              userId: '$userId',
+              messageId: '$messageId',
+              question: {$toLower: {$trim: {input: '$question'}}},
+              isNonAgri: {$eq: ['$status', 'non_agri']},
+            },
+          },
+        },
+      ],
+      {session, allowDiskUse: true},
+    ).toArray();
+
+    const messageIds = Array.from(
+      new Set(rows.map(r => r._id.messageId).filter(Boolean)),
+    );
+    const ownersByMessage = new Map<string, Set<string>>();
+    const batchSize = 5000;
+    for (let i = 0; i < messageIds.length; i += batchSize) {
+      const messages = await this.messagesCollection
+        .find(
+          {
+            messageId: {$in: messageIds.slice(i, i + batchSize)},
+            user: {$in: userIds},
+            ...dateFilter,
+          },
+          {projection: {messageId: 1, user: 1}, session},
+        )
+        .toArray();
+      for (const m of messages) {
+        const owners = ownersByMessage.get(m.messageId) ?? new Set<string>();
+        owners.add(String(m.user));
+        ownersByMessage.set(m.messageId, owners);
+      }
+    }
+
+    const agriTexts = new Map<string, Set<any>>();
+    const nonAgriTexts = new Map<string, Set<any>>();
+    for (const {_id: row} of rows) {
+      const owners = new Set<string>(ownersByMessage.get(row.messageId) ?? []);
+      if (
+        row.userId instanceof ObjectId &&
+        eligibleUsers.has(String(row.userId))
+      ) {
+        owners.add(String(row.userId));
+      }
+      const target = row.isNonAgri ? nonAgriTexts : agriTexts;
+      owners.forEach(owner => {
+        const texts = target.get(owner) ?? new Set<any>();
+        texts.add(row.question);
+        target.set(owner, texts);
+      });
+    }
+    agriTexts.forEach((texts, id) => agri.set(id, texts.size));
+    nonAgriTexts.forEach((texts, id) => nonAgri.set(id, texts.size));
+
+    return {agri, nonAgri};
+  }
+
   async getUserDetails(
     startDate?: Date,
     endDate?: Date,
@@ -8088,122 +8277,44 @@ export class ChatbotRepository implements IChatbotRepository {
       const totalUsers = finalList.length;
       const activeUsers = finalList.filter(u => u.totalQuestions > 0).length;
       const inactiveUsers = totalUsers - activeUsers;
-      const totalMessagesCount = finalList.reduce(
+      const rawMessagesCount = finalList.reduce(
         (sum, u) => sum + u.totalQuestions,
         0,
       );
 
-      // Query QuestionCollection for total questions of these users
       const filteredUserIdsStr = finalList.map(u => u.userId);
-      const filteredUserObjectIds = filteredUserIdsStr.map(id => {
-        try {
-          return new ObjectId(id);
-        } catch {
-          return null;
-        }
-      }).filter(id => id !== null);
-
       const sourceType = source === 'whatsapp' ? 'WHATSAPP' : 'AJRASAKHA';
-      const questionMatchQuery: any = buildBaseQuestionMatch(sourceType);
 
-      if (startDate || endDate) {
-        questionMatchQuery.createdAt = {};
-        if (startDate) questionMatchQuery.createdAt.$gte = startDate;
-        if (endDate) questionMatchQuery.createdAt.$lte = endDate;
-      }
+      // Same ownership rule as the user-activity modal, so both show the same counts.
+      const {agri: questionCountMap, nonAgri: nonAgriQuestionCountMap} =
+        await this.getQuestionCountsByUser(
+          filteredUserIdsStr,
+          sourceType,
+          startDate,
+          endDate,
+          session,
+        );
 
-      questionMatchQuery.userId = { $in: [...filteredUserIdsStr, ...filteredUserObjectIds] };
-
-      const questionCountsPipeline = [
-         { $match: questionMatchQuery },
-         {
-           $group: {
-             _id: {
-               userId: "$userId",
-               question: {
-                 $toLower: {
-                   $trim: {
-                     input: "$question",
-                   },
-                 },
-               },
-             }
-           }
-         },
-         {
-           $group: {
-             _id: "$_id.userId",
-             total: { $sum: 1 }
-           }
-         }
-      ];
-
-      // Same match as the Agri count above, except we want status
-      // 'non_agri' exactly instead of excluding it — mirrors the logic
-      // used for the user-activity modal's Non Agri tab.
-      const nonAgriQuestionMatchQuery: any = {
-        ...questionMatchQuery,
-        $and: (questionMatchQuery.$and || []).filter(
-          (condition: any) => !('status' in condition),
-        ),
-        status: 'non_agri',
-      };
-
-      const nonAgriQuestionCountsPipeline = [
-         { $match: nonAgriQuestionMatchQuery },
-         {
-           $group: {
-             _id: {
-               userId: "$userId",
-               question: {
-                 $toLower: {
-                   $trim: {
-                     input: "$question",
-                   },
-                 },
-               },
-             }
-           }
-         },
-         {
-           $group: {
-             _id: "$_id.userId",
-             total: { $sum: 1 }
-           }
-         }
-      ];
-
-      const [questionCountsRes, nonAgriQuestionCountsRes] = await Promise.all([
-        this.QuestionCollection.aggregate(questionCountsPipeline, { session }).toArray(),
-        this.QuestionCollection.aggregate(nonAgriQuestionCountsPipeline, { session }).toArray(),
-      ]);
-
-      const questionCountMap = new Map();
       let totalQuestionsCount = 0;
-      for (const res of questionCountsRes) {
-        const idStr = String(res._id);
-        questionCountMap.set(idStr, res.total);
-        totalQuestionsCount += res.total;
-      }
-
-      const nonAgriQuestionCountMap = new Map();
+      questionCountMap.forEach(count => (totalQuestionsCount += count));
       let totalNonAgriQuestionsCount = 0;
-      for (const res of nonAgriQuestionCountsRes) {
-        const idStr = String(res._id);
-        nonAgriQuestionCountMap.set(idStr, res.total);
-        totalNonAgriQuestionsCount += res.total;
-      }
+      nonAgriQuestionCountMap.forEach(
+        count => (totalNonAgriQuestionsCount += count),
+      );
 
-      const totalQueries = totalMessagesCount + totalQuestionsCount;
+      const totalMessagesCount =
+        totalQuestionsCount + totalNonAgriQuestionsCount;
+      const totalQueries = totalMessagesCount;
 
       // Update finalList users with their specific counts
       for (const u of finalList) {
         const uId = String(u.userId);
         const qCount = questionCountMap.get(uId) || 0;
-        u.totalMessagesCount = u.totalQuestions || 0;
+        const nonAgriCount = nonAgriQuestionCountMap.get(uId) || 0;
         u.totalQuestionsCount = qCount;
-        u.totalNonAgriQuestionsCount = nonAgriQuestionCountMap.get(uId) || 0;
-        u.totalQueries = u.totalMessagesCount + u.totalQuestionsCount;
+        u.totalNonAgriQuestionsCount = nonAgriCount;
+        u.totalMessagesCount = qCount + nonAgriCount;
+        u.totalQueries = u.totalMessagesCount;
       }
 
       const totalPages = Math.max(1, Math.ceil(totalUsers / limit));
@@ -8222,7 +8333,7 @@ export class ChatbotRepository implements IChatbotRepository {
         userRoleCounts,
         activeUsers,
         inactiveUsers,
-        totalQuestions: totalMessagesCount, // Legacy field
+        totalQuestions: rawMessagesCount, // Legacy field
         totalQueries,
         totalMessagesCount,
         totalQuestionsCount,
@@ -8526,6 +8637,31 @@ export class ChatbotRepository implements IChatbotRepository {
     );
   }
 
+  async getUserAllQuestionsData(
+    identifiers: {
+      threadIds?: string[];
+      messageIds?: string[];
+      userId?: string;
+    },
+    source: string,
+    userType = 'all',
+    page = 1,
+    limit = 12,
+    startDate?: string,
+    endDate?: string,
+  ) {
+    return this.queryUserQuestionsByStatus(
+      identifiers,
+      source,
+      userType,
+      page,
+      limit,
+      startDate,
+      endDate,
+      'all',
+    );
+  }
+
   /**
    * Shared query behind both the Agri and Non-Agri tabs on the user-activity
    * modal. Both tabs use identical threadId/messageId/userId matching,
@@ -8546,7 +8682,7 @@ export class ChatbotRepository implements IChatbotRepository {
     limit = 12,
     startDate: string | undefined,
     endDate: string | undefined,
-    statusMode: 'agri' | 'non_agri',
+    statusMode: 'agri' | 'non_agri' | 'all',
   ) {
     try {
       await this.initReviewSystem();
@@ -8609,6 +8745,13 @@ export class ChatbotRepository implements IChatbotRepository {
         matchQuery.status = 'non_agri';
       }
 
+      if (statusMode === 'all') {
+        // Agri + Non-Agri: the base match without its status exclusion.
+        matchQuery.$and = (matchQuery.$and || []).filter(
+          (condition: any) => !('status' in condition),
+        );
+      }
+
       if (startDate || endDate) {
   matchQuery.createdAt = {};
 
@@ -8638,6 +8781,14 @@ export class ChatbotRepository implements IChatbotRepository {
 
       const skip = (page - 1) * limit;
 
+      const questionKey = {
+        $toLower: {
+          $trim: {
+            input: '$question',
+          },
+        },
+      };
+
       const pipeline = [
         {
           $match: matchQuery,
@@ -8651,13 +8802,10 @@ export class ChatbotRepository implements IChatbotRepository {
 
         {
           $group: {
-            _id: {
-              $toLower: {
-                $trim: {
-                  input: '$question',
-                },
-              },
-            },
+            _id:
+              statusMode === 'all'
+                ? {question: questionKey, status: '$status'}
+                : questionKey,
 
             repeatedCount: {
               $sum: 1,
@@ -9188,48 +9336,13 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {isDeleted: {$ne: true}}},
+            // Keep only the fields this pipeline needs (smaller documents through the lookup/group)
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                msgCount: {$sum: 1},
-              },
-            },
-            // Skip conversations with only 1 message — no gaps, nothing to measure
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {$group: {_id: null, avg: {$avg: '$activeSessionMs'}}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9240,6 +9353,57 @@ async getAllUserMessageIds(
         `Failed to get avg session duration v2: ${error}`,
       );
     }
+  }
+
+  // Per-conversation active session time WITHOUT a global $sort / $setWindowFields.
+  // Collects each conversation's message timestamps, sorts that small array, and
+  // sums only the gaps <= 30 min (longer gaps = user was away). Conversations with
+  // a single message are skipped. Emits { _id, firstMsg, activeSessionMs }.
+  // Requires MongoDB 5.2+ ($sortArray).
+  private buildSessionDurationStages(): any[] {
+    return [
+      {$group: {_id: '$conversationId', times: {$push: '$createdAt'}}},
+      {$match: {$expr: {$gt: [{$size: '$times'}, 1]}}},
+      {
+        $project: {
+          firstMsg: {$min: '$times'},
+          activeSessionMs: {
+            $let: {
+              vars: {sorted: {$sortArray: {input: '$times', sortBy: 1}}},
+              in: {
+                $reduce: {
+                  input: {$range: [1, {$size: '$$sorted'}]},
+                  initialValue: 0,
+                  in: {
+                    $let: {
+                      vars: {
+                        gap: {
+                          $subtract: [
+                            {$arrayElemAt: ['$$sorted', '$$this']},
+                            {
+                              $arrayElemAt: [
+                                '$$sorted',
+                                {$subtract: ['$$this', 1]},
+                              ],
+                            },
+                          ],
+                        },
+                      },
+                      in: {
+                        $add: [
+                          '$$value',
+                          {$cond: [{$lte: ['$$gap', 1800000]}, '$$gap', 0]},
+                        ],
+                      },
+                    },
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    ];
   }
 
   // ── NEW: Inactivity-gap based weekly avg session duration (sparkline/delta) ──
@@ -9264,49 +9428,9 @@ async getAllUserMessageIds(
         .aggregate(
           [
             {$match: {createdAt: {$gte: since}, isDeleted: {$ne: true}}},
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
             ...userTypeLookupStages,
-            {$sort: {conversationId: 1, createdAt: 1}},
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-                sortBy: {createdAt: 1},
-                output: {
-                  prevCreatedAt: {$shift: {output: '$createdAt', by: -1}},
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-                    window: {documents: ['unbounded', 'current']},
-                  },
-                },
-              },
-            },
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-                    {$subtract: ['$createdAt', '$prevCreatedAt']},
-                    0,
-                  ],
-                },
-              },
-            },
-            // Discard gaps > 30 minutes (1,800,000 ms) — user was idle/away
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-            {
-              $group: {
-                _id: '$conversationId',
-                activeSessionMs: {$sum: '$activeGapMs'},
-                firstMsg: {$min: '$firstMsgInConv'},
-                msgCount: {$sum: 1},
-              },
-            },
-            {$match: {msgCount: {$gt: 1}}},
+            ...this.buildSessionDurationStages(),
             {
               $addFields: {
                 week: {
@@ -9335,7 +9459,7 @@ async getAllUserMessageIds(
             },
             {$sort: {week: 1}},
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -9370,92 +9494,11 @@ async getAllUserMessageIds(
                 isDeleted: {$ne: true},
               },
             },
+            {$project: {conversationId: 1, createdAt: 1, user: 1}},
 
             ...userTypeLookupStages,
 
-            {
-              $sort: {
-                conversationId: 1,
-                createdAt: 1,
-              },
-            },
-
-            {
-              $setWindowFields: {
-                partitionBy: '$conversationId',
-
-                sortBy: {
-                  createdAt: 1,
-                },
-
-                output: {
-                  prevCreatedAt: {
-                    $shift: {
-                      output: '$createdAt',
-                      by: -1,
-                    },
-                  },
-
-                  firstMsgInConv: {
-                    $first: '$createdAt',
-
-                    window: {
-                      documents: ['unbounded', 'current'],
-                    },
-                  },
-                },
-              },
-            },
-
-            {
-              $addFields: {
-                gapMs: {
-                  $cond: [
-                    {$ifNull: ['$prevCreatedAt', false]},
-
-                    {
-                      $subtract: ['$createdAt', '$prevCreatedAt'],
-                    },
-
-                    0,
-                  ],
-                },
-              },
-            },
-
-            // Ignore inactive gaps > 30 mins
-            {
-              $addFields: {
-                activeGapMs: {
-                  $cond: [{$lte: ['$gapMs', 1800000]}, '$gapMs', 0],
-                },
-              },
-            },
-
-            {
-              $group: {
-                _id: '$conversationId',
-
-                activeSessionMs: {
-                  $sum: '$activeGapMs',
-                },
-
-                firstMsg: {
-                  $min: '$firstMsgInConv',
-                },
-
-                msgCount: {
-                  $sum: 1,
-                },
-              },
-            },
-
-            // Ignore single-message conversations
-            {
-              $match: {
-                msgCount: {$gt: 1},
-              },
-            },
+            ...this.buildSessionDurationStages(),
 
             // MONTH GROUPING
             {
@@ -9503,7 +9546,7 @@ async getAllUserMessageIds(
               },
             },
           ],
-          {session},
+          {session, allowDiskUse: true},
         )
         .toArray();
 
@@ -15906,17 +15949,21 @@ async getAllUserMessageIds(
         };
       }
 
+      // NOTE: the Unique/Duplicate filter (typeMatch) and the non_agri exclusion both
+      // constrain `status`, so they must be separate $and conditions. Putting two
+      // `status` keys in one object makes the later one silently overwrite the first,
+      // which is why Unique/Duplicate used to return the same rows as All.
       const finalMatch: any = {
         ...matchStage,
         ...cropMatch,
-        ...typeMatch,
         ...searchMatch,
         $and: [
           {
             $or: [{isTesting: {$exists: false}}, {isTesting: {$ne: true}}],
           },
+          typeMatch,
+          {status: {$ne: 'non_agri'}},
         ],
-        status: {$ne: 'non_agri'},
       };
 
       const userTypeMatch = await this.buildQuestionUserTypeMatchQuery(
@@ -16151,12 +16198,12 @@ async getAllUserMessageIds(
         };
       }
       if (status === 'pending') {
-        // matchQuery.status = {
-        //   $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
-        // };
+        // "In Queue" = every question that is not closed / non-GDB. This must match the
+        // tile's formula (total - closed - non-GDB), so it includes open, in-review,
+        // delayed, hold, etc. -- not only questions whose status is literally 'pending'.
         matchQuery.status = {
-          $in: ['pending'],
-        }
+          $nin: ['closed', 'pass', 'dynamic_closed', 'duplicate_closed'],
+        };
       }
 
       // Apply date range
@@ -17281,6 +17328,13 @@ async getAllUserMessageIds(
         },
       ]).toArray();
 
+      // Questions that belong to no state (shown as the map's "No state" row). Same base
+      // filters as the per-state counts above, with the state condition inverted.
+      const noStateQuestionCount = await this.QuestionCollection.countDocuments({
+        ...matchQuery,
+        'details.state': {$in: NO_STATE_VALUES},
+      });
+
       const feedbackMatch: any = {
         feedback: {$ne: null},
         'feedback.rating': {$exists: true},
@@ -17632,7 +17686,24 @@ async getAllUserMessageIds(
           }
         }
       }
-      return Array.from(stateMap.values());
+      const stateRows = Array.from(stateMap.values());
+      if (noStateQuestionCount > 0) {
+        stateRows.push({
+          state: NO_STATE_KEY,
+          stateCode: null,
+          totalQuestions: noStateQuestionCount,
+          totalUsers: 0,
+          activeUsers: 0,
+          totalFeedbacks: 0,
+          positiveFeedbacks: 0,
+          negativeFeedbacks: 0,
+          districtCoordinators: 0,
+          blockCoordinators: 0,
+          villageVolunteers: 0,
+          coordinators: 0,
+        });
+      }
+      return stateRows;
     } catch (error) {
       throw new InternalServerError(`Internal server error ${error}`);
     }
@@ -19572,9 +19643,13 @@ async getAllUserMessageIds(
         throw new BadRequestError('state is required');
       }
 
-      const stateMatch = {
-        'details.state': stateLabel,
-      };
+      // The map's "No state" row asks for questions that belong to no state.
+      const isNoStateRequest = stateLabel === NO_STATE_KEY;
+      if (isNoStateRequest) {
+        baseMatch['details.state'] = {$in: NO_STATE_VALUES};
+      }
+
+      const stateMatch = isNoStateRequest ? {} : {'details.state': stateLabel};
 
       const typeMatch =
         questionType === 'duplicate'

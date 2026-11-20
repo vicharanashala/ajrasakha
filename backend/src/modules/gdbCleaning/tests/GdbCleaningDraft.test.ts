@@ -6,6 +6,9 @@ import {IGdbCleaningRepository} from '#root/shared/database/interfaces/IGdbClean
 import {IAnswerRepository} from '#root/shared/database/interfaces/IAnswerRepository.js';
 import {IUserRepository} from '#root/shared/database/interfaces/IUserRepository.js';
 import {IAnswerApprovalService} from '#root/modules/answer/interfaces/IAnswerApprovalService.js';
+import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
+import {IQuestionService} from '#root/modules/question/interfaces/IQuestionService.js';
+import {IAuditTrailsService} from '#root/modules/auditTrails/interfaces/IAuditTrailsService.js';
 import {GdbCleaningService} from '../services/GdbCleaningService.js';
 import {
   draftFromLibrary,
@@ -68,6 +71,9 @@ const serviceWith = (repo: IGdbCleaningRepository) =>
     {} as IAnswerRepository,
     {} as IAnswerApprovalService,
     {} as IUserRepository,
+    {} as IQuestionRepository,
+    {} as IQuestionService,
+    {} as IAuditTrailsService,
   );
 
 describe('GdbCleaningService draft', () => {
@@ -79,8 +85,25 @@ describe('GdbCleaningService draft', () => {
   it('drafts from the question and the crop of the answer', async () => {
     const doc = makeDoc();
     const result = await serviceWith(repoWith(doc)).draft(doc.answerId.toString());
-    expect(draftFromLibrary).toHaveBeenCalledWith(doc.question, doc.crop);
+    expect(draftFromLibrary).toHaveBeenCalledWith(doc.question, doc.crop, [], doc.domain, doc.state);
     expect(result).toEqual(draftResult);
+  });
+
+  it('sends the files attached to the answer as sources, leaving out empty ones', async () => {
+    const doc = makeDoc({
+      sources: [
+        {sourceName: 'Package of Practices', source: 'https://workdrive.zoho.in/file/abc123', page: ''},
+        {sourceName: 'Nothing', source: '', page: ''},
+      ],
+    });
+    await serviceWith(repoWith(doc)).draft(doc.answerId.toString());
+    expect(draftFromLibrary).toHaveBeenCalledWith(
+      doc.question,
+      doc.crop,
+      [{url: 'https://workdrive.zoho.in/file/abc123', name: 'Package of Practices'}],
+      doc.domain,
+      doc.state,
+    );
   });
 
   it('returns not found for an unknown answer', async () => {

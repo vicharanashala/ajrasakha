@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -72,6 +73,20 @@ export class GetGdbCleaningListQuery {
   @Min(1)
   @Max(100)
   limit?: number;
+}
+
+export class EditGdbQuestionDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  question?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  domain?: string;
 }
 
 export class GetGdbCleaningSummaryQuery {
@@ -196,6 +211,7 @@ export const GDB_CLEANING_VALIDATORS = [
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,
+  EditGdbQuestionDto,
   GdbSourceDto,
   SaveGdbSourcesDto,
 ];

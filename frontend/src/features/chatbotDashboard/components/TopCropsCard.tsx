@@ -23,6 +23,7 @@ import { Tooltip as ShadcnTooltip, TooltipContent, TooltipTrigger } from "@/comp
 import { useQueryClient } from "@tanstack/react-query";
 import { LazySectionSkeleton } from "../AnnamDashboard_dev";
 import { QueryCategoryQuestionsModal } from "./QueryCategoryQuestionsModal";
+import { formatCount } from "../utils/dashboardHelpers";
 
 const colors = [
     "var(--color-chart-1, #3AAA5A)",
@@ -194,7 +195,9 @@ export const TopCropsCard = ({
                     <CardDescription>
                         Most frequently asked crops. Total Matching Questions:{" "}
                         <span className="font-semibold text-gray-900 dark:text-gray-100">
-                            {topCrops.totalQuestions.toLocaleString()}
+                            <span title={topCrops.totalQuestions >= 10000 ? topCrops.totalQuestions.toLocaleString() : undefined} className={topCrops.totalQuestions >= 10000 ? "cursor-help" : undefined}>
+                                {formatCount(topCrops.totalQuestions)}
+                            </span>
                         </span>
                     </CardDescription>
                 </CardHeader>
@@ -252,7 +255,7 @@ export const TopCropsCard = ({
                                 <h3 className="text-lg font-semibold uppercase tracking-wide text-gray-500 dark:text-gray-400">Top Crops by Questions</h3>
                                 <p className="text-sm text-gray-600 dark:text-gray-300 mt-1">
                                     Most frequently asked crops. Total Matching Questions:{" "}
-                                    <span className="font-semibold text-gray-900 dark:text-gray-100">{topCrops.totalQuestions.toLocaleString()}</span>
+                                    <span className="font-semibold text-gray-900 dark:text-gray-100 cursor-help" title={topCrops.totalQuestions >= 10000 ? topCrops.totalQuestions.toLocaleString() : undefined}>{formatCount(topCrops.totalQuestions)}</span>
                                 </p>
                             </div>
 

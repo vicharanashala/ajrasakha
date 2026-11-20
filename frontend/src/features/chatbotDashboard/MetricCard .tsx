@@ -19,7 +19,7 @@ import {
 import { TotalQueriesModal } from "./components/TotalQueriesModal";
 import { ActiveFarmersTable } from "./components/ActiveFarmersTable";
 import type { QueryGranularity } from "./components/TotalQueriesModal";
-import type { AnalyticsEntry } from "./utils/dashboardHelpers";
+import { formatCount, type AnalyticsEntry } from "./utils/dashboardHelpers";
 import { useQueryClient } from "@tanstack/react-query";
 import { motion, AnimatePresence } from "framer-motion";
 import { QueryCategoryQuestionsModal } from "./components/QueryCategoryQuestionsModal";
@@ -280,20 +280,21 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
       .map((s) => s.replace(/,/g, "").trim());
     const left = Number(leftRaw);
     const right = Number(rightRaw);
+    const isLarge = (Number.isFinite(left) && left >= 10000) || (Number.isFinite(right) && right >= 10000);
     return (
-      <>
+      <span title={isLarge ? `${Number.isFinite(left) ? left.toLocaleString() : leftRaw} / ${Number.isFinite(right) ? right.toLocaleString() : rightRaw}` : undefined} className={isLarge ? "cursor-help" : undefined}>
         {Number.isFinite(left) ? (
-          <CountUp end={left} duration={1.5} preserveValue separator="," />
+          <CountUp end={left} duration={1.5} preserveValue separator="," formattingFn={formatCount} />
         ) : (
           leftRaw
         )}
         {" / "}
         {Number.isFinite(right) ? (
-          <CountUp end={right} duration={1.5} preserveValue separator="," />
+          <CountUp end={right} duration={1.5} preserveValue separator="," formattingFn={formatCount} />
         ) : (
           rightRaw
         )}
-      </>
+      </span>
     );
   }
 
@@ -316,7 +317,21 @@ function AnimatedKpiValue({ value, kpiId }: { value: string; kpiId: string }) {
   // Plain numeric (may contain commas)
   const num = Number(raw.replace(/,/g, ""));
   if (Number.isFinite(num)) {
-    return <CountUp end={num} duration={1.5} preserveValue separator="," />;
+    const isLarge = num >= 10000;
+    return (
+      <span
+        title={isLarge ? num.toLocaleString() : undefined}
+        className={isLarge ? "cursor-help" : undefined}
+      >
+        <CountUp
+          end={num}
+          duration={1.5}
+          preserveValue
+          separator=","
+          formattingFn={formatCount}
+        />
+      </span>
+    );
   }
 
   // Fallback: non-numeric
@@ -712,7 +727,14 @@ function KpiCard({
                                 </tr>
                               </thead>
                               <tbody>
-                                {(activePoints || []).map((value, idx) => (
+                                {/* Newest first: the chart reads oldest → newest, but the list should start from the latest period */}
+                                {(activePoints || [])
+                                  .map((value, i) => ({
+                                    value,
+                                    label: activeLabels?.[i] || `Point ${i + 1}`,
+                                  }))
+                                  .reverse()
+                                  .map(({ value, label }, idx) => (
                                   <motion.tr
                                     key={idx}
                                     initial={{ opacity: 0, y: 4 }}
@@ -721,8 +743,7 @@ function KpiCard({
                                     className="border-t border-gray-200 dark:border-white/10 hover:bg-gray-50 dark:hover:bg-white/5"
                                   >
                                     <td className="px-3 py-2 text-gray-600 dark:text-gray-400 whitespace-nowrap">
-                                      {activeLabels?.[idx] ||
-                                        `Point ${idx + 1}`}
+                                      {label}
                                     </td>
                                     <td className="px-3 py-2 text-right font-medium tabular-nums text-gray-900 dark:text-gray-100">
                                       {value.toLocaleString()}

@@ -37,6 +37,7 @@ import {
 
 import { format } from "date-fns";
 import type { DateRange } from "react-day-picker";
+import { formatCount } from "../utils/dashboardHelpers";
 
 import {
   type WeatherConcernFilters,
@@ -453,7 +454,9 @@ const handleRefresh = async () => {
             </p>
 
             <p className="mt-2 text-2xl font-semibold text-foreground">
-              {total.toLocaleString()}
+              <span title={total >= 10000 ? total.toLocaleString() : undefined} className={total >= 10000 ? "cursor-help" : undefined}>
+                {formatCount(total)}
+              </span>
             </p>
           </div>
 
@@ -531,7 +534,9 @@ const handleRefresh = async () => {
                             </div>
 
                             <p className="text-xs text-muted-foreground">
-                              {item.count.toLocaleString()} queries
+                              <span title={item.count >= 10000 ? `${item.count.toLocaleString()} queries` : undefined} className={item.count >= 10000 ? "cursor-help" : undefined}>
+                                {formatCount(item.count)} queries
+                              </span>
                             </p>
                           </div>
                         </div>

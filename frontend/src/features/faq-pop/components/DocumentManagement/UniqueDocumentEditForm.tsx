@@ -16,9 +16,16 @@ import {
   getDashboardStates,
   getDashboardDistricts,
   getDashboardKvks,
+  getDashboardOrganizations,
 } from "../../api";
-import { DOCUMENT_METADATA_FIELDS, EDITABLE_DOCUMENT_ONLY_FIELDS, DISPLAY_ONLY_FIELDS } from "./fields";
+import {
+  DOCUMENT_METADATA_FIELDS,
+  EDITABLE_DOCUMENT_ONLY_FIELDS,
+  DISPLAY_ONLY_FIELDS,
+  organizationDisplayLabel,
+} from "./fields";
 import MetadataFieldInput from "./MetadataFieldInput";
+import { StateSelector } from "../FunctionsPanel/RunTile";
 
 const inputClass =
   "w-full bg-input border border-border rounded-md px-2 py-1.5 text-sm text-foreground placeholder:text-muted-foreground/60 focus:outline-none focus:ring-2 focus:ring-ring transition-shadow";
@@ -150,17 +157,25 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
       .catch(() => {});
   }, [values.district_id]);
 
+  // Ministry/Department — same organisation vocabulary as Folder, but its own flat, unscoped list.
+  const [organizationOptions, setOrganizationOptions] = useState([]);
+  useEffect(() => {
+    getDashboardOrganizations()
+      .then((d) => setOrganizationOptions(d || []))
+      .catch(() => {});
+  }, []);
+
   async function handleSave() {
     // Only touched fields are sent — an untouched field is omitted, which PATCH treats as "leave
     // alone" (confirmed by the backend). Every field is otherwise optional (str | None / int |
-    // None): a touched-but-blank field becomes null, EXCEPT district_id/kvk_id and language, which
-    // have their own rules below.
+    // None): a touched-but-blank field becomes null, EXCEPT district_id/kvk_id/
+    // ministry_or_department_id and language, which have their own rules below.
     const payload = {};
     for (const key of touched) {
       const f = EDITABLE_FIELDS.find((x) => x.key === key);
       if (!f) continue;
       const raw = values[key];
-      if (key === "district_id" || key === "kvk_id") {
+      if (key === "district_id" || key === "kvk_id" || key === "ministry_or_department_id") {
         // An empty string on the id field itself clears it (backend fixed this 2026-10-05 — an
         // earlier probe found {"district_id": ""} 400ing, which is why this used to route a clear
         // through the plain-name field instead; that workaround is gone now that the id field
@@ -231,12 +246,15 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
         <div className="flex flex-col gap-5 py-2">
           {GROUP_ORDER.map((group) => {
             const editableInGroup = EDITABLE_FIELDS.filter(
-              (f) => f.group === group && !["district_id", "kvk_id", "language"].includes(f.key),
+              (f) =>
+                f.group === group &&
+                !["district_id", "kvk_id", "language", "ministry_or_department_id"].includes(f.key),
             );
             const displayInGroup = DISPLAY_ONLY_FIELDS.filter((f) => f.group === group);
             const isLocation = group === "Location";
             const isLanguage = group === "Language";
             const isIdentity = group === "Identity";
+            const isAdvisoryDetails = group === "Advisory Details";
             return (
               <div key={group} className="flex flex-col gap-2">
                 <div className={sectionTitleClass}>{group}</div>
@@ -324,6 +342,29 @@ export default function UniqueDocumentEditForm({ doc, open, onOpenChange, onSave
                         )}
                       </div>
                     </>
+                  )}
+                  {isAdvisoryDetails && (
+                    <div className="flex flex-col gap-1">
+                      <label className={labelClass}>Ministry/Department</label>
+                      <StateSelector
+                        value={
+                          (() => {
+                            const opt = organizationOptions.find(
+                              (o) => o.id === values.ministry_or_department_id,
+                            );
+                            return opt ? organizationDisplayLabel(opt) : "";
+                          })()
+                        }
+                        onChange={(label) => {
+                          const opt = organizationOptions.find(
+                            (o) => organizationDisplayLabel(o) === label,
+                          );
+                          setValue("ministry_or_department_id", opt ? opt.id : "");
+                        }}
+                        stateNames={organizationOptions.map((o) => organizationDisplayLabel(o))}
+                        placeholder="Search ministry/department…"
+                      />
+                    </div>
                   )}
                   {displayInGroup.map((f) => (
                     <div key={f.key} className="flex flex-col gap-1">

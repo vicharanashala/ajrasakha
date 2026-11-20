@@ -6,7 +6,10 @@ from any other apis/* service or ai/ajrasakha/*.
 
 import json
 import logging
+import re
+import socket
 import time
+from urllib.parse import urlparse
 
 import httpx
 
@@ -14,6 +17,34 @@ from . import config, disclaimers
 from .models import LLMUnavailableError
 
 log = logging.getLogger("agriculture_classifier.llm_client")
+
+# Tailscale's userspace-networking mode (containers, e.g. Render) creates no
+# network interface, so a 100.x address (the self-hosted MiniMax-M2.7 host)
+# is only reachable through the local SOCKS5 proxy tailscaled exposes there.
+# A host already joined to the tailnet directly (e.g. a dev machine) has no
+# such proxy listening and must connect straight through instead - hence
+# _is_socks_proxy_active() below, live-checked rather than assumed, which is
+# what apis/weather_apis/main.py's _get_proxies_for_url already does; this
+# mirrors that (not apis/writing_assistant/assistant/llm_client.py's
+# unconditional version, which has no live check and broke exactly this way
+# the first time it was tried against a direct-tailnet host).
+_TAILNET_SOCKS_PROXY = "socks5h://localhost:1055"
+_TAILNET_HOST_RE = re.compile(r"^100\.(\d+)\.")
+
+
+def _is_tailnet_host(hostname: str) -> bool:
+    if hostname.endswith(".ts.net"):
+        return True
+    m = _TAILNET_HOST_RE.match(hostname)
+    return bool(m) and 64 <= int(m.group(1)) <= 127
+
+
+def _is_socks_proxy_active() -> bool:
+    try:
+        with socket.create_connection(("127.0.0.1", 1055), timeout=0.15):
+            return True
+    except OSError:
+        return False
 
 _CLASSIFY_SYSTEM_PROMPT = (
     "You decide whether a farmer's question is related to agriculture - "
@@ -89,13 +120,20 @@ def _chat_completion(messages: list[dict], call_name: str = "unknown", **kwargs)
         headers["Authorization"] = f"Bearer {config.MINIMAX_API_KEY}"
 
     payload = {"model": config.MINIMAX_MODEL, "messages": messages, "seed": config.MINIMAX_SEED, **kwargs}
+    proxy = (
+        _TAILNET_SOCKS_PROXY
+        if _is_tailnet_host(urlparse(config.MINIMAX_BASE_URL).hostname or "") and _is_socks_proxy_active()
+        else None
+    )
     # Input size, not output - what we sent, to correlate a slow/timed-out
     # call with how much the model had to read. Logged on failure only.
     content_chars = sum(len(m.get("content", "")) for m in messages)
 
     t0 = time.monotonic()
     try:
-        response = httpx.post(url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS)
+        response = httpx.post(
+            url, json=payload, headers=headers, timeout=config.MINIMAX_TIMEOUT_SECONDS, proxy=proxy
+        )
         response.raise_for_status()
         data = response.json()
         # MiniMax's official API reports some failures via base_resp inside

@@ -27,13 +27,13 @@ from typing import Any, Optional
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
-from api import (  # noqa: E402
-    _log_startup_config,
-    _resolve_uniformity_of_dose_for_single_answer,
-    _startup_model_check,
+from check_report import check_entry
+from run_checker import CHECK_GROUPS, run_until_complete
+from service_support import (
+    log_startup_config,
+    resolve_uniformity_of_dose_for_single_answer,
+    startup_model_check,
 )
-from check_report import check_entry  # noqa: E402
-from run_checker import CHECK_GROUPS, run_until_complete  # noqa: E402
 
 logger = logging.getLogger("answer_check")
 
@@ -48,9 +48,9 @@ _JOBS_LOCK = threading.Lock()
 
 @contextlib.asynccontextmanager
 async def lifespan(_app: FastAPI):
-    _log_startup_config()
+    log_startup_config()
     # in a thread so a slow model does not delay startup
-    threading.Thread(target=_startup_model_check, daemon=True).start()
+    threading.Thread(target=startup_model_check, daemon=True).start()
     yield
 
 
@@ -83,7 +83,7 @@ class CheckSummary(BaseModel):
 
 def build_report(result: dict[str, Any]) -> dict[str, Any]:
     """Turn one checked answer into the list of checks and the counts."""
-    _resolve_uniformity_of_dose_for_single_answer(result)
+    resolve_uniformity_of_dose_for_single_answer(result)
     parameters = result.get("parameters") or {}
     checks: list[dict[str, Any]] = []
     for category, names in CHECK_GROUPS.items():

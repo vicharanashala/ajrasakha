@@ -81,6 +81,8 @@ export interface IUser {
   /** Questions assigned to this user for feedback (auditor/moderator only).
    *  Contains question IDs that need feedback review. */
   feedbacksAssigned?: (string | ObjectId)[] | null;
+  /** Whether the user should receive the automated daily activity report email. */
+  sendDailyReport?: boolean;
 }
 
 export interface IUserAdminEdit {
@@ -91,6 +93,7 @@ export interface IUserAdminEdit {
   mobile?: string;
   university?: string;
   kvkCovered?: IKVKCoveredItem[] | null;
+  sendDailyReport?: boolean;
 }
 
 export interface IUserRoleHistory {
@@ -1074,7 +1077,8 @@ export type GdbCleaningAction =
   | 'flag_changed'
   | 'sources_edited'
   | 'correction_saved'
-  | 'pushed';
+  | 'pushed'
+  | 'question_edited';
 
 /** One thing a reviewer did on an answer. It is kept on the answer's own row, so the page's
  *  database user needs no other collection. */
@@ -1106,6 +1110,8 @@ export interface IGdbCleaning {
   /** set when the accepted correction was pushed to the golden answer */
   pushedAt?: Date | null;
   pushedBy?: ObjectId | null;
+  /** the correction text as it was when pushed, so a later edit shows as needing a new push */
+  pushedAnswer?: string;
   status: GdbCleaningStatus;
   checks: IGdbCleaningCheck[];
   flags: string[];

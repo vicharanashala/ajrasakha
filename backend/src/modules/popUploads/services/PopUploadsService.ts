@@ -267,9 +267,12 @@ export class PopUploadsService {
       const timeout = setTimeout(() => controller.abort(), 280_000);
       let res: Response;
       try {
+        const headers: Record<string, string> = {'X-User-Id': doc.popUserId, 'X-User-Role': doc.popUserRole};
+        // POP's shared-secret gate (2026-11) — required once POP turns its check on.
+        if (faqPopConfig.popServiceKey) headers['X-Service-Key'] = faqPopConfig.popServiceKey;
         res = await fetch(`${faqPopConfig.popApiUrl}/dashboard/uploads`, {
           method: 'POST',
-          headers: {'X-User-Id': doc.popUserId, 'X-User-Role': doc.popUserRole},
+          headers,
           body: formData,
           signal: controller.signal,
         });

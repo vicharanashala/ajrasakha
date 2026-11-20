@@ -2413,7 +2413,7 @@ export class QuestionService extends BaseService implements IQuestionService {
     userId: string,
     action: 'hold' | 'unhold',
   ): Promise<{id: string}> {
-    return await this._withTransaction(async session => {
+    const result = await this._withTransaction(async session => {
       if (action === 'unhold') {
         const question = await this.questionRepo.getById(questionId, session);
         if (!question) {
@@ -2437,15 +2437,25 @@ export class QuestionService extends BaseService implements IQuestionService {
           );
         }
         const restoredStatus = question.previousStatus || 'open';
+        const unholdUpdates: Record<string, any> = {
+          isOnHold: false,
+          status: restoredStatus,
+          accumulatedHoldMs: prevAccum + segmentMs,
+          holdAt: null,
+          previousStatus: null,
+          isAutoAllocate: true,
+        };
+        if ((question as any).gateKeeperId && (question as any).gateKeeperFinishedAt) {
+          unholdUpdates.gateKeeperAssignedAt = new Date();
+          unholdUpdates.gateKeeperFinishedAt = null;
+        }
+        if ((question as any).auditorId && (question as any).auditorFinishedAt) {
+          unholdUpdates.auditorAssignedAt = new Date();
+          unholdUpdates.auditorFinishedAt = null;
+        }
         await this.questionRepo.updateQuestion(
           questionId,
-          {
-            isOnHold: false,
-            status: restoredStatus,
-            accumulatedHoldMs: prevAccum + segmentMs,
-            holdAt: null,
-            previousStatus: null,
-          },
+          unholdUpdates,
           session,
         );
         return {id: questionId};
@@ -2474,6 +2484,41 @@ export class QuestionService extends BaseService implements IQuestionService {
         throw new NotFoundError('Question submission not found');
       }
       await this._handleSubmissionOnHold(submission, session);
+
+      // Release any active role assignee from user queue and mark finish timestamp to prevent timer leaks while on hold
+      const holdTime = new Date();
+      if ((question as any).gateKeeperId) {
+        const gkId = (question as any).gateKeeperId.toString();
+        await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
+        if (!(question as any).gateKeeperFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'gateKeeperFinishedAt',
+            holdTime,
+            session,
+          );
+        }
+      }
+      if ((question as any).auditorId) {
+        const audId = (question as any).auditorId.toString();
+        await this.userRepo.removeAssignedQuestion(audId, questionId, session);
+        if (!(question as any).auditorFinishedAt) {
+          await this.questionRepo.markRoleFinished(
+            questionId,
+            'auditorFinishedAt',
+            holdTime,
+            session,
+          );
+        }
+      }
+      if (question.moderatorId) {
+        await this.userRepo.removeAssignedQuestion(
+          question.moderatorId.toString(),
+          questionId,
+          session,
+        );
+      }
+
       await this.questionRepo.updateQuestion(
         questionId,
         {
@@ -2481,12 +2526,14 @@ export class QuestionService extends BaseService implements IQuestionService {
           isAutoAllocate: false,
           previousStatus: question.status,
           status: 'hold',
-          holdAt: new Date(),
+          holdAt: holdTime,
         },
         session,
       );
       return {id: questionId};
     });
+    this.triggerRoleQueueAllocation(`holdQuestion:${action}`);
+    return result;
   }
   async checkSubmissionExists(questionId: string): Promise<boolean> {
     const submission =
@@ -3060,5 +3107,155 @@ export class QuestionService extends BaseService implements IQuestionService {
       milestoneCount,
       recipients,
     );
+  }
+
+  /**
+   * Export all questions for a given state as an Excel file with separate tabs.
+   * Tab 1: "Questions" - Sl No, Question
+   * Tab 2: "Details" - Full details object for each question including Status
+   */
+  async exportQuestionsByState(state: string): Promise<Buffer | null> {
+    // Fetch questions from repository
+    const questions = await this.questionRepo.findByDetailsState(state);
+
+    if (!questions || questions.length === 0) {
+      return null;
+    }
+
+    const workbook = new ExcelJS.Workbook();
+    workbook.creator = 'QuestionService';
+    workbook.created = new Date();
+
+    // ============ Tab 1: Questions Sheet ============
+    const questionsSheet = workbook.addWorksheet('Questions');
+
+    // Title row
+    questionsSheet.mergeCells('A1:B1');
+    const titleCell = questionsSheet.getCell('A1');
+    titleCell.value = `Questions Export - State: ${state}`;
+    titleCell.font = { bold: true, size: 14 };
+    titleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Date row
+    questionsSheet.mergeCells('A2:B2');
+    const dateCell = questionsSheet.getCell('A2');
+    dateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
+    dateCell.font = { bold: false, size: 10 };
+    dateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Count row
+    questionsSheet.mergeCells('A3:B3');
+    const countCell = questionsSheet.getCell('A3');
+    countCell.value = `Total Questions: ${questions.length}`;
+    countCell.font = { bold: true, size: 11 };
+    countCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Empty row separator
+    questionsSheet.addRow([]);
+
+    // Header row
+    const questionsHeaderRow = questionsSheet.addRow(['Sl No', 'Question']);
+    questionsHeaderRow.font = { bold: true };
+    questionsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    questionsHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Set column widths for Questions sheet
+    questionsSheet.getColumn(1).width = 10;  // Sl No
+    questionsSheet.getColumn(2).width = 80;  // Question
+
+    // Add data rows to Questions sheet
+    questions.forEach((q, index) => {
+      const row = questionsSheet.addRow([
+        index + 1,
+        q.question || q.text || '',
+      ]);
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+    });
+
+    // ============ Tab 2: Details Sheet ============
+    const detailsSheet = workbook.addWorksheet('Details');
+
+    // Title row
+    detailsSheet.mergeCells('A1:I1');
+    const detailsTitleCell = detailsSheet.getCell('A1');
+    detailsTitleCell.value = `Question Details Export - State: ${state}`;
+    detailsTitleCell.font = { bold: true, size: 14 };
+    detailsTitleCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Date row
+    detailsSheet.mergeCells('A2:I2');
+    const detailsDateCell = detailsSheet.getCell('A2');
+    detailsDateCell.value = `Generated on: ${new Date().toISOString().split('T')[0]}`;
+    detailsDateCell.font = { bold: false, size: 10 };
+    detailsDateCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Count row
+    detailsSheet.mergeCells('A3:I3');
+    const detailsCountCell = detailsSheet.getCell('A3');
+    detailsCountCell.value = `Total Questions: ${questions.length}`;
+    detailsCountCell.font = { bold: true, size: 11 };
+    detailsCountCell.alignment = { horizontal: 'center', vertical: 'middle' };
+
+    // Empty row separator
+    detailsSheet.addRow([]);
+
+    // Header row for details
+    const detailsHeaderRow = detailsSheet.addRow([
+      'Sl No',
+      'Question',
+      'Status',
+      'State',
+      'District',
+      'Crop',
+      'Season',
+      'Domain',
+      'Source',
+    ]);
+    detailsHeaderRow.font = { bold: true };
+    detailsHeaderRow.alignment = { horizontal: 'center', vertical: 'middle' };
+    detailsHeaderRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFD3D3D3' },
+    };
+
+    // Set column widths for Details sheet
+    detailsSheet.getColumn(1).width = 10;   // Sl No
+    detailsSheet.getColumn(2).width = 50;   // Question
+    detailsSheet.getColumn(3).width = 20;   // Status
+    detailsSheet.getColumn(4).width = 20;   // State
+    detailsSheet.getColumn(5).width = 25;   // District
+    detailsSheet.getColumn(6).width = 20;   // Crop
+    detailsSheet.getColumn(7).width = 15;   // Season
+    detailsSheet.getColumn(8).width = 30;   // Domain
+    detailsSheet.getColumn(9).width = 20;   // Source
+
+    // Add data rows to Details sheet
+    questions.forEach((q, index) => {
+      const details = q.details as { state?: string; district?: string; crop?: string | any; season?: string; domain?: string | string[] } || {};
+      const row = detailsSheet.addRow([
+        index + 1,
+        q.question || q.text || '',
+        q.status || '',
+        details.state || '',
+        details.district || '',
+        typeof details.crop === 'object' ? (details.crop as any)?.name || '' : (details.crop || ''),
+        details.season || '',
+        Array.isArray(details.domain) ? (details.domain as string[]).join(', ') : (details.domain || ''),
+        q.source || '',
+      ]);
+      row.getCell(1).alignment = { horizontal: 'center' };
+      row.getCell(2).alignment = { wrapText: true, vertical: 'top' };
+      row.getCell(3).alignment = { horizontal: 'center', vertical: 'top' };
+    });
+
+    // Write to buffer
+    const buffer = await workbook.xlsx.writeBuffer();
+    return Buffer.from(buffer);
   }
 }

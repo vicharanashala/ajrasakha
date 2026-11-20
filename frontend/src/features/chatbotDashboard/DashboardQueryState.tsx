@@ -174,7 +174,7 @@ const ProgressBar: React.FC<ProgressBarProps> = ({
               dark:text-gray-200
             "
           >
-            {duplicateQuestions}
+            { totalQuestions - uniqueQuestions }
           </span>
 
           <span

@@ -289,6 +289,13 @@ const tip = `
     [level, navigateToState, navigateToDistrict, setHovered, allStatesData],
   );
 
+  // Questions that belong to no state (an extra row the API appends to the state list).
+  const noStateQuestions = Number(
+    (allStatesData as any[] | undefined)?.find(
+      (row) => row?.state === "__no_state__",
+    )?.totalQuestions ?? 0,
+  );
+
   const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
    const isIndiaView = !selectedState && !selectedDistrict;
@@ -313,8 +320,8 @@ const tip = `
   const keyParam = cartoKey ? `?key=${cartoKey}` : '';
 
   const tileUrl = dark
-    ? `https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png${keyParam}`
-    : `https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png${keyParam}`;
+    ? `https://{s}.basemaps.cartocdn.com/dark_nolabels/{z}/{x}/{y}{r}.png${keyParam}`
+    : `https://{s}.basemaps.cartocdn.com/light_nolabels/{z}/{x}/{y}{r}.png${keyParam}`;
   const tileAttr =
     '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>';
 
@@ -415,7 +422,11 @@ const tip = `
             style={{ height: "100%", width: "100%", background: "transparent" }}
             scrollWheelZoom
           >
-            <TileLayer url={tileUrl} attribution={tileAttr} />
+            <TileLayer
+              url={tileUrl}
+              attribution={tileAttr}
+              opacity={dark ? 0.42 : 0.58}
+            />
             <ZoomControl position="bottomright" />
             {/* {activeGeo && (
               <>
@@ -488,6 +499,7 @@ const tip = `
         monthlyAnalyticsData={monthlyAnalyticsData}
         questionStatusRange={questionStatusRange}
         questionStatusDateRange={questionStatusDateRange}
+        noStateQuestions={noStateQuestions}
       />
     </div>
   );
