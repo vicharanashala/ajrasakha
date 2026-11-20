@@ -4,6 +4,7 @@
   "type": "module",
   "description": "Ajrasakha Agricultural Advisory & Reviewer System Monorepo",
   "scripts": {
+    "report": "node apis/testing/generate-qa-report.js",
     "test:hybrid": "node testing/orchestrator.js",
     "test:all": "node testing/orchestrator.js --all",
     "test:apis": "npm --prefix apis/testing run test:agentic",
