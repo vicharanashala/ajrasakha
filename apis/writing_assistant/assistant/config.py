@@ -83,3 +83,11 @@ CHEMICAL_COLLECTION_NAME = os.getenv("CHEMICAL_COLLECTION_NAME", "crop_master")
 # than removed outright - re-tune against Gemini's actual rate limit
 # once this is live-tested.
 GEMINI_MAX_CONCURRENT_CALLS = int(os.getenv("GEMINI_MAX_CONCURRENT_CALLS", "5"))
+
+# Shared secret for the X-API-Key header on /polish-draft - same scheme
+# as apis/../ajrasakha/tools/answer_shortener's ANSWER_SHORTENER_API_KEY:
+# empty/unset means auth is OFF (today's behavior, so an existing local
+# run or test needs no change), not a misconfiguration to fail startup
+# over. Set this once the service is reachable publicly rather than only
+# from a trusted network.
+WRITING_ASSISTANT_API_KEY = os.getenv("WRITING_ASSISTANT_API_KEY", "").strip()

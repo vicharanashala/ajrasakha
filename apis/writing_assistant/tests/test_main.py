@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
 import main
-from assistant import chemical_matcher, guardrails, llm_client, structural_validator
+from assistant import chemical_matcher, config, guardrails, llm_client, structural_validator
 from assistant.models import (
     StepCoverage,
     StepCoverageResult,
@@ -19,6 +19,76 @@ def test_health_always_ok():
     response = client.get("/health")
     assert response.status_code == 200
     assert response.json() == {"status": "ok"}
+
+
+# Same opt-in scheme as answer_shortener: unset WRITING_ASSISTANT_API_KEY
+# means every other test in this file (none of which send an X-API-Key
+# header) keeps working unauthenticated - confirmed by every other
+# /polish-draft test in this file already passing with no header. These
+# three cover the case where an operator has actually set the key.
+def test_polish_draft_requires_api_key_when_one_is_configured(monkeypatch):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    response = client.post(
+        "/polish-draft",
+        json={"question": "q", "draft": "d"},
+    )
+    assert response.status_code == 401
+
+
+def test_polish_draft_rejects_the_wrong_api_key(monkeypatch):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    response = client.post(
+        "/polish-draft",
+        headers={"X-API-Key": "wrong-secret"},
+        json={"question": "q", "draft": "d"},
+    )
+    assert response.status_code == 401
+
+
+def test_polish_draft_accepts_the_correct_api_key(monkeypatch):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    monkeypatch.setattr(llm_client, "generate_polish", lambda draft: ("polished", []))
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", lambda pairs: [(False, "")] * len(pairs))
+    monkeypatch.setattr(
+        structural_validator, "validate_structure_cached",
+        lambda question, draft, skip_steps=None: StructuralValidationResult(
+            status=StructuralValidationStatus.COMPLETE,
+            steps=[StepCoverageResult(sl_no=1, step="Introduction", coverage=StepCoverage.COVERED, example="ex")],
+        ),
+    )
+    response = client.post(
+        "/polish-draft",
+        headers={"X-API-Key": "local-secret"},
+        json={"question": "q", "draft": "d"},
+    )
+    assert response.status_code == 200
+
+
+def test_health_never_requires_api_key_even_when_one_is_configured(monkeypatch):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    response = client.get("/health")
+    assert response.status_code == 200
+
+
+# The X-API-Key check is a silent no-op when unset, by design - this is
+# the one place that actually surfaces that fact (a deploy log), so a
+# misconfigured deployment that never set the key doesn't run
+# unauthenticated with nothing anywhere to say so.
+def test_startup_warns_when_api_key_is_not_set(monkeypatch, caplog):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "")
+    with caplog.at_level("WARNING", logger="writing_assistant"):
+        with TestClient(main.app):
+            pass
+    assert any("UNAUTHENTICATED" in r.getMessage() for r in caplog.records)
+
+
+def test_startup_does_not_warn_when_api_key_is_set(monkeypatch, caplog):
+    monkeypatch.setattr(config, "WRITING_ASSISTANT_API_KEY", "local-secret")
+    with caplog.at_level("WARNING", logger="writing_assistant"):
+        with TestClient(main.app):
+            pass
+    assert not any("UNAUTHENTICATED" in r.getMessage() for r in caplog.records)
 
 
 def test_polish_draft_endpoint_offers_a_suggestion_when_structure_is_complete(monkeypatch):
