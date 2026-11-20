@@ -1,0 +1,49 @@
+name: Layer 3 - End-to-End Agentic Synthetic Journey
+
+on:
+  schedule:
+    # Runs nightly at 02:00 UTC (07:30 IST)
+    - cron: '0 2 * * *'
+  push:
+    branches:
+      - main
+      - staging
+  workflow_dispatch:
+    inputs:
+      verbose:
+        description: 'Run with detailed debug traces'
+        required: false
+        default: 'true'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  run-synthetic-journey:
+    name: Full Farmer-to-GDB Synthetic Lifecycle Flow
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Execute Layer 3 Agentic Synthetic Flow
+        run: node testing/e2e-synthetic/synthetic-farmer-journey.js
+
+      - name: Upload Synthetic Journey Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: synthetic-journey-report
+          path: testing/e2e-synthetic/reports/

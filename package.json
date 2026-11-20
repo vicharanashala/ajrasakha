@@ -1,13 +1,32 @@
 {
+  "name": "ajrasakha",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Ajrasakha Agricultural Advisory & Reviewer System Monorepo",
+  "scripts": {
+    "test:hybrid": "node testing/orchestrator.js",
+    "test:all": "node testing/orchestrator.js --all",
+    "test:apis": "npm --prefix apis/testing run test:agentic",
+    "test:layer1:apis": "npm --prefix apis/testing run test:agentic",
+    "test:layer1:backend": "npm --prefix backend run build",
+    "test:layer1:frontend": "npm --prefix frontend run build",
+    "test:layer1:ai": "pytest ai/ajrasakha/agents/tests",
+    "test:layer1:mcp": "python -m unittest discover -s mcp -p \"*.py\"",
+    "test:layer1:testers-dashboard": "npm --prefix testers-dashboard/backend run build:testers-dashboard --if-present",
+    "test:layer2:contracts": "node testing/contracts/validate-contracts.js",
+    "test:layer3:synthetic": "node testing/e2e-synthetic/synthetic-farmer-journey.js"
+  },
   "dependencies": {
     "pdfkit": "^0.18.0",
     "plivo": "^4.77.1",
     "ws": "^8.21.0"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.0",
     "@types/ws": "^8.18.1",
     "bcryptjs": "^3.0.3",
     "http-proxy-middleware": "^4.0.0",
-    "pdfkit": "^0.18.0"
+    "pdfkit": "^0.18.0",
+    "promptfoo": "^0.125.1"
   }
 }

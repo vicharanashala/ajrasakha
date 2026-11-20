@@ -1,0 +1,52 @@
+name: Layer 1 - Reviewer Backend Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test-suite.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/**'
+      - '.github/workflows/backend-test-suite.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-backend:
+    name: Backend Typecheck & Service Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - name: Install Backend Dependencies
+        working-directory: backend
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build & Typecheck Reviewer Backend
+        working-directory: backend
+        run: pnpm run build

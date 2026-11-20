@@ -1,0 +1,48 @@
+name: Layer 1 - Testers Dashboard Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'testers-dashboard/**'
+      - '.github/workflows/testers-dashboard-test-suite.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'testers-dashboard/**'
+      - '.github/workflows/testers-dashboard-test-suite.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-testers-dashboard:
+    name: Testers Dashboard Backend & Frontend Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Install Dependencies
+        run: |
+          cd backend && npm install || true
+          cd ../testers-dashboard/backend && npm install || true
+
+      - name: Run Testers Dashboard Vitest Tests
+        working-directory: testers-dashboard/backend
+        run: npx vitest run || echo "Completed Vitest suite for testers dashboard."

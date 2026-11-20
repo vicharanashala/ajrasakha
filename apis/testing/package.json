@@ -1,0 +1,12 @@
+{
+  "name": "apis-agentic-testing",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "Agentic automated testing suite for microservices and web apps in apis directory",
+  "scripts": {
+    "test:agentic": "node agentic-runner.js",
+    "test:api": "playwright test --config=playwright.config.ts --project=api",
+    "test:ui": "playwright test --config=playwright.config.ts --project=ui",
+    "test:promptfoo": "promptfoo eval --config promptfoo/promptfooconfig.yaml"
+  }
+}

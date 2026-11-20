@@ -1,0 +1,64 @@
+name: Layer 2 - Cross-Boundary Contract & Schema Gate
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'backend/src/types.ts'
+      - 'backend/src/modules/**/interfaces/**'
+      - 'backend/src/modules/**/controllers/**'
+      - 'frontend/src/types.ts'
+      - 'frontend/src/services/**'
+      - 'apis/**'
+      - 'mcp/**'
+      - 'testing/contracts/**'
+      - '.github/workflows/contracts-validation.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'backend/src/types.ts'
+      - 'backend/src/modules/**/interfaces/**'
+      - 'backend/src/modules/**/controllers/**'
+      - 'frontend/src/types.ts'
+      - 'frontend/src/services/**'
+      - 'apis/**'
+      - 'mcp/**'
+      - 'testing/contracts/**'
+      - '.github/workflows/contracts-validation.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  validate-contracts:
+    name: Verify Cross-Service Schemas & Contracts
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Run Layer 2 Contract Verification
+        run: node testing/contracts/validate-contracts.js
+
+      - name: Upload Contract Report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-report
+          path: testing/contracts/reports/

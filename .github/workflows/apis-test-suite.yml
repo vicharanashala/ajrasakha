@@ -1,0 +1,81 @@
+name: Layer 1 - APIs Agentic Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'apis/**'
+      - '.github/workflows/apis-test-suite.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'apis/**'
+      - '.github/workflows/apis-test-suite.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
+jobs:
+  test-apis:
+    name: Run apis/ Agentic Test Suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm install
+
+      - name: Install Playwright Chromium Browser
+        run: npx playwright install --with-deps chromium
+
+      - name: Run APIs Test Suite (Contracts, Promptfoo & Latency SLA)
+        run: npm run test:layer1:apis
+
+      - name: Comment PR with QA Verification Report
+        if: github.event_name == 'pull_request' && always()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const reportPath = 'apis/testing/reports/qa-verification-report.md';
+            if (fs.existsSync(reportPath)) {
+              let report = fs.readFileSync(reportPath, 'utf8');
+              if (report.length > 60000) {
+                report = report.substring(0, 60000) + '\n\n*(Report truncated to fit PR comment limit. See Actions Summary for full report)*';
+              }
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: report
+              });
+            }
+
+      - name: Upload Test Reports & Artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: apis-test-results
+          path: |
+            apis/testing/reports/
+            apis/testing/test-results/
+          retention-days: 14

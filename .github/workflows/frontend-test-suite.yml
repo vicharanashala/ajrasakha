@@ -1,0 +1,52 @@
+name: Layer 1 - Reviewer Frontend Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-test-suite.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/frontend-test-suite.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-frontend:
+    name: Frontend Build & Typecheck (Vite + React)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 10.4.1
+
+      - name: Install Frontend Dependencies
+        working-directory: frontend
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build & Typecheck Frontend
+        working-directory: frontend
+        run: pnpm run build

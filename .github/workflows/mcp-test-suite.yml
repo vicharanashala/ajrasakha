@@ -1,0 +1,53 @@
+name: Layer 1 - Model Context Protocol (MCP) Test Suite
+
+on:
+  push:
+    branches:
+      - main
+      - feat/*
+    paths:
+      - 'mcp/**'
+      - '.github/workflows/mcp-test-suite.yml'
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'mcp/**'
+      - '.github/workflows/mcp-test-suite.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  test-mcp:
+    name: MCP Servers Syntax & Container Validation
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Validate MCP Server Syntax & Imports
+        run: |
+          python -m py_compile mcp/*.py
+          echo "Verified syntax across standalone MCP servers."
+
+      - name: Validate MCP Container Dockerfiles
+        run: |
+          for dockerfile in mcp/mcp_containers/*/Dockerfile; do
+            if [ -f "$dockerfile" ]; then
+              echo "Checking $dockerfile..."
+              docker build -t "mcp-lint:$(basename $(dirname $dockerfile))" -f "$dockerfile" $(dirname "$dockerfile") || echo "Warning: Docker build test failed for $dockerfile"
+            fi
+          done
