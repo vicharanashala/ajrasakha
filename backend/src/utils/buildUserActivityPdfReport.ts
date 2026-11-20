@@ -31,6 +31,8 @@ export interface UserActivityReportData {
   totalAuditingMs: number;
   gatekeepedCount: number;
   totalGatekeepingMs: number;
+  gateKeeperReroutedCount?: number;
+  totalGateKeeperReroutingMs?: number;
   gdbPushedCount: number;
   reroutedCount: number;
   totalReroutingMs: number;
@@ -217,8 +219,14 @@ export async function buildUserActivityPdfReport(
     badgeText?: string;
   }
 
-  const rerouteCombinedCount = (data.reroutedCount || 0) + (data.expertReroutedCount || 0);
-  const rerouteCombinedMs = (data.totalReroutingMs || 0) + (data.totalExpertReroutingMs || 0);
+  const rerouteCombinedCount =
+    (data.reroutedCount || 0) +
+    (data.expertReroutedCount || 0) +
+    (data.gateKeeperReroutedCount || 0);
+  const rerouteCombinedMs =
+    (data.totalReroutingMs || 0) +
+    (data.totalExpertReroutingMs || 0) +
+    (data.totalGateKeeperReroutingMs || 0);
 
   const cards: ActivityCardConfig[] = [
     {
@@ -457,6 +465,17 @@ export async function buildUserActivityPdfReport(
       notes: 'Gatekeeper screening completions',
     },
     {
+      role: 'Gatekeeper Rerouting',
+      count: data.gateKeeperReroutedCount || 0,
+      avg: formatMsToHMS(
+        (data.gateKeeperReroutedCount && data.gateKeeperReroutedCount > 0)
+          ? (data.totalGateKeeperReroutingMs || 0) / data.gateKeeperReroutedCount
+          : 0,
+      ),
+      hours: formatHours((data.totalGateKeeperReroutingMs || 0) / (1000 * 60 * 60)),
+      notes: 'Questions rerouted to experts',
+    },
+    {
       role: 'Moderator Rerouting',
       count: data.reroutedCount,
       avg: formatMsToHMS(data.reroutedCount > 0 ? data.totalReroutingMs / data.reroutedCount : 0),
@@ -537,6 +556,7 @@ export async function buildUserActivityPdfReport(
     data.moderatedCount +
     data.auditedCount +
     data.gatekeepedCount +
+    (data.gateKeeperReroutedCount || 0) +
     data.reroutedCount +
     data.expertReroutedCount +
     (data.heldCount || 0);

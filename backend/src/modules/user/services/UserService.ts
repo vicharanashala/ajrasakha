@@ -1761,6 +1761,8 @@ export class UserService extends BaseService {
       totalAuditingMs: metrics.totalAuditingMs,
       gatekeepedCount: metrics.gatekeepedCount,
       totalGatekeepingMs: metrics.totalGatekeepingMs,
+      gateKeeperReroutedCount: metrics.gateKeeperReroutedCount,
+      totalGateKeeperReroutingMs: metrics.totalGateKeeperReroutingMs,
       gdbPushedCount: metrics.gdbPushedCount,
       reroutedCount: metrics.reroutedCount,
       totalReroutingMs: metrics.totalReroutingMs,

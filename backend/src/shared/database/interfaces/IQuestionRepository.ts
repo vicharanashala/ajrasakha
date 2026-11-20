@@ -1018,6 +1018,8 @@ export interface IUserActivityMetrics {
   totalAuditingMs: number;
   gatekeepedCount: number;
   totalGatekeepingMs: number;
+  gateKeeperReroutedCount?: number;
+  totalGateKeeperReroutingMs?: number;
   gdbPushedCount: number;
   reroutedCount: number;
   totalReroutingMs: number;
