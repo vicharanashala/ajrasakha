@@ -25,10 +25,12 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M3")
 # day), so retry a lot with short waits. max_completion_tokens doesn't help
 # and reasoning_split must stay on.
 MAX_RETRIES = 9
-REQUEST_TIMEOUT_SECONDS = 180
+# the model sends nothing until it has finished reasoning, and a long check can take several
+# minutes, so these limits must stay well above that or good calls get cut off
+REQUEST_TIMEOUT_SECONDS = 300
 CONNECT_TIMEOUT_SECONDS = 15
 # no data at all for this long means the connection is stuck
-READ_STALL_SECONDS = 120
+READ_STALL_SECONDS = 300
 RETRY_DELAYS_SECONDS = (1, 1, 2, 2, 3, 3, 3, 3, 3)
 # MiniMax-M3 reasons before it answers, and the reasoning counts against the token limit.
 # At 2048 it often spent every token reasoning and returned an empty answer
