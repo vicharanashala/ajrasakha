@@ -17,6 +17,18 @@ OFFICER_NAME_PATTERN = re.compile(
     # initials may come first (Dr M. S. Randhawa), then one to three capitalised name words
     r"(?:[A-Z]\.?\s+)*[A-Z][A-Za-z'-]+(?:\s+(?:[A-Z]\.?\s+)*[A-Z][A-Za-z'-]+){0,2}\b"
 )
+# a titled name used as the name of a preparation ("Dr. Dalal Mixture", "Dr. Dalal Ghol") is not a person
+PREPARATION_WORD = re.compile(
+    r"(?:mixture|ghol|solution|formula|formulation|tonic|mix|kit|method|technique)$",
+    re.IGNORECASE,
+)
+
+
+def _names_a_person(answer_text: str, match: re.Match[str]) -> bool:
+    """False when the matched name, or the word right after it, names a preparation."""
+    next_word = re.match(r"\s+([A-Za-z]+)", answer_text[match.end():])
+    words = [match.group(0).split()[-1]] + ([next_word.group(1)] if next_word else [])
+    return not any(PREPARATION_WORD.match(word) for word in words)
 
 
 def _evidence_sentence(answer_text: str, match: re.Match[str]) -> str:
@@ -35,7 +47,10 @@ def _evidence_sentence(answer_text: str, match: re.Match[str]) -> str:
 def check_officer_name(context: AnswerContext) -> dict[str, Any]:
     """Check an answer for a titled, capitalized personal name."""
     answer_text = context["answer_text"]
-    match = OFFICER_NAME_PATTERN.search(answer_text)
+    match = next(
+        (m for m in OFFICER_NAME_PATTERN.finditer(answer_text) if _names_a_person(answer_text, m)),
+        None,
+    )
     if match:
         return {
             "officer_name": check_result(
