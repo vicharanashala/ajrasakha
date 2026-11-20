@@ -11,7 +11,6 @@ on:
   pull_request:
     branches:
       - main
-      - staging
     paths:
       - 'testers-dashboard/**'
       - '.github/workflows/testers-dashboard-test-suite.yml'

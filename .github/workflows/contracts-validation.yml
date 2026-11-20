@@ -18,7 +18,6 @@ on:
   pull_request:
     branches:
       - main
-      - staging
     paths:
       - 'backend/src/types.ts'
       - 'backend/src/modules/**/interfaces/**'
