@@ -390,8 +390,15 @@ Use status PASS, FAIL, or NOT_EVALUATED.
 For contextuality, be conservative about generic regional context: FAIL only
 when the answer's crop/topic clearly does not match the question's.
 
-For private_product_name, identify private product names only as possible
-commercial brands, not registry-verified facts. Products of government or
+For private_product_name, FAIL when the answer text names any trade or brand
+name of a product sold by a private company: pesticides, fungicides, herbicides,
+bio-pesticides and bio-fertilizers, fertilizer brands, growth regulators,
+company seed hybrids (for example "Ankur 3028", "IPL Daman", "Ethrel"), and
+equipment. FAIL even when the question itself asks about that product: the
+answer should use the generic name (active ingredient, organism or variety
+type). List every such name in "found". These are possible brands, not
+registry-verified facts. Generic chemical or organism names are not brands.
+Products and varieties of government universities, research institutes or
 cooperative bodies ({AUTHORISED_BRANDS_TEXT}) are not private products.
 
 For local_name_mismatch, do not fail merely because no local name is used.
@@ -418,6 +425,10 @@ Do not use Markdown or code fences. Do not include analysis or reasoning."""
 def detect_question_type(question_text: str) -> str | None:
     """Classify a question using the configured keyword precedence."""
     normalized = question_text.casefold()
+    if _HARM_FROM_INPUT.search(normalized):
+        # harm caused by a pesticide or fertilizer itself is not a pest, disease or weed
+        # problem, so it gets the general template, not one that asks for biological control
+        return None
     for question_type, pattern in _TYPE_PATTERNS:
         if pattern.search(normalized):
             return question_type
@@ -428,6 +439,12 @@ def detect_question_type(question_text: str) -> str | None:
             return question_type
     return None
 
+
+_HARM_FROM_INPUT = re.compile(
+    r"side[- ]?effects?|\boverdos|phytotox"
+    r"|\b(?:herbicide|weedicide|pesticide|insecticide|fungicide|chemical|spray|drift)\s+(?:injury|damage|burn|toxicity|effects?)\b"
+    r"|\binjury\s+(?:from|due to|by|caused by)\b"
+)
 
 # Word boundaries, so "protect" no longer matches "rot" (a wild-pig question was typed as a
 # disease and failed for missing "chemical control"), and "seeds" alone no longer makes a
@@ -514,8 +531,22 @@ def run_coverage_checks(
             COVERAGE_CHECK_NAMES, _model_failure_detail("Coverage checks", exc)
         )
     result = _with_pass_field(result)
+    if result["query_properly_answered"].get("status") == PASS:
+        # the model's verdict on this check varies from run to run (about 1 in 6 answers flipped
+        # on a re-run), so a PASS is confirmed by a second run and a FAIL in either run counts
+        result["query_properly_answered"] = _second_query_answered_look(prompt, result["query_properly_answered"])
     _flag_query_answered_contradictions(result, answer_text)
     return result
+
+
+def _second_query_answered_look(prompt: str, first: dict[str, Any]) -> dict[str, Any]:
+    """The second run's query_properly_answered when it fails, otherwise the first run's PASS."""
+    try:
+        again = call_llm(prompt, lambda parsed: _valid_group_response(parsed, COVERAGE_CHECK_NAMES))
+    except LLMCallFailed:
+        return first
+    second = _with_pass_field(again)["query_properly_answered"]
+    return second if second.get("status") == FAIL else first
 
 
 def run_context_checks(

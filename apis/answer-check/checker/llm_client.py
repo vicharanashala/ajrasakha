@@ -26,6 +26,9 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M3")
 # and reasoning_split must stay on.
 MAX_RETRIES = 9
 REQUEST_TIMEOUT_SECONDS = 180
+CONNECT_TIMEOUT_SECONDS = 15
+# no data at all for this long means the connection is stuck
+READ_STALL_SECONDS = 120
 RETRY_DELAYS_SECONDS = (1, 1, 2, 2, 3, 3, 3, 3, 3)
 # MiniMax-M3 reasons before it answers, and the reasoning counts against the token limit.
 # At 2048 it often spent every token reasoning and returned an empty answer
@@ -97,6 +100,10 @@ def call_llm_once(
     if not api_key:
         raise ValueError("MINIMAX_API_KEY is not configured")
 
+    # the read timeout alone only limits each wait for data, so a connection that hangs or
+    # trickles can block for a very long time (a run sat 25 minutes on one); read the body
+    # in pieces and give up once the whole request has taken longer than `timeout`
+    deadline = time.time() + timeout
     response = requests.post(
         url or MINIMAX_URL,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
@@ -107,8 +114,18 @@ def call_llm_once(
             "max_completion_tokens": max_completion_tokens,
             "reasoning_split": True,
         },
-        timeout=timeout,
+        timeout=(CONNECT_TIMEOUT_SECONDS, min(timeout, READ_STALL_SECONDS)),
+        stream=True,
     )
+    body = bytearray()
+    try:
+        for piece in response.iter_content(chunk_size=8192):
+            body.extend(piece)
+            if time.time() > deadline:
+                raise requests.Timeout(f"the model took longer than {timeout:.0f}s to reply")
+    finally:
+        response.close()
+    response._content = bytes(body)
     if not response.ok:
         # include the server's message, e.g. "the model does not exist"
         raise requests.HTTPError(
