@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - main
+      - staging
     paths:
       - 'frontend/**'
       - '.github/workflows/frontend-test-suite.yml'

@@ -11,6 +11,7 @@ on:
   pull_request:
     branches:
       - main
+      - staging
     paths:
       - 'ai/**'
       - '.github/workflows/ai-test-suite.yml'
