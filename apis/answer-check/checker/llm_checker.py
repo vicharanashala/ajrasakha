@@ -397,7 +397,9 @@ company seed hybrids (for example "Ankur 3028", "IPL Daman", "Ethrel"), and
 equipment. FAIL even when the question itself asks about that product: the
 answer should use the generic name (active ingredient, organism or variety
 type). List every such name in "found". These are possible brands, not
-registry-verified facts. Generic chemical or organism names are not brands.
+registry-verified facts. Generic chemical or organism names are not brands,
+and neither are home-made mixtures named after a person or place (for
+example "Dr. Dalal Ghol"), which no company sells.
 Products and varieties of government universities, research institutes or
 cooperative bodies ({AUTHORISED_BRANDS_TEXT}) are not private products.
 
