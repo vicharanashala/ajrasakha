@@ -1,0 +1,85 @@
+
+name: Playwright Tests
+
+on:
+  push:
+    branches: [ main, master, test/reviewer-e2e-playwright ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test:
+    timeout-minutes: 60
+    runs-on: ubuntu-latest
+
+    env:
+      MONGODB_URI: mongodb://127.0.0.1:27017/ajrasakha
+
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        options: >-
+          --health-cmd "mongosh --quiet --eval 'db.adminCommand(\"ping\").ok'"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: project-2-web-app-testing
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: project-2-web-app-testing/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Install Playwright Browsers
+        run: npx playwright install --with-deps
+
+      - name: Start Backend Server
+        run: |
+          nohup npx tsx server.ts > server.log 2>&1 &
+
+      - name: Wait for Backend Server
+        run: |
+          for i in {1..30}; do
+            if curl -sS -o /dev/null http://localhost:3001/api/answers/000000000000000000000000; then
+              echo "Backend server is ready"
+              exit 0
+            fi
+            echo "Waiting for backend server..."
+            sleep 2
+          done
+
+          echo "Backend server failed to start"
+          cat server.log
+          exit 1
+
+      - name: Run Playwright Tests
+        run: npx playwright test
+
+      - name: Show Backend Logs on Failure
+        if: failure()
+        run: |
+          if [ -f server.log ]; then
+            cat server.log
+          fi
+
+      - name: Upload Playwright Report
+        uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
+        with:
+          name: playwright-report
+          path: project-2-web-app-testing/playwright-report/
+          retention-days: 30
