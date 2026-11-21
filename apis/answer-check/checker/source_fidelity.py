@@ -650,6 +650,15 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
             "Source-fidelity check could not be evaluated because the model call failed",
         )
     wrong_source = result["status"] == WRONG_SOURCE
+    if wrong_source and not cited_any_page:
+        # with no page cited, the passages may come from other crops, so the citation cannot be judged
+        return not_applicable_result(
+            "No page is cited, and the passages found elsewhere in the document do not cover "
+            "these claims, so the citation cannot be judged (see page_number_present): " + result["detail"],
+            source_origin="self_cited",
+            checked_claims=result.get("checked_claims", []),
+            unsupported_claims=result.get("unsupported_claims", []),
+        )
     if result["status"] in (FAIL, WRONG_SOURCE):
         # a wrong citation is a failure too, and is confirmed the same way (2 of 3 runs agree)
         result = _verify_failure({**result, "status": FAIL}, prompt, source_texts)
