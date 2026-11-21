@@ -10845,9 +10845,15 @@ export class QuestionRepository implements IQuestionRepository {
       }
     }
 
-    // 6. Rerouting: reroute entries where the moderator (reroutedBy) performed the reroute in date range
+    // User role check for classifying reroutes
+    const userDoc = await this.UsersCollection.findOne({ _id: userObjectId });
+    const userRole = userDoc?.role;
+
+    // 6. Rerouting: reroute entries where moderator or gatekeeper (reroutedBy) performed the reroute in date range
     let reroutedCount = 0;
     const reroutingIntervals: TimeInterval[] = [];
+    let gateKeeperReroutedCount = 0;
+    const gateKeeperReroutingIntervals: TimeInterval[] = [];
 
     const rerouteDocs = await this.ReRouteCollection.find({
       reroutes: {
@@ -10876,18 +10882,36 @@ export class QuestionRepository implements IQuestionRepository {
         const reroutedBy = typeof r.reroutedBy === 'string' ? r.reroutedBy : r.reroutedBy?.toString();
         const reroutedAt = r.reroutedAt ? new Date(r.reroutedAt) : null;
         if (reroutedBy === userId && reroutedAt && reroutedAt >= startDate && reroutedAt <= endDate) {
-          reroutedCount++;
+          const isGkReroute =
+            (q && q.gateKeeperId?.toString() === userId) ||
+            (userRole === 'gate_keeper' && q?.moderatorId?.toString() !== userId);
 
-          // Moderator handling duration: from when the moderator was assigned to when they rerouted
-          const assignedAt = q?.moderatorAssignedAt ? new Date(q.moderatorAssignedAt) : null;
-          const startAt = assignedAt && assignedAt <= reroutedAt
-            ? assignedAt
-            : doc.createdAt
-              ? new Date(doc.createdAt)
-              : reroutedAt;
+          if (isGkReroute) {
+            gateKeeperReroutedCount++;
+            const assignedAt = q?.gateKeeperAssignedAt ? new Date(q.gateKeeperAssignedAt) : null;
+            const startAt = assignedAt && assignedAt <= reroutedAt
+              ? assignedAt
+              : doc.createdAt
+                ? new Date(doc.createdAt)
+                : reroutedAt;
 
-          if (startAt && reroutedAt && reroutedAt > startAt) {
-            reroutingIntervals.push(...getActiveOverlapIntervals(startAt, reroutedAt));
+            if (startAt && reroutedAt && reroutedAt > startAt) {
+              gateKeeperReroutingIntervals.push(...getActiveOverlapIntervals(startAt, reroutedAt));
+            }
+          } else {
+            reroutedCount++;
+
+            // Moderator handling duration: from when the moderator was assigned to when they rerouted
+            const assignedAt = q?.moderatorAssignedAt ? new Date(q.moderatorAssignedAt) : null;
+            const startAt = assignedAt && assignedAt <= reroutedAt
+              ? assignedAt
+              : doc.createdAt
+                ? new Date(doc.createdAt)
+                : reroutedAt;
+
+            if (startAt && reroutedAt && reroutedAt > startAt) {
+              reroutingIntervals.push(...getActiveOverlapIntervals(startAt, reroutedAt));
+            }
           }
         }
       }
@@ -11003,6 +11027,12 @@ export class QuestionRepository implements IQuestionRepository {
     const cleanAuthoringIntervals = subtractIntervals(mergeIntervals(authoringIntervals), cleanHoldIntervals);
 
     // 3. Deduct prior overlapping activities from secondary / reroute intervals so no time is double-counted:
+    // - Gatekeeper Rerouting: deduct gatekeeping and hold intervals
+    const cleanGateKeeperReroutingIntervals = subtractIntervals(mergeIntervals(gateKeeperReroutingIntervals), [
+      ...cleanGatekeepingIntervals,
+      ...cleanHoldIntervals,
+    ]);
+
     // - Moderator Rerouting: deduct moderating and hold intervals
     const cleanReroutingIntervals = subtractIntervals(mergeIntervals(reroutingIntervals), [
       ...cleanModeratingIntervals,
@@ -11027,6 +11057,7 @@ export class QuestionRepository implements IQuestionRepository {
     const totalModeratingMs = sumIntervals(cleanModeratingIntervals);
     const totalAuditingMs = sumIntervals(cleanAuditingIntervals);
     const totalGatekeepingMs = sumIntervals(cleanGatekeepingIntervals);
+    const totalGateKeeperReroutingMs = sumIntervals(cleanGateKeeperReroutingIntervals);
     const totalReroutingMs = sumIntervals(cleanReroutingIntervals);
     const totalExpertReroutingMs = sumIntervals(cleanExpertReroutingIntervals);
 
@@ -11042,6 +11073,8 @@ export class QuestionRepository implements IQuestionRepository {
       totalAuditingMs,
       gatekeepedCount,
       totalGatekeepingMs,
+      gateKeeperReroutedCount,
+      totalGateKeeperReroutingMs,
       gdbPushedCount,
       reroutedCount,
       totalReroutingMs,
