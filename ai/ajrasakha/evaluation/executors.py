@@ -102,6 +102,97 @@ def extract_plan_from_response(response_text: str) -> dict:
 
     return {}
 
+
+def extract_answer_from_response(response_text: str) -> str:
+    """
+    Best-effort extraction of the final farmer-facing answer text from the
+    raw LangGraph `values` stream payload.
+
+    Previously the pipeline only kept `response_text[:500]` -- a truncated
+    slice of the raw JSON event, not the answer itself. That's unusable as
+    input to answer-quality metrics (Answer Relevancy/Faithfulness/GDB
+    Match all need the actual text the farmer would read). This walks the
+    parsed payload for the last assistant message instead.
+    """
+    if not response_text:
+        return ""
+
+    try:
+        data = json.loads(response_text)
+    except Exception:
+        return response_text
+
+    messages = None
+    if isinstance(data, dict):
+        messages = data.get("messages")
+        if not messages and isinstance(data.get("values"), dict):
+            messages = data["values"].get("messages")
+
+    if isinstance(messages, list):
+        for message in reversed(messages):
+            if not isinstance(message, dict):
+                continue
+            if message.get("type") not in ("ai", None) and message.get("role") != "assistant":
+                continue
+
+            content = message.get("content")
+            if isinstance(content, str) and content.strip():
+                return content.strip()
+
+            if isinstance(content, list):
+                text_parts = [
+                    block.get("text", "")
+                    for block in content
+                    if isinstance(block, dict) and block.get("type") == "text"
+                ]
+                joined = "\n".join(part for part in text_parts if part)
+                if joined.strip():
+                    return joined.strip()
+
+    if isinstance(data, dict):
+        for key in ("final_answer", "answer", "translated_answer"):
+            value = data.get(key)
+            if isinstance(value, str) and value.strip():
+                return value.strip()
+
+    return response_text
+
+
+def extract_retrieval_context_from_response(response_text: str) -> list[str]:
+    """
+    Pulls retrieved GDB/tool answer text out of the response payload so
+    Faithfulness/ContextualRelevancy have real retrieved content to check
+    the final answer against, instead of an empty context list (which
+    makes those metrics meaningless).
+    """
+    if not response_text:
+        return []
+
+    try:
+        data = json.loads(response_text)
+    except Exception:
+        return []
+
+    context: list[str] = []
+
+    def _walk(node):
+        if isinstance(node, dict):
+            for key in ("selected_match", "exact_match"):
+                match = node.get(key)
+                if isinstance(match, dict):
+                    answer_text = match.get("answer_text") or match.get("answer")
+                    if answer_text:
+                        context.append(str(answer_text))
+            for value in node.values():
+                _walk(value)
+        elif isinstance(node, list):
+            for item in node:
+                _walk(item)
+
+    _walk(data)
+    return context
+
+
 def run_mock_case(case: dict) -> dict:
     start_time = time.time()
     expected_tools = case.get("expected_tools", [])
@@ -127,6 +218,8 @@ def run_mock_case(case: dict) -> dict:
         "graph_status": "success",
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": response_text,
+        "answer": response_text,
+        "retrieval_context": [],
         "error": "",
         "trace": trace,
     }
@@ -192,6 +285,8 @@ def run_live_case(case: dict) -> dict:
                     "graph_status": graph_status,
                     "latency_seconds": round(time.time() - start_time, 2),
                     "response_text": "",
+                    "answer": "",
+                    "retrieval_context": [],
                     "error": error[:500],
                     "trace": {
                         "nodes": [],
@@ -258,6 +353,8 @@ def run_live_case(case: dict) -> dict:
     observed_tools_list = extract_tools_from_response(extraction_source)
     observed_nodes = extract_nodes_from_response(events, full_stream_text)  
     observed_plan = extract_plan_from_response(extraction_source)
+    answer_text = extract_answer_from_response(extraction_source)
+    retrieval_context = extract_retrieval_context_from_response(extraction_source)
 
     return {
         "name": case.get("name"),
@@ -267,7 +364,11 @@ def run_live_case(case: dict) -> dict:
         "http_status": http_status,
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
+        # Kept for backward compatibility with existing report columns;
+        # truncated only for display, not used as metric input anymore.
         "response_text": extraction_source[:500],
+        "answer": answer_text,
+        "retrieval_context": retrieval_context,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,
