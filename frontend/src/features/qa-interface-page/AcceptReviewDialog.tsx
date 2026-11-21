@@ -16,17 +16,20 @@ import {
   DialogTitle,
 } from "../../components/atoms/dialog";
 import { ReviewChecklist } from "./ReviewChecklist";
+import { cn } from "@/lib/utils";
 
 export const AcceptReviewDialog = ({
   checklist,
   onChecklistChange,
   isSubmitting,
   onConfirm,
+  className,
 }: {
   checklist: IReviewParmeters;
   onChecklistChange: (value: IReviewParmeters) => void;
   isSubmitting: boolean;
   onConfirm: () => void;
+  className?: string;
 }) => {
   const [open, setOpen] = useState(false);
   const [suggestion, setSuggestion] = useState<string | null>(null);
@@ -105,20 +108,21 @@ export const AcceptReviewDialog = ({
       <Button
         disabled={isSubmitting}
         size="sm"
-        className="flex items-center gap-1 
-             bg-green-500  text-white
-             dark:bg-green-900 hover:bg-green-500"
+        className={cn(
+          "flex items-center justify-center gap-1 h-8 px-2.5 text-xs bg-emerald-600 dark:bg-emerald-700 text-white hover:bg-emerald-700 dark:hover:bg-emerald-600 shrink-0 shadow-xs whitespace-nowrap overflow-hidden",
+          className
+        )}
         onClick={() => setOpen(true)}
       >
         {isSubmitting ? (
           <>
-            <Loader2 className="w-4 h-4 animate-spin" />
-            Accepting...
+            <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+            <span className="truncate">Accepting...</span>
           </>
         ) : (
           <>
-            <CheckCircle className="w-4 h-4" />
-            Accept
+            <CheckCircle className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Accept</span>
           </>
         )}
       </Button>
