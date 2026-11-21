@@ -1,0 +1,8 @@
+packages:
+  - "."
+# Packages whose postinstall must run: esbuild places its platform binary,
+# Playwright registers its browser downloads.
+allowBuilds:
+  esbuild: true
+  "@playwright/test": true
+  playwright: true
