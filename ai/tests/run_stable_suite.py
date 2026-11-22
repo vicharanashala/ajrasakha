@@ -94,6 +94,11 @@ def read_report_rows(layer, report_path):
                     "latency_seconds": row.get("latency_seconds", row.get("latency", "")),
                     "error": row.get("error", row.get("failure_reason", "")),
                     "details": row.get("triage_category", row.get("response_text", ""))[:500],
+                    # Populated for Layer 3 rows once answer_eval.py is
+                    # wired in (evaluation_report_live.csv); blank for
+                    # layers that don't produce a quality score.
+                    "domain": row.get("domain", ""),
+                    "quality_score": row.get("quality_overall_score", ""),
                 }
             )
 
@@ -110,6 +115,8 @@ def write_combined_csv(rows):
         "latency_seconds",
         "error",
         "details",
+        "domain",
+        "quality_score",
     ]
 
     with COMBINED_CSV.open("w", encoding="utf-8", newline="") as f:
@@ -145,6 +152,8 @@ def write_html(rows, command_results):
                 <td class="{row["status"].lower()}">{row["status"]}</td>
                 <td>{html.escape(str(row["status_code"]))}</td>
                 <td>{html.escape(str(row["latency_seconds"]))}</td>
+                <td>{html.escape(str(row.get("domain", "")))}</td>
+                <td>{html.escape(str(row.get("quality_score", "")))}</td>
                 <td>{html.escape(str(row["error"]))}</td>
             </tr>
             """
@@ -164,6 +173,8 @@ def write_html(rows, command_results):
                             <th>Status</th>
                             <th>Status Code</th>
                             <th>Latency</th>
+                            <th>Domain</th>
+                            <th>Quality Score</th>
                             <th>Error</th>
                         </tr>
                     </thead>
