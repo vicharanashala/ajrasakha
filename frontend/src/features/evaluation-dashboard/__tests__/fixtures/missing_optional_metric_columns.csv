@@ -1,0 +1,2 @@
+record_type,query
+case,Question with no metric columns in the CSV header.

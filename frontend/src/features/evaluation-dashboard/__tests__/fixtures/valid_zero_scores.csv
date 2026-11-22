@@ -1,0 +1,2 @@
+record_type,query,technical_pass,answerrelevancymetric_score,answerrelevancymetric_reason,answerrelevancymetric_status
+case,What is the answer relevancy score?,true,0.0,No relevant answer content.,scored_zero

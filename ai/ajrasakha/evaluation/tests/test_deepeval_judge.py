@@ -62,6 +62,42 @@ class ContextualRelevancyMetric(FakeMetric):
     pass
 
 
+class GDBMatchMetric(FakeMetric):
+    """Fake GEval-style metric; records every test case it measures."""
+
+    measured_cases = []
+
+    def __init__(
+        self,
+        name=None,
+        criteria=None,
+        evaluation_params=None,
+        threshold=0.5,
+        model=None,
+        **kwargs,
+    ):
+        super().__init__(threshold=threshold, model=model, **kwargs)
+        self.name = name
+        self.criteria = criteria
+        self.evaluation_params = evaluation_params
+
+    def measure(self, test_case):
+        type(self).measured_cases.append(test_case)
+        super().measure(test_case)
+
+
+def install_fake_judge(monkeypatch):
+    monkeypatch.setattr(dm, "get_judge_model", lambda: FakeModel())
+
+
+def install_fake_metrics(monkeypatch, gdb=None):
+    monkeypatch.setattr(dm, "AnswerRelevancyMetric", AnswerRelevancyMetric)
+    monkeypatch.setattr(dm, "FaithfulnessMetric", FaithfulnessMetric)
+    monkeypatch.setattr(dm, "ContextualRelevancyMetric", ContextualRelevancyMetric)
+    if gdb is not None:
+        monkeypatch.setattr(dm, "GDBMatchMetric", gdb, raising=False)
+
+
 @pytest.fixture(autouse=True)
 def clean_env(monkeypatch):
     for name in JUDGE_VARS:
@@ -180,6 +216,7 @@ def test_empty_answer_never_builds_a_judge(monkeypatch):
     assert result["AnswerRelevancyMetric"]["reason"] == "answer_missing"
     assert result["FaithfulnessMetric"]["reason"] == "answer_missing"
     assert result["ContextualRelevancyMetric"]["reason"] == "answer_missing"
+    assert result["GDBMatchMetric"]["reason"] == "answer_missing"
 
 
 def test_evaluate_builds_judge_once_and_returns_shape(monkeypatch):
@@ -203,9 +240,23 @@ def test_evaluate_builds_judge_once_and_returns_shape(monkeypatch):
         "AnswerRelevancyMetric",
         "FaithfulnessMetric",
         "ContextualRelevancyMetric",
+        "GDBMatchMetric",
     }
-    for entry in result.values():
-        assert entry == {"score": 0.9, "passed": True, "reason": "fake reason"}
+    for name in (
+        "AnswerRelevancyMetric",
+        "FaithfulnessMetric",
+        "ContextualRelevancyMetric",
+    ):
+        assert result[name] == {
+            "score": 0.9,
+            "passed": True,
+            "reason": "fake reason",
+        }
+    assert result["GDBMatchMetric"] == {
+        "score": None,
+        "passed": None,
+        "reason": "no_expected_answer",
+    }
 
 
 def test_setup_error_propagates_instead_of_being_swallowed(monkeypatch):
@@ -215,3 +266,134 @@ def test_setup_error_propagates_instead_of_being_swallowed(monkeypatch):
     monkeypatch.setattr(dm, "get_judge_model", broken)
     with pytest.raises(dm.JudgeSetupError):
         dm.evaluate_answer_with_deepeval("q", "an answer", ["context"])
+
+
+# --- GDB match reference --------------------------------------------------
+
+
+def test_reference_adds_gdb_metric_and_passes_expected_output(monkeypatch):
+    synthetic_reference = (
+        "Paddy in Punjab is transplanted after puddling, with soil-test based "
+        "fertilizer and timely harvest."
+    )
+    GDBMatchMetric.measured_cases.clear()
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    result = dm.evaluate_answer_with_deepeval(
+        "How to grow paddy in Punjab",
+        "Transplant paddy seedlings after puddling the field.",
+        ["[gdb] synthetic context"],
+        expected_output=synthetic_reference,
+    )
+
+    assert len(GDBMatchMetric.measured_cases) == 1
+    assert (
+        GDBMatchMetric.measured_cases[0].expected_output == synthetic_reference
+    )
+    assert result["GDBMatchMetric"]["score"] == 0.9
+    assert result["GDBMatchMetric"]["passed"] is None
+
+
+def test_missing_reference_does_not_build_gdb_metric(monkeypatch):
+    class GDBMatchMetric(FakeMetric):
+        def __init__(self, **kwargs):
+            raise AssertionError(
+                "GDB metric must not be built without a reference"
+            )
+
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    result = dm.evaluate_answer_with_deepeval(
+        "q", "an answer", ["context"], expected_output=None
+    )
+
+    assert result["GDBMatchMetric"] == {
+        "score": None,
+        "passed": None,
+        "reason": "no_expected_answer",
+    }
+
+
+def test_gdb_metric_measure_error_is_isolated(monkeypatch):
+    class GDBMatchMetric(FakeMetric):
+        def measure(self, test_case):
+            raise RuntimeError("gdb judge exploded")
+
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    result = dm.evaluate_answer_with_deepeval(
+        "q", "an answer", ["context"], expected_output="reference answer"
+    )
+
+    for name in (
+        "AnswerRelevancyMetric",
+        "FaithfulnessMetric",
+        "ContextualRelevancyMetric",
+    ):
+        assert result[name] == {
+            "score": 0.9,
+            "passed": True,
+            "reason": "fake reason",
+        }
+    assert result["GDBMatchMetric"]["score"] is None
+    assert "gdb judge exploded" in result["GDBMatchMetric"]["reason"]
+
+
+def test_gdb_metric_construction_error_is_isolated(monkeypatch):
+    class GDBMatchMetric(FakeMetric):
+        def __init__(self, **kwargs):
+            raise RuntimeError("cannot build gdb metric")
+
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    result = dm.evaluate_answer_with_deepeval(
+        "q", "an answer", ["context"], expected_output="reference answer"
+    )
+
+    for name in (
+        "AnswerRelevancyMetric",
+        "FaithfulnessMetric",
+        "ContextualRelevancyMetric",
+    ):
+        assert result[name]["score"] == 0.9
+    assert result["GDBMatchMetric"]["score"] is None
+    assert result["GDBMatchMetric"]["reason"].startswith(
+        "gdb_match_setup_error:"
+    )
+    assert "cannot build gdb metric" in result["GDBMatchMetric"]["reason"]
+
+
+def test_judge_setup_error_from_gdb_construction_propagates(monkeypatch):
+    class GDBMatchMetric(FakeMetric):
+        def __init__(self, **kwargs):
+            raise dm.JudgeSetupError("gdb setup failed")
+
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    with pytest.raises(dm.JudgeSetupError, match="gdb setup failed"):
+        dm.evaluate_answer_with_deepeval(
+            "q", "an answer", ["context"], expected_output="reference answer"
+        )
+
+
+def test_whitespace_reference_is_treated_as_missing(monkeypatch):
+    class GDBMatchMetric(FakeMetric):
+        def __init__(self, **kwargs):
+            raise AssertionError(
+                "GDB metric must not be built for a whitespace reference"
+            )
+
+    install_fake_judge(monkeypatch)
+    install_fake_metrics(monkeypatch, gdb=GDBMatchMetric)
+
+    result = dm.evaluate_answer_with_deepeval(
+        "q", "an answer", ["context"], expected_output="   "
+    )
+
+    assert result["GDBMatchMetric"]["score"] is None
+    assert result["GDBMatchMetric"]["reason"] == "no_expected_answer"
