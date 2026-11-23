@@ -1,8 +1,8 @@
 import { injectable, inject } from 'inversify';
-import { BadRequestError } from 'routing-controllers';
+import { BadRequestError, NotFoundError } from 'routing-controllers';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { BaseService, MongoDatabase } from '#root/shared/index.js';
-import { ICrop, ICropAlias, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
+import { ICrop, ICropAlias, IQuestion, CROP_OTHER_TYPES } from '#root/shared/interfaces/models.js';
 import { ICropRepository } from '#root/shared/database/interfaces/ICropRepository.js';
 import { IQuestionRepository } from '#root/shared/database/interfaces/IQuestionRepository.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
@@ -11,7 +11,10 @@ import {
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
+  GetAffectedQuestionsQuery,
 } from '../classes/validators/CropValidators.js';
+import { deleteMediaByUrl } from '#root/modules/dashboard/utils/uploadMedia.js';
 import {
   CropImportChange,
   CropImportEntry,
@@ -96,6 +99,10 @@ export class CropService extends BaseService implements ICropService {
       type: crop.type ?? 'crop',
       aliases: (crop.aliases ?? []).filter((a): a is ICropAlias => typeof a !== 'string'),
     }));
+  }
+
+  async getAllNormalisedCrops(): Promise<ICrop[]> {
+    return this.cropRepository.getAllNormalisedCrops();
   }
 
   /**
@@ -355,5 +362,137 @@ export class CropService extends BaseService implements ICropService {
       }
       throw error;
     }
+  }
+
+  async getAffectedQuestions(
+    cropId: string,
+    options?: GetAffectedQuestionsQuery,
+  ): Promise<{
+    count: number;
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    cropName: string;
+    questions: IQuestion[];
+  }> {
+    const crop = await this.cropRepository.getCropById(cropId);
+    if (!crop) {
+      throw new NotFoundError('Crop not found');
+    }
+
+    const result = await this.questionRepository.findQuestionsByNormalisedCrop(crop.name, options);
+    return {
+      count: result.total,
+      total: result.total,
+      page: result.page,
+      limit: result.limit,
+      totalPages: result.totalPages,
+      cropName: crop.name,
+      questions: result.questions,
+    };
+  }
+
+  async deleteOrReassignCrop(
+    cropId: string,
+    dto: DeleteCropDto,
+    userId: string,
+  ): Promise<{ cropDeleted: boolean; reassignedCount: number; message: string }> {
+    const cropToDelete = await this.cropRepository.getCropById(cropId);
+    if (!cropToDelete) {
+      throw new NotFoundError('Crop not found');
+    }
+
+    // 1. Get total count of affected questions currently in the DB
+    const totalAffectedCount = await this.questionRepository.countQuestionsByNormalisedCrop(cropToDelete.name);
+
+    // 2. Case A: 0 questions affected -> Direct deletion
+    if (totalAffectedCount === 0) {
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+      return {
+        cropDeleted: true,
+        reassignedCount: 0,
+        message: `Crop "${cropToDelete.name}" deleted successfully`,
+      };
+    }
+
+    // 3. For > 0 questions, a replacement crop is required
+    if (!dto.replacementCropId) {
+      throw new BadRequestError('A replacement crop must be selected to reassign affected questions');
+    }
+
+    if (dto.replacementCropId === cropId) {
+      throw new BadRequestError('Replacement crop cannot be the crop being deleted');
+    }
+
+    const replacementCrop = await this.cropRepository.getCropById(dto.replacementCropId);
+    if (!replacementCrop) {
+      throw new NotFoundError('Replacement crop not found');
+    }
+
+    // 4. Check if this is a Full Migration & Deletion:
+    const isFullReassignment =
+      dto.reassignAll === true ||
+      (!dto.questionIds && dto.reassignAll !== false) ||
+      (dto.questionIds && dto.questionIds.length >= totalAffectedCount);
+
+    if (isFullReassignment) {
+      // Direct atomic reassign across all questions matching cropToDelete.name on MongoDB
+      const updateResult = await this.questionRepository.reassignAllQuestionsByNormalisedCrop(
+        cropToDelete.name,
+        replacementCrop.name,
+      );
+
+      // Permanently remove crop from crop_master & delete image
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+
+      return {
+        cropDeleted: true,
+        reassignedCount: updateResult.modifiedCount,
+        message: `Crop "${cropToDelete.name}" deleted and ${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}"`,
+      };
+    }
+
+    // 5. Partial reassignment with specific questionIds
+    if (!dto.questionIds || dto.questionIds.length === 0) {
+      throw new BadRequestError('Please select questions to reassign or choose Reassign All');
+    }
+
+    const updateResult = await this.questionRepository.updateQuestionsNormalisedCrop(
+      dto.questionIds,
+      replacementCrop.name,
+    );
+
+    // Check if any questions remain
+    const remainingCount = await this.questionRepository.countQuestionsByNormalisedCrop(cropToDelete.name);
+    if (remainingCount === 0) {
+      await this.cropRepository.deleteCrop(cropId);
+      if (cropToDelete.imageUrl) {
+        try {
+          await deleteMediaByUrl(cropToDelete.imageUrl);
+        } catch (_) { /* ignore media cleanup error */ }
+      }
+      return {
+        cropDeleted: true,
+        reassignedCount: updateResult.modifiedCount,
+        message: `All remaining questions reassigned to "${replacementCrop.name}". Crop "${cropToDelete.name}" deleted`,
+      };
+    }
+
+    return {
+      cropDeleted: false,
+      reassignedCount: updateResult.modifiedCount,
+      message: `${updateResult.modifiedCount} questions reassigned to "${replacementCrop.name}". ${remainingCount} questions still reference "${cropToDelete.name}"`,
+    };
   }
 }

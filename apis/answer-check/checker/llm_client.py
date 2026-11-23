@@ -25,7 +25,26 @@ MINIMAX_MODEL = os.getenv("MINIMAX_MODEL", "MiniMax-M3")
 # day), so retry a lot with short waits. max_completion_tokens doesn't help
 # and reasoning_split must stay on.
 MAX_RETRIES = 9
+# the model sends nothing until it has finished reasoning, and a long check can take several
+# minutes, so these limits must stay well above that or good calls get cut off
+REQUEST_TIMEOUT_SECONDS = 300
+CONNECT_TIMEOUT_SECONDS = 15
+# no data at all for this long means the connection is stuck
+READ_STALL_SECONDS = 300
 RETRY_DELAYS_SECONDS = (1, 1, 2, 2, 3, 3, 3, 3, 3)
+# MiniMax-M3 reasons before it answers, and the reasoning counts against the token limit.
+# At 2048 it often spent every token reasoning and returned an empty answer
+# (finish_reason "length"), which retrying at the same limit never fixes.
+# So every check call gets at least this many tokens, and a reply cut off by the
+# limit is retried with double the limit, up to MAX_TOKENS_CEILING.
+MIN_CHECK_TOKENS = int(os.getenv("MINIMAX_MIN_TOKENS", "8192"))
+MAX_TOKENS_CEILING = 32768
+# overloaded / rate limited: wait longer than for a cut-off body
+BUSY_STATUS_CODES = {429, 500, 502, 503, 504, 529}
+
+
+class ReplyCutOff(ValueError):
+    """The model used the whole token limit before writing its answer."""
 
 RETRYABLE_EXCEPTIONS = (
     requests.RequestException,
@@ -44,7 +63,11 @@ class LLMCallFailed(Exception):
 def _extract_content(response: requests.Response) -> str:
     try:
         response_body = response.json()
-        return response_body["choices"][0]["message"]["content"]
+        choice = response_body["choices"][0]
+        content = (choice.get("message") or {}).get("content") or ""
+        if not content.strip() and choice.get("finish_reason") == "length":
+            raise ReplyCutOff("the model used the whole token limit before answering (finish_reason=length)")
+        return content
     except requests.exceptions.JSONDecodeError:
         # the proxy can cut off the reasoning field after a complete content
         # field, so pull the content out by hand
@@ -60,25 +83,51 @@ def api_key_is_set() -> bool:
     return bool(os.getenv("MINIMAX_API_KEY", "").strip())
 
 
-def call_llm_once(prompt: str, max_completion_tokens: int = 2048) -> str:
-    """One request, returns the raw text. Raises on failure; use call_llm for retries."""
+def call_llm_once(
+    prompt: str,
+    max_completion_tokens: int = 2048,
+    *,
+    model: str | None = None,
+    url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
+) -> str:
+    """One request, returns the raw text. Raises on failure; use call_llm for retries.
+
+    model, url and api_key default to MINIMAX_MODEL, MINIMAX_URL and MINIMAX_API_KEY,
+    so the checks are unchanged.
+    """
     load_dotenv(PROJECT_DIRECTORY / ".env")
-    api_key = os.getenv("MINIMAX_API_KEY", "").strip()
+    api_key = api_key or os.getenv("MINIMAX_API_KEY", "").strip()
     if not api_key:
         raise ValueError("MINIMAX_API_KEY is not configured")
 
+    # the read timeout alone only limits each wait for data, so a connection that hangs or
+    # trickles can block for a very long time (a run sat 25 minutes on one); read the body
+    # in pieces and give up once the whole request has taken longer than `timeout`
+    deadline = time.time() + timeout
     response = requests.post(
-        MINIMAX_URL,
+        url or MINIMAX_URL,
         headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
         json={
-            "model": MINIMAX_MODEL,
+            "model": model or MINIMAX_MODEL,
             "messages": [{"role": "user", "content": prompt}],
             "temperature": 0.1,
             "max_completion_tokens": max_completion_tokens,
             "reasoning_split": True,
         },
-        timeout=120,
+        timeout=(CONNECT_TIMEOUT_SECONDS, min(timeout, READ_STALL_SECONDS)),
+        stream=True,
     )
+    body = bytearray()
+    try:
+        for piece in response.iter_content(chunk_size=8192):
+            body.extend(piece)
+            if time.time() > deadline:
+                raise requests.Timeout(f"the model took longer than {timeout:.0f}s to reply")
+    finally:
+        response.close()
+    response._content = bytes(body)
     if not response.ok:
         # include the server's message, e.g. "the model does not exist"
         raise requests.HTTPError(
@@ -95,6 +144,10 @@ def call_llm(
     max_completion_tokens: int = 2048,
     max_retries: int = MAX_RETRIES,
     retry_delays: tuple[int, ...] = RETRY_DELAYS_SECONDS,
+    model: str | None = None,
+    url: str | None = None,
+    api_key: str | None = None,
+    timeout: float = REQUEST_TIMEOUT_SECONDS,
 ) -> dict[str, Any]:
     """Call the model with retries and return the parsed JSON.
 
@@ -103,10 +156,15 @@ def call_llm(
     """
     last_error: Exception | None = None
     run_stats.record(model_calls=1)
+    tokens = max(max_completion_tokens, MIN_CHECK_TOKENS)
     for attempt in range(max_retries + 1):
         started = time.time()
+        delay = retry_delays[attempt] if attempt < len(retry_delays) else retry_delays[-1]
         try:
-            content = call_llm_once(prompt, max_completion_tokens=max_completion_tokens)
+            content = call_llm_once(
+                prompt, max_completion_tokens=tokens,
+                model=model, url=url, api_key=api_key, timeout=timeout,
+            )
             match = re.search(r"{.*}", content, re.DOTALL)
             if match is None:
                 raise ValueError("LLM response does not contain a JSON object")
@@ -121,6 +179,13 @@ def call_llm(
                 model_attempts=1, model_failed_attempts=1,
                 model_request_seconds=time.time() - started,
             )
+            if isinstance(exc, ReplyCutOff):
+                # same limit would cut it off again: give it more room
+                tokens = min(tokens * 2, MAX_TOKENS_CEILING)
+            status = getattr(getattr(exc, "response", None), "status_code", None)
+            if status in BUSY_STATUS_CODES:
+                # overloaded: back off properly instead of hammering it
+                delay = min(60, 5 * 2 ** attempt)
             if attempt == 0:
                 # log only the first failure of each call
                 logger.warning(
@@ -128,7 +193,7 @@ def call_llm(
                     max_retries + 1, type(exc).__name__, str(exc)[:200],
                 )
             if attempt < max_retries:
-                run_stats.record(model_sleep_seconds=retry_delays[attempt])
-                time.sleep(retry_delays[attempt])
+                run_stats.record(model_sleep_seconds=delay)
+                time.sleep(delay)
     run_stats.record(model_gave_up=1)
     raise LLMCallFailed(str(last_error))

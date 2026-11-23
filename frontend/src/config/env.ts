@@ -38,7 +38,10 @@ type EnvKey =
   | `VITE_PLIVO_${string}_PASSWORD`
   // FAQ / POP processing servers
   | "VITE_FAQ_API_URL"
-  | "VITE_POP_API_URL";
+  | "VITE_POP_API_URL"
+
+  // Festive theme: "auto" (calendar), "off", or "diwali" (force on)
+  | "VITE_FESTIVE_THEME";
 
 /**
  * Internal getter (single source of truth)
@@ -101,6 +104,8 @@ export const env = {
   // instead of JSON. Only an explicit VITE_FAQ_API_URL / VITE_POP_API_URL overrides this.
   faqApiUrl: () => getEnv("VITE_FAQ_API_URL", false, "") || `${apiBase()}/faq`,
   popApiUrl: () => getEnv("VITE_POP_API_URL", false, "") || `${apiBase()}/pop`,
+
+  festiveTheme: () => getEnv("VITE_FESTIVE_THEME", false, "auto"),
 };
 
 /** API base URL without a trailing slash, e.g. "https://…run.app/api". */

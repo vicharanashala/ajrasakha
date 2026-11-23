@@ -12,8 +12,9 @@ import io
 import json
 import os
 import re
+import threading
 import time
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from pathlib import Path
 from typing import Any
 
@@ -31,9 +32,10 @@ ZOHO_API_BASE = os.getenv("ZOHO_API_BASE", "https://workdrive.zohoexternal.in/pu
 MIN_TEXT_CHARS = 200  # below this, treat the source as scanned/unusable
 # bigger prompts fail more often through the proxy, so keep these small
 MAX_SOURCE_CHARS_FOR_PROMPT = 4500
-MAX_SOURCES_PER_CHECK = 3
-# all sources together, so a long list of sources does not make the prompt too long
+# every cited source is read. Their text shares one budget, so many sources do not make the
+# prompt too long, but each one keeps at least a minimum so none is left out
 MAX_TOTAL_SOURCE_CHARS_FOR_PROMPT = 12000
+MIN_SOURCE_CHARS_FOR_PROMPT = 1200
 # text around a chemical name when it is looked up in the whole document
 PASSAGE_BEFORE_CHARS = 100
 PASSAGE_AFTER_CHARS = 320
@@ -229,6 +231,52 @@ def _cited_pages_text(
     return "\n\n".join(f"[page {page}]\n{kept[page]}" for page in sorted(kept)) or None
 
 
+class _CachedPage:
+    """One page whose text is read once, however many answers look at it."""
+
+    def __init__(self, page: Any) -> None:
+        self._page = page
+        self._text: str | None = None
+
+    def extract_text(self) -> str:
+        if self._text is None:
+            try:
+                self._text = self._page.extract_text() or ""
+            except Exception:
+                self._text = ""
+        return self._text
+
+
+class _CachedDocument:
+    """The pages of a downloaded PDF, with each page's text cached."""
+
+    def __init__(self, reader: Any) -> None:
+        self.pages = [_CachedPage(page) for page in reader.pages]
+
+
+# The same few long documents (a 200-page Package of Practices) are cited by hundreds of answers,
+# so a downloaded document is kept and its pages are read once. Only successes are kept.
+DOCUMENT_CACHE_SIZE = 40
+_documents: "OrderedDict[str, _CachedDocument]" = OrderedDict()
+_documents_lock = threading.Lock()
+
+
+def _open_document(file_id: str, timeout: int) -> "_CachedDocument | None":
+    with _documents_lock:
+        if file_id in _documents:
+            _documents.move_to_end(file_id)
+            return _documents[file_id]
+    body = _download_pdf(file_id, timeout)
+    if body is None:
+        return None
+    document = _CachedDocument(PdfReader(io.BytesIO(body)))
+    with _documents_lock:
+        _documents[file_id] = document
+        while len(_documents) > DOCUMENT_CACHE_SIZE:
+            _documents.popitem(last=False)
+    return document
+
+
 def _download_pdf(file_id: str, timeout: int) -> bytes | None:
     try:
         auth_resp = requests.get(f"{ZOHO_API_BASE}/downloadauth/{file_id}", timeout=timeout)
@@ -252,9 +300,38 @@ with _GENERIC_NAMES_PATH.open(encoding="utf-8") as _generic_names_source:
     ]
 
 
+# a chemical written before a formulation code, such as "Thiamethoxam 25 WG" or "Lambda-cyhalothrin 5% EC"
+_BEFORE_FORMULATION = re.compile(
+    r"\b([A-Z][a-z]{3,}(?:-[a-z]{3,})*)\s+\d+(?:\.\d+)?\s*%?\s*"
+    r"(?:WP|EC|CG|SC|WG|WDG|GR|SL|DS|DP|SP|WS|CS|OD|FS|ZC|ME|SG|SE|EW|ES|G)\b"
+)
+# a name written before a percentage, such as "Azadirachtin 0.15%"
+_BEFORE_PERCENT = re.compile(r"\b([A-Z][a-z]{4,}(?:-[a-z]{3,})*)\s+\d+(?:\.\d+)?\s*%")
+_NOT_CHEMICALS = frozenset({"apply", "spray", "use", "mix", "dose", "dosage", "water", "seed", "soil", "kharif", "rabi"})
+
+
 def _answer_chemical_names(answer_text: str) -> list[str]:
-    """Known chemical names written in the answer."""
-    return [name for name, pattern in _CHEMICAL_NAME_PATTERNS if pattern.search(answer_text or "")]
+    """The chemicals written in the answer.
+
+    Known names from the list, and any name the answer itself writes before a dose or a
+    formulation code, so a chemical missing from the list is still looked up in the sources.
+    """
+    text = answer_text or ""
+    found = [name for name, pattern in _CHEMICAL_NAME_PATTERNS if pattern.search(text)]
+    written = {o["chemical"] for o in extract_chemical_doses({"answer_text": text})}
+    written |= set(_BEFORE_FORMULATION.findall(text)) | set(_BEFORE_PERCENT.findall(text))
+    for name in sorted(written):
+        name = name.strip("-")
+        if len(name) < 5 or name.casefold() in _NOT_CHEMICALS:
+            continue
+        if not any(name.casefold() == known.casefold() for known in found):
+            found.append(name)
+    return found
+
+
+def _name_pattern(name: str) -> "re.Pattern[str]":
+    """A name as the sources may write it: 'Lambda-cyhalothrin' also matches 'lambda cyhalothrin'."""
+    return re.compile(r"\b" + re.escape(name).replace(r"\-", r"[-\s]?") + r"\b", re.IGNORECASE)
 
 
 _CLAIM_TOKEN = re.compile(r"[a-z0-9][a-z0-9.%]*", re.IGNORECASE)
@@ -289,7 +366,7 @@ def _name_passages(reader: Any, names: list[str], budget: int, answer_text: str 
     """
     if not names or budget <= 0:
         return None
-    wanted = {name: re.compile(r"\b" + re.escape(name) + r"\b", re.IGNORECASE) for name in names}
+    wanted = {name: _name_pattern(name) for name in names}
     claims = {name: _claim_tokens(answer_text, pattern) for name, pattern in wanted.items()}
     general = _distinctive_tokens(answer_text)
     candidates: dict[str, list[tuple[int, int, str]]] = {name: [] for name in names}
@@ -356,11 +433,9 @@ def fetch_source_text(
     cited = parse_page_spec(page_spec)
     started = time.time()
     try:
-        body = _download_pdf(file_id, timeout)
-        if body is None:
+        reader = _open_document(file_id, timeout)
+        if reader is None:
             return None
-        # in memory, no temp files (threads would collide)
-        reader = PdfReader(io.BytesIO(body))
         text = _cited_pages_text(reader, cited, _distinctive_tokens(answer_text), budget) if cited else None
         lowered = (text or "").casefold()
         missing = [name for name in _answer_chemical_names(answer_text) if name.casefold() not in lowered]
@@ -434,8 +509,11 @@ as the same: 1 acre is 0.4047 hectare (so 2 kg/acre is about 5 kg/ha and
 40 kg/acre is about 100 kg/ha), 1 kg is 1000 g, 1 L is 1000 ml.
 Use FAIL only when the source text clearly contradicts a specific claim, or
 names a different chemical/formulation than the answer states for the same
-usage. Use NOT_EVALUATED when the source doesn't cover the relevant topic
-at all, making comparison impossible. Use PASS when every checked claim is
+usage. Use WRONG_SOURCE when the cited text is about a different crop than
+the answer, or supports none of the answer's chemical/dose claims (the
+citation does not back the answer); list those claims in unsupported_claims.
+Use NOT_EVALUATED only when the source supports some claims and simply does
+not mention the others (for example spray-water volumes). Use PASS when every checked claim is
 supported, or the answer makes no checkable chemical/dose/formulation claim.
 The first character of your response must be {{ and the last character }}."""
 
@@ -443,7 +521,7 @@ The first character of your response must be {{ and the last character }}."""
 def _valid_fidelity_response(result: Any) -> bool:
     return (
         isinstance(result, dict)
-        and result.get("status") in {PASS, FAIL, NOT_EVALUATED}
+        and result.get("status") in {PASS, FAIL, NOT_EVALUATED, WRONG_SOURCE}
         and isinstance(result.get("detail"), str)
     )
 
@@ -472,7 +550,7 @@ def _claim_found_in_sources(claim: str, source_texts: list[dict[str, str]]) -> b
     for source in source_texts:
         text = re.sub(r"\s+", " ", source["text"])
         for name in names:
-            for hit in re.finditer(r"\b" + re.escape(name) + r"\b", text, re.IGNORECASE):
+            for hit in _name_pattern(name).finditer(text):
                 window = text[max(0, hit.start() - CLAIM_WINDOW_CHARS):hit.end() + CLAIM_WINDOW_CHARS]
                 present = [float(n) for n in _NUMBER.findall(window)]
                 if all(
@@ -489,6 +567,8 @@ def _remaining_claims(result: dict[str, Any], source_texts: list[dict[str, str]]
 
 
 FAIL_RECHECKS = 2
+# the model's answer when the cited page does not back the answer at all (another crop or topic)
+WRONG_SOURCE = "WRONG_SOURCE"
 
 
 def _verify_failure(
@@ -508,7 +588,7 @@ def _verify_failure(
             again = call_llm(prompt, _valid_fidelity_response)
         except LLMCallFailed:
             continue
-        if again["status"] == FAIL and (not again.get("unsupported_claims") or _remaining_claims(again, source_texts)):
+        if again["status"] in (FAIL, WRONG_SOURCE) and (not again.get("unsupported_claims") or _remaining_claims(again, source_texts)):
             failures += 1
     if failures < 2:
         return {
@@ -516,6 +596,12 @@ def _verify_failure(
             "detail": "A first run flagged a claim, but the re-checks did not confirm it.",
         }
     return {**result, "unsupported_claims": remaining or claims}
+
+
+def source_budget(source_count: int) -> int:
+    """How many characters each of the cited sources may add to the prompt."""
+    share = MAX_TOTAL_SOURCE_CHARS_FOR_PROMPT // max(1, source_count)
+    return max(MIN_SOURCE_CHARS_FOR_PROMPT, min(MAX_SOURCE_CHARS_FOR_PROMPT, share))
 
 
 def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
@@ -535,13 +621,8 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
     cited_any_page = any(parse_page_spec(source.get("page")) for source in sources)
     source_texts = []
     # every source gets a share of the total, so the prompt stays a reasonable length
-    per_source_budget = min(
-        MAX_SOURCE_CHARS_FOR_PROMPT,
-        MAX_TOTAL_SOURCE_CHARS_FOR_PROMPT // max(1, min(len(sources), MAX_SOURCES_PER_CHECK)),
-    )
+    per_source_budget = source_budget(len(sources))
     for source in sources:
-        if len(source_texts) >= MAX_SOURCES_PER_CHECK:
-            break
         text = fetch_source_text(
             str(source.get("source") or ""), source.get("page"), answer_text, budget=per_source_budget
         )
@@ -568,8 +649,21 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
         return error_result(
             "Source-fidelity check could not be evaluated because the model call failed",
         )
-    if result["status"] == FAIL:
-        result = _verify_failure(result, prompt, source_texts)
+    wrong_source = result["status"] == WRONG_SOURCE
+    if wrong_source and not cited_any_page:
+        # with no page cited, the passages may come from other crops, so the citation cannot be judged
+        return not_applicable_result(
+            "No page is cited, and the passages found elsewhere in the document do not cover "
+            "these claims, so the citation cannot be judged (see page_number_present): " + result["detail"],
+            source_origin="self_cited",
+            checked_claims=result.get("checked_claims", []),
+            unsupported_claims=result.get("unsupported_claims", []),
+        )
+    if result["status"] in (FAIL, WRONG_SOURCE):
+        # a wrong citation is a failure too, and is confirmed the same way (2 of 3 runs agree)
+        result = _verify_failure({**result, "status": FAIL}, prompt, source_texts)
+        if wrong_source and result["status"] == FAIL:
+            result["detail"] = "The cited page does not support the answer's doses or chemicals: " + result["detail"]
 
     extra_fields = dict(
         source_origin=source_origin,

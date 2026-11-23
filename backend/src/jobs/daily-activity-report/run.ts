@@ -1,7 +1,7 @@
 /**
  * Cloud Run Job entrypoint for the daily user activity report.
  *
- * Triggered daily at 12:00 AM (00:00 Asia/Kolkata) by Cloud Scheduler.
+ * Triggered daily at 12:05 AM (00:05 Asia/Kolkata) by Cloud Scheduler.
  * Sends individual activity reports for the previous day [12:00 AM - 11:59 PM] IST
  * to review staff who have sendDailyReport enabled (To: user.email, CC: configured CC list).
  */

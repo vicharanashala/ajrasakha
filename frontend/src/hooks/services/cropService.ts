@@ -262,4 +262,70 @@ export class CropService {
 
     return apiFetch<IGetAllCropsResponse>(`${this._baseUrl}?${params.toString()}`);
   }
+
+  async getAffectedQuestions(
+    cropId: string,
+    params?: IGetAffectedQuestionsParams,
+  ): Promise<IGetAffectedQuestionsResponse | null> {
+    const searchParams = new URLSearchParams();
+    if (params?.page) searchParams.set("page", String(params.page));
+    if (params?.limit) searchParams.set("limit", String(params.limit));
+    if (params?.search && params.search.trim()) searchParams.set("search", params.search.trim());
+    const qs = searchParams.toString();
+    const url = qs ? `${this._baseUrl}/${cropId}/affected-questions?${qs}` : `${this._baseUrl}/${cropId}/affected-questions`;
+    return apiFetch<IGetAffectedQuestionsResponse>(url);
+  }
+
+  async deleteOrReassignCrop(cropId: string, payload: IDeleteCropPayload): Promise<IDeleteCropResponse | null> {
+    return apiFetch<IDeleteCropResponse>(`${this._baseUrl}/${cropId}`, {
+      method: "DELETE",
+      body: JSON.stringify(payload),
+    });
+  }
+
+  async getNormalisedCrops(): Promise<{ crops: ICropResponse[] } | null> {
+    return apiFetch<{ crops: ICropResponse[] }>(`${this._baseUrl}/normalised-list`);
+  }
+}
+
+export interface IAffectedQuestion {
+  _id: string;
+  question: string;
+  status?: string;
+  createdAt?: string;
+  details?: {
+    crop?: string;
+    normalised_crop?: string;
+    state?: string;
+    district?: string;
+  };
+}
+
+export interface IGetAffectedQuestionsParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+}
+
+export interface IGetAffectedQuestionsResponse {
+  count: number;
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  cropName: string;
+  questions: IAffectedQuestion[];
+}
+
+export interface IDeleteCropPayload {
+  replacementCropId?: string;
+  questionIds?: string[];
+  reassignAll?: boolean;
+}
+
+export interface IDeleteCropResponse {
+  success: boolean;
+  message: string;
+  cropDeleted: boolean;
+  reassignedCount: number;
 }

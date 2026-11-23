@@ -3,6 +3,7 @@ import { Badge } from "@/components/atoms/badge";
 import { Button } from "@/components/atoms/button";
 import { Input } from "@/components/atoms/input";
 import { Textarea } from "@/components/atoms/textarea";
+import { DOMAINS } from "@/components/MetaData";
 import { diffWords } from "@/utils/wordDifference";
 import { ArrowLeft, ArrowUpRight, Check, Pencil, Plus, Send, Sparkles, Trash2, X } from "lucide-react";
 import { effectiveResult } from "../types";
@@ -29,6 +30,8 @@ interface GdbDetailViewProps {
   onSaveSources: (sources: IGdbSource[]) => Promise<unknown>;
   // replaces the golden answer with the accepted correction; resolves once it is done
   onPush: () => Promise<unknown>;
+  // changes the question text and/or domain in the reviewer app; resolves once it is saved
+  onEditQuestion: (edit: { question?: string; domain?: string }) => Promise<unknown>;
   // the AI draft in the predefined structure; null when it could not be made
   onDraftWithAi: () => Promise<string | null>;
   drafting?: boolean;
@@ -49,6 +52,7 @@ export const GdbDetailView = ({
   onEditFlag,
   onSaveSources,
   onPush,
+  onEditQuestion,
   onDraftWithAi,
   drafting = false,
   onDraftFromLibrary,
@@ -57,6 +61,9 @@ export const GdbDetailView = ({
   busy = false,
 }: GdbDetailViewProps) => {
   const [editing, setEditing] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState(false);
+  const [questionDraft, setQuestionDraft] = useState("");
+  const [domainDraft, setDomainDraft] = useState("");
   const [editingSources, setEditingSources] = useState(false);
   const [sourceDraft, setSourceDraft] = useState<IGdbSource[]>([]);
   const [draft, setDraft] = useState("");
@@ -76,7 +83,18 @@ export const GdbDetailView = ({
   );
   const decided = item.status === "fixed" || item.status === "dismissed";
   // an answer can be changed while it is to do or has no flags; a decided one is closed
+  // an answer held by another reviewer can be read but not changed
   const locked = item.status !== "todo" && item.status !== "clean";
+  // the correction can still be edited after it is accepted, until it is pushed (and again, with a new push)
+  const correctionLocked = !["todo", "clean", "fixed"].includes(item.status);
+  // the domains the reviewer app offers, and the answer's own when it is not among them
+  const domainOptions = DOMAINS.includes(item.domain) || !item.domain ? DOMAINS : [item.domain, ...DOMAINS];
+
+  const startQuestionEdit = () => {
+    setQuestionDraft(item.question);
+    setDomainDraft(item.domain);
+    setEditingQuestion(true);
+  };
 
   const startSourceEdit = () => {
     setSourceDraft(item.sources.map((source) => ({ ...source })));
@@ -136,13 +154,72 @@ export const GdbDetailView = ({
           Back to list
         </Button>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-muted-foreground">{item.id}</span>
+          <span className="text-xs text-muted-foreground" title="Search All Questions with the question ID">
+            Question ID: {item.questionId} · Answer ID: {item.id}
+          </span>
           <StatusBadge status={item.status} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <h2 className="text-xl font-semibold text-foreground">{item.question}</h2>
+        {editingQuestion ? (
+          <div className="space-y-2 rounded-lg border bg-muted/30 p-3">
+            <Textarea
+              value={questionDraft}
+              onChange={(e) => setQuestionDraft(e.target.value)}
+              className="min-h-[70px] text-sm"
+              aria-label="Question"
+            />
+            <select
+              value={domainDraft}
+              onChange={(e) => setDomainDraft(e.target.value)}
+              className="rounded-md border bg-background px-2 py-1 text-sm"
+              aria-label="Domain"
+            >
+              {domainOptions.map((domain) => (
+                <option key={domain} value={domain}>
+                  {domain}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                disabled={busy || !questionDraft.trim() || (questionDraft.trim() === item.question.trim() && domainDraft === item.domain)}
+                onClick={async () => {
+                  try {
+                    await onEditQuestion({
+                      ...(questionDraft.trim() !== item.question.trim() ? { question: questionDraft.trim() } : {}),
+                      ...(domainDraft !== item.domain ? { domain: domainDraft } : {}),
+                    });
+                    setEditingQuestion(false);
+                  } catch {
+                    // the error is shown by the save itself, the text stays in the box
+                  }
+                }}
+              >
+                Save question
+              </Button>
+              <Button size="sm" variant="outline" onClick={() => setEditingQuestion(false)} disabled={busy}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex items-start justify-between gap-3">
+            <h2 className="text-xl font-semibold text-foreground">{item.question}</h2>
+            <Button size="sm" variant="outline" onClick={startQuestionEdit} disabled={busy}>
+              <Pencil className="w-4 h-4 mr-1" />
+              Edit question
+            </Button>
+          </div>
+        )}
+        {item.questionChanged && (
+          <p className="rounded-md border border-amber-300 bg-amber-50 p-2 text-xs text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+            The question was edited after the checks ran, so the flags below may be out of date.
+            {item.checkedQuestion ? ` It was: "${item.checkedQuestion}"` : ""}
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {[item.state, item.crop, item.domain].filter(Boolean).map((value) => (
             <Badge key={value} className="bg-foreground/10 text-foreground border-foreground/20">
@@ -237,7 +314,7 @@ export const GdbDetailView = ({
             ) : (
               <div className="rounded-md border border-dashed p-4 text-sm text-muted-foreground space-y-3">
                 <p>No correction has been written for this answer.</p>
-                <Button size="sm" variant="outline" onClick={startEdit} disabled={locked}>
+                <Button size="sm" variant="outline" onClick={startEdit} disabled={correctionLocked}>
                   <Pencil className="w-4 h-4 mr-1" />
                   Write a correction
                 </Button>
@@ -288,11 +365,11 @@ export const GdbDetailView = ({
             <Check className="w-4 h-4 mr-1" />
             Accept correction
           </Button>
-          <Button variant="outline" onClick={startEdit} disabled={editing || locked || busy}>
+          <Button variant="outline" onClick={startEdit} disabled={editing || correctionLocked || busy}>
             <Pencil className="w-4 h-4 mr-1" />
             Edit correction
           </Button>
-          <Button variant="outline" onClick={draftWithAi} disabled={locked || busy || drafting}>
+          <Button variant="outline" onClick={draftWithAi} disabled={correctionLocked || busy || drafting}>
             <Sparkles className="w-4 h-4 mr-1" />
             {drafting ? "Drafting..." : "Draft with AI"}
           </Button>
@@ -329,7 +406,7 @@ export const GdbDetailView = ({
                   Pushed to the golden database on {new Date(item.pushedAt).toLocaleString()}.
                 </p>
               )}
-              {!item.pushedAt || item.sourcesEdited ? (
+              {!item.pushedAt || item.sourcesEdited || item.correctionChanged ? (
                 <Button
                   size="sm"
                   disabled={busy}
@@ -344,7 +421,7 @@ export const GdbDetailView = ({
                   }}
                 >
                   <Send className="w-4 h-4 mr-1" />
-                  {item.pushedAt ? "Push again (sources changed)" : "Push to GDB"}
+                  {item.pushedAt ? `Push again (${item.correctionChanged ? "correction" : "sources"} changed)` : "Push to GDB"}
                 </Button>
               ) : null}
             </div>

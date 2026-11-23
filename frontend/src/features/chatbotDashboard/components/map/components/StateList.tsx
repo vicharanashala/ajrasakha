@@ -2,11 +2,17 @@
    STATE LIST - Clickable list of states
 ============================================================ */
 
-import { MapPin, FileQuestionIcon } from "lucide-react";
+import { MapPin, FileQuestionIcon, InfoIcon } from "lucide-react";
 import type { Analytics, GeoFeature } from "../lib/types";
 import { fmt } from "../lib/formatters";
 import { Skeleton } from "@/components/atoms/skeleton";
 import { ScrollArea } from "@/components/atoms/scroll-area";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/atoms/tooltip";
 interface StateListProps {
   statesWithData: {
     features: Array<{
@@ -20,9 +26,12 @@ interface StateListProps {
   renderCardValue: (value: string | number)=> string | number;
   metric: "questions" | "users" | "activeUsers"
   questionStatusRange?: any
+  /** Questions that belong to no state (shown as an extra row at the end of the list). */
+  noStateQuestions?: number
+  onSelectNoState?: () => void
 }
 
-export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue, metric = "questions"}: StateListProps) {
+export function StateList({ statesWithData, onSelectState, isLoading, renderCardValue, metric = "questions", noStateQuestions = 0, onSelectNoState}: StateListProps) {
   const getMetricValue = (
   analytics: {
     questions: number;
@@ -103,6 +112,41 @@ export function StateList({ statesWithData, onSelectState, isLoading, renderCard
           </button>
         </li>
       ))}
+      {metric === "questions" && noStateQuestions > 0 && (
+        <li key="__no_state__">
+          <button
+            onClick={onSelectNoState}
+            className="flex w-full items-center justify-between rounded-lg border border-dashed border-border bg-background px-3 py-2 text-sm hover:bg-accent"
+          >
+            <span className="flex items-center gap-2 text-foreground">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
+              No state
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span className="inline-flex">
+                      <InfoIcon className="h-3.5 w-3.5 text-muted-foreground" />
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-xs text-xs">
+                    Questions that belong to no state: the state was never
+                    recorded, or it was saved as blank, "all", "unknown" or
+                    "not specified", so they can't be placed on the map. Click
+                    to view them.
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </span>
+
+            <div className="grid grid-cols-[56px] gap-3 text-xs text-muted-foreground">
+              <div className="flex items-center justify-end gap-1">
+                <FileQuestionIcon className="h-3.5 w-3.5 shrink-0" />
+                <span className="tabular-nums">{fmt(noStateQuestions)}</span>
+              </div>
+            </div>
+          </button>
+        </li>
+      )}
     </ul>
   </ScrollArea>
 )}

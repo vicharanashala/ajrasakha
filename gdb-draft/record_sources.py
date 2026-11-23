@@ -62,6 +62,17 @@ def pdf_path_for_document(document_id: str) -> Path | None:
         return None
 
 
+def _file_kind(content: bytes) -> str | None:
+    """A plain description of a downloaded file that is not a PDF, from its first bytes."""
+    if content.startswith(b"\xff\xd8\xff"):
+        return "an image (JPEG)"
+    if content.startswith(b"\x89PNG"):
+        return "an image (PNG)"
+    if content.startswith(b"PK\x03\x04"):
+        return "a Word, Excel or other Office file"
+    return None
+
+
 def fetch_pdf(url: str) -> Path:
     """Download the shared file once; a saved copy is reused. Raises SourceUnavailable."""
     parsed = parse_link(url)
@@ -85,6 +96,10 @@ def fetch_pdf(url: str) -> Path:
                     raise SourceUnavailable("the source file is too large")
     except requests.RequestException as error:
         raise SourceUnavailable(f"the source could not be downloaded ({error.__class__.__name__})") from error
+    if response.status_code == 200 and not content.startswith(b"%PDF"):
+        kind = _file_kind(content)
+        if kind:
+            raise SourceUnavailable(f"this source is {kind}, and only PDFs can be searched; upload a PDF version to use it")
     if response.status_code != 200 or not content.startswith(b"%PDF"):
         raise SourceUnavailable("the source is not a shared PDF (it may need a login or be another file type)")
     SOURCE_DIRECTORY.mkdir(parents=True, exist_ok=True)

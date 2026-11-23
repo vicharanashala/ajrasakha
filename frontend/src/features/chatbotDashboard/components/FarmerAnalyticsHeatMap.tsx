@@ -179,6 +179,46 @@ const getActivityDescription = (metric: FarmerHeatMapMetric) => {
   }
 };
 
+const getMetricCalculationDescription = (metric: FarmerHeatMapMetric) => {
+  switch (metric) {
+    case "activeFarmers":
+      return "Counts distinct farmers with at least one user-created chatbot message in each cell.";
+    case "totalQuestions":
+      return "Counts all eligible farmer questions created in each location and time bucket.";
+    case "duplicateQuestions":
+      return "Counts questions whose status is marked duplicate.";
+    case "closedQuestions":
+      return "Counts questions whose status is closed.";
+    case "nonGdbQuestions":
+      return "Counts questions with pass or dynamic-closed status.";
+    case "notifiedQuestions":
+      return "Counts closed questions for which the farmer was notified.";
+    case "averageClosureTimeMinutes":
+      return "Shows total close time divided by the number of closed questions in each cell.";
+    default:
+      return "Shows the selected metric for the current filters.";
+  }
+};
+
+function FilterInfoTooltip({ description, label }: { description: string; label: string }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          aria-label={`About the ${label} filter`}
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <InfoIcon className="h-3.5 w-3.5" />
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" sideOffset={6} className="z-[100] max-w-xs text-xs leading-relaxed shadow-lg">
+        {description}
+      </TooltipContent>
+    </Tooltip>
+  );
+}
+
 const isQuestionListingMetric = (metric: FarmerHeatMapMetric) =>
   metric !== "activeFarmers";
 
@@ -633,49 +673,73 @@ export function FarmerAnalyticsHeatMap({
           transition={{ duration: 0.3, ease: "easeOut", delay: 0.05 }}
           className="flex flex-wrap items-center gap-2"
         >
-          <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-            <SearchableSelect
-              options={stateOptions}
-              value={filters.state}
-              onChange={updateState}
-              placeholder="All States"
-              className={cn(selectClassName, "h-8")}
-              activeClassName={activeSelectClassName}
+          <div className="flex min-w-[180px] flex-1 items-center gap-1 sm:max-w-[248px]">
+            <div className="flex-1">
+              <SearchableSelect
+                options={stateOptions}
+                value={filters.state}
+                onChange={updateState}
+                placeholder="All States"
+                className={cn(selectClassName, "h-8")}
+                activeClassName={activeSelectClassName}
+              />
+            </div>
+            <FilterInfoTooltip
+              label="state"
+              description="Limits the heat map to farmers in the selected state. With All States, each row represents a state."
             />
           </div>
           {filters.state !== "all" && (
-            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-              <SearchableSelect
-                options={districtOptions}
-                value={filters.district}
-                onChange={updateDistrict}
-                placeholder="All Districts"
-                className={cn(selectClassName, "h-8")}
-                activeClassName={activeSelectClassName}
+            <div className="flex min-w-[180px] flex-1 items-center gap-1 sm:max-w-[248px]">
+              <div className="flex-1">
+                <SearchableSelect
+                  options={districtOptions}
+                  value={filters.district}
+                  onChange={updateDistrict}
+                  placeholder="All Districts"
+                  className={cn(selectClassName, "h-8")}
+                  activeClassName={activeSelectClassName}
+                />
+              </div>
+              <FilterInfoTooltip
+                label="district"
+                description="Further limits results to a district in the selected state. With All Districts, each row represents a district."
               />
             </div>
           )}
           {filters.district !== "all" && (
-            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-              <SearchableSelect
-                options={blockOptions}
-                value={filters.block}
-                onChange={updateBlock}
-                placeholder="All Blocks"
-                className={cn(selectClassName, "h-8")}
-                activeClassName={activeSelectClassName}
+            <div className="flex min-w-[180px] flex-1 items-center gap-1 sm:max-w-[248px]">
+              <div className="flex-1">
+                <SearchableSelect
+                  options={blockOptions}
+                  value={filters.block}
+                  onChange={updateBlock}
+                  placeholder="All Blocks"
+                  className={cn(selectClassName, "h-8")}
+                  activeClassName={activeSelectClassName}
+                />
+              </div>
+              <FilterInfoTooltip
+                label="block"
+                description="Further limits results to a block in the selected district. With All Blocks, each row represents a block."
               />
             </div>
           )}
           {filters.block !== "all" && (
-            <div className="min-w-[180px] flex-1 sm:max-w-[220px]">
-              <SearchableSelect
-                options={villageOptions}
-                value={filters.village}
-                onChange={updateVillage}
-                placeholder="All Villages"
-                className={cn(selectClassName, "h-8")}
-                activeClassName={activeSelectClassName}
+            <div className="flex min-w-[180px] flex-1 items-center gap-1 sm:max-w-[248px]">
+              <div className="flex-1">
+                <SearchableSelect
+                  options={villageOptions}
+                  value={filters.village}
+                  onChange={updateVillage}
+                  placeholder="All Villages"
+                  className={cn(selectClassName, "h-8")}
+                  activeClassName={activeSelectClassName}
+                />
+              </div>
+              <FilterInfoTooltip
+                label="village"
+                description="Limits results to one village. At this level, each row represents a village."
               />
             </div>
           )}
@@ -719,30 +783,37 @@ export function FarmerAnalyticsHeatMap({
               );
             })}
           </div>
+          <FilterInfoTooltip
+            label="time grouping"
+            description="Controls how the selected date range is split: months for a year, weeks for a month, days for a week, or hours for a day."
+          />
 
-          <Select
-            value={String(selectedYear)}
-            onValueChange={(value) =>
-              applyPeriodFilter(
-                periodMode,
-                Number(value),
-                selectedMonth,
-                selectedWeek,
-                selectedDay,
-              )
-            }
-          >
-            <SelectTrigger className="h-8 w-[92px] rounded-md border-border/70 px-2 text-xs shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {yearOptions.map((year) => (
-                <SelectItem key={year} value={String(year)}>
-                  {year}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="flex items-center gap-1">
+            <Select
+              value={String(selectedYear)}
+              onValueChange={(value) =>
+                applyPeriodFilter(
+                  periodMode,
+                  Number(value),
+                  selectedMonth,
+                  selectedWeek,
+                  selectedDay,
+                )
+              }
+            >
+              <SelectTrigger className="h-8 w-[92px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {yearOptions.map((year) => (
+                  <SelectItem key={year} value={String(year)}>
+                    {year}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <FilterInfoTooltip label="year" description="Sets the year used to calculate the displayed date range." />
+          </div>
 
           <AnimatePresence mode="popLayout" initial={false}>
             {(periodMode === "month" ||
@@ -756,29 +827,32 @@ export function FarmerAnalyticsHeatMap({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <Select
-                  value={String(selectedMonth)}
-                  onValueChange={(value) =>
-                    applyPeriodFilter(
-                      periodMode,
-                      selectedYear,
-                      Number(value),
-                      selectedWeek,
-                      selectedDay,
-                    )
-                  }
-                >
-                  <SelectTrigger className="h-8 w-[120px] rounded-md border-border/70 px-2 text-xs shadow-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {monthOptions.map((month, index) => (
-                      <SelectItem key={month} value={String(index)}>
-                        {month}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={String(selectedMonth)}
+                    onValueChange={(value) =>
+                      applyPeriodFilter(
+                        periodMode,
+                        selectedYear,
+                        Number(value),
+                        selectedWeek,
+                        selectedDay,
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[120px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {monthOptions.map((month, index) => (
+                        <SelectItem key={month} value={String(index)}>
+                          {month}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FilterInfoTooltip label="month" description="Narrows the selected year to one calendar month." />
+                </div>
               </motion.div>
             )}
 
@@ -791,29 +865,32 @@ export function FarmerAnalyticsHeatMap({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <Select
-                  value={String(selectedWeek)}
-                  onValueChange={(value) =>
-                    applyPeriodFilter(
-                      periodMode,
-                      selectedYear,
-                      selectedMonth,
-                      Number(value),
-                      selectedDay,
-                    )
-                  }
-                >
-                  <SelectTrigger className="h-8 w-[104px] rounded-md border-border/70 px-2 text-xs shadow-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {weekOptions.map((week) => (
-                      <SelectItem key={week} value={String(week)}>
-                        Week {week}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={String(selectedWeek)}
+                    onValueChange={(value) =>
+                      applyPeriodFilter(
+                        periodMode,
+                        selectedYear,
+                        selectedMonth,
+                        Number(value),
+                        selectedDay,
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[104px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {weekOptions.map((week) => (
+                        <SelectItem key={week} value={String(week)}>
+                          Week {week}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FilterInfoTooltip label="week" description="Narrows the selected month to a seven-day calendar block; the final week may be shorter." />
+                </div>
               </motion.div>
             )}
 
@@ -826,48 +903,53 @@ export function FarmerAnalyticsHeatMap({
                 transition={{ duration: 0.2 }}
                 className="overflow-hidden"
               >
-                <Select
-                  value={String(selectedDay)}
-                  onValueChange={(value) =>
-                    applyPeriodFilter(
-                      periodMode,
-                      selectedYear,
-                      selectedMonth,
-                      selectedWeek,
-                      Number(value),
-                    )
-                  }
-                >
-                  <SelectTrigger className="h-8 w-[84px] rounded-md border-border/70 px-2 text-xs shadow-sm">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {dayOptions.map((day) => (
-                      <SelectItem key={day} value={String(day)}>
-                        {day}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <div className="flex items-center gap-1">
+                  <Select
+                    value={String(selectedDay)}
+                    onValueChange={(value) =>
+                      applyPeriodFilter(
+                        periodMode,
+                        selectedYear,
+                        selectedMonth,
+                        selectedWeek,
+                        Number(value),
+                      )
+                    }
+                  >
+                    <SelectTrigger className="h-8 w-[84px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {dayOptions.map((day) => (
+                        <SelectItem key={day} value={String(day)}>
+                          {day}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <FilterInfoTooltip label="day" description="Narrows the selected week to one day, so the table shows hourly values for that date." />
+                </div>
               </motion.div>
             )}
           </AnimatePresence>
 
-          <Select
-            value={metric}
-            onValueChange={(value) => setMetric(value as FarmerHeatMapMetric)}
-          >
-            <SelectTrigger className="ml-auto h-8 w-[180px] rounded-md border-border/70 px-2 text-xs shadow-sm">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {metricOptions.map((item) => (
-                <SelectItem key={item.value} value={item.value}>
-                  {item.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          <div className="ml-auto flex items-center gap-1">
+            <Select
+              value={metric}
+              onValueChange={(value) => setMetric(value as FarmerHeatMapMetric)}
+            >
+              <SelectTrigger className="h-8 w-[180px] rounded-md border-border/70 px-2 text-xs shadow-sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {metricOptions.map((item) => (
+                  <SelectItem key={item.value} value={item.value}>
+                    {item.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
         </motion.div>
 
         {/* Selected activity description */}
@@ -879,7 +961,7 @@ export function FarmerAnalyticsHeatMap({
             exit={{ opacity: 0, y: -4 }}
             className="flex items-center gap-2 rounded-lg border border-primary/10 bg-primary/5 px-3 py-1.5 text-xs text-muted-foreground shadow-sm mt-2"
           >
-            <InfoIcon className="h-3.5 w-3.5 text-primary shrink-0" />
+            <FilterInfoTooltip label="metric" description={getMetricCalculationDescription(metric)} />
             <span>{getActivityDescription(metric)}</span>
           </motion.div>
         </AnimatePresence>

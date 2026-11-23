@@ -553,8 +553,11 @@ export class NotificationService extends BaseService {
   private async fetchPopApproverIds(actorId: string): Promise<string[]> {
     if (!faqPopConfig.popApiUrl) return [];
     try {
+      const headers: Record<string, string> = { 'X-User-Role': 'admin', 'X-User-Id': actorId };
+      // POP's shared-secret gate (2026-11) — required once POP turns its check on.
+      if (faqPopConfig.popServiceKey) headers['X-Service-Key'] = faqPopConfig.popServiceKey;
       const res = await axios.get(`${faqPopConfig.popApiUrl}/dashboard/user-management/upload`, {
-        headers: { 'X-User-Role': 'admin', 'X-User-Id': actorId },
+        headers,
       });
       const entries = Array.isArray(res.data) ? res.data : [];
       return entries.map((e: { user_id?: string }) => e.user_id).filter((id: unknown): id is string => Boolean(id));

@@ -4,6 +4,7 @@ import {
   IsArray,
   IsDateString,
   IsIn,
+  IsMongoId,
   IsNotEmpty,
   IsNumber,
   IsOptional,
@@ -74,6 +75,20 @@ export class GetGdbCleaningListQuery {
   limit?: number;
 }
 
+export class EditGdbQuestionDto {
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(2000)
+  question?: string;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  @MaxLength(200)
+  domain?: string;
+}
+
 export class GetGdbCleaningSummaryQuery {
   @IsOptional()
   @IsDateString()
@@ -119,7 +134,7 @@ export class SaveGdbCorrectionDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(20000)
+  @MaxLength(100000)
   correctedAnswer: string;
 }
 
@@ -131,7 +146,7 @@ export class GdbDecisionDto {
   // an accepted answer can carry an edited correction
   @IsOptional()
   @IsString()
-  @MaxLength(20000)
+  @MaxLength(100000)
   correctedAnswer?: string;
 
   @IsOptional()
@@ -196,6 +211,7 @@ export const GDB_CLEANING_VALIDATORS = [
   SaveGdbCorrectionDto,
   GdbDecisionDto,
   EditGdbFlagDto,
+  EditGdbQuestionDto,
   GdbSourceDto,
   SaveGdbSourcesDto,
 ];

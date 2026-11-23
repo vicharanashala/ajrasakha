@@ -289,6 +289,13 @@ const tip = `
     [level, navigateToState, navigateToDistrict, setHovered, allStatesData],
   );
 
+  // Questions that belong to no state (an extra row the API appends to the state list).
+  const noStateQuestions = Number(
+    (allStatesData as any[] | undefined)?.find(
+      (row) => row?.state === "__no_state__",
+    )?.totalQuestions ?? 0,
+  );
+
   const geoKey = `${level}:${selectedState}:${metric}:${dark}:${minV}-${maxV}:${selectedDistrict}`;
 
    const isIndiaView = !selectedState && !selectedDistrict;
@@ -492,6 +499,7 @@ const tip = `
         monthlyAnalyticsData={monthlyAnalyticsData}
         questionStatusRange={questionStatusRange}
         questionStatusDateRange={questionStatusDateRange}
+        noStateQuestions={noStateQuestions}
       />
     </div>
   );

@@ -101,6 +101,15 @@ class GdbCleaningService {
     return response;
   }
 
+  async editQuestion(answerId: string, edit: { question?: string; domain?: string }): Promise<IGdbCleaningItem> {
+    const response = await apiFetch<IGdbCleaningItem>(`${this._baseUrl}/${answerId}/question`, {
+      method: "PUT",
+      body: JSON.stringify(edit),
+    });
+    if (!response) throw new Error("Failed to edit the question: No response received");
+    return response;
+  }
+
   async history(params: IGdbHistoryParams): Promise<IGdbHistoryResponse> {
     const query = new URLSearchParams();
     if (params.from && params.to) {
@@ -139,7 +148,7 @@ class GdbCleaningService {
   // drafts from the library; nothing is saved until the reviewer saves the correction or sources
   async draftFromLibrary(answerId: string): Promise<IGdbDraft> {
     // a draft can take a couple of minutes, so it waits as long as the backend does
-    const response = await apiFetch<IGdbDraft>(`${this._baseUrl}/${answerId}/draft`, { method: "POST" }, 240000);
+    const response = await apiFetch<IGdbDraft>(`${this._baseUrl}/${answerId}/draft`, { method: "POST" }, 450000);
     if (!response) throw new Error("Failed to draft from the library: No response received");
     return response;
   }

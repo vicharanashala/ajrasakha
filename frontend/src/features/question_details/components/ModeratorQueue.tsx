@@ -117,6 +117,8 @@ export const ModeratorQueue = ({
     currentUser.role === "admin" ||
     currentUser.role === "gate_keeper" ||
     currentUser.role === "auditor";
+  // Testers can view allocation status but cannot toggle it
+  const canViewModeratorAllocationStatus = canManageModerator || currentUser.role === "tester";
 
   // Dynamic / duplicate questions and anything in auditor review go through the
   // Gate Keeper → Auditor flow, not normal moderator allocation — hide all
@@ -276,9 +278,9 @@ export const ModeratorQueue = ({
               </Button>
             )}
 
-            {/* Non-managers (gate keeper / auditor) get a read-only field indicating
+            {/* Non-managers (gate keeper / auditor / tester) get a read-only field indicating
                 whether moderator auto-allocation is on or off. */}
-            {!canManageModerator && (
+            {canViewModeratorAllocationStatus && !canManageModerator && (
               <div className="flex items-center gap-2 bg-card p-3 rounded-lg border border-border shadow-sm w-full sm:w-auto">
                 <span
                   className={`h-2.5 w-2.5 rounded-full ${

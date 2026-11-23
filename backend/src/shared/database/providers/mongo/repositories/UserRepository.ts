@@ -1921,11 +1921,9 @@ export class UserRepository implements IUserRepository {
     try {
       const updatedAt = new Date();
       const isBlocked = action === 'block';
-      // Set sendDailyReport: true on unblock (check-in), false on block (check-out)
-      const sendDailyReport = action === 'unblock';
       const result = await this.usersCollection.findOneAndUpdate(
         {_id: new ObjectId(userId)},
-        {$set: {isBlocked, sendDailyReport}},
+        {$set: {isBlocked}},
         {upsert: true, returnDocument: 'after', session},
       );
       await Promise.all([

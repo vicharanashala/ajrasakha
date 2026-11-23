@@ -108,11 +108,13 @@ export const AnswerActions = ({
   isAssignedModerator = false,
 }: AnswerActionsProps) => {
   // Approve and Re-route are restricted to the Dedicated (moderator-assigned) tab.
-  // For pae_submitted questions (PAE tab) they are restricted to the assigned moderator
+  // For PAE questions (PAE tab) they are restricted to the assigned moderator
   // only — other moderators viewing the PAE tab don't see Approve/Re-route.
+  const isPae = Boolean(paeReview === true || String(paeReview) === "true" || questionStatus === "pae_submitted");
+
   const canModerate =
     isDedicatedView ||
-    (questionStatus === "pae_submitted" && isAssignedModerator);
+    (isPae && isAssignedModerator);
 
   const showActions =
     userRole !== "expert" &&
@@ -124,9 +126,8 @@ export const AnswerActions = ({
     userRole !== "tester" &&
     userRole !== "expert" &&
     canModerate &&
-    (((questionStatus === "in-review" || questionStatus === "re-routed") &&
-      (lastAnswerApprovalCount ?? 0) >= 3) ||
-      questionStatus === "pae_submitted");
+    (questionStatus === "in-review" || questionStatus === "re-routed" || questionStatus === "pae_submitted") &&
+    (isPae || (lastAnswerApprovalCount ?? 0) >= 3);
 
   return (
     <div className="flex items-center justify-center gap-2">

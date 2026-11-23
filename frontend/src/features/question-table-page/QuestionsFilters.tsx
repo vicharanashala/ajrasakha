@@ -99,6 +99,7 @@ import { useKeyboardShortcuts } from "@/hooks/ui/useKeyboardShortcuts";
 import { ReallocationManualModal } from "../../components/ReallocationManualModal";
 import DownloadShiftWiseReportButton from "./DownloadShiftWiseReportButton";
 import { EditPublicDashboardModal } from "./EditPublicDashboardModal";
+import { DiwaliPerchedDiya } from "@/components/festive/DiwaliPerchedDiya";
 
 type QuestionsFiltersProps = {
   search: string;
@@ -1566,6 +1567,9 @@ export const QuestionsFilters = ({
           touchAction: "none",
         }}
       >
+        {/* Sits over the start of the badge, above the activity icon. */}
+        <DiwaliPerchedDiya className="left-2.5 translate-x-0" />
+
         {/* Header row */}
         <div className="flex items-center gap-3">
           <Activity
