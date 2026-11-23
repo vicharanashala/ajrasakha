@@ -157,7 +157,7 @@ class CSVFAQIngestion:
             # Check if entry already exists (by link)
             existing = self.db_collection.find_one({"link": faq_entry['link']})
             if existing:
-                print(f"⚠️  Entry already exists: {faq_entry['link']}")z
+                print(f"⚠️  Entry already exists: {faq_entry['link']}")
                 return False  # Already exists
             
             # Generate embedding for the query

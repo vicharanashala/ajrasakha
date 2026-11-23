@@ -41,6 +41,13 @@ jobs:
       - name: Execute Layer 3 Agentic Synthetic Flow
         run: node testing/e2e-synthetic/synthetic-farmer-journey.js
 
+      - name: Publish Synthetic Journey Report to Job Summary
+        if: always()
+        run: |
+          if [ -f testing/e2e-synthetic/reports/synthetic-journey-report.md ]; then
+            cat testing/e2e-synthetic/reports/synthetic-journey-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Upload Synthetic Journey Report
         if: always()
         uses: actions/upload-artifact@v4

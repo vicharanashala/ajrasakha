@@ -50,6 +50,13 @@ jobs:
       - name: Run APIs Test Suite (Contracts, Promptfoo & Latency SLA)
         run: npm run test:layer1:apis
 
+      - name: Publish QA Verification Report to Job Summary
+        if: always()
+        run: |
+          if [ -f apis/testing/reports/qa-verification-report.md ]; then
+            cat apis/testing/reports/qa-verification-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Comment PR with QA Verification Report
         if: github.event_name == 'pull_request' && always()
         uses: actions/github-script@v7

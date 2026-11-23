@@ -56,6 +56,13 @@ jobs:
       - name: Run Layer 2 Contract Verification
         run: node testing/contracts/validate-contracts.js
 
+      - name: Publish Contract Report to Job Summary
+        if: always()
+        run: |
+          if [ -f testing/contracts/reports/contracts-verification-report.md ]; then
+            cat testing/contracts/reports/contracts-verification-report.md >> $GITHUB_STEP_SUMMARY
+          fi
+
       - name: Upload Contract Report
         if: always()
         uses: actions/upload-artifact@v4
