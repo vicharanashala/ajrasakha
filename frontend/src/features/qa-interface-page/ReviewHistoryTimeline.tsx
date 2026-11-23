@@ -599,25 +599,12 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                             {/* ANSWER BOX */}
                             <div 
                               className={`p-5 rounded-md border bg-card/50 text-sm relative transition-all duration-300 mt-2 ${
-                                isAnyExpanded ? "max-h-[500px] overflow-y-auto" : "max-h-64 overflow-y-hidden"
+                                expandedAnswers[answerKey] ? "max-h-[500px] overflow-y-auto" : ""
                               }`}
                             >
-                              {/* <div 
-                                className="whitespace-pre-wrap"
-                                onClick={(e) => {
-                                  // Hack to listen to ExpandableText state toggle clicks
-                                  const target = e.target as HTMLElement;
-                                  if (target.tagName.toLowerCase() === 'button' && (target.innerText.includes('View More') || target.innerText.includes('View Less'))) {
-                                    setExpandedAnswers(prev => ({
-                                      ...prev,
-                                      [item.answer!._id?.toString() || index]: !prev[item.answer!._id?.toString() || index]
-                                    }));
-                                  }
-                                }}
-                              > */}
                                <ExpandableText
                                 text={item.answer.answer}
-                                maxLength={400}
+                                maxLength={180}
                                 isExpanded={!!expandedAnswers[answerKey]}
                                 onToggle={() => {
                                   setExpandedAnswers(prev => ({
@@ -626,7 +613,6 @@ if (!h || !h.rerouteId || !h.question?._id || !h.moderator?._id || !h.reroute?.r
                                   }));
                                 }}
                               />
-                                                            {/* </div> */}
                             </div>
                           </div>
                         </div>
