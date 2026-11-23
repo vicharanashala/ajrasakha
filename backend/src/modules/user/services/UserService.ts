@@ -39,6 +39,8 @@ import { IModeratorQueueService } from '#root/modules/question/interfaces/IModer
 import { buildUserActivityPdfReport, UserSessionLog } from '#root/utils/buildUserActivityPdfReport.js';
 import { emailConfig } from '#root/config/mail.js';
 import { annamLogoInlineAttachment } from '#root/utils/emailAssets.js';
+import { AuditAction } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import type { Document } from 'mongodb';
 
 
 @injectable()
@@ -1599,6 +1601,7 @@ export class UserService extends BaseService {
       startDate?: string;
       endDate?: string;
       sendToEmail?: boolean;
+      reassignmentDurations?: number[];
     },
   ): Promise<Buffer | { success: boolean; message: string }> {
     const user = await this.userRepo.findById(userId);
@@ -1742,6 +1745,31 @@ export class UserService extends BaseService {
       activeIntervals,
     );
 
+    // Daily batch generation supplies pre-fetched data to avoid one audit query per user.
+    // Standalone exports fetch the same date-bounded data for their own user.
+    let reassignmentDurations = query.reassignmentDurations;
+    if (!reassignmentDurations) {
+      const auditCollection = await this.mongoDatabase.getCollection<{
+        action: AuditAction;
+        changes?: { before?: { expertId?: unknown } };
+        context?: { waitedMs?: unknown };
+        createdAt?: Date;
+      } & Document>('auditTrails');
+      const audits = await auditCollection.find(
+        {
+          createdAt: { $gte: startDate, $lte: endDate },
+          action: AuditAction.REALLOCATE_QUESTIONS,
+          'changes.before.expertId': userId,
+        },
+        { projection: { 'changes.before.expertId': 1, 'context.waitedMs': 1 } },
+      ).toArray();
+      reassignmentDurations = audits
+        .filter((audit) => audit.changes?.before?.expertId === userId &&
+          typeof audit.context?.waitedMs === 'number' &&
+          Number.isFinite(audit.context.waitedMs) && audit.context.waitedMs >= 0)
+        .map((audit) => audit.context!.waitedMs as number);
+    }
+
     // Build PDF buffer
     const pdfBuffer = await buildUserActivityPdfReport({
       userName,
@@ -1768,6 +1796,9 @@ export class UserService extends BaseService {
       totalExpertReroutingMs: metrics.totalExpertReroutingMs,
       heldCount: metrics.heldCount,
       totalHoldingMs: metrics.totalHoldingMs,
+      reassignmentDurations,
+      questionsReassigned: reassignmentDurations.length,
+      totalReassignmentDuration: reassignmentDurations.reduce((sum, duration) => sum + duration, 0),
       sessions,
     });
 
@@ -1885,6 +1916,8 @@ export class UserService extends BaseService {
 
     const startDateStr = `${dateStr}T00:00:00.000+05:30`;
     const endDateStr = `${dateStr}T23:59:59.999+05:30`;
+    const startDate = new Date(startDateStr);
+    const endDate = new Date(endDateStr);
 
     console.log(
       `[sendDailyUserActivityReports] Generating daily activity reports for date: ${dateStr} [${startDateStr} to ${endDateStr}]`,
@@ -1897,6 +1930,32 @@ export class UserService extends BaseService {
       'gate_keeper',
       'auditor',
     ]);
+
+    const auditCollection = await this.mongoDatabase.getCollection<{
+      action: AuditAction;
+      changes?: { before?: { expertId?: unknown } };
+      context?: { waitedMs?: unknown };
+      createdAt?: Date;
+    } & Document>('auditTrails');
+    const reassignmentAudits = await auditCollection.find(
+      {
+        createdAt: { $gte: startDate, $lte: endDate },
+        action: AuditAction.REALLOCATE_QUESTIONS,
+      },
+      { projection: { 'changes.before.expertId': 1, 'context.waitedMs': 1 } },
+    ).toArray();
+    const reassignmentDurationsByExpert = new Map<string, number[]>();
+    for (const audit of reassignmentAudits) {
+      const expertId = audit.changes?.before?.expertId;
+      const waitedMs = audit.context?.waitedMs;
+      if (typeof expertId !== 'string' || !expertId ||
+          typeof waitedMs !== 'number' || !Number.isFinite(waitedMs) || waitedMs < 0) {
+        continue;
+      }
+      const durations = reassignmentDurationsByExpert.get(expertId) ?? [];
+      durations.push(waitedMs);
+      reassignmentDurationsByExpert.set(expertId, durations);
+    }
 
     console.log(`[sendDailyUserActivityReports] Found ${staff.length} active review staff to process.`);
 
@@ -1981,6 +2040,7 @@ export class UserService extends BaseService {
           startDate: startDateStr,
           endDate: endDateStr,
           sendToEmail: true,
+          reassignmentDurations: reassignmentDurationsByExpert.get(userId) ?? [],
         });
         sent++;
         console.log(`[sendDailyUserActivityReports] Successfully sent report to ${userName} (${user.email})`);

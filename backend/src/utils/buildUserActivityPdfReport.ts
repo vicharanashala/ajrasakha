@@ -38,6 +38,9 @@ export interface UserActivityReportData {
   totalExpertReroutingMs: number;
   heldCount?: number;
   totalHoldingMs?: number;
+  reassignmentDurations?: number[];
+  questionsReassigned?: number;
+  totalReassignmentDuration?: number;
   sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
@@ -60,6 +63,16 @@ function formatMsToHMS(ms: number): string {
 function formatHours(hrs: number): string {
   if (!hrs || hrs <= 0 || isNaN(hrs)) return '0.00 hrs';
   return `${hrs.toFixed(2)} hrs`;
+}
+
+function formatDuration(ms: number): string {
+  const totalSeconds = Math.floor(Math.max(0, ms) / 1000);
+  const hours = Math.floor(totalSeconds / 3600);
+  const minutes = Math.floor((totalSeconds % 3600) / 60);
+  const seconds = totalSeconds % 60;
+  if (hours) return `${hours} hr${hours === 1 ? '' : 's'}${minutes ? ` ${minutes} min` : ''}${seconds ? ` ${seconds} sec` : ''}`;
+  if (minutes) return `${minutes} min${seconds ? ` ${seconds} sec` : ''}`;
+  return `${seconds} sec`;
 }
 
 /**
@@ -777,7 +790,38 @@ export async function buildUserActivityPdfReport(
       .strokeColor('#10B981').lineWidth(1).stroke();
   }
 
-  // 8. FOOTER BAR (Rendered on all pages using bufferPages)
+  // 8. QUESTION REASSIGNMENTS (attributed to the previous expert)
+  const reassignmentDurations = data.reassignmentDurations || [];
+  const totalReassignmentDuration = data.totalReassignmentDuration ??
+    reassignmentDurations.reduce((sum, duration) => sum + duration, 0);
+  if (currentY + 58 > 765) {
+    doc.addPage();
+    doc.rect(0, 0, pageWidth, 5).fill('#059669');
+    currentY = 40;
+  } else {
+    currentY += 12;
+  }
+  doc.roundedRect(pageMargin, currentY, contentWidth, 22, 4)
+    .fillAndStroke('#FFF7ED', '#FED7AA');
+  doc.fillColor('#9A3412').fontSize(8.5).font('Helvetica-Bold').text(
+    'QUESTIONS REASSIGNED', pageMargin + 10, currentY + 7,
+  );
+  doc.fillColor('#7C2D12').fontSize(7).font('Helvetica').text(
+    `${data.questionsReassigned ?? reassignmentDurations.length} reassigned  •  Total wait: ${formatDuration(totalReassignmentDuration)}`,
+    pageMargin + 185, currentY + 7, { width: contentWidth - 200, align: 'right' },
+  );
+  currentY += 27;
+  const durationList = reassignmentDurations.length
+    ? reassignmentDurations.map(formatDuration).join('   •   ')
+    : 'No questions reassigned during this period.';
+  doc.fillColor('#475569').fontSize(7).font('Helvetica').text(
+    `Individual durations: ${durationList}`,
+    pageMargin + 4,
+    currentY,
+    { width: contentWidth - 8, lineGap: 2 },
+  );
+
+  // 9. FOOTER BAR (Rendered on all pages using bufferPages)
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
