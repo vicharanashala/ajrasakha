@@ -113,6 +113,13 @@ def record_source_passages(
             logger.exception("Anara could not search the record's files in time; their PDFs are read directly")
     rest = [s for s in sources if (record_sources.parse_link(s["url"]) or (None, None))[1] not in handled]
     own, own_problems = record_sources.search_sources(question, rest, crop) if rest else ([], [])
+    reading = {file_id for file_id, _name in anara_sources._pending.values()}
+    names = {(s.get("name") or "").strip(): (record_sources.parse_link(s["url"]) or (None, None))[1] for s in rest}
+    own_problems = [
+        f"{problem.split(':', 1)[0]}: Anara is still reading this file (it is scanned); draft again in a few minutes to use it"
+        if names.get(problem.split(":", 1)[0].strip()) in reading else problem
+        for problem in own_problems
+    ]
     return found + own, problems + own_problems
 
 
@@ -122,7 +129,9 @@ def agent_research(request: "DraftRequest", from_sources: list[dict[str, Any]]) 
     if os.getenv("DRAFT_ENGINE", "agent").strip().lower() == "search" or not anara_search.enabled():
         return None
     names = list(dict.fromkeys(str(p.get("documentName")) for p in from_sources if p.get("documentName")))
-    return anara_agent.research(request.question, request.crop, request.state, request.domain, names)
+    return anara_agent.research(
+        request.question, request.crop, request.state, request.domain, names, write_answer=anara_agent.ANSWER_BY_AGENT
+    )
 
 
 def _pdf_path(document_id: str):
@@ -190,10 +199,13 @@ def draft(request: DraftRequest, x_draft_token: str | None = Header(default=None
             passages = from_sources + [p for p in library if p.get("passageId") not in taken]
         if not passages and problems:
             return {"answer": "", "citations": [], "note": "; ".join(problems)}
-        draft = draft_answer(
-            request.question, passages, request.crop, request.domain, notes=notes or None,
-            max_passages=anara_agent.MAX_PASSAGES if notes else None,
-        )
+        if researched is not None and researched.get("writes_answer"):
+            draft = anara_agent.finished_answer(notes, passages)
+        else:
+            draft = draft_answer(
+                request.question, passages, request.crop, request.domain, notes=notes or None,
+                max_passages=anara_agent.MAX_PASSAGES if notes else None,
+            )
         notes = [draft.get("note") or ""]
         if not draft.get("answer") and researched is not None:
             # the agent's own explanation says what the library does and does not hold, which is more use to the

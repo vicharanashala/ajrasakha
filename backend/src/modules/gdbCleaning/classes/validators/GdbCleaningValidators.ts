@@ -134,7 +134,7 @@ export class SaveGdbCorrectionDto {
 
   @IsString()
   @IsNotEmpty()
-  @MaxLength(20000)
+  @MaxLength(100000)
   correctedAnswer: string;
 }
 
@@ -146,7 +146,7 @@ export class GdbDecisionDto {
   // an accepted answer can carry an edited correction
   @IsOptional()
   @IsString()
-  @MaxLength(20000)
+  @MaxLength(100000)
   correctedAnswer?: string;
 
   @IsOptional()

@@ -148,7 +148,7 @@ class GdbCleaningService {
   // drafts from the library; nothing is saved until the reviewer saves the correction or sources
   async draftFromLibrary(answerId: string): Promise<IGdbDraft> {
     // a draft can take a couple of minutes, so it waits as long as the backend does
-    const response = await apiFetch<IGdbDraft>(`${this._baseUrl}/${answerId}/draft`, { method: "POST" }, 240000);
+    const response = await apiFetch<IGdbDraft>(`${this._baseUrl}/${answerId}/draft`, { method: "POST" }, 450000);
     if (!response) throw new Error("Failed to draft from the library: No response received");
     return response;
   }

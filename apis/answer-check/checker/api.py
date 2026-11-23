@@ -63,7 +63,7 @@ def _startup_model_check() -> None:
     for attempt in range(1, STARTUP_CHECK_ATTEMPTS + 1):
         started = time.time()
         try:
-            call_llm_once('Reply with exactly: {"ok": true}', max_completion_tokens=32)
+            call_llm_once('Reply with exactly: {"ok": true}', max_completion_tokens=1024)
         except Exception as exc:
             logger.warning(
                 "startup model check attempt %d/%d failed: %s: %s",

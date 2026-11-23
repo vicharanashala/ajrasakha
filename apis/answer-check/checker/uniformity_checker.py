@@ -79,18 +79,42 @@ def extract_chemical_doses(answer: dict[str, Any]) -> list[dict[str, Any]]:
             unit = "litre"
         elif unit == "l":
             unit = "L"
+        dose, per = match.group("dose"), str(match.group("per") or "").strip()
+        water = _water_volume_after(text, match.end())
+        if per.casefold() in {"l", "lt", "lit", "litre", "litres", "liter", "liters"}:
+            per = "litre of water"
+        elif water and per.casefold() not in FIELD_BASIS_WORDS:
+            # compare the strength per litre of water, not the bare amount
+            dose, per = f"{float(dose) / water:g}", "litre of water"
         occurrences.append(
             {
                 "answer_id": str(answer.get("answer_id") or ""),
                 "crop": str(answer.get("crop") or "").strip(),
                 "chemical": chemical,
-                "dose": match.group("dose"),
+                "dose": dose,
                 "unit": unit,
-                "per": str(match.group("per") or "").strip(),
+                "per": per,
                 "evidence": _sentence_at(text, match.start()),
             }
         )
     return occurrences
+
+
+# a dose given per acre, hectare or kg of seed is a field or seed rate, kept as it is
+FIELD_BASIS_WORDS = {"acre", "acres", "ha", "hectare", "hectares", "kg", "plant", "tree"}
+WATER_VOLUME = re.compile(
+    r"(?:\bper|/|\bin|\binto)\s*(?P<volume>\d+(?:\.\d+)?)\s*(?:litres?|liters?|lit|l|lt)\b",
+    re.IGNORECASE,
+)
+
+
+def _water_volume_after(text: str, position: int) -> float | None:
+    """Litres of water the dose is mixed in, when the same sentence says so right after it."""
+    stretch = re.split(r"(?<=[.!?\n])\s", text[position:position + 90], maxsplit=1)[0]
+    found = WATER_VOLUME.search(stretch)
+    if not found or float(found.group("volume")) <= 0:
+        return None
+    return float(found.group("volume"))
 
 
 def _dose_label(item: dict[str, Any]) -> str:

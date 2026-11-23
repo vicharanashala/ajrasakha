@@ -55,7 +55,8 @@ from normalizer import normalize_answer  # noqa: E402
 from uniformity_checker import run_uniformity_checks  # noqa: E402
 
 DATABASE = os.getenv("MONGODB_DATABASE", "agriai")
-COLLECTION = "gdb_cleaning"
+# set GDB_CLEANING_COLLECTION to try a run on a separate test collection instead of the real one
+COLLECTION = os.getenv("GDB_CLEANING_COLLECTION", "gdb_cleaning")
 BATCH = 200
 
 # set from --since: only answers checked on or after this moment may be read or changed
@@ -169,11 +170,16 @@ def _raw(doc: dict) -> dict:
     }
 
 
-def _save_slice(db, pending: list[dict], results: list[dict]) -> tuple[int, int]:
-    """Save the result of every answer in the slice. Returns (saved, with a check that could not run)."""
-    saved = incomplete = 0
+def _save_slice(db, pending: list[dict], results: list[dict]) -> tuple[int, list]:
+    """Save the answers whose checks all ran. An answer with a check that could not run is left
+    pending, untouched. Returns (saved, ids of the answers left pending)."""
+    saved = 0
+    left_pending = []
     for doc, result in zip(pending, results):
         item = to_item(_raw(doc), result)
+        if item["notEvaluated"]:
+            left_pending.append(doc["_id"])
+            continue
         written = db[COLLECTION].update_one(
             {"_id": doc["_id"], "status": "pending"},
             {"$set": {
@@ -187,46 +193,53 @@ def _save_slice(db, pending: list[dict], results: list[dict]) -> tuple[int, int]
             }},
         )
         saved += written.modified_count
-        incomplete += bool(item["notEvaluated"])
-    return saved, incomplete
+    return saved, left_pending
 
 
-def run(limit: int, workers: int | None, slice_size: int = 500) -> None:
-    """Check the pending answers a slice at a time, saving each slice before starting the next.
+def run(limit: int, workers: int | None, slice_size: int = 500, state: str = "") -> None:
+    """Check the pending answers of one state a slice at a time, saving each slice before starting the next.
 
     A finished answer is no longer pending, so a stopped run loses at most one slice and
     the next run carries on where it stopped. The dose comparison needs all answers
     together, so it is left to dose-pass.
     """
+    if not state.strip():
+        sys.exit("A state is required, for example --state Punjab.")
     db = get_db()
-    target = min(limit, db[COLLECTION].count_documents({"status": "pending"}))
+    base = {"status": "pending", "state": state}
+    target = min(limit, db[COLLECTION].count_documents(base))
     if not target:
-        sys.exit("No pending documents to run.")
-    print(f"{target} pending answers to check, {slice_size} at a time", flush=True)
+        sys.exit(f"No pending {state} documents to run in {COLLECTION}.")
+    print(f"{target} pending {state} answers to check in {COLLECTION}, {slice_size} at a time", flush=True)
     done = 0
+    saved_total = 0
+    skipped: list = []
     started = time.monotonic()
     while done < target:
-        pending = list(db[COLLECTION].find({"status": "pending"}).limit(min(slice_size, target - done)))
+        query = {**base, "_id": {"$nin": skipped}} if skipped else base
+        pending = list(db[COLLECTION].find(query).limit(min(slice_size, target - done)))
         if not pending:
             break
         results = run_until_complete([_raw(doc) for doc in pending], max_workers=workers, checkpoint_path=None)
-        saved, incomplete = _save_slice(db, pending, results)
+        saved, left_pending = _save_slice(db, pending, results)
+        skipped.extend(left_pending)
+        saved_total += saved
         done += len(pending)
         rate = (time.monotonic() - started) / done
         left_hours = rate * (target - done) / 3600
         print(
-            f"{done} of {target} checked, {saved} saved, {incomplete} in this slice with a check that "
-            f"could not run | about {left_hours:.1f} hours left",
+            f"{done} of {target} tried, {saved} saved, {len(left_pending)} NOT saved because a check could "
+            f"not run (they stay pending) | about {left_hours:.1f} hours left",
             flush=True,
         )
-        if not saved:
-            sys.exit("Nothing was saved from the last slice, so the run stopped. Nothing is lost; run it again.")
-        if incomplete * 2 > len(pending):
+        # more than 1 in 10 failing means the model is not working: stop here, saved nothing wrong
+        if len(left_pending) * 10 > len(pending):
             sys.exit(
-                "More than half of the last slice had checks that could not run, so the model looks unreachable. "
-                "The run stopped. Those answers are saved and can be repaired later with the rerun command."
+                f"STOPPED: the model is not working reliably ({len(left_pending)} of {len(pending)} answers "
+                f"could not be fully checked). Only fully checked answers were saved; the rest are still "
+                f"pending. Fix the model, then run again."
             )
-    print(f"done: {done} answers checked and saved")
+    print(f"done: {saved_total} answers saved, {len(skipped)} left pending because a check could not run")
 
 
 def _summarise(checks: list[dict]) -> dict:
@@ -503,9 +516,10 @@ def main() -> None:
     sub = parser.add_subparsers(dest="command", required=True)
     seed_parser = sub.add_parser("seed")
     seed_parser.add_argument("--limit", type=int, default=1)
-    seed_parser.add_argument("--state")
+    seed_parser.add_argument("--state", required=True)
     seed_parser.add_argument("--crop")
     run_parser = sub.add_parser("run")
+    run_parser.add_argument("--state", required=True)
     run_parser.add_argument("--limit", type=int, default=1)
     run_parser.add_argument("--workers", type=int, default=None)
     run_parser.add_argument("--slice", type=int, default=500, dest="slice_size")
@@ -540,7 +554,7 @@ def main() -> None:
     elif args.command == "seed":
         seed(args.limit, args.state, args.crop)
     else:
-        run(args.limit, args.workers, args.slice_size)
+        run(args.limit, args.workers, args.slice_size, args.state)
 
 
 if __name__ == "__main__":

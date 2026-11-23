@@ -5,6 +5,7 @@ token presence/absence - none of it proves semantic equivalence, and the
 guardrail orchestrator (guardrails.py) never claims it does.
 """
 
+import difflib
 import re
 
 _SENTENCE_SPLIT_RE = re.compile(r"(?<=[.!?])\s+")
@@ -27,8 +28,9 @@ _UNIT_RE = re.compile(
     re.IGNORECASE,
 )
 
+TIMING_PHRASES = {"before", "after", "during", "within", "every", "once", "twice"}
 _TIMING_PHRASE_RE = re.compile(
-    r"\b(before|after|during|within|every|once|twice)\b",
+    r"\b(" + "|".join(TIMING_PHRASES) + r")\b",
     re.IGNORECASE,
 )
 
@@ -59,8 +61,8 @@ CONDITIONAL_MARKERS = {
 
 # Deliberately small, curated lists - not exhaustive agricultural NER. A
 # conservative heuristic that only catches what it names; the LLM
-# second-opinion check (llm_client.check_meaning_preserved) is the layer
-# meant to cover what this misses.
+# second-opinion check (llm_client.check_meaning_preserved_batch) is the
+# layer meant to cover what this misses.
 CROP_NAMES = {
     "paddy", "rice", "wheat", "maize", "corn", "cotton", "brinjal",
     "eggplant", "tomato", "soybean", "soyabean", "mustard", "groundnut",
@@ -83,6 +85,26 @@ TREATMENT_TERMS = {
     "foliar spray", "soil test", "drip irrigation", "flood irrigation",
     "mode of action", "trichoderma", "pseudomonas", "bordeaux mixture",
     "zinc sulphate", "farmyard manure", "green manure", "compost",
+}
+
+# Each term matched tolerant of a trailing "s"/"es" on any of its words
+# ("mode of action" also matches "modes of action") - these are method/
+# treatment NAMES, not counted quantities, so singular vs plural never
+# changes which treatment is being referred to. A plain substring check
+# treated them as different strings entirely - live-confirmed real:
+# generate_polish's grammar fix correctly pluralized "rotate...with
+# different mode of action" to "rotated...with different modes of
+# action", and the literal-substring check read that as the treatment
+# itself changing. ("pheromone trap"/"pheromone traps" were already
+# hardcoded as two separate entries above for this exact reason, one
+# term at a time - this generalizes that fix instead of adding a third
+# singular/plural pair by hand every time one shows up.) \b anchors on
+# every word (not just the ends) stop a partial match inside a longer,
+# unrelated word, e.g. "mode of action" never matching inside
+# "remodeling of actionable items".
+_TREATMENT_TERM_PATTERNS = {
+    term: re.compile(r"\s+".join(r"\b" + re.escape(word) + r"e?s?\b" for word in term.split()))
+    for term in TREATMENT_TERMS
 }
 
 
@@ -204,7 +226,7 @@ def extract_crop_names(sentence: str) -> frozenset[str]:
 
 def extract_treatment_terms(sentence: str) -> frozenset[str]:
     lowered = sentence.lower()
-    return frozenset(t for t in TREATMENT_TERMS if t in lowered)
+    return frozenset(term for term, pattern in _TREATMENT_TERM_PATTERNS.items() if pattern.search(lowered))
 
 
 def extract_timing_phrases(sentence: str) -> frozenset[str]:
@@ -222,6 +244,71 @@ def extract_timing_phrases(sentence: str) -> frozenset[str]:
 
 def extract_conditional_markers(sentence: str) -> frozenset[str]:
     return frozenset(w for w in _words(sentence) if w in CONDITIONAL_MARKERS)
+
+
+# Cutoff for is_single_word_typo_fix below - empirically chosen (not a
+# guess): tested against 9 real single-letter-typo pairs of marker words
+# (e.g. "avid"/"avoid" ratio 0.889, "onse"/"once" ratio 0.750, the lowest
+# of the set) and the 3000 most common English words via wordfreq (the
+# highest unrelated collision was "acid"/"avoid" at 0.667) - 0.75 sits
+# with margin above every unrelated collision and at/below every real
+# typo tested. Scoped to a SINGLE aligned word-for-word replacement (see
+# is_single_word_typo_fix) specifically to avoid the much larger false-
+# positive surface a bare word-vs-marker-list scan has (tested: 65 of the
+# top 3000 English words, e.g. "would"/"wouldn't", "then"/"when",
+# "right"/"might", fuzzy-match some marker at this same cutoff in
+# isolation - only safe once narrowed to an actual 1-for-1 diffed pair).
+_TYPO_FIX_CUTOFF = 0.75
+
+
+def is_single_word_typo_fix(orig_sentence: str, rew_sentence: str, marker_words) -> bool:
+    """True when every difference between the two sentences is a single
+    word replaced by a single other word that's a close spelling match
+    to it (likely a one-letter typo) - i.e. the whole sentence is purely
+    spelling corrections, nothing else - AND at least one of those
+    word-for-word fixes crosses the marker_words boundary (one side in
+    the set, the other not). That boundary crossing is the signature of
+    a grammar/spelling fix landing on or off a marker word by accident
+    (e.g. "Avid excessive application..." -> "Avoid excessive
+    application...": the polish step correctly fixed the typo, but the
+    now-correct "avoid" wasn't present as a recognized negation word
+    before, so a presence-based check reads this as "a negation marker
+    was added" - a real false positive, live-confirmed, distinct from
+    the already-fixed word-choice-swap case in _presence_diff_check:
+    this is one word becoming a DIFFERENT, mis-spelled-vs-correct word,
+    not two different real words that both mean the same thing).
+
+    Checks every diffed region, not just one - live-confirmed real that
+    a single polish pass can fix more than one typo in the same
+    sentence (e.g. "disese"/"wheet" -> "disease"/"wheat" together), and
+    the first version of this check bailed out the moment it saw a
+    second diff region even though both were equally harmless.
+
+    Deliberately narrow otherwise: a marker word deleted or added
+    outright (not replaced 1-for-1 by a close spelling match), or any
+    word-count-changing edit, is NOT covered here and must still be
+    flagged - that's a real content change, not a typo. Confirmed via
+    testing that a genuine negation/condition removal (e.g. "Do not
+    apply..." -> "Apply...", even buried in a long otherwise-unchanged
+    sentence) always shows up as a multi-word or deletion diff, never a
+    clean set of 1-for-1 word replacements, so it's never misclassified
+    as safe by this check."""
+    orig_words, rew_words = _words(orig_sentence), _words(rew_sentence)
+    diff_ops = [op for op in difflib.SequenceMatcher(None, orig_words, rew_words).get_opcodes() if op[0] != "equal"]
+    if not diff_ops:
+        return False
+    crosses_marker_boundary = False
+    for tag, i1, i2, j1, j2 in diff_ops:
+        if tag != "replace" or (i2 - i1) != (j2 - j1):
+            return False  # an insertion/deletion, or an uneven-length replace - not a pure word-for-word fix
+        for old_word, new_word in zip(orig_words[i1:i2], rew_words[j1:j2]):
+            if old_word == new_word:
+                continue
+            if difflib.SequenceMatcher(None, old_word, new_word).ratio() < _TYPO_FIX_CUTOFF:
+                return False  # not a close spelling match - a real word change, not a typo
+            if (old_word in marker_words) != (new_word in marker_words):
+                crosses_marker_boundary = True
+    return crosses_marker_boundary
 
 
 # Deliberately small, generic - not domain-specific. Used only to tell

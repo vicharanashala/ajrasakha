@@ -124,6 +124,22 @@ def _nearby_keyword(evidence: str, keywords: tuple[str, ...]) -> bool:
 
 
 NEGATION_WINDOW_CHARS = 200
+GENERIC_CHEMICAL_NAMES_PATH = DATA_DIRECTORY / "quality_generic_chemical_names.json"
+with GENERIC_CHEMICAL_NAMES_PATH.open(encoding="utf-8") as _generic_source:
+    _GENERIC_NAMES = json.load(_generic_source)["names"]
+_KNOWN_CHEMICALS = re.compile(
+    r"(?<![\w])(?:"
+    + "|".join(
+        re.escape(name)
+        for name in sorted(
+            {c["name"] for c in BANNED_CHEMICALS + RESTRICTED_CHEMICALS} | set(_GENERIC_NAMES),
+            key=len, reverse=True,
+        )
+        if len(name) >= 4
+    )
+    + r")(?![^\W\d_])",
+    re.IGNORECASE,
+)
 
 
 def _is_warning(answer_text: str, start: int, end: int) -> bool:
@@ -132,14 +148,33 @@ def _is_warning(answer_text: str, start: int, end: int) -> bool:
     Looks at a window around the mention, since the warning is often in the
     next sentence.
     """
-    window = answer_text[
-        max(0, start - NEGATION_WINDOW_CHARS):min(len(answer_text), end + NEGATION_WINDOW_CHARS)
-    ]
-    if _nearby_keyword(window, NEGATION_KEYWORDS):
-        return True
+    window_start = max(0, start - NEGATION_WINDOW_CHARS)
+    window = answer_text[window_start:min(len(answer_text), end + NEGATION_WINDOW_CHARS)]
+    mentioned = answer_text[start:end].casefold()
+    for sentence in re.finditer(r"[^.!?\n]+[.!?]?", window):
+        if not _nearby_keyword(sentence.group(), NEGATION_KEYWORDS):
+            continue
+        in_same_sentence = sentence.start() <= start - window_start < sentence.end()
+        # a warning next to it that names another chemical is about that chemical
+        others = {m.group().casefold() for m in _KNOWN_CHEMICALS.finditer(sentence.group())} - {mentioned}
+        if in_same_sentence or not others:
+            return True
     before = answer_text[max(0, start - 60):start]
     after = answer_text[end:end + 60]
     return bool(TIGHT_NEGATION_BEFORE.search(before) or TIGHT_NEGATION_AFTER.search(after))
+
+
+def _answer_says_banned(name: str, answer_text: str) -> bool:
+    """Whether the answer states, in one sentence, that this chemical is banned or prohibited."""
+    for match in _chemical_pattern(name).finditer(answer_text):
+        sentence = _evidence_sentence_at(answer_text, match.start(), match.end())
+        if re.search(
+            r"\b(?:has been|have been|is|are|was|were|now|got|been)\s+(?:\w+\s+){0,2}(?:banned|prohibited|withdrawn|phased out)\b"
+            r"|\bbanned in india\b",
+            sentence, re.IGNORECASE,
+        ):
+            return True
+    return False
 
 
 def _first_recommending_match(
@@ -165,6 +200,9 @@ def _first_recommending_mention(
     that counts even next to a warning word such as "avoid" about something else. A
     mention without a stance is held to the warning-word window, as before.
     """
+    if _answer_says_banned(name, answer_text):
+        # the answer itself says this chemical is banned
+        return None
     match = _first_recommending_match(name, answer_text)
     if match:
         return match.start(), match.end()

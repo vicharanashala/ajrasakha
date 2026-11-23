@@ -30,12 +30,7 @@ AGENT_MODEL = os.getenv("ANARA_AGENT_MODEL", "").strip()
 MAX_PASSAGES = 10
 _TAG = re.compile(r"\s*<source\b[^>]*>\s*([^<\s]+)\s*</source>")
 
-PROMPT = """A reviewer is drafting an answer for a farmer-facing agricultural database. Research the question in my library of Package of Practices and other agricultural documents, and report what the documents say.
-
-Question: {question}
-{context}
-How to work:
-- Search the library thoroughly, with several phrasings of the question, and open the pages that matter.
+SEARCH_RULES = """- Search the library thoroughly, with several phrasings of the question, and open the pages that matter.
 - Read tables row by row (crop, pest or disease, product, dose, waiting period or interval) and take each product's dose and waiting period from its own row. Never mix the figures of different rows.
 - Report every relevant fact with its figures: doses, timings, intervals, waiting periods, conditions.
 - Cite every fact with the library passage it comes from.
@@ -43,13 +38,65 @@ How to work:
 - Questions come in a farmer's words, the documents in technical ones. Before concluding that the library has nothing, search the technical names too: "ground worms" or "soil pests" also means white grubs, termites, cutworms, root weevils, root-feeding larvae and nematodes, and pests that pupate in the soil; "birds" also means parrots, sparrows and scaring or netting methods.
 - When the state's own package of practices gives no control measure for the pest or problem asked about (for example it only describes the pest), do not stop there. Search the national and other documents in the library (NIPHM or DPPQS integrated pest management packages, ICAR and other all-India documents; never another state's document) for what they recommend, and report it with the name of its document.
 - Use only my library. Do not use the web or papers, and add nothing from general knowledge.
-- Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
+"""
+
+PROMPT = """A reviewer is drafting an answer for a farmer-facing agricultural database. Research the question in my library of Package of Practices and other agricultural documents, and report what the documents say.
+
+Question: {question}
+{context}
+How to work:
+{rules}- Give clear findings; do not write a final farmer-facing answer. Start directly with the findings, with no remarks on how you searched.
 - If the library has nothing for this crop in this state, say so plainly and say what it does have.
 """
 
 
+# DRAFT_ANSWER_BY=agent: the agent writes the finished answer itself, in the domain's layout, as it does in Anara's
+# web chat; the default (writer) has it report findings that a second model then lays out.
+ANSWER_BY_AGENT = os.getenv("DRAFT_ANSWER_BY", "agent").strip().lower() == "agent"
+# no second model runs after the agent, so it may use most of the backend's 420 seconds (the longest seen: 171)
+ANSWER_TIMEOUT_SECONDS = float(os.getenv("ANARA_ANSWER_TIMEOUT", "270"))
+
+ANSWER_PROMPT = """You are helping write an agricultural answer for a farmer-facing database in India.
+
+Question: {question}
+{context}
+How to work:
+{rules}- Never name an individual person (officer, staff member, scientist or author), and give no personal phone number or e-mail; name the office or post instead.
+- After every sentence, cite the library passage it comes from.
+- If the documents do not answer the question, say so in one line and stop. Do not guess.
+
+{shape}
+Write the answer itself, with no remarks on how you searched and no mention of "the passages". Start directly with the first section.
+"""
+
+SHAPE = """Write the answer in sections, each with a short title on its own line and then its text.
+The usual sections of an answer in the domain "{domain}" are listed below. Use the Narrow list for a question about one specific thing (a dose, a timing, one fix), otherwise the Broad list. Keep their order, but give each section a plain title that fits this question; a title that names a particular crop, disease or chemical is only an example, so rename it for this question. Leave a section out completely when the documents have nothing for it: never write that something is not given, and never repeat a fact in a second section. Put the direct answer first and end with a short conclusion that points the farmer to the local KVK if their case differs. The lists only give the sections: every fact comes from the documents.
+
+Broad: {broad}
+Narrow: {narrow}
+"""
+
+PLAIN_SHAPE = (
+    "Write the answer in sections, each with a short title on its own line and then its text: the direct answer to the "
+    "question first, then the steps or reasons, then a short conclusion that points the farmer to the local KVK if their "
+    "case differs. Leave out anything the documents do not cover.\n"
+)
+
+
+def _shape(domain: str | None) -> str:
+    import anara_drafter
+
+    entry = anara_drafter.structure_for(domain)
+    if entry is None:
+        return PLAIN_SHAPE
+    return SHAPE.format(
+        domain=entry["domain"], broad=anara_drafter._outline(entry["broad"]), narrow=anara_drafter._outline(entry["narrow"])
+    )
+
+
 def build_prompt(
-    question: str, crop: str | None, state: str | None, domain: str | None, source_names: list[str] | None = None
+    question: str, crop: str | None, state: str | None, domain: str | None, source_names: list[str] | None = None,
+    write_answer: bool = False,
 ) -> str:
     lines = []
     if crop:
@@ -59,13 +106,15 @@ def build_prompt(
             f"State of the record: {state}. Use only documents of {state} and national (central government or "
             f"all-India) documents. Never use a document of another state, even when it covers the point."
         )
-    if domain:
+    if domain and not write_answer:
         lines.append(f"Topic area: {domain}.")
     if source_names:
         lines.append("The record's own source files, which came with the question (search these first): "
                      + "; ".join(source_names) + ".")
     context = ("\n".join(lines) + "\n") if lines else ""
-    return PROMPT.format(question=question, context=context)
+    if write_answer:
+        return ANSWER_PROMPT.format(question=question, context=context, rules=SEARCH_RULES, shape=_shape(domain))
+    return PROMPT.format(question=question, context=context, rules=SEARCH_RULES)
 
 
 def _server_text(result) -> dict[str, Any]:
@@ -74,7 +123,7 @@ def _server_text(result) -> dict[str, Any]:
     return result.structured_content or {}
 
 
-async def _run(prompt: str) -> dict[str, Any]:
+async def _run(prompt: str, timeout: float = AGENT_TIMEOUT_SECONDS) -> dict[str, Any]:
     """Start the agent, wait for it, and return its result ({text, citations})."""
     import httpx2
     from mcp import ClientSession
@@ -93,7 +142,7 @@ async def _run(prompt: str) -> dict[str, Any]:
                 run_id = started.get("runId")
                 if not run_id:
                     raise RuntimeError(f"Anara did not start the agent: {json.dumps(started)[:300]}")
-                deadline = time.time() + AGENT_TIMEOUT_SECONDS
+                deadline = time.time() + timeout
                 last_length = -1
                 while True:
                     status = _server_text(await session.call_tool("anara_check_agent", {"runId": run_id})).get("status")
@@ -113,7 +162,7 @@ async def _run(prompt: str) -> dict[str, Any]:
                         if length:  # better the findings so far than the weaker plain search
                             break
                         await session.call_tool("anara_cancel_agent", {"runId": run_id})
-                        raise TimeoutError(f"the Anara agent took longer than {AGENT_TIMEOUT_SECONDS:.0f} seconds")
+                        raise TimeoutError(f"the Anara agent took longer than {timeout:.0f} seconds")
                     await asyncio.sleep(POLL_SECONDS)
                 result = _server_text(await session.call_tool("anara_get_agent_result", {"runId": run_id}))
                 text, offset = result.get("text") or "", len(result.get("text") or "")
@@ -142,7 +191,7 @@ def _cited(result: dict[str, Any]) -> list[dict[str, Any]]:
 
 def research(
     question: str, crop: str | None = None, state: str | None = None, domain: str | None = None,
-    source_names: list[str] | None = None,
+    source_names: list[str] | None = None, write_answer: bool = False,
 ) -> dict[str, Any] | None:
     """{"passages": [...], "notes": text with {passageId} tags} from Anara's agent, or None when it cannot be used.
 
@@ -152,16 +201,18 @@ def research(
     import anara_client
     import anara_search
 
-    prompt = build_prompt(question, crop, state, domain, source_names)
+    prompt = build_prompt(question, crop, state, domain, source_names, write_answer)
     result = passages = None
     for attempt in (1, 2):
         started = time.time()
         try:
             anara_search.prepare()
-            result = anara_search.within(AGENT_TIMEOUT_SECONDS + 20, lambda: asyncio.run(_run(prompt)))
+            limit = ANSWER_TIMEOUT_SECONDS if write_answer else AGENT_TIMEOUT_SECONDS
+            result = anara_search.within(limit + 20, lambda: asyncio.run(_run(prompt, limit)))
             cited = _cited(result)
             hits = anara_client.passages_for(cited) if cited else []
             passages = anara_search.finish_hits(hits, keep_unopenable=True)
+            passages = _as_record_sources(passages)
             break
         except Exception as error:
             # the MCP client wraps the real error in an ExceptionGroup ("unhandled errors in a TaskGroup")
@@ -174,7 +225,35 @@ def research(
     keep = {passage.get("passageId") for passage in passages}
     text = _drop_lines_of(result.get("text") or "", dropped)
     notes = _TAG.sub(lambda m: " {%s}" % m.group(1) if m.group(1) in keep else "", text)
-    return {"passages": passages, "notes": _drop_narration(notes.strip()), "other_states": other_states}
+    notes = notes.strip() if write_answer else _drop_narration(notes.strip())
+    return {"passages": passages, "notes": notes, "other_states": other_states, "writes_answer": write_answer}
+
+
+_SOURCE_NAME = re.compile(r"^src-([A-Za-z0-9]+)__(.+?)(?:\.pdf)?$")
+
+
+def _as_record_sources(passages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    import anara_client
+    import library_files
+    import record_sources
+
+    unknown = sorted({p["documentId"] for p in passages if p.get("documentId") and not library_files.name_for_document(p["documentId"])})
+    if not unknown:
+        return passages
+    try:
+        names = anara_client.execute(
+            f"RESULT = {{i: (anara('entities.get', {{'id': i}}) or {{}}).get('name') for i in {anara_client.literal(unknown)}}}"
+        ) or {}
+    except Exception as error:
+        logger.warning("could not look up the names of cited documents: %s", error)
+        return passages
+    renamed = []
+    for passage in passages:
+        found = _SOURCE_NAME.match(str(names.get(passage.get("documentId")) or ""))
+        if found:
+            passage = {**passage, "documentId": record_sources.document_id_for(found.group(1)), "documentName": found.group(2)}
+        renamed.append(passage)
+    return renamed
 
 
 def _keep_state(passages: list[dict[str, Any]], state: str | None) -> tuple[list[dict[str, Any]], list[str], set[str]]:
@@ -235,6 +314,24 @@ def number_notes(notes: str, passages: list[dict[str, Any]]) -> str:
     a tag for a passage that is not in the list is dropped."""
     numbers = {passage.get("passageId"): number for number, passage in enumerate(passages, start=1)}
     return re.sub(r" \{([^}]+)\}", lambda m: f" [P{numbers[m.group(1)]}]" if m.group(1) in numbers else "", notes)
+
+
+def finished_answer(notes: str, passages: list[dict[str, Any]]) -> dict[str, Any]:
+    """The agent's own answer as a draft: [P#] numbers for its citations, plain text, the passages it cites."""
+    answer = re.sub(r"(?m)^#{1,6}\s*", "", number_notes(notes, passages)).replace("**", "").strip()
+    citations = []
+    for number in sorted({int(n) for n in re.findall(r"\[P(\d+)\]", answer)}):
+        if 1 <= number <= len(passages):
+            passage = passages[number - 1]
+            citations.append({
+                "passageNumber": number,
+                "documentName": passage.get("documentName"),
+                "documentId": passage.get("documentId"),
+                "pageNumber": passage.get("pageNumber"),
+                "sourcePages": passage.get("sourcePages") or [],
+                "passageId": passage.get("passageId"),
+            })
+    return {"answer": answer, "citations": citations, "note": ""}
 
 
 def plain_notes(notes: str) -> str:

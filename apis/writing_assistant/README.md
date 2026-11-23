@@ -1,31 +1,44 @@
 # Writing Assistant API
 
 Polishes an expert's draft answer (grammar, spelling, clarity only - never
-technical content) and checks its structure against the Golden Database's
-domain answer structures, before the draft enters the existing peer-review
-workflow. Called by the backend while the expert is still editing; nothing
-here ever changes the stored draft - the author decides whether to accept a
+technical content) and checks it against one fixed, built-in checklist of
+expected steps, before the draft enters the existing peer-review workflow.
+Called by the backend while the expert is still editing; nothing here ever
+changes the stored draft - the author decides whether to accept a
 suggestion.
 
-Two independent checks run on every request:
+Two checks run on every request, always as two separate objects in the
+response - never merged into one verdict:
 
+- **Structural validation** - scores the draft's coverage of one fixed,
+  domain-neutral checklist of 10 expected steps (`structural_validator.
+  FIXED_STEPS`: Introduction, major-or-minor, confirm identification,
+  severity, a decision threshold, escalating response options, safety,
+  conclusion), using LLM reasoning to judge whether each step's actual
+  content is real and valid - not just whether a matching heading exists.
+  A heading with blank or gibberish content, or content that actually
+  belongs to a different step (e.g. a "Conclusion" heading whose text is
+  really introductory background), is scored `missing` for that step.
+  There is no per-question domain/topic matching against any reference
+  database - the same checklist applies to every question, regardless of
+  subject. Runs first.
 - **Language polishing** - an LLM rewrite, verified by a technical-content
   guardrail (numbers/units, chemical names, crop names, certainty, negation,
   timing, conditions, treatment identity) before it's ever shown. A rewrite
-  is only returned if the guardrail passes.
-- **Structural validation** - matches the question to a Golden Database
-  reference structure (one of 19 domains x Broad/Narrow, a handful of named
-  topics, or a crop-specific variant) and scores the draft's coverage of
-  each expected step.
-
-The two results are always separate objects in the response - never merged.
+  is only returned if the guardrail passes - and, per a team requirement,
+  only attempted at all once structural validation finds every step
+  `covered` (`structuralValidation.status: "complete"`). A draft missing or
+  partially covering a step gets `languagePolishing.status: "skipped"`
+  instead - the step report is the whole answer in that case, so the
+  (slower) rewrite+guardrail call is skipped rather than computed and
+  discarded.
 
 Port `8004`.
 
 ## Features
 
 - **Fail-closed, never a silent pass**: a check that couldn't run reports
-  `not_run`/`unavailable`, never treated as "nothing wrong".
+  `not_run`/`unavailable`/`not_assessed`, never treated as "nothing wrong".
 - **Rejected vs unavailable, kept distinct**: `rejected` means a check
   actually found a difference; `unavailable` means a check couldn't be
   completed (a dependency outage, an uncertain rewrite) - the two look very
@@ -37,16 +50,23 @@ Port `8004`.
 - **Standalone chemical-name check**: matches against the same banned/
   restricted-chemical staging database `apis/chemical_detector` uses, but
   in-process (no HTTP call to that sibling service, no shared failure mode).
-- **Structural coverage scoring**: each expected step is scored
-  `covered`/`partial`/`missing` against the draft, with the reference's own
+- **Structural coverage scoring**: each of the 10 fixed steps is scored
+  `covered`/`partial`/`missing` against the draft, with the checklist's own
   example/suggestion text surfaced only for a step that isn't fully covered
   - never shown on a step that's already covered, never invented.
 - **Section-order checking**: flags a step whose content appears before an
   earlier step's, when both positions can be confidently located.
 - **Deterministic on repeated identical requests**: the same `(question,
-  draft)` always returns the same result within one running instance
-  (`functools.lru_cache` on the two entry points) - a changed draft is a
-  cache miss by construction, so this never serves stale data.
+  draft)` always returns the same result within one running instance - a
+  changed draft is a cache miss by construction, so this never serves stale
+  data. Only cached once every step's winning verdict is *corroborated*
+  (backed by at least 2 of up to 3 agreeing votes) - a result resting on a
+  single surviving vote (the other 1-2 calls failed outright) is still
+  returned, but recomputed on the next identical request instead of
+  sticking a transient-failure answer in place for the life of the process.
+- **One stalled coverage check doesn't fail the whole request**: a step
+  whose check fails even after a retry is reported as `not_assessed` for
+  that step alone - every other step is still scored normally.
 - **Hindi (Devanagari script) support**: a verified, bounded set of
   negation/crop terms and the transliterated "din" (day/days) unit are
   recognized - not full Hindi vocabulary coverage, see Limitations.
@@ -68,47 +88,23 @@ Response:
 {
   "requestId": "e92083db-...",
   "languagePolishing": {
-    "status": "suggested",
-    "suggestedText": "Sheath blight is a disease of paddy. Farmers should spray fungicide when needed.",
-    "reason": null,
-    "guardrail": {
-      "status": "passed",
-      "checkedTokens": {
-        "numbersAndUnits": "n/a",
-        "chemicalNames": "n/a",
-        "certaintyLanguage": "n/a",
-        "negation": "n/a",
-        "cropNames": "n/a",
-        "treatmentIdentity": "n/a",
-        "timing": "n/a",
-        "conditions": "n/a",
-        "sentenceAlignment": "unchanged"
-      },
-      "confirmedChange": false,
-      "details": [],
-      "disclaimer": "These checks reduce the risk of an unintended technical change; they do not prove complete semantic equivalence."
-    }
+    "status": "skipped",
+    "suggestedText": null,
+    "reason": "Structural validation found missing or partial step(s): Introduction, so a polish suggestion was not generated.",
+    "guardrail": null
   },
   "structuralValidation": {
     "status": "incomplete",
-    "matchedReference": {
-      "sourceType": "direct_topic",
-      "domain": "Disease Management",
-      "code": "PDM",
-      "questionType": null,
-      "crop": null
-    },
     "steps": [
       {
         "slNo": 1,
         "step": "Introduction",
         "coverage": "missing",
-        "example": "Sheath Blight (Rhizoctonia solani) is a major paddy disease...",
-        "suggestion1": "Name the disease and causal organism directly per the direct-answer rule.",
+        "example": "States the specific problem or question being addressed and gives a brief overview of the approach the rest of the answer will take.",
+        "suggestion1": "Name the specific issue or topic directly instead of opening with generic background.",
         "suggestion2": null
       }
     ],
-    "clarificationReason": null,
     "orderWarnings": []
   },
   "warnings": [],
@@ -123,6 +119,23 @@ Response:
 | `suggested` | A rewrite passed every guardrail check - safe to show the author. |
 | `rejected` | A check **found** a difference that could change the meaning. `reason` and `guardrail.details` say what. |
 | `unavailable` | A check **could not be completed** (LLM outage, a dependency down, an uncertain rewrite) - nothing was found wrong, it just couldn't be verified. |
+| `skipped` | **Not attempted** - `structuralValidation.status` was not `complete` (a step was `missing`/`partial`/`not_assessed`), so no rewrite was requested. `reason` names the gap steps. Distinct from `unavailable`: this check never ran at all, rather than running and failing. |
+
+`languagePolishing.changes` lists the specific before/after pairs where
+`suggestedText` actually differs from the original draft - the same
+alignment the guardrail checks against (sentence-level within a section,
+falling back to a whole section or whole document on a count mismatch),
+so a caller doesn't have to diff the whole document itself to see what
+changed. Populated only when `status` is `suggested` - `null` otherwise
+(same as `suggestedText` itself never appearing for a rejected/
+unavailable/skipped result). An empty list (`[]`) is a real, meaningful
+value here: the rewrite was generated and shown, but needed no actual
+fix (byte-identical to the original). Example:
+```json
+"changes": [
+  { "before": "Sheath blight are a disease of paddy.", "after": "Sheath blight is a disease of paddy." }
+]
+```
 
 `guardrail.checkedTokens.*` is one of `unchanged` / `changed` / `n/a`
 (nothing of that kind was present to compare) / `not_run` (that layer
@@ -134,36 +147,78 @@ actually found a difference - that's what separates `rejected` from
 
 | Value | Meaning |
 |---|---|
-| `complete` | Every expected step is `covered`. |
-| `partial` | No step is `missing`, but at least one is `partial`. |
-| `incomplete` | At least one expected step is `missing`. |
-| `needs_clarification` | No confident reference match for the question (out of scope, or genuinely ambiguous between two references) - see `clarificationReason`. |
-| `reference_data_unavailable` | The Golden Database itself failed to load - a deploy/config problem, not a question about the draft. |
+| `complete` | Every one of the 10 fixed steps is `covered`. |
+| `partial` | No step is `missing`, but at least one is `partial` or `not_assessed` (see below). |
+| `incomplete` | At least one of the 10 fixed steps is `missing`. |
 
-Each step's `coverage` is `covered` / `partial` / `missing`. `suggestion1`/
-`suggestion2` are only ever populated on a non-`covered` step.
+Each step's `coverage` is `covered` / `partial` / `missing` / `not_assessed`.
+`not_assessed` means every majority-vote call for that one step failed (a
+model timeout) - distinct from `missing` on purpose: it is
+never reported as "confirmed absent", only as "could not be checked". A
+single step's `not_assessed` no longer aborts the whole response; every
+other step is scored normally. `suggestion1`/`suggestion2` are populated
+on any non-`covered` step, `not_assessed` included.
 `orderWarnings` lists a step whose position in the draft comes before an
 earlier step's, only when both positions were confidently located.
 
 ### `GET /health`
 
-Always `200`, even when degraded - a monitoring script can always parse the
-body instead of branching on HTTP status.
+Always `200` - this service has no external data dependency to load at
+startup; the Gemini and chemical-DB dependencies it calls per-request
+already fail closed on their own, per request.
 
 ```json
-{ "status": "ok", "referenceDataLoaded": true, "releaseId": null, "groupsLoaded": 55 }
+{ "status": "ok" }
 ```
-
-`referenceDataLoaded: false` means `/polish-draft` will always return
-`structuralValidation.status: "reference_data_unavailable"` until the next
-deploy/restart - language polishing is unaffected either way.
 
 ## Known behavior and limitations
 
-- **Latency**: one `/polish-draft` call makes several sequential LLM calls
-  (domain classification, one coverage check per expected step, the rewrite
-  itself, a meaning-preservation second opinion) - 10-90+ seconds on a long
-  draft is normal, not a hang.
+- **Latency**: one `/polish-draft` call makes only ~4-5 LLM calls in the
+  common case - one call now scores the *whole* 10-step checklist at
+  once (majority-voted up to 3x at the call level, so ~2-3 calls total,
+  not 30), the rewrite is one whole-document call (not one per section),
+  and the meaning-preservation second opinion checks every changed
+  section in one batched call (not one per section). Falls back to the
+  slower per-section polish path only if the whole-document rewrite call
+  fails outright or returns a mismatched section count. Structured
+  output (`responseSchema`) is used for every JSON-returning call, which
+  live-confirmed eliminates the markdown-fence-wrapping failure mode
+  entirely for those calls. The timeout budgets and concurrency cap below
+  were originally carried over unchanged from the self-hosted MiniMax
+  model this service used before; `_HEDGE_DELAY_SECONDS` has since been
+  re-tuned (to 18s) for the new, heavier-per-call shape, but the timeout/
+  concurrency-cap *values* themselves are still MiniMax-derived starting
+  points, not yet re-validated against sustained real Gemini traffic. A
+  rare single call taking the full configured timeout before failing
+  (hedged after `_HEDGE_DELAY_SECONDS`) is treated as expected,
+  occasional model variance, not a hang to debug.
+- **A hedge/retry shares one deadline with the primary attempt, not a
+  fresh budget of its own**: a hedge fired at `_HEDGE_DELAY_SECONDS` gets
+  only what's left of the call's own configured timeout. Previously a
+  second attempt got a full fresh timeout, so one logical call could
+  stretch to roughly double its configured budget (and, stacked with the
+  structural vote's sequential 3rd call, a single request could approach
+  two minutes on a slow host). A 4xx response (bad key, a malformed
+  request, a 429 quota-exhausted response) is never retried or hedged -
+  an immediate second attempt would fail identically, and retrying a 429
+  specifically would only add load to a quota that's already exhausted.
+- **The structural-coverage timeout scales with the draft's own length**:
+  `classify_all_steps_coverage` scores the whole 10-step checklist
+  against the whole draft in one call, so a longer draft means more for
+  the model to both read and reason about. A fixed budget sized for a
+  typical draft is a guaranteed timeout for a long one, not a transient
+  one - every one of the (up to 3) majority-vote calls sends the same
+  oversized input and hits the identical wall, so a long, otherwise-
+  complete draft would come back `not_assessed` on every step regardless
+  of how many votes ran (live-confirmed: a 7-section draft returned
+  `not_assessed` on all 10 steps after 62.6s under the old fixed budget).
+  The timeout now stays at `GEMINI_COVERAGE_TIMEOUT_SECONDS` for a draft
+  under 1,500 characters (today's typical case, unchanged), scales
+  linearly up to `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` for a draft of
+  4,000+ characters, and the hedge delay scales with it (same 60% ratio
+  the flat default already used) so a call already expected to run long
+  doesn't also fire an early duplicate hedge. Live-verified: a 4,446-char
+  draft of this same shape now completes in 26s under its scaled budget.
 - **Determinism is per-process, not global**: the result cache lives in
   memory on the running instance. It resets on a redeploy/restart, and (if
   ever scaled beyond one instance) is not shared across instances.
@@ -177,14 +232,38 @@ deploy/restart - language polishing is unaffected either way.
   terms are recognized. Most Hindi vocabulary (chemical/treatment terms,
   timing words) is not - a Hindi draft can still be polished, but the
   guardrail's fact-preservation checks will mostly read `n/a` for it.
-- **Structural coverage is semantic, not just lexical** - it uses LLM
-  judgment to recognize equivalent wording, with a deterministic safety net
-  that downgrades a step to `missing` if no section of the draft has real,
-  non-borrowed textual evidence for it. This is a risk-reducing heuristic,
-  not a proof of either coverage or absence.
+- **Structural coverage is entirely LLM judgment** - majority-voted
+  (up to 3x, at the whole-checklist call level) for stability, but not
+  backed by any deterministic keyword/vocabulary check. An earlier version downgraded a step to
+  `missing` when the draft shared no vocabulary with that step's own
+  example text; removed once the checklist became domain-neutral, since
+  a real draft's topic-specific content naturally shares no vocabulary
+  with an abstract, generic step description - live-confirmed that
+  heuristic was wrongly downgrading genuinely-covered steps to `missing`
+  once the checklist stopped being per-topic curated text.
 - **Never claims semantic equivalence** - every guardrail result carries a
   disclaimer: these checks reduce the risk of an unintended technical
   change, they do not prove the rewrite means exactly the same thing.
+- **Negation gets no typo-fix exemption, on purpose**: every other marker
+  category (crop names, timing, conditions, certainty) excuses a presence
+  flip caused by a single-word spelling fix landing on/off a marker word
+  (e.g. "wheet" -> "wheat"). Negation doesn't, because a one-letter edit
+  can reverse an instruction outright ("never" -> "ever", "avoid" ->
+  "void") in a way spelling-similarity alone can't distinguish from a
+  harmless fix - live-confirmed both read as a typo fix to the same
+  check. The accepted cost: a genuine typo that happens to create a
+  negation word (e.g. "Avid" -> "Avoid") is also rejected, where it would
+  previously have passed.
+- **No per-topic reference content**: the 10-step checklist is fixed and
+  domain-neutral by explicit team decision - it does not check for a
+  specific pest/disease/scheme's own technical details, only whether the
+  draft has real, substantive content addressing each generic step.
+- **`/polish-draft` auth is opt-in, off by default**: `WRITING_ASSISTANT_
+  API_KEY` unset means no `X-API-Key` check at all - the same scheme
+  `ai/ajrasakha/tools/answer_shortener` already uses, so a local run or
+  an existing caller needs no change until the key is actually set.
+  `/health` never requires it, even when the key is configured, since a
+  deploy/monitoring probe shouldn't need a secret just to check liveness.
 
 ## Setup
 
@@ -192,12 +271,17 @@ Copy `.env.example` to `.env` and fill in:
 
 | Var | Default | Description |
 |---|---|---|
-| `REFERENCE_DATA_SOURCE` | — | `local` (dev) or `gcs` (prod, not implemented yet). No default - must be set explicitly. |
-| `REFERENCE_DATA_DIR` | — | Only for `local`. Local path to the four Golden Database CSVs. Never commit the real files or this path. |
-| `MINIMAX_BASE_URL` / `MINIMAX_CHAT_PATH` / `MINIMAX_API_KEY` / `MINIMAX_MODEL` | — | Same names used elsewhere in this repo. See `.env.example` for the self-hosted-model (tailnet) vs. public-API values. |
-| `MINIMAX_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. |
-| `TAILSCALE_AUTHKEY` / `TAILSCALE_HOSTNAME` | — / `writing-assistant` | Only needed when `MINIMAX_BASE_URL` is the self-hosted tailnet model. Leave unset to use the public MiniMax API instead - the container boots fine either way (see Deployment below). |
-| `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. |
+| `GEMINI_API_KEY` | — | Required. Team-provided key for the public Gemini API. |
+| `GEMINI_MODEL` | `gemini-3.8-flash` | The model this endpoint calls. |
+| `GEMINI_BASE_URL` | `https://generativelanguage.googleapis.com/v1beta` | Gemini's public REST endpoint - no tailnet/proxy needed, unlike the self-hosted MiniMax model this replaced. |
+| `GEMINI_SEED` | `0` | Fixed seed on every call - reduces, doesn't eliminate, run-to-run model variance. Not yet verified live that Gemini's own seed support has the same effect the old MiniMax client showed. |
+| `GEMINI_TIMEOUT_SECONDS` | `20` | Per-call budget - carried over unchanged from the self-hosted-MiniMax tuning at the team's request. Re-validate against real Gemini traffic. |
+| `GEMINI_COVERAGE_TIMEOUT_SECONDS` | `30` | Floor budget for `classify_all_steps_coverage` (one call scores the whole 10-step checklist, run up to 3x as a call-level majority vote - ~2-3 calls per request, not 30). Used as-is for a draft under 1,500 characters; scales up toward `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` for a longer one. Starting value carried over from the MiniMax tuning. |
+| `GEMINI_COVERAGE_MAX_TIMEOUT_SECONDS` | `70` | Cap the coverage budget scales up to for a draft of 4,000+ characters - see "Known behavior and limitations" above. |
+| `GEMINI_POLISH_TIMEOUT_SECONDS` | `30` | Budget for `generate_polish` (whole-document, with a per-section fallback) and `check_meaning_preserved_batch` (one call per request in the common case). Starting value carried over from the MiniMax tuning. |
+| `GEMINI_MAX_CONCURRENT_CALLS` | `5` | Process-wide cap on real concurrent calls (primary + hedge). Carried over from the MiniMax tuning (derived from that model's own vLLM `/metrics` under load) - has no equivalent evidence behind it for Gemini's own rate limits yet. |
+| `CHEMICAL_DB_URL` / `CHEMICAL_DB_NAME` / `CHEMICAL_COLLECTION_NAME` | — / `agriai` / `crop_master` | Same read-only staging Mongo cluster `apis/chemical_detector` uses - same connection string as that service's `.env`. Unaffected by the Gemini switch. |
+| `WRITING_ASSISTANT_API_KEY` | — (unset = auth off) | Shared secret the caller must send as `X-API-Key` on `/polish-draft` - same opt-in scheme `ai/ajrasakha/tools/answer_shortener` uses for its own `ANSWER_SHORTENER_API_KEY`. `/health` never requires it. |
 
 ## Deployment
 
@@ -205,19 +289,14 @@ The container respects `$PORT` (defaults to `8004` if unset) - required for
 Cloud Run, which injects its own `$PORT` and expects the container to listen
 on it.
 
-Tailscale is optional, set up the same way as `backend/scripts/start.sh`:
-if `TAILSCALE_AUTHKEY` is set, `scripts/start.sh` joins the tailnet before
-starting the server, so `MINIMAX_BASE_URL` can point at the real self-hosted
-model; if it's unset, or `tailscale up` fails or can't reach the control
-plane, it logs that and starts the server anyway (never blocks boot
-indefinitely - bounded to ~60s worst case). Without Tailscale,
-`MINIMAX_BASE_URL` must point at a directly-reachable host (e.g. the public
-MiniMax API).
+No Tailscale/tailnet setup is needed - Gemini's public API is directly
+reachable over HTTPS, so `scripts/start.sh` just starts Uvicorn directly.
+(The previous self-hosted MiniMax model needed a tailnet to reach its
+100.x address; that setup has been removed along with the client.)
 
-`REFERENCE_DATA_SOURCE=gcs` is not implemented yet (see `.env.example`) -
-production should use `REFERENCE_DATA_SOURCE=local` with the four Golden
-Database CSVs mounted into the container (e.g. a Secret Manager volume
-mount on Cloud Run) and `REFERENCE_DATA_DIR` pointed at that mount path.
+No reference data needs to be mounted or provisioned - structural
+validation uses one fixed, built-in checklist (`structural_validator.
+FIXED_STEPS`), not an external Golden Database.
 
 ## Running it locally
 

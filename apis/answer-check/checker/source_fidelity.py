@@ -509,8 +509,11 @@ as the same: 1 acre is 0.4047 hectare (so 2 kg/acre is about 5 kg/ha and
 40 kg/acre is about 100 kg/ha), 1 kg is 1000 g, 1 L is 1000 ml.
 Use FAIL only when the source text clearly contradicts a specific claim, or
 names a different chemical/formulation than the answer states for the same
-usage. Use NOT_EVALUATED when the source doesn't cover the relevant topic
-at all, making comparison impossible. Use PASS when every checked claim is
+usage. Use WRONG_SOURCE when the cited text is about a different crop than
+the answer, or supports none of the answer's chemical/dose claims (the
+citation does not back the answer); list those claims in unsupported_claims.
+Use NOT_EVALUATED only when the source supports some claims and simply does
+not mention the others (for example spray-water volumes). Use PASS when every checked claim is
 supported, or the answer makes no checkable chemical/dose/formulation claim.
 The first character of your response must be {{ and the last character }}."""
 
@@ -518,7 +521,7 @@ The first character of your response must be {{ and the last character }}."""
 def _valid_fidelity_response(result: Any) -> bool:
     return (
         isinstance(result, dict)
-        and result.get("status") in {PASS, FAIL, NOT_EVALUATED}
+        and result.get("status") in {PASS, FAIL, NOT_EVALUATED, WRONG_SOURCE}
         and isinstance(result.get("detail"), str)
     )
 
@@ -564,6 +567,8 @@ def _remaining_claims(result: dict[str, Any], source_texts: list[dict[str, str]]
 
 
 FAIL_RECHECKS = 2
+# the model's answer when the cited page does not back the answer at all (another crop or topic)
+WRONG_SOURCE = "WRONG_SOURCE"
 
 
 def _verify_failure(
@@ -583,7 +588,7 @@ def _verify_failure(
             again = call_llm(prompt, _valid_fidelity_response)
         except LLMCallFailed:
             continue
-        if again["status"] == FAIL and (not again.get("unsupported_claims") or _remaining_claims(again, source_texts)):
+        if again["status"] in (FAIL, WRONG_SOURCE) and (not again.get("unsupported_claims") or _remaining_claims(again, source_texts)):
             failures += 1
     if failures < 2:
         return {
@@ -644,8 +649,21 @@ def check_source_fidelity(context: AnswerContext) -> dict[str, Any]:
         return error_result(
             "Source-fidelity check could not be evaluated because the model call failed",
         )
-    if result["status"] == FAIL:
-        result = _verify_failure(result, prompt, source_texts)
+    wrong_source = result["status"] == WRONG_SOURCE
+    if wrong_source and not cited_any_page:
+        # with no page cited, the passages may come from other crops, so the citation cannot be judged
+        return not_applicable_result(
+            "No page is cited, and the passages found elsewhere in the document do not cover "
+            "these claims, so the citation cannot be judged (see page_number_present): " + result["detail"],
+            source_origin="self_cited",
+            checked_claims=result.get("checked_claims", []),
+            unsupported_claims=result.get("unsupported_claims", []),
+        )
+    if result["status"] in (FAIL, WRONG_SOURCE):
+        # a wrong citation is a failure too, and is confirmed the same way (2 of 3 runs agree)
+        result = _verify_failure({**result, "status": FAIL}, prompt, source_texts)
+        if wrong_source and result["status"] == FAIL:
+            result["detail"] = "The cited page does not support the answer's doses or chemicals: " + result["detail"]
 
     extra_fields = dict(
         source_origin=source_origin,
