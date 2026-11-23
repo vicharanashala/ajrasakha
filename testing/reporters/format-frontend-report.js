@@ -24,14 +24,37 @@ export function generateFrontendReport(buildSuccess, tscOutput) {
     moduleCount,
     bundleSize,
     tscStatus: buildSuccess ? 'PASS' : 'FAIL',
-    errorCount: 0,
-    errors: [],
+    totalErrors: 0,
+    contractErrors: [],
+    hygieneErrors: [],
+    otherErrors: [],
   };
 
   if (!buildSuccess && tscOutput) {
-    const errorLines = tscOutput.split('\n').filter(l => l.includes('error TS'));
-    report.errorCount = errorLines.length;
-    report.errors = errorLines.slice(0, 10);
+    const errorLines = tscOutput.split('\n')
+      .map(l => l.trim())
+      .filter(l => l.includes('error TS'));
+
+    report.totalErrors = errorLines.length;
+
+    for (const line of errorLines) {
+      if (line.includes('error TS6133')) {
+        // Unused variable
+        report.hygieneErrors.push(line);
+      } else if (
+        line.includes('error TS2322') || // Type not assignable
+        line.includes('error TS2339') || // Property does not exist
+        line.includes('error TS2345') || // Argument type not assignable
+        line.includes('error TS2551') || // Did you mean ...
+        line.includes('error TS2538') || // Type cannot be used as index
+        line.includes('error TS7006') || // Implicit any parameter
+        line.includes('error TS7031')    // Binding element implicit any
+      ) {
+        report.contractErrors.push(line);
+      } else {
+        report.otherErrors.push(line);
+      }
+    }
   }
 
   return report;
@@ -40,19 +63,29 @@ export function generateFrontendReport(buildSuccess, tscOutput) {
 export function writeFrontendMarkdown(report, outputPath) {
   let md = `# Layer 1: Reviewer Frontend (Vite + React) Build & Typecheck Report\n\n`;
   md += `**Vite Asset Bundler:** ${report.viteBundle === 'PASS' ? '🟢 PASSED' : '🔴 FAILED'} (${report.moduleCount} modules transformed)  \n`;
-  md += `**TypeScript Compiler (tsc):** ${report.tscStatus === 'PASS' ? '🟢 PASSED (0 Errors)' : `🔴 FAILED (${report.errorCount} Errors Detected)`}  \n`;
+  md += `**TypeScript Compiler (tsc):** ${report.tscStatus === 'PASS' ? '🟢 PASSED (0 Errors)' : `🔴 FAILED (${report.totalErrors} Diagnostics Detected)`}  \n`;
   md += `**Overall Gate Status:** ${report.tscStatus === 'PASS' && report.viteBundle === 'PASS' ? '🟢 FRONTEND VERIFIED (100%)' : '🔴 TYPECHECK REGRESSIONS DETECTED'}\n\n`;
 
   md += `## Build & Verification Breakdown\n\n`;
   md += `| Pipeline Stage | Tool | Expected Outcome | Observed Status | Details |\n`;
   md += `| :--- | :---: | :--- | :---: | :--- |\n`;
   md += `| **Production Asset Bundling** | Vite 6 | Minified SPA distribution in \`dist/\` | ${report.viteBundle === 'PASS' ? '🟢 PASS' : '🔴 FAIL'} | Generated ${report.bundleSize} |\n`;
-  md += `| **Strict Typecheck Gate** | \`tsc\` | Zero TypeScript compiler diagnostics | ${report.tscStatus === 'PASS' ? '🟢 PASS' : '🔴 FAIL'} | ${report.tscStatus === 'PASS' ? 'All types satisfied' : `${report.errorCount} type mismatch diagnostics`} |\n`;
+  md += `| **Data Contracts & Types** | \`tsc\` | Strict interface and schema compliance | ${report.contractErrors.length === 0 ? '🟢 PASS' : '🔴 FAIL'} | ${report.contractErrors.length === 0 ? 'All types satisfied' : `${report.contractErrors.length} type/contract mismatches`} |\n`;
+  md += `| **Compiler Hygiene (\`noUnusedLocals\`)** | \`tsc\` | Zero dead code or unreferenced variables | ${report.hygieneErrors.length === 0 ? '🟢 PASS' : '🟡 WARN'} | ${report.hygieneErrors.length === 0 ? 'Clean scope' : `${report.hygieneErrors.length} unused variables blocking build`} |\n`;
 
-  if (report.errors.length > 0) {
-    md += `\n### Detected TypeScript Diagnostics (Top ${report.errors.length})\n\n`;
+  if (report.contractErrors.length > 0) {
+    md += `\n### 🔴 Contract & Interface Type Mismatches (Top ${Math.min(report.contractErrors.length, 10)})\n\n`;
+    md += `> These represent actual data shape differences or missing properties that can cause runtime exceptions.\n\n`;
     md += '```text\n';
-    md += report.errors.join('\n');
+    md += report.contractErrors.slice(0, 10).join('\n');
+    md += '\n```\n';
+  }
+
+  if (report.hygieneErrors.length > 0) {
+    md += `\n### 🟡 Unused Variable Diagnostics (Top ${Math.min(report.hygieneErrors.length, 10)})\n\n`;
+    md += `> Triggered by \`"noUnusedLocals": true\` in \`tsconfig.json\`. These must be removed or prefixed with \`_\` to allow production bundling.\n\n`;
+    md += '```text\n';
+    md += report.hygieneErrors.slice(0, 10).join('\n');
     md += '\n```\n';
   }
 
@@ -74,7 +107,30 @@ export function writeFrontendMarkdown(report, outputPath) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const report = generateFrontendReport(true, '');
+  const logArg = process.argv[2];
+  let tscLog = '';
+  let buildSuccess = true;
+
+  const candidatePaths = [
+    logArg,
+    path.join(rootDir, 'frontend/reports/frontend-build.log'),
+    path.join(rootDir, 'frontend/reports/tsc-build.log'),
+  ].filter(Boolean);
+
+  for (const cp of candidatePaths) {
+    const resolved = path.isAbsolute(cp) ? cp : path.resolve(rootDir, cp);
+    if (fs.existsSync(resolved)) {
+      tscLog = fs.readFileSync(resolved, 'utf8');
+      break;
+    }
+  }
+
+  const errorLines = tscLog.split('\n').filter(l => l.includes('error TS'));
+  if (errorLines.length > 0) {
+    buildSuccess = false;
+  }
+
+  const report = generateFrontendReport(buildSuccess, tscLog);
   const md = writeFrontendMarkdown(report, path.join(rootDir, 'frontend/reports/frontend-verification-report.md'));
   console.log(md);
 }

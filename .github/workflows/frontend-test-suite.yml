@@ -50,8 +50,17 @@ jobs:
       - name: Build & Typecheck Frontend
         id: build_frontend
         working-directory: frontend
-        run: pnpm run build
+        continue-on-error: true
+        run: |
+          mkdir -p reports
+          pnpm run build 2>&1 | tee reports/frontend-build.log
 
       - name: Generate Frontend Build Report
         if: always()
-        run: node testing/reporters/format-frontend-report.js
+        run: node testing/reporters/format-frontend-report.js frontend/reports/frontend-build.log
+
+      - name: Enforce Frontend Quality Gate
+        if: steps.build_frontend.outcome != 'success'
+        run: |
+          echo "Frontend quality gate failed due to TypeScript typecheck or build errors."
+          exit 1
