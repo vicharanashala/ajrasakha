@@ -20,7 +20,7 @@ on:
           - answer_check
           - agriculture_classifier
           - weather_apis
-          - mandi_apis
+          - writing_assistant
 
 permissions:
   contents: read
@@ -184,14 +184,14 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:${{ github.sha }}
 
-      - name: Build & Push mandi_apis
-        if: github.event.inputs.target_api == 'mandi_apis'
+      - name: Build & Push writing_assistant
+        if: github.event.inputs.target_api == 'writing_assistant'
         uses: docker/build-push-action@v5
         with:
-          context: ./apis/mandi_apis
-          file: ./apis/mandi_apis/Dockerfile
+          context: ./apis/writing_assistant
+          file: ./apis/writing_assistant/Dockerfile
           push: true
           platforms: linux/amd64
           tags: |
-            ${{ secrets.DOCKERHUB_USERNAME }}/mandi_apis:latest
-            ${{ secrets.DOCKERHUB_USERNAME }}/mandi_apis:${{ github.sha }}
+            ${{ secrets.DOCKERHUB_USERNAME }}/writing_assistant:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/writing_assistant:${{ github.sha }}
