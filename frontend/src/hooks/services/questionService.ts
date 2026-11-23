@@ -155,15 +155,14 @@ export interface IRdqaCheckJobStatus {
 /** Backend response structure for RDQA endpoint */
 export type RdqaQuestionsResponse = {
   date: string;
-  limit: number;
-  totalModerators: number;
-  questionsPerModerator: number;
+  page: number;
+  pageSize: number;
+  totalPages: number;
   totalQuestions: number;
   moderatorDistribution: Array<{
     approvedBy: string;
     approvedByEmail?: string;
     totalAvailable: number;
-    selectedCount: number;
   }>;
   questions: RdqaQuestion[];
 };
@@ -1295,10 +1294,10 @@ export class QuestionService {
   }
 
   /** RDQA review - fetch finalized questions from a specific date */
-  async getRdqaQuestions(date?: string, limit?: number): Promise<RdqaQuestionsResponse> {
+  async getRdqaQuestions(date?: string, page = 1): Promise<RdqaQuestionsResponse> {
     const params = new URLSearchParams();
     if (date) params.append("date", date);
-    if (limit) params.append("limit", String(limit));
+    params.append("page", String(page));
     const queryString = params.toString();
     const url = queryString
       ? `${this._baseUrl}/list/rdqa?${queryString}`
@@ -1307,9 +1306,9 @@ export class QuestionService {
     // Return the full response object including metadata
     return response?.data ?? {
       date: date || "",
-      limit: limit || 12,
-      totalModerators: 0,
-      questionsPerModerator: 0,
+      page,
+      pageSize: 12,
+      totalPages: 0,
       totalQuestions: 0,
       moderatorDistribution: [],
       questions: [],

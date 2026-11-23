@@ -3374,22 +3374,18 @@ export class QuestionService extends BaseService implements IQuestionService {
   /**
    * Get finalized questions for RDQA (Review Data Quality Assessment).
    *
-   * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
-   * Questions are distributed equally among moderators based on their approvedBy field.
-   * Each moderator gets the same number of questions (minimum available count among all moderators).
-   * A maximum limit of questions is enforced (defaults to 50, max 50).
+   * Retrieves all finalized questions closed on a specified date, newest first.
    */
-  async getRdqaQuestions(date?: string, limit?: number): Promise<{
+  async getRdqaQuestions(date?: string, page = 1): Promise<{
     date: string;
-    limit: number;
-    totalModerators: number;
-    questionsPerModerator: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
     totalQuestions: number;
     moderatorDistribution: Array<{
       approvedBy: string;
       approvedByEmail?: string;
       totalAvailable: number;
-      selectedCount: number;
     }>;
     questions: Array<{
       question: any;
@@ -3413,21 +3409,15 @@ export class QuestionService extends BaseService implements IQuestionService {
       dateString = targetDate.toISOString().split('T')[0];
     }
 
-    // Determine the effective limit (default 50, max 50)
-    const MAX_LIMIT = 50;
-    const effectiveLimit = Math.min(limit ?? MAX_LIMIT, MAX_LIMIT);
-
     // Calculate date range for the full day (00:00:00 to 23:59:59.999)
     const startOfDay = new Date(targetDate);
     startOfDay.setHours(0, 0, 0, 0);
     const endOfDay = new Date(targetDate);
     endOfDay.setHours(23, 59, 59, 999);
 
-    // Aggregate to find finalized answers and their questions closed on the target date
+    // Retrieve every finalized answer whose question closed on the target date.
     const pipeline = [
-      // Match finalized answers
       { $match: { isFinalAnswer: true } },
-      // Lookup the associated question
       {
         $lookup: {
           from: 'questions',
@@ -3436,181 +3426,82 @@ export class QuestionService extends BaseService implements IQuestionService {
           as: 'questionDoc',
         },
       },
-      // Unwind the question array
       { $unwind: { path: '$questionDoc', preserveNullAndEmptyArrays: false } },
-      // Filter questions closed on the target date and with 'closed' status
       {
         $match: {
           'questionDoc.closedAt': { $gte: startOfDay, $lte: endOfDay },
           'questionDoc.status': 'closed',
         },
       },
-      // Group by approvedBy moderator
       {
-        $group: {
-          _id: '$approvedBy',
-          totalAvailable: { $sum: 1 },
-          answerIds: { $push: '$_id' },
-          questionIds: { $push: '$questionId' },
+        $facet: {
+          total: [{ $count: 'count' }],
+          moderatorCounts: [
+            { $match: { approvedBy: { $ne: null } } },
+            { $group: { _id: '$approvedBy', totalAvailable: { $sum: 1 } } },
+          ],
+          questions: [
+            { $sort: { 'questionDoc.closedAt': -1, _id: 1 } },
+            { $skip: (Math.max(1, page) - 1) * 12 },
+            { $limit: 12 },
+            {
+              $lookup: {
+                from: 'rdqa_checks',
+                let: { ansId: '$_id', lastChkId: '$lastCheckId' },
+                pipeline: [
+                  { $match: { $expr: { $or: [{ $eq: ['$_id', '$$lastChkId'] }, { $eq: ['$answerId', '$$ansId'] }] } } },
+                  { $sort: { checkedAt: -1 } },
+                  { $limit: 1 },
+                ],
+                as: 'checkDoc',
+              },
+            },
+            { $addFields: { latestCheck: { $arrayElemAt: ['$checkDoc', 0] } } },
+            {
+              $project: {
+          _id: 1, approvedBy: 1, questionId: 1, authorId: 1, answerIteration: 1,
+          isFinalAnswer: 1, answer: 1, sources: 1, status: 1, remarks: 1,
+          modifications: 1, threshold: 1, approvalCount: 1, createdAt: 1,
+          updatedAt: 1, lastCheckId: 1,
+          checks: { $ifNull: ['$latestCheck.checks', '$checks', []] },
+          flags: { $ifNull: ['$latestCheck.flags', '$flags', []] },
+          notEvaluated: { $ifNull: ['$latestCheck.notEvaluated', '$notEvaluated', []] },
+          checkedAt: { $ifNull: ['$latestCheck.checkedAt', '$checkedAt', null] },
+          question: {
+            _id: '$questionDoc._id', question: '$questionDoc.question',
+            status: '$questionDoc.status', details: '$questionDoc.details',
+            userId: '$questionDoc.userId', context: '$questionDoc.context',
+            source: '$questionDoc.source', closedAt: '$questionDoc.closedAt',
+            passedAt: '$questionDoc.passedAt', isClosed: '$questionDoc.isClosed',
+            isAutoAllocate: '$questionDoc.isAutoAllocate', saved_to_draft: '$questionDoc.saved_to_draft',
+            pae_review: '$questionDoc.pae_review', createdAt: '$questionDoc.createdAt',
+            updatedAt: '$questionDoc.updatedAt', totalAnswersCount: '$questionDoc.totalAnswersCount',
+            priority: '$questionDoc.priority', metrics: '$questionDoc.metrics', text: '$questionDoc.text',
+            rdqaCheckedAt: { $ifNull: ['$latestCheck.checkedAt', '$questionDoc.rdqaCheckedAt', null] },
+          },
+              },
+            },
+          ],
         },
       },
-      // Sort by moderator _id for deterministic order
-      { $sort: { _id: 1 } },
     ];
 
-    const moderatorGroups = await this.answerRepo.aggregate(pipeline);
-
-    // Handle empty results
-    if (!moderatorGroups || moderatorGroups.length === 0) {
-      return {
-        date: dateString,
-        limit: effectiveLimit,
-        totalModerators: 0,
-        questionsPerModerator: 0,
-        totalQuestions: 0,
-        moderatorDistribution: [],
-        questions: [],
-      };
-    }
-
-    // Filter out moderators with null/empty approvedBy
-    const validModerators = moderatorGroups.filter(m => m._id != null);
-
-    if (validModerators.length === 0) {
-      return {
-        date: dateString,
-        limit: effectiveLimit,
-        totalModerators: 0,
-        questionsPerModerator: 0,
-        totalQuestions: 0,
-        moderatorDistribution: [],
-        questions: [],
-      };
-    }
-
-    // Calculate max questions per moderator considering the global limit
-    // Each moderator gets equal questions, but we must respect the total limit
-    const minPerModerator = Math.min(...validModerators.map(m => m.totalAvailable));
-    const totalPotentialQuestions = validModerators.length * minPerModerator;
-    const distributedCount = Math.min(effectiveLimit, totalPotentialQuestions);
-    const questionsPerModerator = Math.max(1, Math.floor(distributedCount / validModerators.length));
-
-    // Build moderator distribution info with user emails
-    const moderatorIds = validModerators.map(m => m._id.toString()).filter(Boolean);
+    const [result = { questions: [], moderatorCounts: [], total: [] }] = await this.answerRepo.aggregate(pipeline);
+    const pairs = result.questions || [];
+    const counts = result.moderatorCounts || [];
+    const moderatorIds = counts.map((entry: any) => entry._id?.toString()).filter(Boolean);
     const moderatorUsers = moderatorIds.length
       ? await this.userRepo.getUsersByIds(moderatorIds, undefined, { email: 1 })
       : [];
     const moderatorEmailMap = new Map(moderatorUsers.map(u => [u._id.toString(), u.email]));
 
-    const moderatorDistribution = validModerators.map(m => ({
-      approvedBy: m._id.toString(),
-      approvedByEmail: moderatorEmailMap.get(m._id.toString()) || undefined,
-      totalAvailable: m.totalAvailable,
-      selectedCount: Math.min(questionsPerModerator, m.totalAvailable),
+    const moderatorDistribution = counts.map((entry: any) => ({
+      approvedBy: entry._id.toString(),
+      approvedByEmail: moderatorEmailMap.get(entry._id.toString()) || undefined,
+      totalAvailable: entry.totalAvailable,
     }));
-
-    // Fetch and select questions for each moderator (sorted by closedAt for consistency)
     const selectedQuestions: Array<{ question: any; answer: any }> = [];
-    let remainingLimit = distributedCount;
-
-    for (const moderator of validModerators) {
-      // Calculate how many questions this moderator can contribute
-      const questionsForThisModerator = Math.min(questionsPerModerator, moderator.totalAvailable, remainingLimit);
-      if (questionsForThisModerator <= 0) break;
-
-      const questionAnswerPairs: Array<{ question: any; answer: any }> = [];
-
-      // Fetch question-answer pairs for this moderator
-      const answerPipeline = [
-        { $match: { _id: { $in: moderator.answerIds } } },
-        // Sort by question's closedAt (descending) then by _id for deterministic order
-        {
-          $lookup: {
-            from: 'questions',
-            localField: 'questionId',
-            foreignField: '_id',
-            as: 'questionDoc',
-          },
-        },
-        { $unwind: '$questionDoc' },
-        {
-          $lookup: {
-            from: 'rdqa_checks',
-            let: { ansId: '$_id', lastChkId: '$lastCheckId' },
-            pipeline: [
-              {
-                $match: {
-                  $expr: {
-                    $or: [
-                      { $eq: ['$_id', '$$lastChkId'] },
-                      { $eq: ['$answerId', '$$ansId'] },
-                    ],
-                  },
-                },
-              },
-              { $sort: { checkedAt: -1 } },
-              { $limit: 1 },
-            ],
-            as: 'checkDoc',
-          },
-        },
-        {
-          $addFields: {
-            latestCheck: { $arrayElemAt: ['$checkDoc', 0] },
-          },
-        },
-        { $sort: { 'questionDoc.closedAt': 1, _id: 1 } },
-        {
-          $project: {
-            _id: 1,
-            approvedBy: 1,
-            questionId: 1,
-            authorId: 1,
-            answerIteration: 1,
-            isFinalAnswer: 1,
-            answer: 1,
-            sources: 1,
-            status: 1,
-            remarks: 1,
-            modifications: 1,
-            threshold: 1,
-            approvalCount: 1,
-            createdAt: 1,
-            updatedAt: 1,
-            lastCheckId: 1,
-            checks: { $ifNull: ['$latestCheck.checks', '$checks', []] },
-            flags: { $ifNull: ['$latestCheck.flags', '$flags', []] },
-            notEvaluated: { $ifNull: ['$latestCheck.notEvaluated', '$notEvaluated', []] },
-            checkedAt: { $ifNull: ['$latestCheck.checkedAt', '$checkedAt', null] },
-            question: {
-              _id: '$questionDoc._id',
-              question: '$questionDoc.question',
-              status: '$questionDoc.status',
-              details: '$questionDoc.details',
-              userId: '$questionDoc.userId',
-              context: '$questionDoc.context',
-              source: '$questionDoc.source',
-              closedAt: '$questionDoc.closedAt',
-              passedAt: '$questionDoc.passedAt',
-              isClosed: '$questionDoc.isClosed',
-              isAutoAllocate: '$questionDoc.isAutoAllocate',
-              saved_to_draft: '$questionDoc.saved_to_draft',
-              pae_review: '$questionDoc.pae_review',
-              createdAt: '$questionDoc.createdAt',
-              updatedAt: '$questionDoc.updatedAt',
-              totalAnswersCount: '$questionDoc.totalAnswersCount',
-              priority: '$questionDoc.priority',
-              metrics: '$questionDoc.metrics',
-              text: '$questionDoc.text',
-              rdqaCheckedAt: { $ifNull: ['$latestCheck.checkedAt', '$questionDoc.rdqaCheckedAt', null] },
-            },
-          },
-        },
-      ];
-
-      const pairs = await this.answerRepo.aggregate(answerPipeline);
-
-      for (const pair of pairs) {
+    for (const pair of pairs) {
         // Convert Buffer ObjectId fields to strings
         const processedQuestion = pair.question
           ? {
@@ -3665,18 +3556,10 @@ export class QuestionService extends BaseService implements IQuestionService {
           checkedAt: pair.checkedAt || null,
         };
 
-        questionAnswerPairs.push({
+        selectedQuestions.push({
           question: processedQuestion,
           answer: processedAnswer,
         });
-      }
-
-      // Take the limited number of items
-      const selectedForModerator = questionAnswerPairs.slice(0, questionsForThisModerator);
-      selectedQuestions.push(...selectedForModerator);
-      remainingLimit -= selectedForModerator.length;
-
-      if (remainingLimit <= 0) break;
     }
 
     // Look up user emails for all user IDs in selected questions
@@ -3709,10 +3592,10 @@ export class QuestionService extends BaseService implements IQuestionService {
 
     return {
       date: dateString,
-      limit: effectiveLimit,
-      totalModerators: validModerators.length,
-      questionsPerModerator,
-      totalQuestions: selectedQuestions.length,
+      page: Math.max(1, page),
+      pageSize: 12,
+      totalPages: Math.ceil((result.total?.[0]?.count || 0) / 12),
+      totalQuestions: result.total?.[0]?.count || 0,
       moderatorDistribution,
       questions: questionsWithEmails,
     };

@@ -1063,24 +1063,21 @@ export interface IQuestionService {
    * Get finalized questions for RDQA (Review Data Quality Assessment).
    *
    * Retrieves questions closed on a specified date that have finalized answers (isFinalAnswer: true).
-   * Questions are distributed equally among moderators based on their approvedBy field.
-   * Each moderator gets the same number of questions (minimum available count among all moderators).
-   * A maximum limit of questions is enforced (defaults to 50, max 50).
+   * Returns all finalized questions closed on the requested date, newest first.
    *
    * @param date - Optional date string (YYYY-MM-DD). Defaults to yesterday.
-   * @param limit - Optional maximum number of questions to return. Defaults to 50. Maximum is 50.
-   * @returns Object containing the date, moderator statistics, and selected questions with answers
+   * @returns Object containing the date, moderator counts, and questions with answers
    */
-  getRdqaQuestions(date?: string, limit?: number): Promise<{
+  getRdqaQuestions(date?: string, page?: number): Promise<{
     date: string;
-    limit: number;
-    totalModerators: number;
-    questionsPerModerator: number;
+    page: number;
+    pageSize: number;
+    totalPages: number;
     totalQuestions: number;
     moderatorDistribution: Array<{
       approvedBy: string;
+      approvedByEmail?: string;
       totalAvailable: number;
-      selectedCount: number;
     }>;
     questions: Array<{
       question: any;
