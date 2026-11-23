@@ -1,4 +1,5 @@
-import { createLogger, format, transports } from 'winston';
+import crypto from 'crypto';
+import { logger } from '#root/utils/logger.js';
 import {
   IsArray,
   IsDefined,
@@ -18,21 +19,15 @@ import { Request, Response } from 'express';
 import { JSONSchema } from 'class-validator-jsonschema';
 import { Type } from 'class-transformer';
 
-const logger = createLogger({
-  level: 'info',
-  format: format.combine(format.timestamp(), format.prettyPrint()),
-  transports: [
-    new transports.File({ filename: 'error.log', level: 'error' }),
-  ],
-});
-
 export class ErrorResponse<T> {
   message: string;
   errors?: T;
+  errorId?: string;
 
-  constructor(message: string, errors?: T) {
+  constructor(message: string, errors?: T, errorId?: string) {
     if (errors) this.errors = errors;
     this.message = message;
+    if (errorId) this.errorId = errorId;
   }
 }
 
@@ -122,11 +117,23 @@ class BadRequestErrorResponse {
 @Middleware({ type: 'after' })
 export class HttpErrorHandler implements ExpressErrorMiddlewareInterface {
   error(error: any, request: Request, response: Response): void {
+    const statusCode = error.httpCode || 500;
+    const isServerError = statusCode >= 500;
+    // Generate unique incident errorId strictly for 5xx server errors
+    const errorId = isServerError
+      ? `err_${Date.now().toString(36)}_${crypto.randomBytes(3).toString('hex')}`
+      : undefined;
+
     logger.error({
-      message: error.message,
+      message: error.message || 'Unhandled error',
+      errorId,
       errors: error.errors,
       stack: error.stack,
-      status: error.httpCode || 500,
+      statusCode,
+      url: request.originalUrl || request.url,
+      method: request.method,
+      ip: request.socket.remoteAddress || '-',
+      callId: (request as any).callId || request.headers['x-call-id'],
     });
 
     if (response.headersSent) {
@@ -154,17 +161,17 @@ export class HttpErrorHandler implements ExpressErrorMiddlewareInterface {
           );
       } else {
         response
-          .status(error.httpCode)
-          .json(new ErrorResponse<null>(error.message, null));
+          .status(statusCode)
+          .json(new ErrorResponse<null>(error.message, null, isServerError ? errorId : undefined));
       }
     } else if (error instanceof Error) {
       response.status(500).json(
-        new ErrorResponse<null>(error.message, null)
+        new ErrorResponse<null>(error.message, null, errorId)
       );
     } else {
       response
         .status(500)
-        .json(new ErrorResponse<null>('An unexpected error occurred.', null));
+        .json(new ErrorResponse<null>('An unexpected error occurred.', null, errorId));
     }
   }
 }

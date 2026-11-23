@@ -35,15 +35,9 @@ import { StorageService } from '#root/modules/storage/services/StorageService.js
 import { STORAGE_TYPES } from '#root/modules/storage/types.js';
 import { BsnlSmsService } from '#root/modules/sms/services/BsnlSmsService.js';
 import { SMS_TYPES } from '#root/modules/sms/types.js';
-
-function maskPhone(phoneStr: string): string {
-  if (!phoneStr) return '';
-  const digitsOnly = phoneStr.replace(/\D/g, '');
-  if (digitsOnly.length <= 3) return phoneStr;
-  const last3 = digitsOnly.slice(-3);
-  const maskedPrefix = '*'.repeat(digitsOnly.length - 3);
-  return maskedPrefix + last3;
-}
+import { logger, maskPhone } from '#root/utils/logger.js';
+import { sendEmailNotification, getCronNotificationEmails } from '#root/utils/mailer.js';
+import { buildCronTestEmailTemplate } from '#root/utils/cronEmailTemplates.js';
 
 function stripMarkdown(text: string): string {
   if (!text) return '';
@@ -200,7 +194,13 @@ export class PlivoController {
         }
 
         if (!agentUser) {
-          console.error(`❌ [PLIVO-CONTROLLER] Refusing outbound call ${callUuid} because no agent could be verified.`);
+          logger.warn({
+            stage: 'CALL_ROUTING',
+            callUuid,
+            callerNumber: maskPhone(callerNumber),
+            destination: maskPhone(destination),
+            message: `Refusing outbound call ${callUuid} because no agent could be verified`,
+          });
           const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <Response>
   <Speak voice="MAN" language="en-US">Agent identity could not be verified for outbound call.</Speak>
@@ -250,8 +250,16 @@ export class PlivoController {
             updatedAt: new Date(),
           });
           console.log(`✅ [PLIVO-CONTROLLER] [T=0s] Created initial call_details document for outbound call ${callUuid}`);
-        } catch (dbErr) {
-          console.error(`❌ [PLIVO-CONTROLLER] Failed to create call_details at T=0s for outbound call ${callUuid}:`, dbErr);
+        } catch (dbErr: any) {
+          logger.error({
+            stage: 'CALL_PERSISTENCE',
+            callUuid,
+            agentUserId: agentUser._id?.toString(),
+            agentNumber: agentUser.agent,
+            message: `Failed to create call_details at T=0s for outbound call ${callUuid}: ${dbErr.message}`,
+            error: dbErr.message,
+            stack: dbErr.stack,
+          });
         }
 
         console.log(`✅ [PLIVO-CONTROLLER] Outbound call ${callUuid} to ${destination} registered for agent ${agentUser.agent || 'unknown'}`);
@@ -316,8 +324,16 @@ export class PlivoController {
             updatedAt: new Date(),
           });
           console.log(`✅ [PLIVO-CONTROLLER] [T=0s] Created initial call_details document for inbound call ${callUuid} (agent: ${agentNumber})`);
-        } catch (dbErr) {
-          console.error(`❌ [PLIVO-CONTROLLER] Failed to create call_details at T=0s for inbound call ${callUuid}:`, dbErr);
+        } catch (dbErr: any) {
+          logger.error({
+            stage: 'CALL_PERSISTENCE',
+            callUuid,
+            agentUserId: availableAgent._id?.toString(),
+            agentNumber,
+            message: `Failed to create call_details at T=0s for inbound call ${callUuid}: ${dbErr.message}`,
+            error: dbErr.message,
+            stack: dbErr.stack,
+          });
         }
 
         // console.log(`✅ [PLIVO-CONTROLLER] Assigned agent ${agentNumber} (userId=${availableAgent._id}, endpoint=${endpointUser}) to call ${callUuid}`);
@@ -325,7 +341,13 @@ export class PlivoController {
       } else {
         endpointUser = '';
         fallbackMessage = 'All agents are busy. Please call back later.';
-        console.warn(`⚠️ [PLIVO-CONTROLLER] No available agents for call ${callUuid}. Caller: ${callerNumber}`);
+        logger.warn({
+          stage: 'CALL_ROUTING',
+          callUuid,
+          callerNumber: maskPhone(callerNumber),
+          message: `No available agents for call ${callUuid}`,
+          status: 'all_agents_busy',
+        });
         this.plivoService.registerCall(callUuid, {
           from: callerNumber,
           to: myPlivoNumber,
@@ -401,13 +423,29 @@ export class PlivoController {
       res.set('Content-Type', 'text/xml');
       return res.send(xml);
     } catch (error: any) {
-      console.error('❌ [PLIVO-CONTROLLER] Error in answer endpoint:', error);
+      logger.error({
+        stage: 'CALL_ROUTING',
+        callUuid: req.body?.CallUUID || req.query?.CallUUID,
+        callerNumber: maskPhone(req.body?.From || req.query?.From),
+        agentUserId: availableAgent?._id?.toString(),
+        agentNumber: availableAgent?.agent,
+        message: `Error in answer endpoint: ${error.message}`,
+        error: error.message,
+        stack: error.stack,
+      });
       if (availableAgent) {
         try {
           console.log(`♻️ [PLIVO-CONTROLLER] Releasing agent ${availableAgent._id} due to answer endpoint error`);
           await this.agentAssignmentService.markAgentAsAvailable(availableAgent._id.toString());
-        } catch (releaseError) {
-          console.error(`❌ [PLIVO-CONTROLLER] Failed to release agent ${availableAgent._id} after error:`, releaseError);
+        } catch (releaseError: any) {
+          logger.error({
+            stage: 'AGENT_LIFECYCLE',
+            callUuid: req.body?.CallUUID || req.query?.CallUUID,
+            agentUserId: availableAgent._id.toString(),
+            message: `Failed to release agent ${availableAgent._id} after error: ${releaseError.message}`,
+            error: releaseError.message,
+            stack: releaseError.stack,
+          });
         }
       }
       res.set('Content-Type', 'text/plain');
@@ -510,7 +548,14 @@ export class PlivoController {
           await this.callDetailsRepository.addRecordingToCall(callUuid, recordingItem);
           console.log(`✅ [PLIVO-CONTROLLER] Successfully stored recording for call ${callUuid} in MongoDB & Storage.`);
         } catch (uploadError: any) {
-          console.error(`❌ [PLIVO-CONTROLLER] Failed to stream recording for ${callUuid} to storage:`, uploadError);
+          logger.error({
+            stage: 'CALL_RECORDING',
+            callUuid,
+            recordingId,
+            message: `Failed to stream recording for ${callUuid} to storage: ${uploadError.message}`,
+            error: uploadError.message,
+            stack: uploadError.stack,
+          });
           try {
             const failedItem: CallRecording = {
               recordingId: recordingId || `rec_${Date.now()}`,
@@ -533,7 +578,13 @@ export class PlivoController {
 
       return res;
     } catch (error: any) {
-      console.error('❌ [PLIVO-CONTROLLER] Error in record webhook handler:', error);
+      logger.error({
+        stage: 'CALL_RECORDING',
+        callUuid: req.body?.CallUUID || req.query?.CallUUID,
+        message: `Error in record webhook handler: ${error.message}`,
+        error: error.message,
+        stack: error.stack,
+      });
       if (!res.headersSent) {
         return res.status(500).send('Internal Server Error');
       }
@@ -966,8 +1017,15 @@ export class PlivoController {
             }
             this.plivoService.markCallTerminalStatus(callUuid, targetStatus);
           }
-        } catch (dbErr) {
-          console.error(`❌ [DIAL-ACTION] Failed to persist call ${callUuid} in DB:`, dbErr);
+        } catch (dbErr: any) {
+          logger.error({
+            stage: 'CALL_PERSISTENCE',
+            callUuid,
+            agentUserId,
+            message: `Failed to persist call ${callUuid} in DB during dial-action: ${dbErr.message}`,
+            error: dbErr.message,
+            stack: dbErr.stack,
+          });
         }
 
         // Always ensure agent is freed if dial attempt did not connect
@@ -986,8 +1044,15 @@ export class PlivoController {
         // 1. Free agent so they are not stuck in isBusy
         try {
           await this.agentAssignmentService.markAgentAsAvailable(agentUserId);
-        } catch (mErr) {
-          console.warn(`Failed to mark agent ${agentUserId} available in dial-action:`, mErr);
+        } catch (mErr: any) {
+          logger.error({
+            stage: 'AGENT_LIFECYCLE',
+            callUuid,
+            agentUserId,
+            message: `Failed to mark agent ${agentUserId} available in dial-action: ${mErr.message}`,
+            error: mErr.message,
+            stack: mErr.stack,
+          });
         }
 
         // 2. Push real-time alert to agent screen and buffer for heartbeat
@@ -1038,7 +1103,13 @@ export class PlivoController {
       res.set('Content-Type', 'text/xml');
       return res.send('<Response><Hangup /></Response>');
     } catch (error: any) {
-      console.error('❌ [PLIVO-CONTROLLER] Error in dial-action handler:', error);
+      logger.error({
+        stage: 'CALL_ROUTING',
+        callUuid: req.body?.DialALegUUID || req.body?.CallUUID,
+        message: `Error in dial-action handler: ${error.message}`,
+        error: error.message,
+        stack: error.stack,
+      });
       res.set('Content-Type', 'text/xml');
       return res.send('<Response><Hangup /></Response>');
     }
@@ -1840,5 +1911,29 @@ export class PlivoController {
     }
     const deleted = await this.plivoCredentialsRepository.deleteCredential(agentNumber.trim());
     return { success: deleted };
+  }
+
+  @Post('/cron/test-email')
+  @HttpCode(200)
+  @Authorized()
+  @OpenAPI({ summary: 'Trigger a test cron alert email to verify Zoho SMTP delivery' })
+  async triggerTestCronEmail(@CurrentUser() currentUser: IUser): Promise<any> {
+    if (currentUser?.role !== 'admin' && !currentUser?.Call_centre_manager) {
+      throw new ForbiddenError('Only an admin or Call Centre Manager can trigger a test cron email');
+    }
+    const recipients = getCronNotificationEmails();
+    if (!recipients || recipients.length === 0) {
+      throw new BadRequestError('No cron notification email configured in .env (CRON_NOTIFICATION_EMAIL / NOTIFICATION_EMAIL)');
+    }
+    const template = buildCronTestEmailTemplate(recipients.join(', '));
+    const sent = await sendEmailNotification(recipients, template.subject, template.text, template.html);
+    return {
+      success: sent,
+      recipients,
+      timestamp: new Date().toISOString(),
+      message: sent
+        ? `Test email dispatched successfully to ${recipients.join(', ')}`
+        : 'Failed to dispatch test email. Check server logs for SMTP errors.',
+    };
   }
 }

@@ -9,6 +9,11 @@ import type { ICallDetailsRepository } from '#shared/database/interfaces/ICallDe
 import type { IUserRepository } from '#shared/database/interfaces/IUserRepository.js';
 import { getFromContainer } from 'routing-controllers';
 import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
+import { logger, maskPhone } from '#root/utils/logger.js';
+
+// Debounce audio transcription errors to max 1 log per 10 seconds per call
+const lastAudioErrorMap = new Map<string, number>();
+const AUDIO_ERROR_DEBOUNCE_MS = 20000;
 
 export const initWebSocket = (server: Server) => {
   const wss = new WebSocketServer({
@@ -117,8 +122,14 @@ export const initWebSocket = (server: Server) => {
             });
           }
         }
-      } catch (finalChunkError) {
-        console.error('Final chunk processing failed:', finalChunkError);
+      } catch (finalChunkError: any) {
+        logger.error({
+          stage: 'CALL_STREAMING',
+          callUuid: callId.toString(),
+          message: 'Final chunk processing failed',
+          error: finalChunkError.message,
+          stack: finalChunkError.stack,
+        });
       }
 
       try {
@@ -153,8 +164,14 @@ export const initWebSocket = (server: Server) => {
           },
           timestamp: new Date().toISOString()
         });
-      } catch (finalError) {
-        console.error('Final transcript failed:', finalError);
+      } catch (finalError: any) {
+        logger.error({
+          stage: 'CALL_STREAMING',
+          callUuid: callId.toString(),
+          message: 'Final transcript failed',
+          error: finalError.message,
+          stack: finalError.stack,
+        });
       }
 
       let agentUserId = plivoService.getCallAgent(callId.toString());
@@ -177,22 +194,43 @@ export const initWebSocket = (server: Server) => {
 
       try {
         await plivoService.saveCallDetails(callId.toString());
-      } catch (saveError) {
-        console.error('❌ [WEBSOCKET] Failed to save call details:', saveError);
+      } catch (saveError: any) {
+        logger.error({
+          stage: 'CALL_PERSISTENCE',
+          callUuid: callId.toString(),
+          agentUserId,
+          message: 'Failed to save call details at call end',
+          error: saveError.message,
+          stack: saveError.stack,
+        });
       } finally {
         try {
           plivoService.clearTranscript(callId.toString());
-        } catch (clearError) {
-          console.error('❌ [WEBSOCKET] Failed to clear transcript:', clearError);
+        } catch (clearError: any) {
+          logger.error({
+            stage: 'CALL_STREAMING',
+            callUuid: callId.toString(),
+            message: 'Failed to clear transcript',
+            error: clearError.message,
+            stack: clearError.stack,
+          });
         }
+        lastAudioErrorMap.delete(callId.toString());
       }
 
       if (agentUserId) {
         try {
           console.log(`♻️ [WEBSOCKET] Marking agent ${agentUserId} as available (call ended)`);
           await userService.markAgentAsAvailable(agentUserId);
-        } catch (error) {
-          console.error(`❌ [WEBSOCKET] Failed to mark agent ${agentUserId} as available:`, error);
+        } catch (error: any) {
+          logger.error({
+            stage: 'AGENT_LIFECYCLE',
+            callUuid: callId.toString(),
+            agentUserId,
+            message: `Failed to mark agent ${agentUserId} as available (call ended)`,
+            error: error.message,
+            stack: error.stack,
+          });
         }
       } else {
         console.log(`⚠️ [WEBSOCKET] No agent mapped to call ${callId.toString()}`);
@@ -256,8 +294,14 @@ export const initWebSocket = (server: Server) => {
               } else {
                 console.warn(`⚠️ [WEBSOCKET] Could not recover agent from DB for call ${callId}`);
               }
-            } catch (dbFallbackErr) {
-              console.error(`❌ [WEBSOCKET] Error during DB fallback agent recovery for call ${callId}:`, dbFallbackErr);
+            } catch (dbFallbackErr: any) {
+              logger.error({
+                stage: 'CALL_STREAMING',
+                callUuid: callId.toString(),
+                message: `Error during DB fallback agent recovery for call ${callId}`,
+                error: dbFallbackErr.message,
+                stack: dbFallbackErr.stack,
+              });
             }
           }
 
@@ -288,8 +332,20 @@ export const initWebSocket = (server: Server) => {
           const audioBuffer = Buffer.from(msg.media.payload, 'base64');
           // audioChunks.push(audioBuffer); // Commented out unused buffer
           const track = msg.media.track || 'inbound';
-          plivoService.transcribeAudio(audioBuffer, callId, track).catch((transcribeError) => {
-            console.error('[BACKEND] transcribeAudio failed:', transcribeError);
+          plivoService.transcribeAudio(audioBuffer, callId, track).catch((transcribeError: any) => {
+            const now = Date.now();
+            const lastLogTime = lastAudioErrorMap.get(callId.toString()) || 0;
+            if (now - lastLogTime >= AUDIO_ERROR_DEBOUNCE_MS) {
+              lastAudioErrorMap.set(callId.toString(), now);
+              logger.error({
+                stage: 'CALL_STREAMING',
+                callUuid: callId.toString(),
+                track,
+                message: 'Audio transcription failed during call streaming',
+                error: transcribeError.message,
+                stack: transcribeError.stack,
+              });
+            }
             sendTargeted(callId, {
               type: 'transcription_error',
               callId,
@@ -320,8 +376,14 @@ export const initWebSocket = (server: Server) => {
       }
     });
 
-    ws.on('error', (err) => {
-      console.error('WS Error:', err);
+    ws.on('error', (err: any) => {
+      logger.error({
+        stage: 'CALL_STREAMING',
+        callUuid: callId.toString(),
+        message: 'WebSocket stream error',
+        error: err.message,
+        stack: err.stack,
+      });
     });
   });
 };

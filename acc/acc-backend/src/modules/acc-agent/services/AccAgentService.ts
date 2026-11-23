@@ -3,6 +3,7 @@ import axios, { AxiosInstance } from 'axios';
 import { InternalServerError } from 'routing-controllers';
 import { SocksProxyAgent } from 'socks-proxy-agent';
 import { aiConfig } from '../../../config/ai.js';
+import { logger } from '#root/utils/logger.js';
 
 @injectable()
 export class AccAgentService {
@@ -44,10 +45,17 @@ export class AccAgentService {
         throw new InternalServerError('Invalid response from ACC Agent API: missing thread_id');
       }
 
-      console.log(`[AccAgentService] Thread created: ${response.data.thread_id} (${Date.now() - startTime}ms)`);
+      // console.log(`[AccAgentService] Thread created: ${response.data.thread_id} (${Date.now() - startTime}ms)`);
       return response.data;
-    } catch (error) {
-      console.error(`[AccAgentService] createThread failed after ${Date.now() - startTime}ms:`, error);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_EXTRACTION',
+        durationMs: Date.now() - startTime,
+        message: `createThread failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       throw new InternalServerError('Failed to create ACC Agent thread');
     }
   }
@@ -87,7 +95,7 @@ export class AccAgentService {
     const startTime = Date.now();
     const api = this.createAxiosInstance();
     try {
-      console.log(`[AccAgentService] Extracting data (${extractionType || 'all'}) from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
+      // console.log(`[AccAgentService] Extracting data (${extractionType || 'all'}) from transcript for thread ${threadId} (transcript length: ${transcript.length})`);
       const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
@@ -162,11 +170,19 @@ export class AccAgentService {
         extracted_highest_education: data.extracted_highest_education || data.extracted_highest_educated || '',
         extracted_smartphones_at_home: data.extracted_smartphones_at_home !== undefined && data.extracted_smartphones_at_home !== null ? Number(data.extracted_smartphones_at_home) : undefined,
       };
-      console.log(`📋 [EXTRACTION_DATA] (AccAgentService) Raw extraction output for thread ${threadId}:`, data);
-      console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): queries=${extractedQueries?.length || 0}, query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
+      // console.log(`📋 [EXTRACTION_DATA] (AccAgentService) Raw extraction output for thread ${threadId}:`, data);
+      // console.log(`✅ [AccAgentService] Data extracted for thread ${threadId} (${Date.now() - startTime}ms): queries=${extractedQueries?.length || 0}, query="${result.extracted_query}", crop="${result.extracted_crop}", domain="${JSON.stringify(result.extracted_domain)}"`);
       return result;
-    } catch (error) {
-      console.error(`❌ [AccAgentService] extractData failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_EXTRACTION',
+        threadId,
+        durationMs: Date.now() - startTime,
+        message: `extractData failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       throw new InternalServerError('Failed to extract data from transcript using ACC Agent');
     }
   }
@@ -208,7 +224,7 @@ export class AccAgentService {
     const startTime = Date.now();
     const api = this.createAxiosInstance();
     try {
-      console.log(`🔄 [AccAgentService] Updating state for thread ${threadId}: query="${correctedData.query}", crop="${correctedData.crop}", domain="${JSON.stringify(correctedData.domain)}"`);
+      // console.log(`🔄 [AccAgentService] Updating state for thread ${threadId}: query="${correctedData.query}", crop="${correctedData.crop}", domain="${JSON.stringify(correctedData.domain)}"`);
       const domainsArray = Array.isArray(correctedData.domain)
         ? correctedData.domain
         : typeof correctedData.domain === 'string' && correctedData.domain
@@ -217,17 +233,17 @@ export class AccAgentService {
 
       const extractedQueries = correctedData.queries && correctedData.queries.length > 0
         ? correctedData.queries.map(q => ({
-            query: q.query,
-            crop: q.crop !== undefined ? q.crop : (correctedData.crop || null),
-            standardized_domains: Array.isArray(q.standardized_domains) ? q.standardized_domains : domainsArray,
-          }))
+          query: q.query,
+          crop: q.crop !== undefined ? q.crop : (correctedData.crop || null),
+          standardized_domains: Array.isArray(q.standardized_domains) ? q.standardized_domains : domainsArray,
+        }))
         : [
-            {
-              query: correctedData.query,
-              crop: correctedData.crop || null,
-              standardized_domains: domainsArray,
-            },
-          ];
+          {
+            query: correctedData.query,
+            crop: correctedData.crop || null,
+            standardized_domains: domainsArray,
+          },
+        ];
 
       const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/state`,
@@ -264,12 +280,20 @@ export class AccAgentService {
       const checkpointId = response.data?.checkpoint?.checkpoint_id || response.data?.checkpoint_id;
       if (checkpointId) {
         this.checkpointCache.set(threadId, checkpointId);
-        console.log(`💾 [AccAgentService] Cached checkpoint ${checkpointId} for thread ${threadId}`);
+        // console.log(`💾 [AccAgentService] Cached checkpoint ${checkpointId} for thread ${threadId}`);
       }
 
-      console.log(`✅ [AccAgentService] State updated for thread ${threadId} (${Date.now() - startTime}ms)`);
-    } catch (error) {
-      console.error(`❌ [AccAgentService] updateState failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
+      // console.log(`✅ [AccAgentService] State updated for thread ${threadId} (${Date.now() - startTime}ms)`);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_EXTRACTION',
+        threadId,
+        durationMs: Date.now() - startTime,
+        message: `updateState failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       throw new InternalServerError('Failed to update ACC Agent thread state');
     }
   }
@@ -278,7 +302,7 @@ export class AccAgentService {
     if (this.checkpointCache.has(threadId)) {
       const cached = this.checkpointCache.get(threadId);
       this.checkpointCache.delete(threadId);
-      console.log(`[AccAgentService] Using cached checkpoint ${cached} for thread ${threadId}`);
+      // console.log(`[AccAgentService] Using cached checkpoint ${cached} for thread ${threadId}`);
       return cached;
     }
 
@@ -295,7 +319,7 @@ export class AccAgentService {
       const checkpointId = response.data?.checkpoint?.checkpoint_id || response.data?.checkpoint_id;
       if (checkpointId) return checkpointId;
     } catch (e: any) {
-      console.warn(`[AccAgentService] GET /state failed, trying POST fallback: ${e.message}`);
+      // console.warn(`[AccAgentService] GET /state failed, trying POST fallback: ${e.message}`);
     }
 
     try {
@@ -309,8 +333,15 @@ export class AccAgentService {
         }
       );
       return response.data?.checkpoint?.checkpoint_id || response.data?.checkpoint_id;
-    } catch (error) {
-      console.error('[AccAgentService] checkpointId: Error calling LangGraph API', error);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_EXTRACTION',
+        threadId,
+        message: `checkpointId failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       return undefined;
     }
   }
@@ -323,7 +354,7 @@ export class AccAgentService {
     const checkpointId = await this.checkpointId(threadId);
     const api = this.createAxiosInstance();
     try {
-      console.log(`[AccAgentService] Resuming thread ${threadId} (checkpoint: ${checkpointId})`);
+      // console.log(`[AccAgentService] Resuming thread ${threadId} (checkpoint: ${checkpointId})`);
       const response = await api.post(
         `${this.BASE_URL}/threads/${threadId}/runs/wait`,
         {
@@ -359,12 +390,20 @@ export class AccAgentService {
       } catch (e) {
       }
 
-      console.log(`✅ [AccAgentService] Got final answer for thread ${threadId} (${Date.now() - startTime}ms, answer length: ${typeof finalAnswer === 'string' ? finalAnswer.length : 0})`);
+      // console.log(`✅ [AccAgentService] Got final answer for thread ${threadId} (${Date.now() - startTime}ms, answer length: ${typeof finalAnswer === 'string' ? finalAnswer.length : 0})`);
       return {
         final_answer: typeof finalAnswer === 'string' ? finalAnswer : '',
       };
-    } catch (error) {
-      console.error(`❌ [AccAgentService] resumeAndGetAnswer failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_GENERATION',
+        threadId,
+        durationMs: Date.now() - startTime,
+        message: `resumeAndGetAnswer failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       throw new InternalServerError('Failed to get final answer from ACC Agent');
     }
   }
@@ -376,7 +415,7 @@ export class AccAgentService {
     const startTime = Date.now();
     const api = this.createAxiosInstance();
     try {
-      console.log(`🔄 [AccAgentService] Getting thread state for ${threadId}`);
+      // console.log(`🔄 [AccAgentService] Getting thread state for ${threadId}`);
       const response = await api.get(
         `${this.BASE_URL}/threads/${threadId}/state`,
         {
@@ -413,10 +452,18 @@ export class AccAgentService {
           }
         }
       }
-      console.log(`✅ [AccAgentService] Got thread state for ${threadId} (${Date.now() - startTime}ms)`);
+      // console.log(`✅ [AccAgentService] Got thread state for ${threadId} (${Date.now() - startTime}ms)`);
       return data;
-    } catch (error) {
-      console.error(`❌ [AccAgentService] getThreadState failed for thread ${threadId} after ${Date.now() - startTime}ms:`, error);
+    } catch (error: any) {
+      logger.error({
+        stage: 'AI_EXTRACTION',
+        threadId,
+        durationMs: Date.now() - startTime,
+        message: `getThreadState failed: ${error.message}`,
+        statusCode: error.response?.status,
+        code: error.code,
+        stack: error.stack,
+      });
       throw new InternalServerError('Failed to fetch ACC Agent thread state');
     }
   }

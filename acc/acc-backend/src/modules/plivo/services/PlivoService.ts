@@ -10,6 +10,7 @@ import axios, { AxiosInstance } from 'axios';
 import { ObjectId } from 'mongodb';
 import { PLIVO_TYPES } from '../types.js';
 import type { ICallDetailsRepository, CallTranscriptMessage } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import { logger } from '#root/utils/logger.js';
 
 
 interface WsSession {
@@ -903,8 +904,16 @@ export class PlivoService {
         await this.callDetailsRepository.create(callDetails);
         console.log(`✅ [PLIVO-SERVICE] Saved new call details for ${callUuid} to database (status: ${status}).`);
       }
-    } catch (err) {
-      console.error(`❌ [PLIVO-SERVICE] Error saving call details for ${callUuid}:`, err);
+    } catch (err: any) {
+      logger.error({
+        stage: 'CALL_PERSISTENCE',
+        callUuid,
+        agentUserId: this.getCallAgent(callUuid),
+        message: `Error saving call details for ${callUuid}: ${err.message}`,
+        error: err.message,
+        stack: err.stack,
+      });
+      throw err;
     }
   }
 

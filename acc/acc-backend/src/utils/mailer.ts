@@ -16,6 +16,21 @@ export function getNotificationEmails(): string[] {
 }
 
 /**
+ * Parse CRON_NOTIFICATION_EMAIL env var into a list of email addresses,
+ * falling back to getNotificationEmails() if not configured.
+ */
+export function getCronNotificationEmails(): string[] {
+  const cronEmail = emailConfig.CRON_NOTIFICATION_EMAIL || '';
+  if (cronEmail.trim()) {
+    return cronEmail
+      .split(',')
+      .map((email) => email.trim())
+      .filter(Boolean);
+  }
+  return getNotificationEmails();
+}
+
+/**
  * Send email notification matching the HuggingFace Sync email service pattern.
  *
  * @param email - Target email address, list of emails, or omit/null to send to NOTIFICATION_EMAIL.

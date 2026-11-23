@@ -6,6 +6,9 @@ import { STORAGE_TYPES } from '#root/modules/storage/types.js';
 import { StorageService } from '#root/modules/storage/services/StorageService.js';
 import { appConfig } from '#root/config/app.js';
 import type { ICallDetailsRepository, CallRecording } from '#shared/database/interfaces/ICallDetailsRepository.js';
+import { sendEmailNotification, getCronNotificationEmails } from '#root/utils/mailer.js';
+import { buildCronFailureEmailTemplate, buildCronWeeklyDigestEmailTemplate } from '#root/utils/cronEmailTemplates.js';
+import { logger } from '#root/utils/logger.js';
 
 /**
  * Scheduled daily job running at 02:00 AM.
@@ -14,6 +17,14 @@ import type { ICallDetailsRepository, CallRecording } from '#shared/database/int
  * Ensures 100% recording retention, zero cross-call mismatch, and $0.00 Plivo storage cost.
  */
 export async function runPlivoDailyJob(): Promise<void> {
+  const startTime = Date.now();
+  const errors: string[] = [];
+  let totalSynced = 0;
+  let totalPurged = 0;
+  let totalAlreadyDeleted = 0;
+  let totalNoPlivoRecording = 0;
+  let callsMissingCount = 0;
+
   console.log('<<CRON>> Starting Plivo daily recording sync and cleanup job...');
   try {
     const authId = process.env.PLIVO_AUTH_ID || appConfig.plivo.authId;
@@ -37,6 +48,7 @@ export async function runPlivoDailyJob(): Promise<void> {
     // =========================================================================
     console.log(`<<CRON>> [PHASE 1] Scanning for calls in past 20 days missing recordings (since ${twentyDaysAgo.toISOString()})...`);
     const callsMissingRecordings = await callDetailsRepository.findCallsMissingRecordings(twentyDaysAgo);
+    callsMissingCount = callsMissingRecordings.length;
     console.log(`<<CRON>> [PHASE 1] Found ${callsMissingRecordings.length} calls eligible for recording retrieval.`);
 
     for (const call of callsMissingRecordings) {
@@ -71,6 +83,7 @@ export async function runPlivoDailyJob(): Promise<void> {
               updatedAt: new Date(),
             };
             await callDetailsRepository.addRecordingToCall(callUuid, noRecItem);
+            totalNoPlivoRecording++;
           }
           continue;
         }
@@ -82,6 +95,7 @@ export async function runPlivoDailyJob(): Promise<void> {
 
         if (!recordUrl || !recordingId) {
           console.warn(`⚠️ <<CRON>> [PHASE 1] Recording for ${callUuid} is missing URL or recordingId. Skipping.`);
+          errors.push(`[PHASE 1] Call ${callUuid}: recording missing URL or ID`);
           continue;
         }
 
@@ -126,9 +140,11 @@ export async function runPlivoDailyJob(): Promise<void> {
         };
 
         await callDetailsRepository.addRecordingToCall(callUuid, recordingItem);
+        totalSynced++;
         console.log(`✅ <<CRON>> [PHASE 1] Successfully stored recording for call ${callUuid} in GCP & MongoDB.`);
       } catch (callRecErr: any) {
         console.error(`❌ <<CRON>> [PHASE 1] Failed to process recording for call ${callUuid}:`, callRecErr.message || callRecErr);
+        errors.push(`[PHASE 1] Call ${callUuid}: ${callRecErr.message || callRecErr}`);
       }
 
       // Small pacing delay (150ms) to respect Plivo REST API rate limits
@@ -181,6 +197,7 @@ export async function runPlivoDailyJob(): Promise<void> {
 
           if (!recordUrl) {
             console.error(`⚠️ <<CRON>> [PHASE 2] Cannot upload recording ${recordingId} for ${callUuid}: no URL. Skipping deletion to prevent loss.`);
+            errors.push(`[PHASE 2] Cannot upload recording ${recordingId} for ${callUuid}: no URL`);
             continue;
           }
 
@@ -222,20 +239,104 @@ export async function runPlivoDailyJob(): Promise<void> {
         console.log(`<<CRON>> [PHASE 2] Deleting Plivo recording ${recordingId} for call ${callUuid}...`);
         await plivoClient.recordings.delete(recordingId);
         await callDetailsRepository.markPlivoRecordingDeleted(callUuid, recordingId);
+        totalPurged++;
         console.log(`✅ <<CRON>> [PHASE 2] Deleted recording ${recordingId} from Plivo.`);
       } catch (err: any) {
         if (err.status === 404 || err.message?.includes('404') || err.message?.includes('not found')) {
           await callDetailsRepository.markPlivoRecordingDeleted(callUuid, recordingId);
+          totalAlreadyDeleted++;
           console.log(`ℹ️ <<CRON>> [PHASE 2] Recording ${recordingId} not found on Plivo (already deleted). Marked locally.`);
         } else {
           console.error(`❌ <<CRON>> [PHASE 2] Error processing recording ${recordingId} for call ${callUuid}:`, err.message || err);
+          errors.push(`[PHASE 2] Error processing recording ${recordingId} for call ${callUuid}: ${err.message || err}`);
         }
       }
     }
 
-    console.log('✅ <<CRON>> Finished Plivo daily recording sync and cleanup job.');
+    const durationMs = Date.now() - startTime;
+    console.log(`✅ <<CRON>> Finished Plivo daily recording sync and cleanup job (${(durationMs / 1000).toFixed(1)}s).`);
+
+    if (errors.length > 0) {
+      console.log(`🚨 <<CRON>> Job completed with ${errors.length} error(s). Dispatching failure alert email...`);
+      try {
+        const recipients = getCronNotificationEmails();
+        const template = buildCronFailureEmailTemplate({
+          jobName: 'Plivo Daily Recording Sync & Cleanup',
+          durationMs,
+          error: `${errors.length} error(s) occurred during daily recording cleanup`,
+          errorsCount: errors.length,
+          failedItems: errors.slice(0, 20),
+        });
+        await sendEmailNotification(recipients, template.subject, template.text, template.html);
+      } catch (mailErr: any) {
+        console.error('❌ <<CRON>> Failed to send failure alert email:', mailErr.message || mailErr);
+      }
+      logger.error({
+        stage: 'CRON_JOB',
+        job: 'plivoRecordingCleanup',
+        message: `Plivo daily recording job completed with ${errors.length} errors`,
+        errorsCount: errors.length,
+        durationMs,
+      });
+    } else {
+      logger.info({
+        stage: 'CRON_JOB',
+        job: 'plivoRecordingCleanup',
+        message: 'Plivo daily recording job completed successfully with 0 errors',
+        totalSynced,
+        totalPurged,
+        totalAlreadyDeleted,
+        totalNoPlivoRecording,
+        durationMs,
+      });
+
+      // On Sunday morning (now.getDay() === 0), send Sunday weekly digest email
+      if (now.getDay() === 0) {
+        console.log('📊 <<CRON>> Today is Sunday. Dispatching weekly health digest email...');
+        try {
+          const recipients = getCronNotificationEmails();
+          const template = buildCronWeeklyDigestEmailTemplate({
+            jobName: 'Plivo Daily Recording Sync & Cleanup',
+            totalEligible: callsMissingCount,
+            totalSynced,
+            totalPurged,
+            totalAlreadyDeleted,
+            totalNoPlivoRecording,
+            durationMs,
+          });
+          await sendEmailNotification(recipients, template.subject, template.text, template.html);
+        } catch (mailErr: any) {
+          console.error('❌ <<CRON>> Failed to send weekly digest email:', mailErr.message || mailErr);
+        }
+      } else {
+        console.log('✅ <<CRON>> Daily run succeeded with zero errors. Silent success (no email sent).');
+      }
+    }
   } catch (error: any) {
-    console.error('❌ <<CRON>> Error in Plivo daily recording job:', error.stack || error);
+    const durationMs = Date.now() - startTime;
+    console.error('❌ <<CRON>> Fatal error in Plivo daily recording job:', error.stack || error);
+    logger.error({
+      stage: 'CRON_JOB',
+      job: 'plivoRecordingCleanup',
+      message: `Fatal error in Plivo daily recording job: ${error.message}`,
+      error: error.message,
+      stack: error.stack,
+      durationMs,
+    });
+    try {
+      const recipients = getCronNotificationEmails();
+      const template = buildCronFailureEmailTemplate({
+        jobName: 'Plivo Daily Recording Sync & Cleanup',
+        durationMs,
+        error: `Fatal crash: ${error.message || error}`,
+        stack: error.stack,
+        errorsCount: 1,
+        failedItems: [error.message || String(error)],
+      });
+      await sendEmailNotification(recipients, template.subject, template.text, template.html);
+    } catch (mailErr: any) {
+      console.error('❌ <<CRON>> Failed to send fatal crash alert email:', mailErr.message || mailErr);
+    }
   }
 }
 
