@@ -60,7 +60,7 @@ jobs:
         run: node testing/reporters/format-frontend-report.js frontend/reports/frontend-build.log
 
       - name: Enforce Frontend Quality Gate
-        if: steps.build_frontend.outcome != 'success'
+        if: always() && steps.build_frontend.outcome != 'success'
         run: |
           echo "Frontend quality gate failed due to TypeScript typecheck or build errors."
           exit 1
