@@ -1,0 +1,7 @@
+.env
+__pycache__/
+.git
+.venv/
+.pytest_cache/
+*.pdf
+test_api.py

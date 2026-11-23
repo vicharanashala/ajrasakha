@@ -20,6 +20,7 @@ on:
           - answer_check
           - agriculture_classifier
           - weather_apis
+          - mandi_apis
 
 permissions:
   contents: read
@@ -182,3 +183,15 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:${{ github.sha }}
+
+      - name: Build & Push mandi_apis
+        if: github.event.inputs.target_api == 'mandi_apis'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/mandi_apis
+          file: ./apis/mandi_apis/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/mandi_apis:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/mandi_apis:${{ github.sha }}
