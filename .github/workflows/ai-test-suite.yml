@@ -52,4 +52,9 @@ jobs:
 
       - name: Run Agent Unit & Gate Tests
         run: |
-          pytest ai/ajrasakha/agents/tests -v --maxfail=5 || echo "Some tests require full LangGraph environment; verified runnable syntax."
+          mkdir -p ai/reports
+          pytest ai/ajrasakha/agents/tests -v --junitxml=ai/reports/pytest-report.xml --maxfail=5 || echo "Some tests require full LangGraph environment; verified runnable syntax."
+
+      - name: Generate AI Agents Report to Job Summary
+        if: always()
+        run: python testing/reporters/format-ai-report.py

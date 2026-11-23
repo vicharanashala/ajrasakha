@@ -52,12 +52,11 @@ jobs:
             fi
           done
 
-      - name: Publish MCP Test Status to Job Summary
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Generate Detailed MCP Verification Report
         if: always()
-        run: |
-          echo "### Layer 1: Model Context Protocol (MCP) Validation" >> $GITHUB_STEP_SUMMARY
-          echo "" >> $GITHUB_STEP_SUMMARY
-          echo "| Check | Status | Details |" >> $GITHUB_STEP_SUMMARY
-          echo "| :--- | :---: | :--- |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Python Syntax Compilation** | 🟢 PASSED | Verified across all 11 MCP server modules |" >> $GITHUB_STEP_SUMMARY
-          echo "| **Container Dockerfile Syntax** | 🟢 PASSED | Validated Buildx instruction parsing |" >> $GITHUB_STEP_SUMMARY
+        run: node testing/reporters/format-mcp-report.js

@@ -48,5 +48,10 @@ jobs:
         run: pnpm install --no-frozen-lockfile
 
       - name: Build & Typecheck Frontend
+        id: build_frontend
         working-directory: frontend
         run: pnpm run build
+
+      - name: Generate Frontend Build Report
+        if: always()
+        run: node testing/reporters/format-frontend-report.js

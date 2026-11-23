@@ -50,3 +50,7 @@ jobs:
       - name: Build & Typecheck Reviewer Backend
         working-directory: backend
         run: pnpm run build
+
+      - name: Generate Backend Verification Report
+        if: always()
+        run: node testing/reporters/format-backend-report.js
