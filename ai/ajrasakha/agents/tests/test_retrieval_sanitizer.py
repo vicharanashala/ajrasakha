@@ -96,7 +96,7 @@ def test_route_no_gdb_with_weather_goes_to_assemble_answer_body():
     assert route_after_execute(state) == "assemble_answer_body"
 
 
-def test_route_gdb_and_weather_to_empty_gdb():
+def test_route_gdb_and_weather_to_assemble_answer_body():
     data = _gdb_payload(is_exact=True, is_similar=False)
     data["exact_match"] = {"question": "Q", "answer": "Expert wheat guide."}
     state = _state_with_gdb(data)
@@ -104,7 +104,7 @@ def test_route_gdb_and_weather_to_empty_gdb():
         AIMessage(content="", tool_calls=[{"id": "call_w", "name": "weather", "args": {}}]),
         ToolMessage(content="Forecast: rain", tool_call_id="call_w", name="weather"),
     ])
-    assert route_after_execute(state) == "empty_gdb_reply"
+    assert route_after_execute(state) == "assemble_answer_body"
 
 
 def test_route_skip_synthesize_goes_to_translate_answer():
