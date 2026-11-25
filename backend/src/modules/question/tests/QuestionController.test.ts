@@ -24,6 +24,7 @@ describe('Question Controllers Modular Refactoring', () => {
     sendOutReachQuestionsMail: vi.fn(),
     bulkDeleteQuestions: vi.fn(),
     checkSubmissionExists: vi.fn(),
+    holdQuestion: vi.fn(),
     getQuestionById: vi.fn(),
     getQuestionFullData: vi.fn(),
     updateQuestion: vi.fn(),
@@ -159,6 +160,120 @@ describe('Question Controllers Modular Refactoring', () => {
     expect(typeof controller.holdQuestion).toBe('function');
     expect(typeof controller.generateAiInitialAnswer).toBe('function');
     expect(typeof controller.approveInitialAnswer).toBe('function');
+  });
+
+  it('records the previous allocation in QUESTION_HOLD audit trails', async () => {
+    const assignedAt = new Date('2026-11-25T10:00:00.000Z');
+    const holdAt = new Date('2026-11-25T10:30:00.000Z');
+    const previousAllocation = {
+      expertId: '507f1f77bcf86cd799439011',
+      name: 'Previous Expert',
+      email: 'expert@example.com',
+      assignedAt,
+      totalDuration: holdAt.getTime() - assignedAt.getTime(),
+    };
+    mockQuestionService.holdQuestion = vi.fn().mockResolvedValue({
+      id: 'question-id',
+      previousAllocation,
+    });
+    mockAuditTrailsService.createAuditTrail.mockClear();
+    const controller = new QuestionAiController(
+      mockQuestionService as any,
+      mockUserService as any,
+      mockAuditTrailsService as any,
+    );
+
+    await controller.holdQuestion(
+      { questionId: 'question-id' } as any,
+      {
+        _id: '507f191e810c19729de860ea',
+        firstName: 'Moderator',
+        email: 'moderator@example.com',
+        role: 'moderator',
+      } as any,
+      { action: 'hold' },
+    );
+
+    expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'QUESTION_HOLD',
+        changes: {
+          before: {
+            previousExpertId: {
+              id: previousAllocation.expertId,
+              name: previousAllocation.name,
+              email: previousAllocation.email,
+            },
+            previousExpertAssignedAt: assignedAt,
+            totalDuration: 1800000,
+          },
+          after: { action: 'hold', questionId: 'question-id' },
+        },
+      }),
+    );
+  });
+
+  it('keeps QUESTION_HOLD changes.before empty when no previous allocation exists', async () => {
+    mockQuestionService.holdQuestion = vi.fn().mockResolvedValue({
+      id: 'question-id',
+    });
+    mockAuditTrailsService.createAuditTrail.mockClear();
+    const controller = new QuestionAiController(
+      mockQuestionService as any,
+      mockUserService as any,
+      mockAuditTrailsService as any,
+    );
+
+    await controller.holdQuestion(
+      { questionId: 'question-id' } as any,
+      {
+        _id: '507f191e810c19729de860ea',
+        firstName: 'Moderator',
+        email: 'moderator@example.com',
+        role: 'moderator',
+      } as any,
+      { action: 'hold' },
+    );
+
+    expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'QUESTION_HOLD',
+        changes: {
+          before: {},
+          after: { action: 'hold', questionId: 'question-id' },
+        },
+      }),
+    );
+  });
+
+  it('leaves QUESTION_UNHOLD audit changes unchanged', async () => {
+    mockQuestionService.holdQuestion = vi.fn().mockResolvedValue({
+      id: 'question-id',
+    });
+    mockAuditTrailsService.createAuditTrail.mockClear();
+    const controller = new QuestionAiController(
+      mockQuestionService as any,
+      mockUserService as any,
+      mockAuditTrailsService as any,
+    );
+
+    await controller.holdQuestion(
+      { questionId: 'question-id' } as any,
+      {
+        _id: '507f191e810c19729de860ea',
+        firstName: 'Moderator',
+        email: 'moderator@example.com',
+        role: 'moderator',
+      } as any,
+      { action: 'unhold' },
+    );
+
+    expect(mockAuditTrailsService.createAuditTrail).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'QUESTION_UNHOLD',
+        changes: { after: { action: 'unhold', questionId: 'question-id' } },
+      }),
+    );
   });
 
   it('should instantiate QuestionMaintenanceController and expose maintenance/migration methods', () => {

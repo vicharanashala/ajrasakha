@@ -78,11 +78,15 @@ export class AuditTrails implements ModeratorAuditTrail {
         description: "Details of the changes made in the action",
         example: {
             before: {
-                title: "Blocked Expert"
+                previousExpertId: {
+                    id: "60d5ec49b3f1c8e4a8f8b8c1",
+                    name: "Jane Expert",
+                    email: "jane.expert@example.com",
+                },
+                previousExpertAssignedAt: "2023-10-05T14:00:00.000Z",
+                totalDuration: 1800000,
             },
-            after: {
-                title: "Unblocked Expert"
-            }
+            after: { action: "hold", questionId: "60d5ec49b3f1c8e4a8f8b8c2" },
         },
         type: "object",
     })
