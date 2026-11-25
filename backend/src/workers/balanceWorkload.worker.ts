@@ -13,6 +13,7 @@ interface AssignmentJob {
   /** When true the previous expert is NOT reputation-penalised — only freed from the
    *  question (queue replacement still decrements their workload). */
   skipPenalty?: boolean;
+  updateFirstAllocationAt?: boolean;
 }
 
 interface WorkerData {
@@ -371,7 +372,8 @@ async function getExpertDisplayName(expertId?: string | null): Promise<string> {
       }
 
       // Update firstAllocationAt only if history is empty and not already set (first allocation for this submission)
-      if (history.length === 0 && !question?.firstAllocationAt) {
+      // if (history.length === 0 && !question?.firstAllocationAt) {
+      if (job.updateFirstAllocationAt === true) {
         await (questionRepo as any).updateQuestion(questionId, {
           firstAllocationAt: now,
         });

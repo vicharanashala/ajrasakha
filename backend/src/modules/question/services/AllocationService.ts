@@ -2807,6 +2807,7 @@ export class AllocationService extends BaseService {
         expertId: string;
         appendExpert?: boolean;
         skipPenalty?: boolean;
+        updateFirstAllocationAt?: boolean;
       }[] = [];
       const reallocationInfo: {
         questionId: string;
@@ -2904,6 +2905,7 @@ export class AllocationService extends BaseService {
             expertId: assignedExpert,
             appendExpert: false,
             skipPenalty: type === 'openedIdle',
+            updateFirstAllocationAt: history.length === 0,
           });
           reallocationInfo.push({
             questionId,
