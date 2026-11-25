@@ -2412,7 +2412,16 @@ export class QuestionService extends BaseService implements IQuestionService {
     questionId: string,
     userId: string,
     action: 'hold' | 'unhold',
-  ): Promise<{id: string}> {
+  ): Promise<{
+    id: string;
+    previousAllocation?: {
+      expertId: string | ObjectId;
+      name: string;
+      email: string;
+      assignedAt: Date;
+      totalDuration: number;
+    };
+  }> {
     const result = await this._withTransaction(async session => {
       if (action === 'unhold') {
         const question = await this.questionRepo.getById(questionId, session);
@@ -2483,10 +2492,49 @@ export class QuestionService extends BaseService implements IQuestionService {
       if (!submission) {
         throw new NotFoundError('Question submission not found');
       }
-      await this._handleSubmissionOnHold(submission, session);
-
       // Release any active role assignee from user queue and mark finish timestamp to prevent timer leaks while on hold
       const holdTime = new Date();
+      const currentExpertId = submission.queue?.[0];
+      const hasAllocationHistory = (submission.history?.length ?? 0) > 0;
+      const assignedAtValue = hasAllocationHistory
+      ? submission.history[submission.history.length - 1].createdAt
+      : question.firstAllocationAt;
+      const assignedAt = assignedAtValue
+      ? new Date(assignedAtValue)
+      : null;
+      let previousAllocation:
+        | {
+            expertId: string | ObjectId;
+            name: string;
+            email: string;
+            assignedAt: Date;
+            totalDuration: number;
+          }
+        | undefined;
+
+      if (
+        currentExpertId &&
+        assignedAt &&
+        Number.isFinite(assignedAt.getTime()) &&
+        holdTime.getTime() >= assignedAt.getTime()
+      ) {
+        const expert = await this.userRepo.findById(
+          currentExpertId.toString(),
+          session,
+        );
+        if (expert?._id && expert.email) {
+          previousAllocation = {
+            expertId: expert._id,
+            name: [expert.firstName, expert.lastName].filter(Boolean).join(' '),
+            email: expert.email,
+            assignedAt,
+            totalDuration: holdTime.getTime() - assignedAt.getTime(),
+          };
+        }
+      }
+
+      await this._handleSubmissionOnHold(submission, session);
+
       if ((question as any).gateKeeperId) {
         const gkId = (question as any).gateKeeperId.toString();
         await this.userRepo.removeAssignedQuestion(gkId, questionId, session);
@@ -2518,19 +2566,36 @@ export class QuestionService extends BaseService implements IQuestionService {
           session,
         );
       }
+      const questionUpdates: Record<string, any> = {
+      isOnHold: true,
+      isAutoAllocate: false,
+      previousStatus: question.status,
+      status: 'hold',
+      holdAt: holdTime,
+      };
 
+      // NEW: If there is no submission allocation history,
+      // clear firstAllocationAt while putting the question on hold.
+      if (!hasAllocationHistory) {
+      questionUpdates.firstAllocationAt = null;
+      }
+      // await this.questionRepo.updateQuestion(
+      //   questionId,
+      //   {
+      //     isOnHold: true,
+      //     isAutoAllocate: false,
+      //     previousStatus: question.status,
+      //     status: 'hold',
+      //     holdAt: holdTime,
+      //   },
+      //   session,
+      // );
       await this.questionRepo.updateQuestion(
-        questionId,
-        {
-          isOnHold: true,
-          isAutoAllocate: false,
-          previousStatus: question.status,
-          status: 'hold',
-          holdAt: holdTime,
-        },
-        session,
+      questionId,
+      questionUpdates,
+      session,
       );
-      return {id: questionId};
+      return {id: questionId, previousAllocation};
     });
     this.triggerRoleQueueAllocation(`holdQuestion:${action}`);
     return result;

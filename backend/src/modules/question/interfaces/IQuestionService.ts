@@ -724,7 +724,16 @@ export interface IQuestionService {
     questionId: string,
     userId: string,
     action: 'hold' | 'unhold',
-  ): Promise<{ id: string }>;
+  ): Promise<{
+    id: string;
+    previousAllocation?: {
+      expertId: string | ObjectId;
+      name: string;
+      email: string;
+      assignedAt: Date;
+      totalDuration: number;
+    };
+  }>;
   checkSubmissionExists(questionId: string): Promise<boolean>;
 
   /** Returns total question count and per-status breakdown with filters applied */

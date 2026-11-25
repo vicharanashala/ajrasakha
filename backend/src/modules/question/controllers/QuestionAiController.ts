@@ -162,9 +162,26 @@ export class QuestionAiController {
         user._id.toString(),
         action,
       );
+      const previousAllocation = result.previousAllocation;
       this.auditTrailsService.createAuditTrail({
         ...auditPayload,
-        changes: { after: { action, questionId } },
+        changes:
+          action === 'hold'
+            ? {
+                before: previousAllocation
+                  ? {
+                      previousExpertId: {
+                        id: previousAllocation.expertId,
+                        name: previousAllocation.name,
+                        email: previousAllocation.email,
+                      },
+                      previousExpertAssignedAt: previousAllocation.assignedAt,
+                      totalDuration: previousAllocation.totalDuration,
+                    }
+                  : {},
+                after: { action, questionId },
+              }
+            : { after: { action, questionId } },
         outcome: { status: OutComeStatus.SUCCESS },
       });
       return result;
