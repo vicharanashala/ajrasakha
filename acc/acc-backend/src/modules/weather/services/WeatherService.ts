@@ -15,7 +15,7 @@ export class WeatherService {
 
   /**
    * Helper to fetch from upstream mirror, routing 100.x addresses through Tailscale SOCKS5 proxy
-   * (matching AccAgentService, PlivoService, and ContextService) with fallback to direct for local dev.
+   * (matching AccAgentService, PlivoService, and TranslationService) with fallback to direct for local dev.
    */
   private async fetchFromMirror(url: string, params: Record<string, any>) {
     const isTailscale = /^https?:\/\/100\./.test(url);

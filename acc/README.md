@@ -109,7 +109,7 @@ ajrasakha/acc/
 │   │   ├── modules/
 │   │   │   ├── acc-agent/         # LangGraph AI client (threads, extract, update-state, resume)
 │   │   │   ├── auth/              # Firebase token verification & user profile sync
-│   │   │   ├── context/           # Context notes & Sarvam REST translation (22+ languages)
+│   │   │   ├── translation/       # Sarvam REST translation (22+ languages)
 │   │   │   ├── plivo/             # Telephony webhooks, agent assignment, Sarvam WS streaming
 │   │   │   ├── storage/           # StorageService (Audio streaming upload, signed playback URLs)
 │   │   │   └── user/              # Agent status toggle, heartbeat watchdog, user CRUD
@@ -228,7 +228,7 @@ ajrasakha/acc/
 ### Phase 4: Live In-Call Workspace (Farmer CRM, Live Chat & SMS)
 
 - **Farmer Profile Pane (Left)**: Pre-loads farmer details via `GET /api/farmer/:phoneNo`. Any edits save directly to `call_farmers` in MongoDB.
-- **Voice Advice & Translation**: The agent can dictate an advisory using voice input or type in English, click **Translate** (Sarvam REST API `/api/context/translate`), and review the translated message.
+- **Voice Advice & Translation**: The agent can dictate an advisory using voice input or type in English, click **Translate** (Sarvam REST API `/api/translate`), and review the translated message.
 - **SMS Delivery**: Clicking **Send SMS** calls `POST /api/plivo/send-message`, which uses Fast2SMS Quick SMS Bulk API to deliver the text advisory directly to the farmer's mobile phone.
 
 ---
@@ -377,7 +377,7 @@ The ACC application includes a complete, self-contained call recording, storage,
 | `plivo`     | `AgentAssignmentService`   | —                           | Dynamic SIP endpoint assignment (`agent_1`, `agent_2`), availability state machine, SIP credential retrieval.                       |
 | `plivo`     | `FarmerService`            | `FarmerController`          | CRUD operations for farmer profiles indexed by phone number in `call_farmers`.                                                      |
 | `acc-agent` | `AccAgentService`          | `AccAgentController`        | LangGraph Python API connector: thread management, entity extraction, state updates, checkpoint resumption, Q&A synthesis.          |
-| `context`   | `ContextService`           | `ContextController`         | Context persistence and Sarvam REST text translation (22+ Indian languages with chunking).                                          |
+| `translation` | `TranslationService`       | `TranslationController`     | Sarvam REST text translation (22+ Indian languages with chunking).                                                                |
 | `auth`      | `FirebaseAuthService`      | `AuthController`            | Firebase Admin token verification and user profile sync.                                                                            |
 | `user`      | `UserService`              | `UserController`            | Agent online/offline toggling, heartbeat watchdog, availability status queries.                                                     |
 | `jobs`      | `agentStatusCleanupJob`    | `node-cron` (`*/1 * * * *`) | Marks agents offline if heartbeat is missing for >75s.                                                                              |

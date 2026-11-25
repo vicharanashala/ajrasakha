@@ -1,4 +1,4 @@
-import { useTranslate } from "@/hooks/api/context/useTranslate";
+import { useTranslate } from "@/hooks/api/translation/useTranslate";
 import { ChevronDown, Loader2, Sparkles, Check } from "lucide-react";
 import { useEffect, useState } from "react";
 import {

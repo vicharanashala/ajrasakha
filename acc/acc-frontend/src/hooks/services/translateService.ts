@@ -13,7 +13,7 @@ export async function translateService(
     throw new Error(`Text is too long to translate (max ${MAX_TOTAL_CHARS} characters)`);
 
   const res = await apiFetch<{ translated_text: string }>(
-    `${env.apiBaseUrl()}/context/translate`,
+    `${env.apiBaseUrl()}/translate`,
     { method: "POST", body: JSON.stringify({ text, targetLang, sourceLang }) },
   );
 

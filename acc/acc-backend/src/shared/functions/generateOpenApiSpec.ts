@@ -182,8 +182,8 @@ export function generateOpenAPISpec(
         description: 'Plivo Call webhooks and SMS operations',
       },
       {
-        name: 'context',
-        description: 'Context lookup operations',
+        name: 'translation',
+        description: 'Text translation operations',
       },
     ],
     'x-tagGroups': [
@@ -208,8 +208,8 @@ export function generateOpenAPISpec(
         tags: ['plivo'],
       },
       {
-        name: 'Context metadata',
-        tags: ['context'],
+        name: 'Translation',
+        tags: ['translation'],
       },
     ],
     components: {

@@ -1,57 +1,11 @@
-import { injectable, inject } from 'inversify';
+import { injectable } from 'inversify';
 import { BadRequestError, InternalServerError } from 'routing-controllers';
 import { appConfig } from '#root/config/app.js';
-import { aiConfig } from '#root/config/ai.js';
-import { BaseService } from '#shared/classes/BaseService.js';
-import { GLOBAL_TYPES } from '#root/types.js';
-import { MongoDatabase } from '#shared/database/providers/mongo/MongoDatabase.js';
-import { SocksProxyAgent } from 'socks-proxy-agent';
-import axios, { AxiosInstance } from 'axios';
 
 const MAX_TOTAL_CHARS = 30000;
 
 @injectable()
-export class ContextService extends BaseService {
-  /*
-  // SOCKS5 proxy agent for Tailscale network (localhost:1055)
-  private readonly httpAgent = new SocksProxyAgent('socks5://localhost:1055');
-  private readonly translateApiUrl = aiConfig.accTranslateApiUrl || 'http://100.100.108.44:8110/v1/translate/to-english';
-  private readonly TIMEOUT = aiConfig.accAgentTimeout || 15000;
-  */
-
-  constructor(
-    @inject(GLOBAL_TYPES.Database)
-    private readonly database: MongoDatabase,
-  ) {
-    super(database);
-  }
-
-  /*
-  private createAxiosInstance(): AxiosInstance {
-    return axios.create({
-      httpAgent: this.httpAgent,
-      httpsAgent: this.httpAgent,
-    });
-  }
-  */
-
-  async addContext(text: string): Promise<{ insertedId: string }> {
-    try {
-      if (!text || text.trim().length === 0) {
-        throw new BadRequestError('Context text required');
-      }
-      const collection = await this.database.getCollection('contexts');
-      const result = await collection.insertOne({
-        text,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-      return { insertedId: result.insertedId.toString() };
-    } catch (error: any) {
-      throw new InternalServerError(`Failed to add context: ${error.message || error}`);
-    }
-  }
-
+export class TranslationService {
   private _splitIntoChunks(text: string, maxChars: number): string[] {
     if (text.length <= maxChars) return [text];
 
@@ -96,6 +50,10 @@ export class ContextService extends BaseService {
     return 'auto';
   }
 
+  /**
+   * Translates text to the target language using Sarvam AI translation APIs,
+   * automatically detecting source script and chunking large inputs.
+   */
   async translate(
     text: string,
     targetLang: string,
@@ -104,8 +62,11 @@ export class ContextService extends BaseService {
     const cleanText = text?.trim();
     if (!cleanText) throw new BadRequestError('text is required');
     if (!targetLang) throw new BadRequestError('targetLang is required');
-    if (cleanText.length > MAX_TOTAL_CHARS)
-      throw new BadRequestError(`Text exceeds maximum allowed length of ${MAX_TOTAL_CHARS} characters`);
+    if (cleanText.length > MAX_TOTAL_CHARS) {
+      throw new BadRequestError(
+        `Text exceeds maximum allowed length of ${MAX_TOTAL_CHARS} characters`,
+      );
+    }
 
     // Resolve source language code
     const resolvedSourceLang = this._resolveSourceLanguage(cleanText, sourceLang);
@@ -116,37 +77,11 @@ export class ContextService extends BaseService {
     }
 
     const isTargetEnglish = targetLang === 'en-IN' || targetLang.startsWith('en');
-    const isSourceEnglish = resolvedSourceLang === 'en-IN' || resolvedSourceLang.startsWith('en');
+    const isSourceEnglish =
+      resolvedSourceLang === 'en-IN' || resolvedSourceLang.startsWith('en');
     if (isTargetEnglish && isSourceEnglish) {
       return { translated_text: cleanText };
     }
-
-    /*
-    // When translating to English, previously used Claude translation API on Annam VM servers:
-    if (isTargetEnglish) {
-      try {
-        const sourceLangCode = resolvedSourceLang !== 'auto' ? resolvedSourceLang : 'auto';
-        const api = this.createAxiosInstance();
-        const response = await api.post(
-          this.translateApiUrl,
-          {
-            text: cleanText,
-            source_language: sourceLangCode,
-          },
-          {
-            headers: { 'Content-Type': 'application/json' },
-            timeout: this.TIMEOUT,
-          }
-        );
-        const translated = response.data?.translated_text?.trim();
-        if (translated) {
-          return { translated_text: translated };
-        }
-      } catch (claudeErr: any) {
-        console.warn(`⚠️ [ContextService] Claude translate API warning (${claudeErr.message}). Falling back to Sarvam.`);
-      }
-    }
-    */
 
     // Sarvam translate
     const apiKey = appConfig.sarvamAPI;
@@ -163,16 +98,34 @@ export class ContextService extends BaseService {
       if (MAYURA_LANGUAGES.has(targetLang)) {
         // mayura:v1 supports 'auto' for 11 major languages (max 900 chars per chunk)
         const chunks = this._splitIntoChunks(cleanText, 900);
-        const translatedChunks = await this._translateInBatches(chunks, 'auto', targetLang, 'mayura:v1', apiKey);
+        const translatedChunks = await this._translateInBatches(
+          chunks,
+          'auto',
+          targetLang,
+          'mayura:v1',
+          apiKey,
+        );
         return { translated_text: translatedChunks.join(' ') };
       } else {
         // Two-step: auto -> en-IN via mayura:v1, then en-IN -> targetLang via sarvam-translate:v1
         const enChunks = this._splitIntoChunks(cleanText, 900);
-        const enResults = await this._translateInBatches(enChunks, 'auto', 'en-IN', 'mayura:v1', apiKey);
+        const enResults = await this._translateInBatches(
+          enChunks,
+          'auto',
+          'en-IN',
+          'mayura:v1',
+          apiKey,
+        );
         const enText = enResults.join(' ');
         if (targetLang === 'en-IN') return { translated_text: enText };
         const targetChunks = this._splitIntoChunks(enText, 1900);
-        const targetResults = await this._translateInBatches(targetChunks, 'en-IN', targetLang, 'sarvam-translate:v1', apiKey);
+        const targetResults = await this._translateInBatches(
+          targetChunks,
+          'en-IN',
+          targetLang,
+          'sarvam-translate:v1',
+          apiKey,
+        );
         return { translated_text: targetResults.join(' ') };
       }
     }
@@ -181,7 +134,13 @@ export class ContextService extends BaseService {
     const model = 'sarvam-translate:v1';
     const maxChars = 1900;
     const chunks = this._splitIntoChunks(cleanText, maxChars);
-    const translatedChunks = await this._translateInBatches(chunks, resolvedSourceLang, targetLang, model, apiKey);
+    const translatedChunks = await this._translateInBatches(
+      chunks,
+      resolvedSourceLang,
+      targetLang,
+      model,
+      apiKey,
+    );
     return { translated_text: translatedChunks.join(' ') };
   }
 
