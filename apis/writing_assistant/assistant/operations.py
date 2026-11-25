@@ -5,7 +5,7 @@ this service - only the author's own explicit acceptance (outside this
 service, in the backend) changes it.
 """
 
-from . import guardrails, llm_client, text_checks
+from . import config, guardrails, llm_client, text_checks
 from .models import (
     LanguagePolishingResult,
     LanguagePolishingStatus,
@@ -136,6 +136,21 @@ def polish_draft(draft_text: str, skip_guardrail: bool = False) -> LanguagePolis
             reason="The language-polishing check could not be completed for section(s) "
             f"{', '.join(str(i) for i in failed_sections)} - showing a partial rewrite "
             "would look complete when it isn't, so no suggestion is shown.",
+            guardrail=None,
+        )
+
+    if len(suggested_text) > config.MAX_POLISH_CHARS:
+        # Testing-team requirement, same reasoning as models.py's
+        # matching check on the incoming draft: reject rather than
+        # truncate, since cutting the rewrite off mid-sentence to fit a
+        # limit is worse than reporting it unusable. Checked before
+        # skip_guardrail/run_guardrail below so an over-length rewrite
+        # never pays for the guardrail's own second-opinion LLM call.
+        return LanguagePolishingResult(
+            status=LanguagePolishingStatus.REJECTED,
+            suggested_text=None,
+            reason=f"The generated rewrite is {len(suggested_text)} characters, over the "
+            f"{config.MAX_POLISH_CHARS:,}-character limit.",
             guardrail=None,
         )
 

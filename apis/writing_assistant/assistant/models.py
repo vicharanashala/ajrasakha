@@ -1,7 +1,9 @@
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 from pydantic.alias_generators import to_camel
+
+from . import config
 
 
 class CamelModel(BaseModel):
@@ -193,7 +195,12 @@ class StructuralValidationResult(CamelModel):
 
 class PolishDraftRequest(CamelModel):
     question: str
-    draft: str
+    # Testing-team requirement: rejected with a 422 before any LLM call
+    # runs, rather than truncated - cutting a real technical-content
+    # answer mid-sentence to fit a limit is worse than asking the caller
+    # to shorten it. config.MAX_POLISH_CHARS is the same constant
+    # operations.py checks the generated rewrite against.
+    draft: str = Field(max_length=config.MAX_POLISH_CHARS)
     # Step names (must match structural_validator.FIXED_STEPS' own "step"
     # text) that don't apply to this particular draft, so they're never
     # checked at all - cuts structural-validation calls proportionally.

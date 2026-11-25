@@ -60,7 +60,7 @@ TIGHT_NEGATION_AFTER = re.compile(
     re.IGNORECASE,
 )
 FORMULATION_PATTERN = re.compile(
-    r"\d+(?:\.\d+)?\s*%?\s*(?:WP|EC|CG|SC|WG|GR|SL|D\.?S\.?|G)\b",
+    r"\d+(?:\.\d+)?\s*%?\s*(?:WDG|WP|EC|CG|SC|WG|GR|SL|SP|WS|FS|CS|OD|DP|ZC|EW|ME|D\.?S\.?|G)\b",
     re.IGNORECASE,
 )
 
@@ -255,7 +255,9 @@ def _restriction_kind_status(
         )
     if kind == "formulation_only":
         allowed = chemical.get("allowed_formulation", "")
-        formulation_match = FORMULATION_PATTERN.search(evidence)
+        # the formulation written right after this chemical, not the first one in the sentence
+        after = answer_text[span[1]:span[1] + 40] if span is not None and answer_text else evidence
+        formulation_match = FORMULATION_PATTERN.search(after)
         if formulation_match is None:
             return NOT_EVALUATED, (
                 f"Cannot confirm the formulation used for {name}; only "
