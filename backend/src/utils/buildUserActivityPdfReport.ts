@@ -41,6 +41,9 @@ export interface UserActivityReportData {
   reassignmentDurations?: number[];
   questionsReassigned?: number;
   totalReassignmentDuration?: number;
+  holdDurations?: number[];
+  questionsPutOnHold?: number;
+  totalHoldDuration?: number;
   sessions?: UserSessionLog[];
   generatedAt?: Date;
 }
@@ -821,7 +824,37 @@ export async function buildUserActivityPdfReport(
     { width: contentWidth - 8, lineGap: 2 },
   );
 
-  // 9. FOOTER BAR (Rendered on all pages using bufferPages)
+  // 9. QUESTIONS PUT ON HOLD (attributed to the previous expert)
+  const holdDurations = data.holdDurations || [];
+  const totalHoldDuration = data.totalHoldDuration ??
+    holdDurations.reduce((sum, duration) => sum + duration, 0);
+  currentY += 20;
+  if (currentY + 58 > 765) {
+    doc.addPage();
+    doc.rect(0, 0, pageWidth, 5).fill('#059669');
+    currentY = 40;
+  }
+  doc.roundedRect(pageMargin, currentY, contentWidth, 22, 4)
+    .fillAndStroke('#EFF6FF', '#BFDBFE');
+  doc.fillColor('#1D4ED8').fontSize(8.5).font('Helvetica-Bold').text(
+    'QUESTIONS PUT ON HOLD', pageMargin + 10, currentY + 7,
+  );
+  doc.fillColor('#1E3A8A').fontSize(7).font('Helvetica').text(
+    `${data.questionsPutOnHold ?? holdDurations.length} put on hold  •  Total duration: ${formatDuration(totalHoldDuration)}`,
+    pageMargin + 185, currentY + 7, { width: contentWidth - 200, align: 'right' },
+  );
+  currentY += 27;
+  const holdDurationList = holdDurations.length
+    ? holdDurations.map(formatDuration).join('   •   ')
+    : 'No questions put on hold during this period.';
+  doc.fillColor('#475569').fontSize(7).font('Helvetica').text(
+    `Individual durations: ${holdDurationList}`,
+    pageMargin + 4,
+    currentY,
+    { width: contentWidth - 8, lineGap: 2 },
+  );
+
+  // 10. FOOTER BAR (Rendered on all pages using bufferPages)
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);

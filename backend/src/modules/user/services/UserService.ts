@@ -39,7 +39,8 @@ import { IModeratorQueueService } from '#root/modules/question/interfaces/IModer
 import { buildUserActivityPdfReport, UserSessionLog } from '#root/utils/buildUserActivityPdfReport.js';
 import { emailConfig } from '#root/config/mail.js';
 import { annamLogoInlineAttachment } from '#root/utils/emailAssets.js';
-import { AuditAction } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { AuditAction, OutComeStatus } from '#root/modules/auditTrails/interfaces/IAuditTrails.js';
+import { groupQuestionHoldDurations } from './helpers/questionHoldActivity.js';
 import type { Document } from 'mongodb';
 
 
@@ -1602,6 +1603,7 @@ export class UserService extends BaseService {
       endDate?: string;
       sendToEmail?: boolean;
       reassignmentDurations?: number[];
+      holdDurations?: number[];
     },
   ): Promise<Buffer | { success: boolean; message: string }> {
     const user = await this.userRepo.findById(userId);
@@ -1770,6 +1772,33 @@ export class UserService extends BaseService {
         .map((audit) => audit.context!.waitedMs as number);
     }
 
+    let holdDurations = query.holdDurations;
+    if (!holdDurations) {
+      const auditCollection = await this.mongoDatabase.getCollection<{
+        action: AuditAction;
+        changes?: { before?: { previousExpertId?: { id?: unknown }; totalDuration?: unknown } };
+        outcome?: { status?: OutComeStatus };
+        createdAt?: Date;
+      } & Document>('auditTrails');
+      const audits = await auditCollection.find(
+        {
+          createdAt: { $gte: startDate, $lte: endDate },
+          action: AuditAction.QUESTION_HOLD,
+          'outcome.status': OutComeStatus.SUCCESS,
+          'changes.before.previousExpertId.id': userId,
+        },
+        {
+          projection: {
+            action: 1,
+            'outcome.status': 1,
+            'changes.before.previousExpertId.id': 1,
+            'changes.before.totalDuration': 1,
+          },
+        },
+      ).toArray();
+      holdDurations = groupQuestionHoldDurations(audits).get(userId) ?? [];
+    }
+
     // Build PDF buffer
     const pdfBuffer = await buildUserActivityPdfReport({
       userName,
@@ -1799,6 +1828,9 @@ export class UserService extends BaseService {
       reassignmentDurations,
       questionsReassigned: reassignmentDurations.length,
       totalReassignmentDuration: reassignmentDurations.reduce((sum, duration) => sum + duration, 0),
+      holdDurations,
+      questionsPutOnHold: holdDurations.length,
+      totalHoldDuration: holdDurations.reduce((sum, duration) => sum + duration, 0),
       sessions,
     });
 
@@ -1933,7 +1965,14 @@ export class UserService extends BaseService {
 
     const auditCollection = await this.mongoDatabase.getCollection<{
       action: AuditAction;
-      changes?: { before?: { expertId?: unknown } };
+      changes?: {
+        before?: {
+          expertId?: unknown;
+          previousExpertId?: { id?: unknown };
+          totalDuration?: unknown;
+        };
+      };
+      outcome?: { status?: OutComeStatus };
       context?: { waitedMs?: unknown };
       createdAt?: Date;
     } & Document>('auditTrails');
@@ -1956,6 +1995,23 @@ export class UserService extends BaseService {
       durations.push(waitedMs);
       reassignmentDurationsByExpert.set(expertId, durations);
     }
+
+    const holdAudits = await auditCollection.find(
+      {
+        createdAt: { $gte: startDate, $lte: endDate },
+        action: AuditAction.QUESTION_HOLD,
+        'outcome.status': OutComeStatus.SUCCESS,
+      },
+      {
+        projection: {
+          action: 1,
+          'outcome.status': 1,
+          'changes.before.previousExpertId.id': 1,
+          'changes.before.totalDuration': 1,
+        },
+      },
+    ).toArray();
+    const holdDurationsByExpert = groupQuestionHoldDurations(holdAudits);
 
     console.log(`[sendDailyUserActivityReports] Found ${staff.length} active review staff to process.`);
 
@@ -2041,6 +2097,7 @@ export class UserService extends BaseService {
           endDate: endDateStr,
           sendToEmail: true,
           reassignmentDurations: reassignmentDurationsByExpert.get(userId) ?? [],
+          holdDurations: holdDurationsByExpert.get(userId) ?? [],
         });
         sent++;
         console.log(`[sendDailyUserActivityReports] Successfully sent report to ${userName} (${user.email})`);
