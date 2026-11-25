@@ -21,6 +21,35 @@ def test_health_always_ok():
     assert response.json() == {"status": "ok"}
 
 
+# Testing-team requirement: an over-length draft is rejected before any
+# LLM call runs, not truncated - config.MAX_POLISH_CHARS is the single
+# source of truth pydantic validates against here.
+def test_polish_draft_rejects_an_over_length_draft():
+    response = client.post(
+        "/polish-draft",
+        json={"question": "q", "draft": "a" * (config.MAX_POLISH_CHARS + 1)},
+    )
+    assert response.status_code == 422
+
+
+def test_polish_draft_accepts_a_draft_at_exactly_the_limit(monkeypatch):
+    monkeypatch.setattr(llm_client, "generate_polish", lambda draft: ("polished", []))
+    monkeypatch.setattr(chemical_matcher, "detect_chemicals", lambda text: {})
+    monkeypatch.setattr(llm_client, "check_meaning_preserved_batch", lambda pairs: [(False, "")] * len(pairs))
+    monkeypatch.setattr(
+        structural_validator, "validate_structure_cached",
+        lambda question, draft, skip_steps=None: StructuralValidationResult(
+            status=StructuralValidationStatus.COMPLETE,
+            steps=[StepCoverageResult(sl_no=1, step="Introduction", coverage=StepCoverage.COVERED, example="ex")],
+        ),
+    )
+    response = client.post(
+        "/polish-draft",
+        json={"question": "q", "draft": "a" * config.MAX_POLISH_CHARS},
+    )
+    assert response.status_code == 200
+
+
 # Same opt-in scheme as answer_shortener: unset WRITING_ASSISTANT_API_KEY
 # means every other test in this file (none of which send an X-API-Key
 # header) keeps working unauthenticated - confirmed by every other
