@@ -1,0 +1,12 @@
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+pymongo==4.10.1
+mongomock==4.3.0
+numpy>=1.26
+scikit-learn>=1.5
+python-dotenv==1.0.1
+apscheduler==3.10.4
+pytest==8.3.4
+httpx==0.28.1
+# Optional (better multilingual semantic clustering; large download):
+# sentence-transformers>=3.0
