@@ -1,6 +1,6 @@
 import pytest
 
-from assistant import chemical_matcher, guardrails, llm_client, operations
+from assistant import chemical_matcher, config, guardrails, llm_client, operations
 from assistant.models import (
     LanguagePolishingStatus,
     LLMUnavailableError,
@@ -68,6 +68,22 @@ def test_polish_draft_suggests_on_clean_grammar_fix(monkeypatch):
     assert len(result.changes) == 1
     assert result.changes[0].before == "The treatment are effective when farmers apply it correctly."
     assert result.changes[0].after == "The treatment is effective when farmers apply it correctly."
+
+
+# Testing-team requirement: an over-length rewrite is rejected rather
+# than truncated, and rejected before run_guardrail's own second-opinion
+# LLM call would otherwise run - confirmed here by never mocking
+# check_meaning_preserved_batch, so the test fails loudly if that call
+# path is ever reached for this case.
+def test_polish_draft_rejects_an_over_length_rewrite(monkeypatch):
+    overlong = "a" * (config.MAX_POLISH_CHARS + 1)
+    monkeypatch.setattr(llm_client, "generate_polish", lambda draft: (overlong, []))
+
+    result = operations.polish_draft("a short draft")
+
+    assert result.status == LanguagePolishingStatus.REJECTED
+    assert result.suggested_text is None
+    assert "30,000-character limit" in result.reason
 
 
 def test_polish_draft_changes_is_empty_when_the_rewrite_needed_no_fix(monkeypatch):

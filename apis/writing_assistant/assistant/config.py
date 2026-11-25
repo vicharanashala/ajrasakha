@@ -91,3 +91,9 @@ GEMINI_MAX_CONCURRENT_CALLS = int(os.getenv("GEMINI_MAX_CONCURRENT_CALLS", "5"))
 # over. Set this once the service is reachable publicly rather than only
 # from a trusted network.
 WRITING_ASSISTANT_API_KEY = os.getenv("WRITING_ASSISTANT_API_KEY", "").strip()
+
+# Testing-team requirement. Shared by models.py (rejects an over-length
+# draft with a 422 before any LLM call runs) and operations.py (rejects
+# an over-length generated rewrite instead of returning it) - one
+# constant so the two checks can't silently drift apart.
+MAX_POLISH_CHARS = 30_000
