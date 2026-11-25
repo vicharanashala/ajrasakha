@@ -105,6 +105,8 @@ def _is_self_referential_crop_name(record: ReferenceRecord, alias: str) -> bool:
 _alias_index: dict[str, list[ReferenceRecord]] | None = None
 _alias_pattern: re.Pattern[str] | None = None
 _alias_build_lock = threading.Lock()
+# names that are also English words ("till", "us"), and "sundi", which means any caterpillar
+NOT_MATCHED_ALIASES = {"till", "us", "pan", "tar", "ale", "jab", "sim", "bund", "mash", "jo", "ol", "sundi"}
 
 
 def _matching_index() -> tuple[dict[str, list[ReferenceRecord]], re.Pattern[str] | None]:
@@ -116,7 +118,7 @@ def _matching_index() -> tuple[dict[str, list[ReferenceRecord]], re.Pattern[str]
                 index: dict[str, list[ReferenceRecord]] = defaultdict(list)
                 for record in [*CROP_NAMES, *SLANG_NAMES, *WEED_NAMES]:
                     for alias in _aliases(record.get("local_name")):
-                        if _is_self_referential_crop_name(record, alias):
+                        if _is_self_referential_crop_name(record, alias) or alias.casefold() in NOT_MATCHED_ALIASES:
                             continue
                         _append_unique_record(index[alias.casefold()], record)
                 alternatives = sorted(index, key=len, reverse=True)
