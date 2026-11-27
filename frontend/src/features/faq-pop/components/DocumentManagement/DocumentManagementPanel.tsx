@@ -47,8 +47,8 @@ const MODES = [
   { id: "unique-documents", label: "Documents" },
 ];
 
-// Document Management dashboard (docs/first_render_frontend.md) — third mode alongside
-// FAQ-Cluster/POP-Translation, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
+// Document Management dashboard (docs/first_render_frontend.md) — the mode alongside
+// FAQ-Cluster, wired in as a TABS entry in ../../DataProcessingDashboard.tsx.
 //
 // This component owns everything that must survive switching between its own 3 sub-modes: the
 // Upload Queue + Translation Queue poll (both load on initial page load and share one interval,
