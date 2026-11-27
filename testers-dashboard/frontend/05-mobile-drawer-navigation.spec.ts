@@ -9,7 +9,7 @@ test.describe('Tester Dashboard Frontend - Mobile Responsive Layout Verification
 
   test('should gracefully toggle and render the navigation mobile drawer menu on compact screens', async ({ page }) => {
     // 1. Navigate to the staging application URL
-    await page.goto('https://vicharanashala.ai');
+    await page.goto('https://desk.vicharanashala.ai/', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
     // 2. Locate the mobile menu icon or hamburger navigation trigger layout element
     const mobileMenuButton = page.locator('button[aria-label*="menu"], button:has-text("Menu"), .mobile-menu-btn, svg.lucide-menu').first();
