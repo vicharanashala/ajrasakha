@@ -32,6 +32,7 @@ dependencies = [
     "unicodedataplus>=16.0.0",
     "google-cloud-storage>=2.0.0",
     "yagmail>=0.15.0",
+    "deepeval>=4.3.2,<5.0.0",
 ]
 
 [build-system]

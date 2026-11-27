@@ -1,0 +1,4 @@
+record_type,run_id,run_started_at,selected_case_count,query,technical_pass,observed_domain,final_answer,answerrelevancymetric_score,answerrelevancymetric_reason,answerrelevancymetric_status
+run_metadata,run-fixture-001,2026-11-18T10:00:00Z,2,,,,,,,
+case,run-fixture-001,2026-11-18T10:00:00Z,2,Will it rain tomorrow?,true,Weather,Expect rain later today.,0.8,Relevant to the question.,scored
+case,run-fixture-001,2026-11-18T10:00:00Z,2,What is the market price?,false,Market,Check the local market bulletin.,0.6,Partly relevant.,scored

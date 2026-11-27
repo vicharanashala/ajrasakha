@@ -155,6 +155,17 @@ TEST_CASES = [
         "query": "How to grow paddy in punjab",
         "location": {"city": "Ropar", "state": "Punjab"},
         "expected_domain": "Cultural Practices",
+        "expected_answer": (
+            "Paddy in Punjab is mainly grown as a transplanted crop. Prepare the field "
+            "by puddling, raise healthy seedlings in a nursery, and transplant young "
+            "seedlings into the main field at the recommended spacing. Choose a variety "
+            "suited to the season and area. Keep the field moist or flooded as needed for "
+            "the crop stage, and control weeds, insect pests and diseases by regular "
+            "monitoring and following local extension advice. Apply fertilizer according "
+            "to a soil test and the crop stage rather than a fixed blanket dose. Harvest "
+            "when the crop matures and the grains are ready."
+        ),
+        "expected_answer_source": "synthetic_manual",
         "stable": True,
         "expected_nodes": ["planner", "execute_plan", "retrieval_sanitizer", "assemble_answer_body", "translate_answer"],
         "expected_tools": ["upload_question_to_reviewer_system", "gdb"],

@@ -40,6 +40,7 @@ secrets/
 ai/tests/api/reports/
 
 ai/evaluation_report_*.csv
+ai/values_*.json
 ai/tests/reports/
 ai/openapi.json
 ai/backend_routes.txt

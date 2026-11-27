@@ -30,7 +30,17 @@ COMMANDS = [
     {
         "layer": "Layer 3 - Stable LangGraph Scenarios",
         "name": "stable_langgraph",
-        "command": [sys.executable, "-m", "ajrasakha.evaluation.run", "--mode", "live", "--stable-only"],
+        "command": [
+            sys.executable,
+            "-m",
+            "ajrasakha.evaluation.run",
+            "--mode",
+            "live",
+            "--stable-only",
+            # Layer 3 validates execution health, not LLM answer quality, so it
+            # must not require judge credentials.
+            "--skip-answer-quality",
+        ],
         "report": ROOT / "evaluation_report_live.csv",
     },
 

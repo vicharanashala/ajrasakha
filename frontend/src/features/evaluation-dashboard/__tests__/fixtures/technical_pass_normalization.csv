@@ -1,0 +1,5 @@
+record_type,query,technical_pass
+case,Uppercase pass value," TRUE "
+case,Title-case pass value,Passed
+case,Whitespace-padded fail value," fail "
+case,Lowercase fail value,false

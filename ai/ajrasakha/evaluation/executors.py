@@ -102,6 +102,99 @@ def extract_plan_from_response(response_text: str) -> dict:
 
     return {}
 
+# Tool messages that are bookkeeping, not source data for the answer.
+RETRIEVAL_CONTEXT_EXCLUDED_TOOLS = {
+    "upload_question_to_reviewer_system",
+    "location_information_tool",
+}
+
+
+def _message_type(message: dict) -> str:
+    return str(message.get("type") or message.get("role") or "").strip().lower()
+
+
+def _message_text(message: dict) -> str:
+    content = message.get("content")
+
+    if isinstance(content, str):
+        return content.strip()
+
+    if isinstance(content, list):
+        parts = []
+        for block in content:
+            if isinstance(block, str):
+                parts.append(block)
+            elif isinstance(block, dict) and isinstance(block.get("text"), str):
+                parts.append(block["text"])
+        return "\n".join(part for part in parts if part).strip()
+
+    if content is None:
+        return ""
+
+    return str(content).strip()
+
+
+def _state_messages(response_text: str) -> list[dict]:
+    """Return the message dicts from a values payload (or bare state)."""
+    try:
+        data = json.loads(response_text)
+    except Exception:
+        return []
+
+    if not isinstance(data, dict):
+        return []
+
+    values = data.get("values")
+    state = values if isinstance(values, dict) else data
+    messages = state.get("messages") or []
+
+    if not isinstance(messages, list):
+        return []
+
+    return [message for message in messages if isinstance(message, dict)]
+
+
+def extract_final_answer(response_text: str) -> str:
+    """Return the last farmer-facing AI answer text, or "" when absent."""
+    for message in reversed(_state_messages(response_text)):
+        if _message_type(message) not in {"ai", "assistant"}:
+            continue
+
+        if message.get("tool_calls"):
+            continue
+
+        text = _message_text(message)
+        if text:
+            return text
+
+    return ""
+
+
+def extract_retrieval_context(response_text: str) -> list[str]:
+    """Return tool outputs from the current turn, as "[tool] content" strings."""
+    messages = _state_messages(response_text)
+
+    start = 0
+    for index, message in enumerate(messages):
+        if _message_type(message) in {"human", "user"}:
+            start = index + 1
+
+    contexts = []
+    for message in messages[start:]:
+        if _message_type(message) != "tool":
+            continue
+
+        name = str(message.get("name") or "tool").strip()
+        if name in RETRIEVAL_CONTEXT_EXCLUDED_TOOLS:
+            continue
+
+        text = _message_text(message)
+        if text:
+            contexts.append(f"[{name}] {text}")
+
+    return contexts
+
+
 def run_mock_case(case: dict) -> dict:
     start_time = time.time()
     expected_tools = case.get("expected_tools", [])
@@ -109,12 +202,12 @@ def run_mock_case(case: dict) -> dict:
     expected_nodes = case.get("expected_nodes", [])
 
     trace = {
-    "nodes": expected_nodes,
-    "plan": case.get("expected_plan", {}),
-    "tools": expected_tools,
-    "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
-    "errors": [],
-}
+        "nodes": expected_nodes,
+        "plan": case.get("expected_plan", {}),
+        "tools": expected_tools,
+        "mcp_services": [f"mcp-{tool}" for tool in expected_tools],
+        "errors": [],
+    }
 
     response_text = f"Mock response for {case['name']}"
 
@@ -127,6 +220,8 @@ def run_mock_case(case: dict) -> dict:
         "graph_status": "success",
         "latency_seconds": round(time.time() - start_time, 2),
         "response_text": response_text,
+        "final_answer": "",
+        "retrieval_context": [],
         "error": "",
         "trace": trace,
     }
@@ -192,6 +287,8 @@ def run_live_case(case: dict) -> dict:
                     "graph_status": graph_status,
                     "latency_seconds": round(time.time() - start_time, 2),
                     "response_text": "",
+                    "final_answer": "",
+                    "retrieval_context": [],
                     "error": error[:500],
                     "trace": {
                         "nodes": [],
@@ -258,6 +355,8 @@ def run_live_case(case: dict) -> dict:
     observed_tools_list = extract_tools_from_response(extraction_source)
     observed_nodes = extract_nodes_from_response(events, full_stream_text)  
     observed_plan = extract_plan_from_response(extraction_source)
+    final_answer = extract_final_answer(extraction_source)
+    retrieval_context = extract_retrieval_context(extraction_source)
 
     return {
         "name": case.get("name"),
@@ -267,7 +366,9 @@ def run_live_case(case: dict) -> dict:
         "http_status": http_status,
         "graph_status": graph_status,
         "latency_seconds": round(time.time() - start_time, 2),
-        "response_text": extraction_source[:500],
+        "response_text": final_answer or extraction_source[:500],
+        "final_answer": final_answer,
+        "retrieval_context": retrieval_context,
         "error": error[:500],
         "trace": {
             "nodes": observed_nodes,

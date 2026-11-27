@@ -1,0 +1,3 @@
+record_type,query,technical_pass,error,observed_domain,final_answer,answerrelevancymetric_score,answerrelevancymetric_status,faithfulnessmetric_score,faithfulnessmetric_status,contextualrelevancymetric_score,contextualrelevancymetric_status,gdbmatchmetric_score,gdbmatchmetric_status,agriculturalaccuracymetric_score,agriculturalaccuracymetric_status
+case,Will it rain tomorrow?,true,,Weather,No evaluated answer.,,,,,,,,,,
+case,What is the market price?,false,,Market,No evaluated answer.,,,,,,,,,,

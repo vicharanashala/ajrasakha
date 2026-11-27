@@ -1,4 +1,6 @@
 import argparse
+from datetime import datetime, timezone
+from uuid import uuid4
 
 from ajrasakha.evaluation.questions import TEST_CASES
 from ajrasakha.evaluation.executors import run_mock_case, run_live_case
@@ -13,12 +15,21 @@ from ajrasakha.evaluation.triage import triage_result
 from ajrasakha.evaluation.nodes import evaluate_nodes
 from ajrasakha.evaluation.plan import evaluate_plan
 from ajrasakha.evaluation.answer_eval import evaluate_response_quality
+from ajrasakha.evaluation.deepeval_metrics import (
+    JudgeSetupError,
+    get_judge_model,
+)
 from ajrasakha.evaluation.validators.source_check import evaluate_source_attribution
 from ajrasakha.evaluation.validators.disclaimer_language import evaluate_disclaimer_language
 from ajrasakha.evaluation.langsmith_trace import build_langsmith_trace_url
 
 
-def run_case(case: dict, mode: str) -> dict:
+def run_case(
+    case: dict,
+    mode: str,
+    *,
+    answer_quality: bool | None = None,
+) -> dict:
     if mode == "mock":
         result = run_mock_case(case)
     elif mode == "live":
@@ -36,9 +47,13 @@ def run_case(case: dict, mode: str) -> dict:
     trace_result = build_langsmith_trace_url(result)
     disclaimer_language_result = evaluate_disclaimer_language(result, case)
 
+    quality_enabled = (
+        (mode == "live") if answer_quality is None else answer_quality
+    )
     quality_result = evaluate_response_quality(
         result,
-        enabled=(mode == "live"),
+        case,
+        enabled=quality_enabled,
     )
 
     combined = {
@@ -85,7 +100,30 @@ def main():
         help="Run only stable test cases.",
     )
 
+    parser.add_argument(
+        "--skip-answer-quality",
+        action="store_true",
+        help=(
+            "Skip LLM answer-quality evaluation and run deterministic checks "
+            "only. The judge configuration is not required."
+        ),
+    )
+
     args = parser.parse_args()
+
+    # LLM quality evaluation needs a usable judge before any case is sent or a
+    # report is written. Deterministic-only runs never read judge configuration.
+    answer_quality = args.mode == "live" and not args.skip_answer_quality
+    if answer_quality:
+        try:
+            get_judge_model()
+        except JudgeSetupError as exc:
+            print(f"Answer quality judge is not configured: {exc}")
+            print(
+                "Fix ai/.env, run with --mode mock, or pass "
+                "--skip-answer-quality."
+            )
+            raise SystemExit(2)
 
     selected_cases = TEST_CASES
 
@@ -95,15 +133,32 @@ def main():
             if case.get("stable") is True
         ]
 
+    run_metadata = {
+        "run_id": str(uuid4()),
+        "run_started_at": datetime.now(timezone.utc).isoformat(),
+        "stable_only": args.stable_only,
+        "selected_case_count": len(selected_cases),
+    }
     results = []
 
     for case in selected_cases:
         print(f"Running [{args.mode}]: {case.get('name')}")
-        results.append(run_case(case, args.mode))
+        results.append(
+            run_case(case, args.mode, answer_quality=answer_quality)
+        )
 
     output_file = f"evaluation_report_{args.mode}.csv"
-    write_csv_report(results, output_file=output_file)
-    summary = build_summary(results)
+    write_csv_report(
+        results,
+        output_file=output_file,
+        evaluation_mode=args.mode,
+        run_metadata=run_metadata,
+    )
+    summary = build_summary(
+        results,
+        evaluation_mode=args.mode,
+        run_metadata=run_metadata,
+    )
     print("Summary:", summary)
 
 

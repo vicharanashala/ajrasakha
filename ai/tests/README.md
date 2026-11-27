@@ -338,7 +338,11 @@ The suite does NOT currently validate:
 
 
 
-Answer quality evaluation is planned as a future phase.
+Answer quality evaluation is implemented using `AnswerRelevancyMetric`, `FaithfulnessMetric`, `ContextualRelevancyMetric`, `GDBMatchMetric`, and `AgriculturalAccuracyMetric`.
+- Agricultural dimensions evaluated are crop, region, and cultivation guidance.
+- Only explicitly structured expectations in test cases are evaluated.
+- The current cultivation guidance reference is `synthetic_manual` and is **not** an ACE GDB or expert-validated answer.
+- No pass threshold exists for GDB Match or Agricultural Accuracy.
 
 
 
