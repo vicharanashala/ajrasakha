@@ -1,4 +1,5 @@
 import {
+  IUser,
   GdbCleaningAction,
   GdbCleaningStatus,
   IGdbCleaningCheck,
@@ -8,7 +9,14 @@ import type {GdbDraft} from '../services/GdbLibraryDraft.js';
 
 export interface GdbCleaningListItem {
   id: string;
+  /** the question's own id: the one the reviewer app's All Questions searches by */
+  questionId: string;
+  /** the live question text from the reviewer app; the copy the checks ran on is in checkedQuestion */
   question: string;
+  /** true when the question or its domain was edited after the checks ran */
+  questionChanged: boolean;
+  /** the question text the checks ran on, only when it differs from the live one */
+  checkedQuestion: string | null;
   state: string;
   crop: string;
   domain: string;
@@ -18,7 +26,8 @@ export interface GdbCleaningListItem {
 }
 
 export interface GdbCleaningItem extends GdbCleaningListItem {
-  questionId: string;
+  /** the correction was edited after it was pushed, so it needs a new push */
+  correctionChanged: boolean;
   answer: string;
   sources: IGdbCleaningSource[];
   checks: IGdbCleaningCheck[];
@@ -71,7 +80,7 @@ export interface GdbCleaningListQuery {
 }
 
 export interface IGdbCleaningService {
-  list(query: GdbCleaningListQuery): Promise<{
+  list(query: GdbCleaningListQuery, viewerId?: string): Promise<{
     items: GdbCleaningListItem[];
     totalCount: number;
     totalPages: number;
@@ -97,6 +106,13 @@ export interface IGdbCleaningService {
   }>;
 
   get(answerId: string): Promise<GdbCleaningItem>;
+
+  /** Edits the question text and/or domain in the reviewer app, then refreshes the golden answer's search data. */
+  editQuestion(
+    answerId: string,
+    edit: {question?: string; domain?: string},
+    user: IUser,
+  ): Promise<GdbCleaningItem>;
 
   saveCorrection(
     answerId: string,

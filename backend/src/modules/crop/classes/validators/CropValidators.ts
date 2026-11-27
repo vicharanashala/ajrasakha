@@ -1,5 +1,6 @@
 import {
   IsNotEmpty,
+  IsBoolean,
   IsString,
   IsArray,
   IsOptional,
@@ -242,11 +243,94 @@ class GetAllCropsQuery {
   limit?: number;
 }
 
+class GetAffectedQuestionsQuery {
+  @JSONSchema({ description: 'Page number', example: 1, type: 'number' })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  page?: number = 1;
+
+  @JSONSchema({ description: 'Items per page', example: 10, type: 'number' })
+  @IsOptional()
+  @IsInt()
+  @Type(() => Number)
+  @Min(1)
+  @Max(100)
+  limit?: number = 10;
+
+  @JSONSchema({ description: 'Search questions by text, crop or location', example: 'tomato', type: 'string' })
+  @IsOptional()
+  @IsString()
+  search?: string;
+}
+
+class DeleteCropDto {
+  @JSONSchema({
+    description: 'MongoDB ObjectId of the replacement crop from crop_master (required if reassigning questions)',
+    example: '650e9c0f5f1b2c002f4d9e00',
+    type: 'string',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (typeof value === 'string') return value;
+    if (value && value.buffer && Array.isArray(value.buffer.data)) {
+      return Buffer.from(value.buffer.data).toString('hex');
+    }
+    if (value && typeof value === 'object') {
+      if (value.$oid) return String(value.$oid);
+      if (value.toString && typeof value.toString === 'function' && value.toString() !== '[object Object]') {
+        return value.toString();
+      }
+    }
+    return String(value || '');
+  })
+  @IsMongoId()
+  replacementCropId?: string;
+
+  @JSONSchema({
+    description: 'Array of question IDs whose normalised_crop should be replaced',
+    example: ['650e9c0f5f1b2c002f4d9e01'],
+    type: 'array',
+  })
+  @IsOptional()
+  @Transform(({ value }) => {
+    if (!Array.isArray(value)) return value;
+    return value.map((v: any) => {
+      if (typeof v === 'string') return v;
+      if (v && v.buffer && Array.isArray(v.buffer.data)) {
+        return Buffer.from(v.buffer.data).toString('hex');
+      }
+      if (v && typeof v === 'object') {
+        if (v.$oid) return String(v.$oid);
+        if (v.toString && typeof v.toString === 'function' && v.toString() !== '[object Object]') {
+          return v.toString();
+        }
+      }
+      return String(v);
+    });
+  })
+  @IsArray()
+  @IsString({ each: true })
+  questionIds?: string[];
+
+  @JSONSchema({
+    description: 'Set true to reassign all questions for this crop directly on MongoDB without passing individual IDs',
+    example: true,
+    type: 'boolean',
+  })
+  @IsOptional()
+  @IsBoolean()
+  reassignAll?: boolean;
+}
+
 export {
   CropIdParam,
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
+  GetAffectedQuestionsQuery,
 };
 
 export const CROP_VALIDATORS = [
@@ -254,4 +338,6 @@ export const CROP_VALIDATORS = [
   CreateCropDto,
   UpdateCropDto,
   GetAllCropsQuery,
+  DeleteCropDto,
+  GetAffectedQuestionsQuery,
 ];

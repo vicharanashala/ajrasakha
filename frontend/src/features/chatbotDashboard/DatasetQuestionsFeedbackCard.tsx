@@ -18,6 +18,7 @@ import { Skeleton } from "@/components/atoms/skeleton";
 import { useCallback, useMemo, useState, type ReactNode } from "react";
 import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
+import { formatCount } from "./utils/dashboardHelpers";
 import {
   useDatasetQuestionsList,
   useDatasetFeedbacksList,
@@ -490,6 +491,7 @@ function StatTile({
   onClick?: () => void;
 }) {
   const a = ACCENT[accent];
+  const isLarge = count >= 10000;
   return (
     <Tooltip>
       <TooltipTrigger asChild>
@@ -524,13 +526,30 @@ function StatTile({
               {label}
             </span>
           </div>
-          <span className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground">
-            <CountUp end={count} duration={1.2} preserveValue />
+          <span
+            className="text-2xl font-bold leading-none tracking-tight tabular-nums text-foreground"
+            title={isLarge ? count.toLocaleString() : undefined}
+          >
+            <CountUp
+              end={count}
+              duration={1.2}
+              preserveValue
+              formattingFn={formatCount}
+            />
           </span>
         </motion.div>
       </TooltipTrigger>
-      <TooltipContent side="top">
-        <p className="text-xs">{tooltip}</p>
+      <TooltipContent side="top" className="z-[9999]">
+        <div className="space-y-0.5">
+          {isLarge && (
+            <div className="font-bold tabular-nums text-xs">
+              {count.toLocaleString()}
+            </div>
+          )}
+          <p className={cn("text-xs", isLarge && "text-[11px] text-muted-foreground")}>
+            {tooltip}
+          </p>
+        </div>
       </TooltipContent>
     </Tooltip>
   );

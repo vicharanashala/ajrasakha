@@ -2,5 +2,5 @@ fastapi
 uvicorn
 python-dotenv
 pydantic
-httpx
+httpx[socks]
 pytest

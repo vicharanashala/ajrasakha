@@ -484,7 +484,7 @@ export function ActiveUserDetailsModal({
     "desc",
     false,
     "",
-    "verified",
+    "all",
     type === "users",
   );
 

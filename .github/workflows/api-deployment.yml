@@ -18,6 +18,8 @@ on:
           - ffv_api
           - grammar_validator_api
           - answer_check
+          - agriculture_classifier
+          - weather_apis
 
 permissions:
   contents: read
@@ -156,3 +158,27 @@ jobs:
           tags: |
             ${{ secrets.DOCKERHUB_USERNAME }}/answer_check:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/answer_check:${{ github.sha }}
+
+      - name: Build & Push agriculture_classifier
+        if: github.event.inputs.target_api == 'agriculture_classifier'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/agriculture_classifier
+          file: ./apis/agriculture_classifier/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/agriculture_classifier:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/agriculture_classifier:${{ github.sha }}
+
+      - name: Build & Push weather_apis
+        if: github.event.inputs.target_api == 'weather_apis'
+        uses: docker/build-push-action@v5
+        with:
+          context: ./apis/weather_apis
+          file: ./apis/weather_apis/Dockerfile
+          push: true
+          platforms: linux/amd64
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/weather_apis:${{ github.sha }}

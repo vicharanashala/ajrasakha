@@ -19,6 +19,7 @@ import {
   TableRow,
 } from "@/components/atoms/table";
 import { ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { toast } from "sonner";
 import { useGdbFilterOptions, useGdbList } from "@/hooks/api/gdbCleaning/useGdbCleaning";
 import type { GdbStatus } from "../types";
 import { CHECK_NAMES, humanize } from "../utils";
@@ -137,7 +138,7 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
         <Table>
           <TableHeader>
             <TableRow>
-              <TableHead className="w-[90px]">ID</TableHead>
+              <TableHead className="w-[230px]">Question ID</TableHead>
               <TableHead>Question</TableHead>
               <TableHead>State</TableHead>
               <TableHead>Crop</TableHead>
@@ -166,11 +167,23 @@ export const GdbListView = ({ onOpen }: GdbListViewProps) => {
                   className="cursor-pointer"
                   onClick={() => onOpen(item.id)}
                 >
-                  <TableCell className="text-xs text-muted-foreground" title={item.id}>
-                    {item.id.slice(-8)}
+                  <TableCell className="text-xs text-muted-foreground" title={`Answer ID: ${item.id}`}>
+                    <span className="font-mono">{item.questionId}</span>
+                    <button
+                      type="button"
+                      className="ml-1 underline-offset-2 hover:underline"
+                      onClick={(e) => {
+                        // copying must not open the answer
+                        e.stopPropagation();
+                        navigator.clipboard?.writeText(item.questionId).then(() => toast.success("Question ID copied"));
+                      }}
+                    >
+                      copy
+                    </button>
                   </TableCell>
                   <TableCell className="max-w-[360px] truncate" title={item.question}>
                     {item.question}
+                    {item.questionChanged && <span className="ml-2 text-xs text-amber-700 dark:text-amber-400">edited</span>}
                   </TableCell>
                   <TableCell>{item.state}</TableCell>
                   <TableCell>{item.crop}</TableCell>

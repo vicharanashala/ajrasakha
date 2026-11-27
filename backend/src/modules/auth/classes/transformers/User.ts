@@ -98,6 +98,7 @@ class User implements IUser {
   @Transform(StringArrayToObjectIdArray.transformer, {toClassOnly: true})
   @Expose()
   paeValidationAssigned?: (string | ObjectId)[] | null;
+  sendDailyReport?: boolean;
 
   constructor(data: Partial<IUser>) {
     this._id = data?._id ? new ObjectId(data?._id) : null;
@@ -134,6 +135,7 @@ class User implements IUser {
     this.isTrainingUser = data?.isTrainingUser || false;
     this.feedbacksAssigned = data?.feedbacksAssigned || null;
     this.paeValidationAssigned = data?.paeValidationAssigned || null;
+    this.sendDailyReport = data?.sendDailyReport || false;
   }
 }
 

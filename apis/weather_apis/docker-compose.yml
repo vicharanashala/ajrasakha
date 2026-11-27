@@ -1,0 +1,12 @@
+services:
+  api:
+    build: .
+    ports:
+      - "8085:8085"   # host:container - reach it locally at localhost:8085
+    env_file:
+      - ../../.env   # repo root - optional fallback
+      - .env         # service-specific config (overrides repo root if set)
+    volumes:
+      - .:/app       # mounts code into container for live reload
+    restart: always
+

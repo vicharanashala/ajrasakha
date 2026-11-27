@@ -195,6 +195,10 @@ export class AdminEditUserDto {
   @ValidateNested({ each: true })
   @Type(() => KVKCoveredItemDto)
   kvkCovered?: KVKCoveredItemDto[] | null;
+
+  @IsOptional()
+  @IsBoolean()
+  sendDailyReport?: boolean;
 }
 
 export const USER_VALIDATORS = [

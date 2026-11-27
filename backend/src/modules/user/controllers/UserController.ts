@@ -247,6 +247,7 @@ export class UserController {
           preference: targetUser.preference,
           kvkCovered: targetUser.kvkCovered,
           avatar: targetUser.avatar,
+          sendDailyReport: targetUser.sendDailyReport,
         },
       },
       outcome: {
@@ -272,6 +273,7 @@ export class UserController {
             preference: updatedUser.preference,
             kvkCovered: updatedUser.kvkCovered,
             avatar: updatedUser.avatar,
+            sendDailyReport: updatedUser.sendDailyReport,
           },
         },
       };

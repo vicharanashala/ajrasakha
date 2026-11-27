@@ -39,6 +39,8 @@ export interface UserActivityResponse {
 
   nonAgriQuestions: PaginatedResponse<UserQuestion>;
 
+  allQuestions: PaginatedResponse<UserQuestion>;
+
   messages: PaginatedResponse<UserMessage>;
 }
 
@@ -106,6 +108,13 @@ export function useUserQuestionsData(
             limit: 12,
             items: [],
           },
+          allQuestions: {
+            totalQuestions: 0,
+            totalPages: 1,
+            currentPage: 1,
+            limit: 12,
+            items: [],
+          },
           messages: {
             totalMessages: 0,
             totalPages: 1,
@@ -128,6 +137,13 @@ export function useUserQuestionsData(
         items: [],
       },
       nonAgriQuestions: {
+        totalQuestions: 0,
+        totalPages: 1,
+        currentPage: 1,
+        limit: 12,
+        items: [],
+      },
+      allQuestions: {
         totalQuestions: 0,
         totalPages: 1,
         currentPage: 1,

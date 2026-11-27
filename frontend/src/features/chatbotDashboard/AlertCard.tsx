@@ -6,6 +6,7 @@ import { useDomainSpikes } from "./hooks/useDomainSpikes";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/atoms/tooltip";
 import { useQueryClient } from "@tanstack/react-query";
 import CountUp from "react-countup";
+import { formatCount } from "./utils/dashboardHelpers";
 
 interface Alert {
   id: number;
@@ -137,8 +138,8 @@ export function AlertCard({
           </div>
         </div>
         <div className="px-2 py-1 rounded-full bg-red-100 dark:bg-red-900/40">
-          <span className="text-sm font-bold text-red-600 dark:text-red-400">
-            <CountUp end={inactiveUsersLast3Days} duration={1.5} preserveValue />
+          <span className="text-sm font-bold text-red-600 dark:text-red-400" title={inactiveUsersLast3Days >= 10000 ? inactiveUsersLast3Days.toLocaleString() : undefined}>
+            <CountUp end={inactiveUsersLast3Days} duration={1.5} preserveValue formattingFn={formatCount} />
           </span>
         </div>
       </div>
@@ -179,9 +180,9 @@ export function AlertCard({
           </div>
         </div>
         <div className="px-2 py-1 rounded-full bg-amber-100 dark:bg-amber-900/40">
-          <span className="text-sm font-bold text-amber-600 dark:text-amber-400">
+          <span className="text-sm font-bold text-amber-600 dark:text-amber-400" title={duplicateQuestionsCount != null && duplicateQuestionsCount >= 10000 ? duplicateQuestionsCount.toLocaleString() : undefined}>
             {duplicateQuestionsCount != null ? (
-              <CountUp end={duplicateQuestionsCount} duration={1.5} preserveValue />
+              <CountUp end={duplicateQuestionsCount} duration={1.5} preserveValue formattingFn={formatCount} />
             ) : "—"}
           </span>
         </div>
@@ -223,9 +224,9 @@ export function AlertCard({
             </div>
           </div>
           <div className="px-2 py-1 rounded-full bg-orange-100 dark:bg-orange-900/40">
-            <span className="text-sm font-bold text-orange-600 dark:text-orange-400">
+            <span className="text-sm font-bold text-orange-600 dark:text-orange-400" title={lowFeedbackUsersCount != null && lowFeedbackUsersCount >= 10000 ? lowFeedbackUsersCount.toLocaleString() : undefined}>
               {lowFeedbackUsersCount != null ? (
-                <CountUp end={lowFeedbackUsersCount} duration={1.5} preserveValue />
+                <CountUp end={lowFeedbackUsersCount} duration={1.5} preserveValue formattingFn={formatCount} />
               ) : "—"}
             </span>
           </div>

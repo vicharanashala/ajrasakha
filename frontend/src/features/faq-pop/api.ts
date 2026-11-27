@@ -1111,7 +1111,18 @@ export async function deleteDashboardTranslationJob(jobId: string) {
 
 // Translate mode: "normal" (default, page-by-page) | "flex" (page-by-page, slower per page) |
 // "batch" (handed to Google as one batch job, can take up to 24h). Omitting mode means "normal".
+// `pipeline`: 1 = OCR transcribes each page, then Gemini 3.8 Flash translates it (normal mode only —
+// 400 with flex/batch); 0 = one Gemini 3.1 Pro call per page. Always sent, including on a restart.
 export type TranslateMode = "normal" | "flex" | "batch";
+// Gemini model for the translation call (either pipeline). Omitted = PoP's own default (pipeline 0:
+// the server's default model, pipeline 1: gemini-3.8-flash); anything outside this list is a 422.
+export const TRANSLATE_MODELS = [
+  "gemini-3.1-pro-preview",
+  "gemini-3.1-flash-lite",
+  "gemini-3.5-flash-lite",
+  "gemini-3.8-flash",
+] as const;
+export type TranslateModel = (typeof TRANSLATE_MODELS)[number];
 
 // Placement-addressed. Jobs are per DOCUMENT, not per placement — translating from any one of a
 // document's placements translates it once, and every sibling placement then shows
@@ -1123,8 +1134,10 @@ export async function translateDashboardDocument(
   placementId: string,
   translatedBy?: string,
   mode?: TranslateMode,
+  pipeline?: 0 | 1,
+  model?: TranslateModel,
 ) {
-  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
+  const body = translatedBy || mode || pipeline != null || model ? { translated_by: translatedBy, mode, pipeline, model } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/documents/${placementId}/translate`, {
     method: "POST",
     ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),
@@ -1134,8 +1147,8 @@ export async function translateDashboardDocument(
 
 // Document-addressed equivalent of translateDashboardDocument, for use where no single placement
 // is in scope (e.g. the top level of a document detail view).
-export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode) {
-  const body = translatedBy || mode ? { translated_by: translatedBy, mode } : undefined;
+export async function translateUniqueDocument(id: string, translatedBy?: string, mode?: TranslateMode, pipeline?: 0 | 1, model?: TranslateModel) {
+  const body = translatedBy || mode || pipeline != null || model ? { translated_by: translatedBy, mode, pipeline, model } : undefined;
   const res = await popFetch(`${POP_API}/dashboard/unique-documents/${id}/translate`, {
     method: "POST",
     ...(body ? { headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) } : {}),

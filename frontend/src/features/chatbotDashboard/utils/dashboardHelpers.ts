@@ -33,6 +33,25 @@ export interface AnalyticsEntry {
  * Formats a number using the Indian numbering system.
  * e.g. 482000 → "4.82 L", 1200 → "1.2k", 45 → "45"
  */
+export function formatCount(n: number): string {
+  if (n == null || isNaN(n)) return "0";
+  const rounded = Math.round(n);
+  const abs = Math.abs(rounded);
+  if (abs < 10000) {
+    return rounded.toLocaleString();
+  }
+  if (abs >= 10000000) {
+    const v = (rounded / 10000000).toFixed(1).replace(/\.0$/, "");
+    return `${v}Cr`;
+  }
+  if (abs >= 100000) {
+    const v = (rounded / 100000).toFixed(1).replace(/\.0$/, "");
+    return `${v}L`;
+  }
+  const v = (rounded / 1000).toFixed(1).replace(/\.0$/, "");
+  return v.includes(".") ? `${v}K` : `${v}k`;
+}
+
 export function formatIndian(n: number): string {
   if (n >= 100000) return `${(n / 100000).toFixed(2)} L`;
   if (n >= 1000) return `${(n / 1000).toFixed(1)}k`;
