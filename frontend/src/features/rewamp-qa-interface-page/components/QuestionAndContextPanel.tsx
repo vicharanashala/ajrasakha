@@ -17,13 +17,6 @@ import {
 import { Card, CardContent } from "@/components/atoms/card";
 import { Button } from "@/components/atoms/button";
 import { Badge } from "@/components/atoms/badge";
-import {
-  Select,
-  SelectTrigger,
-  SelectValue,
-  SelectContent,
-  SelectItem,
-} from "@/components/atoms/select";
 import { toast } from "sonner";
 import type { IQuestionContextData } from "../types";
 import { QaPreferencesDialog } from "./QaPreferencesDialog";
@@ -39,8 +32,6 @@ interface QuestionAndContextPanelProps {
   isEnlarged?: boolean;
   onToggleEnlarge?: () => void;
   progressPercent?: number;
-  actionType?: "allocated" | "reroute";
-  onActionTypeChange?: (actionType: "allocated" | "reroute") => void;
   selectedQuestionId?: string | null;
   onQuestionSelect?: (questionId: string) => void;
   reviewLevel?: string;
@@ -62,8 +53,6 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
   onToggleCollapse,
   isEnlarged = false,
   onToggleEnlarge,
-  actionType = "allocated",
-  onActionTypeChange,
   selectedQuestionId = null,
   onQuestionSelect,
   reviewLevel = "all",
@@ -187,7 +176,16 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
           <div className={`absolute left-0 top-0 bottom-0 w-1 rounded-l-xl ${currentSourceStyle.indicator}`} />
         )}
         <div className="flex items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5 flex-wrap">
+            {(q as any)?.pae_review && q?.status === "re-routed" ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/30">
+                PAE Reroute
+              </span>
+            ) : ((q as any)?.actionType === "reroute" || q?.status === "re-routed" || !!(q as any)?.reroute) ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/30">
+                Re-routed
+              </span>
+            ) : null}
             <Badge
               variant="destructive"
               className={`text-[11px] px-2 py-0.2 font-semibold rounded-md ${
@@ -258,18 +256,8 @@ export const QuestionAndContextPanel: React.FC<QuestionAndContextPanelProps> = (
       </div>
 
       <CardContent className="p-4 flex-1 flex flex-col space-y-4 overflow-y-auto">
-        {/* Action Type Selector with Preferences and Refresh */}
-        <div className="flex items-center gap-1.5 shrink-0">
-          <Select value={actionType} onValueChange={onActionTypeChange}>
-            <SelectTrigger className="h-8 text-xs px-2 min-w-fit shrink-0">
-              <SelectValue placeholder="Select action" />
-            </SelectTrigger>
-
-            <SelectContent>
-              <SelectItem value="allocated">Allocated Questions</SelectItem>
-              <SelectItem value="reroute">ReRouted Questions</SelectItem>
-            </SelectContent>
-          </Select>
+        {/* Preferences and Refresh */}
+        <div className="flex items-center justify-end gap-1.5 shrink-0">
           <QaPreferencesDialog
             reviewLevel={reviewLevel}
             source={source}

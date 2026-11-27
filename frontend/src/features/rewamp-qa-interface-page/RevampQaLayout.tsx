@@ -75,9 +75,6 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     setPopIdentity(currentUser?._id?.toString(), currentUser?.role || undefined);
   }, [currentUser]);
 
-  // Action type state for the question filter (allocated vs reroute)
-  const [actionType, setActionType] = useState<"allocated" | "reroute">("allocated");
-
   // Selected question ID tracking
   const [selectedQuestionId, setSelectedQuestionId] = useState<string | null>(null);
 
@@ -115,22 +112,110 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
     [source, states, crops, reviewLevel]
   );
 
-  // Call the hook to get allocated questions
+  // Call the hooks to get allocated and rerouted questions
   const LIMIT = 10;
   const filter = "newest";
   const {
-    data: questionPages,
-    isLoading: isQuestionsLoading,
-    fetchNextPage,
-    hasNextPage,
-    isFetchingNextPage,
-    refetch,
-  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, actionType, null, reviewLevel);
+    data: allocatedPages,
+    isLoading: isAllocatedLoading,
+    fetchNextPage: fetchNextAllocatedPage,
+    hasNextPage: hasNextAllocatedPage,
+    isFetchingNextPage: isFetchingNextAllocatedPage,
+    refetch: refetchAllocated,
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, "allocated", null, reviewLevel);
 
-  const questions = useMemo(
-    () => (questionPages?.pages?.flat() || []).filter(Boolean) as any[],
-    [questionPages?.pages]
+  const {
+    data: reroutePages,
+    isLoading: isRerouteLoading,
+    fetchNextPage: fetchNextReroutePage,
+    hasNextPage: hasNextReroutePage,
+    isFetchingNextPage: isFetchingNextReroutePage,
+    refetch: refetchReroute,
+  } = useGetAllocatedQuestions(LIMIT, filter, preferences as any, "reroute", null, reviewLevel);
+
+  const isQuestionsLoading = isAllocatedLoading || isRerouteLoading;
+  const isFetchingNextPage = isFetchingNextAllocatedPage || isFetchingNextReroutePage;
+  const hasNextPage = hasNextAllocatedPage || hasNextReroutePage;
+
+  const refetch = useCallback(() => {
+    refetchAllocated();
+    refetchReroute();
+  }, [refetchAllocated, refetchReroute]);
+
+  const fetchNextPage = useCallback(async () => {
+    if (hasNextAllocatedPage && !isFetchingNextAllocatedPage) {
+      await fetchNextAllocatedPage();
+    }
+    if (hasNextReroutePage && !isFetchingNextReroutePage) {
+      await fetchNextReroutePage();
+    }
+  }, [
+    hasNextAllocatedPage,
+    isFetchingNextAllocatedPage,
+    fetchNextAllocatedPage,
+    hasNextReroutePage,
+    isFetchingNextReroutePage,
+    fetchNextReroutePage,
+  ]);
+
+  const questions = useMemo(() => {
+    const allocated = (allocatedPages?.pages?.flat() || [])
+      .filter(Boolean)
+      .map((q: any) => ({ ...q, actionType: "allocated" as const }));
+    const rerouted = (reroutePages?.pages?.flat() || [])
+      .filter(Boolean)
+      .map((q: any) => ({ ...q, actionType: "reroute" as const }));
+
+    const map = new Map<string, any>();
+    rerouted.forEach((q: any) => {
+      const id = q?.id || q?._id;
+      if (id) map.set(id, q);
+    });
+    allocated.forEach((q: any) => {
+      const id = q?.id || q?._id;
+      if (id && !map.has(id)) {
+        map.set(id, q);
+      }
+    });
+
+    const merged = Array.from(map.values());
+
+    return merged.sort((a, b) => {
+      // 1. Timebound questions (AJRASAKHA / WHATSAPP) always take absolute top priority
+      const aIsTb = a?.source === "AJRASAKHA" || a?.source === "WHATSAPP";
+      const bIsTb = b?.source === "AJRASAKHA" || b?.source === "WHATSAPP";
+      if (aIsTb && !bIsTb) return -1;
+      if (!aIsTb && bIsTb) return 1;
+
+      // 2. Rerouted questions next
+      const aIsReroute = a.actionType === "reroute" || a.status === "re-routed" || !!a.reroute;
+      const bIsReroute = b.actionType === "reroute" || b.status === "re-routed" || !!b.reroute;
+      if (aIsReroute && !bIsReroute) return -1;
+      if (!aIsReroute && bIsReroute) return 1;
+
+      // 3. Newest first
+      const aTime = new Date(a.assignedAt || a.createdAt).getTime();
+      const bTime = new Date(b.assignedAt || b.createdAt).getTime();
+      return bTime - aTime;
+    });
+  }, [allocatedPages?.pages, reroutePages?.pages]);
+
+  const currentQuestionInList = useMemo(
+    () => questions.find((q) => (q?.id || q?._id) === selectedQuestionId),
+    [questions, selectedQuestionId]
   );
+
+  const isCurrentQuestionReroute = useMemo(() => {
+    return (
+      currentQuestionInList?.actionType === "reroute" ||
+      currentQuestionInList?.status === "re-routed" ||
+      !!currentQuestionInList?.reroute
+    );
+  }, [currentQuestionInList]);
+
+  const currentActionType: "allocated" | "reroute" = isCurrentQuestionReroute
+    ? "reroute"
+    : "allocated";
 
   // Check if there are any timebound questions in the list
   const hasTimeboundQuestions = useMemo(
@@ -185,7 +270,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
 
   // Fetch full details of the selected question
   const { data: selectedQuestionData, isLoading: isSelectedQuestionLoading } =
-    useGetQuestionById(selectedQuestionId, actionType);
+    useGetQuestionById(selectedQuestionId, currentActionType);
 
   // Time-bound question opened tracking
   const questionServiceRef = useRef(new QuestionService());
@@ -193,7 +278,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
   const lastOpenedTimeBoundRef = useRef<string | null>(null);
 
   useEffect(() => {
-    if (!selectedQuestionId || actionType !== "allocated") return;
+    if (!selectedQuestionId || isCurrentQuestionReroute) return;
 
     const q = questions.find((item) => (item.id || item._id) === selectedQuestionId);
     const isCurrentTimeBound = q?.source === "AJRASAKHA" || q?.source === "WHATSAPP";
@@ -223,7 +308,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
         pendingClearTimerRef.current = null;
       }, 5 * 60 * 1000);
     }
-  }, [selectedQuestionId, actionType, questions]);
+  }, [selectedQuestionId, isCurrentQuestionReroute, questions]);
 
   // Cleanup timebound timer on unmount
   useEffect(() => {
@@ -253,7 +338,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
       status: status || ("accepted" as any),
       parameters: parameters || ({} as any),
       remarks: remarksText || "",
-      type: actionType,
+      type: currentActionType,
     };
 
     const requiresSources = !status || status === "rejected" || status === "modified";
@@ -321,11 +406,6 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
       [panel]: !prev[panel],
     }));
   };
-
-  const currentQuestionInList = useMemo(
-    () => questions.find((q) => (q?.id || q?._id) === selectedQuestionId),
-    [questions, selectedQuestionId]
-  );
 
   const activeQuestionText = useMemo(() => {
     const fromSelected =
@@ -533,8 +613,6 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               isEnlarged={enlargedPanel === "questionContext"}
               onToggleEnlarge={() => toggleEnlarge("questionContext")}
               progressPercent={15}
-              actionType={actionType}
-              onActionTypeChange={setActionType}
               reviewLevel={reviewLevel}
               source={source}
               states={states}
@@ -584,7 +662,7 @@ export const RevampQaLayout: React.FC<RevampQaLayoutProps> = ({
               <AnswerReviewDraftPanel
                 selectedQuestionData={selectedQuestionData}
                 isLoading={isSelectedQuestionLoading}
-                actionType={actionType}
+                actionType={currentActionType}
                 initialAiAnswer={
                   selectedQuestionData?.source === "AJRASAKHA"
                     ? selectedQuestionData.aiInitialAnswer ||
