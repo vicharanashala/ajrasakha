@@ -6,12 +6,12 @@ on:
 permissions:
   contents: write
   packages: write
-  id-token: write
+  # id-token: write  # needed only for the Cloud Run deploy job below
 
 env:
   DOCKER_IMAGE: reviewer-api
-  GCP_REGION: asia-south2
-  GCP_SERVICE: reviewer-backend
+  # GCP_REGION: asia-south2
+  # GCP_SERVICE: reviewer-backend
 
 jobs:
   build:
@@ -60,74 +60,75 @@ jobs:
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:latest
             ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
 
-  deploy_production:
-    name: Deploy to Cloud Run (Production)
-    needs: build
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
-
-      - name: Deploy to Cloud Run
-        uses: google-github-actions/deploy-cloudrun@v1
-        with:
-          service: ${{ env.GCP_SERVICE }}
-          region: ${{ env.GCP_REGION }}
-          image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
-          project_id: ${{ secrets.GCP_PROJECT_ID }}
-
-          secrets: |
-            DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
-            STAGING_DB_URI=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
-            TAILSCALE_AUTHKEY=Tailscale_Auth_Key:latest
-            
-          env_vars: |
-            NODE_ENV=production
-            ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN || 'true' }}
-            LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET }}
-            LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS || '604800' }}
-            APP_PORT=${{ secrets.APP_PORT }}
-            DB_NAME=${{ secrets.DB_NAME }}
-            POP_DB_URL=${{ secrets.POP_DB_URL }}
-            POP_DB_NAME=${{ secrets.POP_DB_NAME }}
-            POP_API_URL=${{ secrets.POP_API_URL }}
-            VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
-            VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
-            VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
-            INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
-            PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
-            PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
-            LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
-            LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
-            LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
-            LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
-            LGD_API_KEY=${{ secrets.LGD_API_KEY }}
-            ANNAM_URL_ANALYTICS=${{ secrets.ANNAM_URL_ANALYTICS }}
-            ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
-            DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
-            DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
-            GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
-            STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
-            DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
-            REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
-            PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
-            PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
-            MINIMAX_API=${{ secrets.MINIMAX_API }}
-            MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
-            MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
-            CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
-            TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
-            TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
-            ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
-            ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
-            ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
-            ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
-            ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
-            ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
-            GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
-            GDB_DRAFT_URL=${{ secrets.GDB_DRAFT_URL }}
-            GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
-          flags: --allow-unauthenticated
+  # Cloud Run deployment is disabled. Uncomment this job (and the GCP_* env and id-token permission above) to deploy again.
+  # deploy_production:
+  #   name: Deploy to Cloud Run (Production)
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #
+  #   steps:
+  #     - name: Authenticate to Google Cloud
+  #       uses: google-github-actions/auth@v2
+  #       with:
+  #         credentials_json: ${{ secrets.GCP_GH_SA_KEY }}
+  #
+  #     - name: Deploy to Cloud Run
+  #       uses: google-github-actions/deploy-cloudrun@v1
+  #       with:
+  #         service: ${{ env.GCP_SERVICE }}
+  #         region: ${{ env.GCP_REGION }}
+  #         image: ${{ secrets.DOCKERHUB_USERNAME }}/${{ env.DOCKER_IMAGE }}:${{ github.sha }}
+  #         project_id: ${{ secrets.GCP_PROJECT_ID }}
+  #
+  #         secrets: |
+  #           DB_URL=AJRASAKHA_REVIEWER_SYS_DB_URI_PROD:latest
+  #           STAGING_DB_URI=AJRASAKHA_REVIEWER_SYS_DB_URI_STAGING:latest
+  #           TAILSCALE_AUTHKEY=Tailscale_Auth_Key:latest
+  #
+  #         env_vars: |
+  #           NODE_ENV=production
+  #           ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN || 'true' }}
+  #           LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET }}
+  #           LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS || '604800' }}
+  #           APP_PORT=${{ secrets.APP_PORT }}
+  #           DB_NAME=${{ secrets.DB_NAME }}
+  #           POP_DB_URL=${{ secrets.POP_DB_URL }}
+  #           POP_DB_NAME=${{ secrets.POP_DB_NAME }}
+  #           POP_API_URL=${{ secrets.POP_API_URL }}
+  #           VAPID_EMAIL=${{ secrets.VAPID_EMAIL }}
+  #           VAPID_PUBLIC_KEY=${{ secrets.VAPID_PUBLIC_KEY }}
+  #           VAPID_PRIVATE_KEY=${{ secrets.VAPID_PRIVATE_KEY }}
+  #           INTERNAL_API_KEY=${{ secrets.INTERNAL_API_KEY }}
+  #           PLIVO_AUTH_ID=${{ secrets.PLIVO_AUTH_ID }}
+  #           PLIVO_AUTH_TOKEN=${{ secrets.PLIVO_AUTH_TOKEN }}
+  #           LGD_STATES_API_URL=${{ secrets.LGD_STATES_API_URL }}
+  #           LGD_DISTRICTS_API_URL=${{ secrets.LGD_DISTRICTS_API_URL }}
+  #           LGD_SUBDISTRICTS_API_URL=${{ secrets.LGD_SUBDISTRICTS_API_URL }}
+  #           LGD_VILLAGES_API_URL=${{ secrets.LGD_VILLAGES_API_URL }}
+  #           LGD_API_KEY=${{ secrets.LGD_API_KEY }}
+  #           ANNAM_URL_ANALYTICS=${{ secrets.ANNAM_URL_ANALYTICS }}
+  #           ANNAM_DB_ANALYTICS=${{ secrets.ANNAM_DB_ANALYTICS }}
+  #           DB_URL_ANALYTICS=${{ secrets.DB_URL_ANALYTICS }}
+  #           DB_NAME_ANALYTICS=${{ secrets.DB_NAME_ANALYTICS }}
+  #           GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
+  #           STAGING_DB_NAME=${{ secrets.STAGING_DB_NAME }}
+  #           DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}
+  #           REVIEW_SYSTEM_AUTH_KEY=${{ secrets.REVIEW_SYSTEM_AUTH_KEY }}
+  #           PAE_MILESTONE_REPORT_EMAILS=${{ secrets.PAE_MILESTONE_REPORT_EMAILS }}
+  #           PAE_MILESTONE_REPORT_CC=${{ secrets.PAE_MILESTONE_REPORT_CC }}
+  #           MINIMAX_API=${{ secrets.MINIMAX_API }}
+  #           MINIMAX_PORT=${{ secrets.MINIMAX_PORT }}
+  #           MINIMAX_API_KEY=${{ secrets.MINIMAX_API_KEY }}
+  #           CHEMICAL_CHECK_PORT=${{ secrets.CHEMICAL_CHECK_PORT}}
+  #           TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH=${{ secrets.TESTERS_DASHBOARD_SERVICE_ACCOUNT_PATH }}
+  #           TESTERS_DASHBOARD_SHEETS=${{ secrets.TESTERS_DASHBOARD_SHEETS }}
+  #           ZOHO_CLIENT_ID=${{ secrets.ZOHO_CLIENT_ID }}
+  #           ZOHO_CLIENT_SECRET=${{ secrets.ZOHO_CLIENT_SECRET }}
+  #           ZOHO_REFRESH_TOKEN=${{ secrets.ZOHO_REFRESH_TOKEN }}
+  #           ZOHO_ORG_ID=${{ secrets.ZOHO_ORG_ID }}
+  #           ZOHO_ACCOUNTS_DOMAIN=${{ secrets.ZOHO_ACCOUNTS_DOMAIN }}
+  #           ZOHO_API_DOMAIN=${{ secrets.ZOHO_API_DOMAIN }}
+  #           GDB_CLEANING_DB_URL=${{ secrets.GDB_CLEANING_DB_URL}}
+  #           GDB_DRAFT_URL=${{ secrets.GDB_DRAFT_URL }}
+  #           GDB_DRAFT_TOKEN=${{ secrets.GDB_DRAFT_TOKEN }}
+  #         flags: --allow-unauthenticated
