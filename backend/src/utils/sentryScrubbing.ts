@@ -1,7 +1,7 @@
 const REDACTED = '[Filtered]';
 
 // Request fields and headers that carry credentials and must never leave the server in error reports.
-const SENSITIVE_KEY_PATTERN = /password|passwd|secret|token|authorization|cookie|api[-_]?key/i;
+const SENSITIVE_KEY_PATTERN = /password|passwd|secret|token|authorization|cookie|api[-_]?key|^otp$|otphash/i;
 const MAX_DEPTH = 10;
 
 type EventWithRequest = {

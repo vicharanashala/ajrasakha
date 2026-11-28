@@ -60,3 +60,37 @@ describe("AuthService backend login calls", () => {
     });
   });
 });
+
+describe("AuthService reset password with code", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const payload = {
+    email: "a@test.com",
+    otp: "123456",
+    newPassword: "N3w!Passw0rd",
+    newPasswordConfirm: "N3w!Passw0rd",
+  };
+
+  it("posts the code and new password to /auth/reset-password", async () => {
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ success: true, message: "ok" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(authService.resetPasswordWithCode(payload)).resolves.toEqual({ success: true, message: "ok" });
+
+    const [url, options] = firstFetchCall(fetchMock);
+    expect(url).toBe("http://api.test/auth/reset-password");
+    expect(options.method).toBe("POST");
+    expect(JSON.parse(options.body as string)).toEqual(payload);
+  });
+
+  it("surfaces the backend message for an invalid or expired code", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(JSON.stringify({ message: "Invalid or expired reset code" }), { status: 400 }))
+    );
+
+    await expect(authService.resetPasswordWithCode(payload)).rejects.toThrow("Invalid or expired reset code");
+  });
+});

@@ -67,3 +67,33 @@ export function LocalLoginRateLimiter(
   }
   return failedLocalLoginLimiter(req, res, next);
 }
+
+const PASSWORD_RESET_WINDOW_MS = 15 * 60 * 1000;
+const MAX_PASSWORD_RESET_REQUESTS_PER_EMAIL = 10;
+
+// Limits forgot and reset requests per email, so a code cannot be guessed or the inbox flooded from many IPs.
+export const passwordResetLimiter = rateLimit({
+  windowMs: PASSWORD_RESET_WINDOW_MS,
+  limit: MAX_PASSWORD_RESET_REQUESTS_PER_EMAIL,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: req => {
+    const email = req.body?.email;
+    return `password-reset:${typeof email === 'string' ? email.trim().toLowerCase() : ''}`;
+  },
+  message: {message: 'Too many password reset attempts. Please try again in 15 minutes.'},
+  // The key does not use the client IP, so the proxy header check does not apply.
+  validate: {xForwardedForHeader: false},
+});
+
+// Applies the reset limiter only for MongoDB login; Firebase handles its own reset limits.
+export function PasswordResetRateLimiter(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
+  if (appConfig.enableFirebaseLogin) {
+    return next();
+  }
+  return passwordResetLimiter(req, res, next);
+}

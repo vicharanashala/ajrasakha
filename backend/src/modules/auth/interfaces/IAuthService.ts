@@ -3,6 +3,7 @@ import {
   ChangePasswordBody,
   GoogleSignUpBody,
   AdminCreateReviewUserBody,
+  ResetPasswordBody,
 } from '#auth/classes/index.js';
 import {IUser} from '#shared/interfaces/models.js';
 
@@ -77,6 +78,7 @@ export interface IAuthService {
   syncUserWithDb(firebaseUID: string, email: string, displayName: string): Promise<IUser>;
   sendVerificationEmail(email: string): Promise<void>;
   sendPasswordResetEmail(email: string): Promise<void>;
+  resetPasswordWithOtp(body: ResetPasswordBody): Promise<void>;
 }
 
 /**

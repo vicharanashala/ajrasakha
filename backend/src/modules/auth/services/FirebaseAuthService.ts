@@ -4,6 +4,7 @@ import {
   ChangePasswordBody,
   GoogleSignUpBody,
   AdminCreateReviewUserBody,
+  ResetPasswordBody,
 } from '#auth/classes/index.js';
 import { IAuthService, DecodedAuthToken, LocalLoginResult } from '#auth/interfaces/IAuthService.js';
 import { GLOBAL_TYPES } from '#root/types.js';
@@ -17,16 +18,21 @@ import { MongoDatabase } from '#root/shared/database/providers/mongo/MongoDataba
 import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 import { error } from 'console';
 import { sendEmailNotification } from '#root/utils/mailer.js';
+import { buildPasswordResetEmail } from '#root/utils/passwordResetEmail.js';
 import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { COORDINATOR_ROLES } from '#root/shared/constants/roles.js';
 import bcrypt from 'bcryptjs';
-import { randomUUID } from 'crypto';
+import { randomInt, randomUUID } from 'crypto';
 import { signLocalAuthToken, verifyLocalAuthToken } from '#root/utils/localAuthToken.js';
 import { assertPasswordFitsBcrypt, assertStrongPassword } from '#root/utils/passwordPolicy.js';
 import { isUserAccessDenied } from '#root/shared/functions/userAccess.js';
 
 const PASSWORD_HASH_ROUNDS = 10;
+const RESET_OTP_TTL_MINUTES = 10;
+const RESET_OTP_MAX_FAILED_ATTEMPTS = 5;
+const RESET_OTP_RESEND_COOLDOWN_MS = 60 * 1000;
+const INVALID_RESET_CODE_MESSAGE = 'Invalid or expired reset code';
 
 let dummyPasswordHash: string | undefined;
 
@@ -42,9 +48,9 @@ function assertValidLocalPassword(password: string): void {
   assertPasswordFitsBcrypt(password);
 }
 
-// Removes the password hash so user records can be safely returned to clients.
+// Removes the password hash and pending reset code so user records can be safely returned to clients.
 export function withoutPassword(user: IUser): IUser {
-  const { password: _password, ...safeUser } = user;
+  const { password: _password, passwordReset: _passwordReset, ...safeUser } = user;
   return safeUser;
 }
 
@@ -636,10 +642,9 @@ If you face any issues, please contact the admin.`,
 
   async sendPasswordResetEmail(email: string): Promise<void> {
     try {
-      if (appConfig.isDevelopment) return;
+      if (appConfig.isDevelopment && appConfig.enableFirebaseLogin) return;
       if (!appConfig.enableFirebaseLogin) {
-        // Reset links come from Firebase; with local login an admin sets the new password instead.
-        console.warn(`Password reset requested for ${email}, but Firebase login is disabled.`);
+        await this.sendLocalPasswordResetOtp(email);
         return;
       }
       const link = await this.auth.generatePasswordResetLink(email);
@@ -658,5 +663,67 @@ If you face any issues, please contact the admin.`,
       // Silently fail — don't reveal whether the email exists
       console.error(`Failed to send password reset email to ${email}:`, err);
     }
+  }
+
+  // Emails a one-time reset code to a known, active account; unknown emails are silently ignored.
+  private async sendLocalPasswordResetOtp(email: string): Promise<void> {
+    const user = await this.findUserByLoginEmail(email);
+    if (!user?.password || user.isVerified === false || isUserAccessDenied(user)) return;
+
+    // The cooldown stops the endpoint being used to flood a user's inbox.
+    const lastRequestedAt = user.passwordReset?.requestedAt;
+    if (lastRequestedAt && Date.now() - new Date(lastRequestedAt).getTime() < RESET_OTP_RESEND_COOLDOWN_MS) {
+      return;
+    }
+
+    const otp = String(randomInt(0, 1_000_000)).padStart(6, '0');
+    const now = new Date();
+    await this.userRepository.edit(user._id.toString(), {
+      passwordReset: {
+        otpHash: await bcrypt.hash(otp, PASSWORD_HASH_ROUNDS),
+        requestedAt: now,
+        expiresAt: new Date(now.getTime() + RESET_OTP_TTL_MINUTES * 60 * 1000),
+        failedAttempts: 0,
+      },
+    });
+
+    const mail = buildPasswordResetEmail(otp, RESET_OTP_TTL_MINUTES);
+    await sendEmailNotification(user.email, mail.subject, mail.text, mail.html);
+  }
+
+  // Sets a new password when the emailed code matches, then revokes the code and all older sessions.
+  async resetPasswordWithOtp(body: ResetPasswordBody): Promise<void> {
+    if (appConfig.enableFirebaseLogin) {
+      throw new HttpError(404, 'Not found');
+    }
+    if (body.newPassword !== body.newPasswordConfirm) {
+      throw new HttpError(400, 'New passwords do not match');
+    }
+    try {
+      assertValidLocalPassword(body.newPassword);
+    } catch (error) {
+      throw new HttpError(400, error instanceof Error ? error.message : 'Invalid password');
+    }
+
+    const user = await this.findUserByLoginEmail(body.email);
+    const reset = user?.passwordReset;
+    // Same message for every failure so the response does not reveal whether the email exists.
+    if (!user || !reset || new Date(reset.expiresAt).getTime() < Date.now() || reset.failedAttempts >= RESET_OTP_MAX_FAILED_ATTEMPTS) {
+      throw new HttpError(400, INVALID_RESET_CODE_MESSAGE);
+    }
+
+    if (!(await bcrypt.compare(body.otp, reset.otpHash))) {
+      await this.userRepository.edit(user._id.toString(), {
+        passwordReset: { ...reset, failedAttempts: reset.failedAttempts + 1 },
+      });
+      throw new HttpError(400, INVALID_RESET_CODE_MESSAGE);
+    }
+
+    // passwordChangedAt invalidates tokens issued before the reset.
+    await this.userRepository.edit(user._id.toString(), {
+      password: await bcrypt.hash(body.newPassword, PASSWORD_HASH_ROUNDS),
+      passwordChangedAt: new Date(),
+      passwordReset: null,
+    });
   }
 }

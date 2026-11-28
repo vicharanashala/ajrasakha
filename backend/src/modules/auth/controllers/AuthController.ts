@@ -5,6 +5,7 @@ import {
   GoogleSignUpBody,
   ResendVerificationBody,
   ForgotPasswordBody,
+  ResetPasswordBody,
   SignUpResponse,
   ChangePasswordResponse,
   AuthErrorResponse,
@@ -14,7 +15,7 @@ import {
 } from '#auth/classes/validators/AuthValidators.js';
 import { IAuthService } from '#auth/interfaces/IAuthService.js';
 import { IUser } from '#root/shared/interfaces/models.js';
-import { LocalLoginRateLimiter } from '#root/shared/middleware/rateLimiter.js';
+import { LocalLoginRateLimiter, PasswordResetRateLimiter } from '#root/shared/middleware/rateLimiter.js';
 import { ChangePasswordError } from '#auth/services/FirebaseAuthService.js';
 import { injectable, inject } from 'inversify';
 import {
@@ -215,9 +216,29 @@ export class AuthController {
     description: 'Bad request - Invalid email format',
   })
   @Post('/forgot-password')
+  @UseBefore(PasswordResetRateLimiter)
   async forgotPassword(@Body() body: ForgotPasswordBody) {
     await this.authService.sendPasswordResetEmail(body.email);
-    return { success: true, message: 'If this email is registered, a password reset link has been sent.' };
+    return { success: true, message: appConfig.enableFirebaseLogin ? 'If this email is registered, a password reset link has been sent.' : 'If this email is registered, a reset code has been sent.' };
+  }
+
+  @OpenAPI({
+    summary: 'Reset password with emailed code',
+    description: 'Sets a new password using the 6 digit code sent by forgot-password. Only available when ENABLE_FIREBASE_LOGIN is false.',
+  })
+  @ResponseSchema(ChangePasswordResponse, {
+    statusCode: 200,
+    description: 'Password updated',
+  })
+  @ResponseSchema(AuthErrorResponse, {
+    statusCode: 400,
+    description: 'Invalid or expired code, or the new password is not valid',
+  })
+  @Post('/reset-password')
+  @UseBefore(PasswordResetRateLimiter)
+  async resetPassword(@Body() body: ResetPasswordBody) {
+    await this.authService.resetPasswordWithOtp(body);
+    return { success: true, message: 'Password updated successfully. Please log in with your new password.' };
   }
 
   @OpenAPI({

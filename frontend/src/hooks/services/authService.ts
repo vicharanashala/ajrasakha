@@ -208,4 +208,23 @@ export class AuthService {
       throw error;
     }
   }
+
+  // Sets a new password using the code emailed by forgotPassword (backend login only).
+  async resetPasswordWithCode(payload: {
+    email: string;
+    otp: string;
+    newPassword: string;
+    newPasswordConfirm: string;
+  }): Promise<{ success: boolean; message: string }> {
+    const res = await fetch(`${this._baseUrl}/reset-password`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, "Failed to reset password"));
+    }
+    return res.json();
+  }
 }

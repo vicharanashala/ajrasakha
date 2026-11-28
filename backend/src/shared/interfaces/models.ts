@@ -63,6 +63,13 @@ export interface IUser {
   /** bcrypt hash. Used for login when ENABLE_FIREBASE_LOGIN is false; never return it to clients. */
   password?: string;
   passwordChangedAt?: Date;
+  /** Pending forgot-password OTP (hashed). Only used when ENABLE_FIREBASE_LOGIN is false. */
+  passwordReset?: {
+    otpHash: string;
+    expiresAt: Date;
+    requestedAt: Date;
+    failedAttempts: number;
+  } | null;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
   Call_centre_manager?: boolean;

@@ -352,8 +352,8 @@ describe('Auth HTTP flow with ENABLE_FIREBASE_LOGIN=false', () => {
     const google = await request(app)
       .post('/auth/signup/google')
       .send({email: 'g@test.com', firstName: 'G', lastName: 'User'});
-    const forgot = await request(app).post('/auth/forgot-password').send({email: 'enum@test.com'});
-    const resend = await request(app).post('/auth/resend-verification').send({email: 'enum@test.com'});
+    const forgot = await request(app).post('/auth/forgot-password').send({email: 'no-account@test.com'});
+    const resend = await request(app).post('/auth/resend-verification').send({email: 'no-account@test.com'});
 
     expect(google.status).toBe(400);
     expect(forgot.status).toBe(200);
@@ -379,5 +379,158 @@ describe('Auth HTTP flow with ENABLE_FIREBASE_LOGIN=false', () => {
     expect((await request(app).get('/probe/flexible').set(bearer(`${token}x`))).status).toBe(401);
     expect((await request(app).get('/probe/flexible').set('x-internal-api-key', 'wrong-key')).status).toBe(401);
     expect((await request(app).get('/probe/flexible')).status).toBe(401);
+  });
+});
+
+/** Reads the 6 digit code out of the last reset email that was "sent". */
+function lastSentOtp(): string {
+  const calls = vi.mocked(sendEmailNotification).mock.calls;
+  const text = calls[calls.length - 1][2] as string;
+  return text.match(/\b\d{6}\b/)![0];
+}
+
+describe('Forgot password with ENABLE_FIREBASE_LOGIN=false', () => {
+  const NEW_PASSWORD = 'N3w!Secret#Pass';
+
+  beforeAll(() => {
+    app = app ?? buildApp();
+  });
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  // Requests a code for the email and returns it.
+  async function requestOtp(email: string): Promise<string> {
+    const res = await request(app).post('/auth/forgot-password').send({email});
+    expect(res.status).toBe(200);
+    return lastSentOtp();
+  }
+
+  // Posts the reset form with sensible defaults.
+  const reset = (email: string, otp: string, overrides: Record<string, string> = {}) =>
+    request(app)
+      .post('/auth/reset-password')
+      .send({email, otp, newPassword: NEW_PASSWORD, newPasswordConfirm: NEW_PASSWORD, ...overrides});
+
+  it('emails an HTML code, stores only its hash, and lets the user log in with the new password', async () => {
+    await repo.seedUser({email: 'reset1@test.com'}, STRONG_PASSWORD);
+    const oldToken = await loginToken('reset1@test.com');
+    await new Promise(resolve => setTimeout(resolve, 1100));
+
+    const otp = await requestOtp('reset1@test.com');
+    const [to, subject, , html] = vi.mocked(sendEmailNotification).mock.calls[0];
+    expect(to).toBe('reset1@test.com');
+    expect(subject).toContain('password reset');
+    expect(html).toContain('<html');
+    expect(html).toContain(otp);
+
+    const stored = repo.getStoredByEmail('reset1@test.com');
+    expect(JSON.stringify(stored.passwordReset)).not.toContain(otp);
+    expect(await bcrypt.compare(otp, stored.passwordReset!.otpHash)).toBe(true);
+
+    const res = await reset('reset1@test.com', otp);
+    expect(res.status).toBe(200);
+
+    const after = repo.getStoredByEmail('reset1@test.com');
+    expect(after.passwordReset).toBeNull();
+    expect(after.password).not.toBe(NEW_PASSWORD);
+    expect(await bcrypt.compare(NEW_PASSWORD, after.password)).toBe(true);
+
+    expect((await request(app).post('/auth/login').send({email: 'reset1@test.com', password: STRONG_PASSWORD})).status).toBe(401);
+    expect((await request(app).post('/auth/login').send({email: 'reset1@test.com', password: NEW_PASSWORD})).status).toBe(200);
+    // Sessions created before the reset are revoked.
+    expect((await request(app).get('/probe/me').set(bearer(oldToken))).status).toBe(401);
+  });
+
+  it('answers the same for unknown, unverified and inactive accounts and sends nothing', async () => {
+    await repo.seedUser({email: 'pending-reset@test.com', isVerified: false}, STRONG_PASSWORD);
+    await repo.seedUser({email: 'blocked-reset@test.com', isBlocked: true}, STRONG_PASSWORD);
+    const known = await request(app).post('/auth/forgot-password').send({email: 'nobody-reset@test.com'});
+
+    for (const email of ['nobody-reset@test.com', 'pending-reset@test.com', 'blocked-reset@test.com']) {
+      const res = await request(app).post('/auth/forgot-password').send({email});
+      expect(res.status).toBe(200);
+      expect(res.body).toEqual(known.body);
+    }
+    expect(sendEmailNotification).not.toHaveBeenCalled();
+  });
+
+  it('does not resend within the cooldown', async () => {
+    await repo.seedUser({email: 'cooldown@test.com'}, STRONG_PASSWORD);
+    await requestOtp('cooldown@test.com');
+    await request(app).post('/auth/forgot-password').send({email: 'cooldown@test.com'});
+
+    expect(sendEmailNotification).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a wrong code, an expired code and a reused code with the same message', async () => {
+    await repo.seedUser({email: 'codes@test.com'}, STRONG_PASSWORD);
+    const otp = await requestOtp('codes@test.com');
+    const wrong = otp === '000000' ? '111111' : '000000';
+
+    const wrongRes = await reset('codes@test.com', wrong);
+    expect(wrongRes.status).toBe(400);
+
+    const stored = repo.getStoredByEmail('codes@test.com');
+    await repo.edit(stored._id as string, {passwordReset: {...stored.passwordReset!, expiresAt: new Date(Date.now() - 1000)}});
+    const expiredRes = await reset('codes@test.com', otp);
+    expect(expiredRes.status).toBe(400);
+    expect(expiredRes.body.message).toBe(wrongRes.body.message);
+
+    const unknownRes = await reset('nobody-codes@test.com', otp);
+    expect(unknownRes.status).toBe(400);
+    expect(unknownRes.body.message).toBe(wrongRes.body.message);
+
+    await repo.edit(stored._id as string, {passwordReset: {...stored.passwordReset!, expiresAt: new Date(Date.now() + 60000)}});
+    expect((await reset('codes@test.com', otp)).status).toBe(200);
+    expect((await reset('codes@test.com', otp)).status).toBe(400);
+  });
+
+  it('locks the code after too many wrong attempts, even if the right code follows', async () => {
+    await repo.seedUser({email: 'lock@test.com'}, STRONG_PASSWORD);
+    const otp = await requestOtp('lock@test.com');
+    const wrong = otp === '000000' ? '111111' : '000000';
+
+    for (let attempt = 0; attempt < 5; attempt++) {
+      expect((await reset('lock@test.com', wrong)).status).toBe(400);
+    }
+    expect((await reset('lock@test.com', otp)).status).toBe(400);
+    const stored = repo.getStoredByEmail('lock@test.com');
+    expect(await bcrypt.compare(STRONG_PASSWORD, stored.password)).toBe(true);
+  });
+
+  it('validates the new password and the request shape', async () => {
+    await repo.seedUser({email: 'validate@test.com'}, STRONG_PASSWORD);
+    const otp = await requestOtp('validate@test.com');
+
+    expect((await reset('validate@test.com', otp, {newPassword: 'weakpass', newPasswordConfirm: 'weakpass'})).status).toBe(400);
+    expect((await reset('validate@test.com', otp, {newPasswordConfirm: 'Different1!Pass'})).status).toBe(400);
+    expect((await reset('validate@test.com', otp, {newPassword: 'Aa1!' + 'x'.repeat(80), newPasswordConfirm: 'Aa1!' + 'x'.repeat(80)})).status).toBe(400);
+    expect((await reset('validate@test.com', '12ab56')).status).toBe(400);
+    expect((await reset('not-an-email', otp)).status).toBe(400);
+
+    // None of the rejected attempts used up or changed anything.
+    expect((await reset('validate@test.com', otp)).status).toBe(200);
+  });
+
+  it('never returns the stored code hash from any endpoint', async () => {
+    await repo.seedUser({email: 'leak@test.com'}, STRONG_PASSWORD);
+    await requestOtp('leak@test.com');
+    const token = await loginToken('leak@test.com');
+
+    const me = await request(app).get('/probe/me').set(bearer(token));
+    const sync = await request(app).post('/auth/sync').set(bearer(token));
+    expect(me.text).not.toContain('otpHash');
+    expect(sync.text).not.toContain('otpHash');
+  });
+
+  it('rate limits reset attempts per email', async () => {
+    await repo.seedUser({email: 'limit-reset@test.com'}, STRONG_PASSWORD);
+    let lastStatus = 0;
+    for (let attempt = 0; attempt < 12; attempt++) {
+      lastStatus = (await reset('limit-reset@test.com', '000000')).status;
+    }
+    expect(lastStatus).toBe(429);
   });
 });

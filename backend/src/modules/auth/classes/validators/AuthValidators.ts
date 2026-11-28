@@ -421,6 +421,53 @@ class ForgotPasswordBody {
   email: string;
 }
 
+class ResetPasswordBody {
+  @JSONSchema({
+    title: 'Email Address',
+    description: 'Email address the reset code was sent to',
+    example: 'user@example.com',
+    type: 'string',
+    format: 'email',
+  })
+  @IsEmail()
+  email: string;
+
+  @JSONSchema({
+    title: 'Reset Code',
+    description: '6 digit code received by email',
+    example: '123456',
+    type: 'string',
+  })
+  @Matches(/^\d{6}$/, {message: 'Reset code must be 6 digits'})
+  otp: string;
+
+  @JSONSchema({
+    title: 'New Password',
+    description: 'New password. Must meet the password policy.',
+    example: 'SecureP@ssw0rd',
+    type: 'string',
+    format: 'password',
+    minLength: 8,
+    writeOnly: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  newPassword: string;
+
+  @JSONSchema({
+    title: 'Confirm New Password',
+    description: 'Must match the new password exactly',
+    example: 'SecureP@ssw0rd',
+    type: 'string',
+    format: 'password',
+    minLength: 8,
+    writeOnly: true,
+  })
+  @IsString()
+  @IsNotEmpty()
+  newPasswordConfirm: string;
+}
+
 export const AUTH_VALIDATORS = [
   SignUpBody,
   GoogleSignUpBody,
@@ -434,6 +481,7 @@ export const AUTH_VALIDATORS = [
   LoginBody,
   ResendVerificationBody,
   ForgotPasswordBody,
+  ResetPasswordBody,
   LoginResponse,
   SyncAccountResponse,
 ];
@@ -451,6 +499,7 @@ export {
   LoginBody,
   ResendVerificationBody,
   ForgotPasswordBody,
+  ResetPasswordBody,
   LoginResponse,
   SyncAccountResponse,
 };

@@ -70,6 +70,17 @@ describe('ENABLE_FIREBASE_LOGIN=true keeps the existing Firebase flow', () => {
     expect(user.email).toBe('fb@test.com');
   });
 
+  it('does not offer the code based password reset', async () => {
+    await expect(
+      service.resetPasswordWithOtp({
+        email: 'fb@test.com',
+        otp: '123456',
+        newPassword: 'N3w!Secret#Pass',
+        newPasswordConfirm: 'N3w!Secret#Pass',
+      }),
+    ).rejects.toMatchObject({httpCode: 404});
+  });
+
   it('maps Firebase claims onto the provider-neutral token shape', async () => {
     await expect(service.decodeToken(FIREBASE_TOKEN)).resolves.toEqual({
       uid: 'fb-uid-1',
