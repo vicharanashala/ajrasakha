@@ -668,11 +668,24 @@ If you face any issues, please contact the admin.`,
   // Emails a one-time reset code to a known, active account; unknown emails are silently ignored.
   private async sendLocalPasswordResetOtp(email: string): Promise<void> {
     const user = await this.findUserByLoginEmail(email);
-    if (!user?.password || user.isVerified === false || isUserAccessDenied(user)) return;
+    // The reason is logged on the server only; the API response never reveals it.
+    if (!user) {
+      console.warn('[password-reset] No account found for the requested email; no code sent.');
+      return;
+    }
+    if (!user.password) {
+      console.warn(`[password-reset] ${user.email} has no password stored in MongoDB (Firebase-era account); no code sent.`);
+      return;
+    }
+    if (user.isVerified === false || isUserAccessDenied(user)) {
+      console.warn(`[password-reset] ${user.email} is unverified or inactive; no code sent.`);
+      return;
+    }
 
     // The cooldown stops the endpoint being used to flood a user's inbox.
     const lastRequestedAt = user.passwordReset?.requestedAt;
     if (lastRequestedAt && Date.now() - new Date(lastRequestedAt).getTime() < RESET_OTP_RESEND_COOLDOWN_MS) {
+      console.warn(`[password-reset] A code was sent to ${user.email} less than a minute ago; not resending.`);
       return;
     }
 
