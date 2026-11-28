@@ -13,6 +13,8 @@
 #
 # The GitHub secrets this workflow needs are the GCP + Docker Hub ones:
 #   GCP_GH_SA_KEY, GCP_PROJECT_ID, DOCKERHUB_USERNAME, DOCKERHUB_TOKEN
+# plus the VITE_*_STAGING secrets used to build the frontend that the backend serves
+# (the same ones frontend-staging-deployment.yml uses).
 # TAILSCALE_AUTHKEY comes from GCP Secret Manager (Tailscale_Auth_Key), not GitHub.
 #
 # Most app env vars (DB_URL, APP_PORT, VAPID_*, LGD_*, …) are configured ON the Cloud Run
@@ -92,11 +94,27 @@ jobs:
         with:
           context: .
           file: ./backend/Dockerfile.app
+          # Serves the frontend on the backend's port. VITE_API_BASE_URL keeps its /api default
+          # (same origin); the other values are the *_STAGING secrets from frontend-staging-deployment.yml.
+          target: app-with-frontend
           push: true
           platforms: linux/amd64
           tags: ${{ steps.meta.outputs.tags }}
           build-args: |
             NODE_ENV=staging
+            VITE_ENABLE_MOCKS=${{ secrets.VITE_ENABLE_MOCKS }}
+            VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY_STAGING }}
+            VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN_STAGING }}
+            VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID_STAGING }}
+            VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET_STAGING }}
+            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID_STAGING }}
+            VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID_STAGING }}
+            VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID_STAGING }}
+            VITE_SARVAM_API_KEY=${{ secrets.VITE_SARVAM_API_KEY_STAGING }}
+            VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY_STAGING }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            VITE_ENABLE_FIREBASE_LOGIN=${{ vars.VITE_ENABLE_FIREBASE_LOGIN_STAGING || 'true' }}
+            VITE_FESTIVE_THEME=${{ vars.VITE_FESTIVE_THEME_STAGING || 'auto' }}
 
   deploy_staging:
     name: Deploy to Cloud Run (Staging)
@@ -143,6 +161,9 @@ jobs:
 
           env_vars: |
             NODE_ENV=staging
+            ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN_STAGING || 'true' }}
+            LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET_STAGING }}
+            LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS_STAGING || '604800' }}
             TAILSCALE_HOSTNAME=gcp-staging
             GCP_MEDIA_BUCKET=${{ secrets.GCP_MEDIA_BUCKET }}
             DATA_RELEASE_URL=${{ secrets.DATA_RELEASE_URL }}

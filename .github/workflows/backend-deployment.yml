@@ -37,6 +37,23 @@ jobs:
         with:
           context: .
           file: ./backend/Dockerfile.app
+          target: app-with-frontend
+          # Frontend build values (same secrets as frontend-deployment.yml). VITE_API_BASE_URL is
+          # left at its /api default because the app and the API share the backend's port.
+          build-args: |
+            VITE_ENABLE_MOCKS=${{ secrets.VITE_ENABLE_MOCKS }}
+            VITE_FIREBASE_API_KEY=${{ secrets.VITE_FIREBASE_API_KEY }}
+            VITE_FIREBASE_AUTH_DOMAIN=${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
+            VITE_FIREBASE_PROJECT_ID=${{ secrets.VITE_FIREBASE_PROJECT_ID }}
+            VITE_FIREBASE_STORAGE_BUCKET=${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
+            VITE_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+            VITE_FIREBASE_APP_ID=${{ secrets.VITE_FIREBASE_APP_ID }}
+            VITE_FIREBASE_MEASUREMENT_ID=${{ secrets.VITE_FIREBASE_MEASUREMENT_ID }}
+            VITE_SARVAM_API_KEY=${{ secrets.VITE_SARVAM_API_KEY }}
+            VITE_VAPID_PUBLIC_KEY=${{ secrets.VITE_VAPID_PUBLIC_KEY }}
+            VITE_CARTO_API_KEY=${{ secrets.VITE_CARTO_API_KEY }}
+            VITE_ENABLE_FIREBASE_LOGIN=${{ vars.VITE_ENABLE_FIREBASE_LOGIN || 'true' }}
+            VITE_FESTIVE_THEME=${{ vars.VITE_FESTIVE_THEME || 'auto' }}
           push: true
           platforms: linux/amd64
           tags: |
@@ -69,6 +86,9 @@ jobs:
             
           env_vars: |
             NODE_ENV=production
+            ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN || 'true' }}
+            LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET }}
+            LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS || '604800' }}
             APP_PORT=${{ secrets.APP_PORT }}
             DB_NAME=${{ secrets.DB_NAME }}
             POP_DB_URL=${{ secrets.POP_DB_URL }}
