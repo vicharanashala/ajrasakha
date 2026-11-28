@@ -443,6 +443,18 @@ describe('Forgot password with ENABLE_FIREBASE_LOGIN=false', () => {
     expect((await request(app).get('/probe/me').set(bearer(oldToken))).status).toBe(401);
   });
 
+  it('lets an account with no stored password set its first password', async () => {
+    await repo.seedUser({email: 'no-password@test.com'});
+    expect(repo.getStoredByEmail('no-password@test.com').password).toBeUndefined();
+
+    const otp = await requestOtp('no-password@test.com');
+    expect((await reset('no-password@test.com', otp)).status).toBe(200);
+
+    const stored = repo.getStoredByEmail('no-password@test.com');
+    expect(await bcrypt.compare(NEW_PASSWORD, stored.password)).toBe(true);
+    expect((await request(app).post('/auth/login').send({email: 'no-password@test.com', password: NEW_PASSWORD})).status).toBe(200);
+  });
+
   it('answers the same for unknown, unverified and inactive accounts and sends nothing', async () => {
     await repo.seedUser({email: 'pending-reset@test.com', isVerified: false}, STRONG_PASSWORD);
     await repo.seedUser({email: 'blocked-reset@test.com', isBlocked: true}, STRONG_PASSWORD);

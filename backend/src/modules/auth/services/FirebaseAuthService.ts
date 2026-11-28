@@ -666,15 +666,12 @@ If you face any issues, please contact the admin.`,
   }
 
   // Emails a one-time reset code to a known, active account; unknown emails are silently ignored.
+  // Accounts without a stored password (created under Firebase) are included, so the reset sets their first password.
   private async sendLocalPasswordResetOtp(email: string): Promise<void> {
     const user = await this.findUserByLoginEmail(email);
     // The reason is logged on the server only; the API response never reveals it.
     if (!user) {
       console.warn('[password-reset] No account found for the requested email; no code sent.');
-      return;
-    }
-    if (!user.password) {
-      console.warn(`[password-reset] ${user.email} has no password stored in MongoDB (Firebase-era account); no code sent.`);
       return;
     }
     if (user.isVerified === false || isUserAccessDenied(user)) {
