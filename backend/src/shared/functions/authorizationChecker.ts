@@ -1,5 +1,6 @@
 import { FirebaseAuthService } from "#root/modules/auth/services/FirebaseAuthService.js";
 import { getFromContainer } from "routing-controllers";
+import { isUserAccessDenied } from "#root/shared/functions/userAccess.js";
 
 export async function authorizationChecker(action): Promise<boolean> {
   const firebaseAuthService = getFromContainer(FirebaseAuthService);
@@ -7,16 +8,9 @@ export async function authorizationChecker(action): Promise<boolean> {
   if (!token) {
     return false; // No token provided
   }
-  await firebaseAuthService.getCurrentUserFromToken(token);
   const decoded = await firebaseAuthService.getCurrentUserFromToken(token)
-  // Moderators and Experts: access is gated by activity status, NOT isBlocked —
-  // isBlocked is their availability flag (check-in/checkout) and must not deny
-  // access. Every other role is unchanged: isBlocked denies access as before.
-  if (decoded.role === 'moderator' || decoded.role === 'expert' || decoded.role === 'gate_keeper' || decoded.role === 'auditor') {
-    if (decoded.status === 'in-active') {
-      return false
-    }
-  } else if (decoded.isBlocked) {
+  // Moderators, Experts, GateKeepers and Auditors are gated by activity status; other roles by isBlocked.
+  if (isUserAccessDenied(decoded)) {
     return false
   }
   if (!decoded?.firebaseUID) {

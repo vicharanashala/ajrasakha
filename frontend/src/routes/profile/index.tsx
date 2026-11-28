@@ -629,7 +629,7 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
           ...prev,
           ...(result.incorrectCurrentPassword
             ? { currentPassword: "Incorrect current password." }
-            : { general: "Failed to update password. Try again." }),
+            : { general: result.errorMessage || "Failed to update password. Try again." }),
         }));
         setIsChangingPassword(false);
         return;

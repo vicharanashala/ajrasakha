@@ -12,10 +12,9 @@ import {
   SyncAccountResponse,
   AdminCreateReviewUserBody,
 } from '#auth/classes/validators/AuthValidators.js';
-import {
-  IAuthService,
-  AuthenticatedRequest,
-} from '#auth/interfaces/IAuthService.js';
+import { IAuthService } from '#auth/interfaces/IAuthService.js';
+import { IUser } from '#root/shared/interfaces/models.js';
+import { LocalLoginRateLimiter } from '#root/shared/middleware/rateLimiter.js';
 import { ChangePasswordError } from '#auth/services/FirebaseAuthService.js';
 import { injectable, inject } from 'inversify';
 import {
@@ -29,6 +28,9 @@ import {
   HeaderParam,
   HttpError,
   OnUndefined,
+  CurrentUser,
+  ForbiddenError,
+  UseBefore,
 } from 'routing-controllers';
 import { AUTH_TYPES } from '#auth/types.js';
 import { OpenAPI, ResponseSchema } from 'routing-controllers-openapi';
@@ -116,7 +118,14 @@ export class AuthController {
   @Authorized(['admin'])
   @Post('/admin/review-users')
   @HttpCode(201)
-  async adminCreateReviewUser(@Body() body: AdminCreateReviewUserBody) {
+  async adminCreateReviewUser(
+    @Body() body: AdminCreateReviewUserBody,
+    @CurrentUser() currentUser: IUser,
+  ) {
+    // The global authorizationChecker does not enforce @Authorized roles, so the admin check is done here.
+    if (currentUser?.role !== 'admin') {
+      throw new ForbiddenError('Only admins can create review system users');
+    }
     const user = await this.authService.adminCreateReviewUser(body);
     return {
       success: true,
@@ -150,15 +159,19 @@ export class AuthController {
   @Patch('/change-password')
   async changePassword(
     @Body() body: ChangePasswordBody,
-    @Req() request: AuthenticatedRequest,
+    @CurrentUser({ required: true }) currentUser: IUser,
   ) {
     try {
-      const result = await this.authService.changePassword(body, request.user);
+      const result = await this.authService.changePassword(body, currentUser);
       // Local login revokes older tokens on password change, so a replacement token is returned.
       return { success: true, message: result.message, idToken: result.idToken, expiresIn: result.expiresIn };
     } catch (error) {
       if (error instanceof ChangePasswordError) {
         throw new HttpError(400, error.message);
+      }
+      // Validation and auth errors already carry the right status.
+      if (error instanceof HttpError) {
+        throw error;
       }
       if (error instanceof Error) {
         throw new HttpError(500, error.message);
@@ -228,6 +241,7 @@ export class AuthController {
     description: 'Internal server error during login',
   })
   @Post('/login')
+  @UseBefore(LocalLoginRateLimiter)
   async login(@Body() body: LoginBody) {
     try {
       const { email, password } = body;
@@ -305,12 +319,6 @@ export class AuthController {
   // Authenticates against the MongoDB password hash and returns a Firebase-like login payload.
   private async loginWithLocalPassword(email: string, password: string) {
     const { idToken, expiresIn, user } = await this.authService.loginWithPassword(email, password);
-    if (user.isVerified === false) {
-      throw new HttpError(
-        401,
-        'Your account is pending admin verification. Please contact an administrator.'
-      );
-    }
     return {
       idToken,
       expiresIn: String(expiresIn),

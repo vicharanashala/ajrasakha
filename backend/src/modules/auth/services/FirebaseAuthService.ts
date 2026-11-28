@@ -9,7 +9,7 @@ import { IAuthService, DecodedAuthToken, LocalLoginResult } from '#auth/interfac
 import { GLOBAL_TYPES } from '#root/types.js';
 import { injectable, inject } from 'inversify';
 import { ClientSession } from 'mongodb';
-import { BadRequestError, InternalServerError, UnauthorizedError } from 'routing-controllers';
+import { BadRequestError, HttpError, InternalServerError, UnauthorizedError } from 'routing-controllers';
 import { IUser } from '#root/shared/interfaces/models.js';
 import { BaseService } from '#root/shared/classes/BaseService.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
@@ -23,8 +23,24 @@ import { COORDINATOR_ROLES } from '#root/shared/constants/roles.js';
 import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { signLocalAuthToken, verifyLocalAuthToken } from '#root/utils/localAuthToken.js';
+import { assertPasswordFitsBcrypt, assertStrongPassword } from '#root/utils/passwordPolicy.js';
+import { isUserAccessDenied } from '#root/shared/functions/userAccess.js';
 
 const PASSWORD_HASH_ROUNDS = 10;
+
+let dummyPasswordHash: string | undefined;
+
+// Hash compared against when an email is unknown, so failed logins take the same time either way.
+async function getDummyPasswordHash(): Promise<string> {
+  dummyPasswordHash ??= await bcrypt.hash(randomUUID(), PASSWORD_HASH_ROUNDS);
+  return dummyPasswordHash;
+}
+
+// Applies the password rules for accounts whose password is stored in MongoDB.
+function assertValidLocalPassword(password: string): void {
+  assertStrongPassword(password);
+  assertPasswordFitsBcrypt(password);
+}
 
 // Removes the password hash so user records can be safely returned to clients.
 export function withoutPassword(user: IUser): IUser {
@@ -135,15 +151,21 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
 
   // Checks an email and password against the bcrypt hash stored in MongoDB and issues a local token.
   async loginWithPassword(email: string, password: string): Promise<LocalLoginResult> {
-    const trimmedEmail = email.trim();
-    const user =
-      (await this.userRepository.findByEmail(trimmedEmail)) ??
-      (await this.userRepository.findByEmail(trimmedEmail.toLowerCase()));
+    const user = await this.findUserByLoginEmail(email);
 
-    // Same message for unknown email and wrong password so accounts cannot be enumerated.
-    const passwordMatches = Boolean(user?.password) && (await bcrypt.compare(password, user.password));
-    if (!user || !passwordMatches) {
-      throw new UnauthorizedError('Invalid email or password');
+    // Unknown emails are compared against a dummy hash and get the same message, so accounts cannot be enumerated.
+    const passwordMatches = await bcrypt.compare(password, user?.password || (await getDummyPasswordHash()));
+    // HttpError (not UnauthorizedError) keeps the message: the error handler replaces UnauthorizedError text.
+    if (!user?.password || !passwordMatches) {
+      throw new HttpError(401, 'Invalid email or password');
+    }
+
+    // Checked only after the password matched, so these messages reveal nothing without valid credentials.
+    if (user.isVerified === false) {
+      throw new HttpError(401, 'Your account is pending admin verification. Please contact an administrator.');
+    }
+    if (isUserAccessDenied(user)) {
+      throw new HttpError(401, 'User marked as Inactive Please Contact Moderator');
     }
 
     if (!user.firebaseUID) {
@@ -157,15 +179,23 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return { idToken: token, expiresIn, user: withoutPassword(user) };
   }
 
+  // Finds the user for a login email: exact match first, then ignoring letter case.
+  private async findUserByLoginEmail(email: string): Promise<IUser | null> {
+    const trimmedEmail = email.trim();
+    return (
+      (await this.userRepository.findByEmail(trimmedEmail)) ??
+      (await this.userRepository.findByEmailIgnoreCase(trimmedEmail))
+    );
+  }
+
   // Registers a MongoDB-only account; the user still needs admin approval before logging in.
   private async signupWithLocalPassword(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } }> {
-    if (!body.firstName.trim()) {
+    if (typeof body.firstName !== 'string' || !body.firstName.trim()) {
       throw new BadRequestError("Name cannot be blank or empty spaces");
     }
+    assertValidLocalPassword(body.password);
     const email = body.email.trim().toLowerCase();
-    const existingUser =
-      (await this.userRepository.findByEmail(email)) ??
-      (await this.userRepository.findByEmail(body.email.trim()));
+    const existingUser = await this.findUserByLoginEmail(email);
     if (existingUser) {
       // An existing record without a password must be given one by an admin; signup must not claim it.
       throw new BadRequestError('An account with this email already exists, Please try login!');
@@ -175,7 +205,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       firebaseUID: `local_${randomUUID()}`,
       email,
       firstName: body.firstName.trim(),
-      lastName: body.lastName || '',
+      lastName: typeof body.lastName === 'string' ? body.lastName.trim() : '',
       role: 'pae_expert',
       isVerified: false,
       password: await bcrypt.hash(body.password, PASSWORD_HASH_ROUNDS),
@@ -305,6 +335,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     const isVerified = body.isVerified ?? true;
     let firebaseUser: any;
     let createdFirebaseUser = false;
+    if (!appConfig.enableFirebaseLogin) {
+      assertValidLocalPassword(body.password);
+    }
     // Without Firebase the bcrypt hash in MongoDB is the only credential, so it is stored on the user.
     const localCredential: Partial<IUser> = appConfig.enableFirebaseLogin
       ? {}
@@ -314,7 +347,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       };
 
     if (!appConfig.enableFirebaseLogin) {
-      const existingUser = await this.userRepository.findByEmail(email);
+      const existingUser = await this.findUserByLoginEmail(email);
       firebaseUser = { uid: existingUser?.firebaseUID || `local_${randomUUID()}` };
     } else try {
       firebaseUser = await this.auth.getUserByEmail(email);
@@ -447,6 +480,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     if (body.newPassword !== body.newPasswordConfirm) {
       throw new ChangePasswordError('New passwords do not match');
     }
+    assertValidLocalPassword(body.newPassword);
     const storedUser = await this.userRepository.findByFirebaseUID(requestUser.firebaseUID);
     if (!storedUser) {
       throw new ChangePasswordError('User not found');
@@ -456,6 +490,9 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       (await bcrypt.compare(body.currentPassword, storedUser.password));
     if (!currentPasswordMatches) {
       throw new ChangePasswordError('Incorrect current password');
+    }
+    if (await bcrypt.compare(body.newPassword, storedUser.password)) {
+      throw new ChangePasswordError('New password cannot be the same as the current password');
     }
 
     // passwordChangedAt revokes older tokens, so the caller receives a new one to stay logged in.

@@ -15,6 +15,8 @@ import bodyParser from 'body-parser';
 import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
 import { appConfig } from './config/app.js';
 import { assertLocalAuthConfigured } from './utils/localAuthToken.js';
+import { stripSensitiveResponseFields } from './utils/sensitiveResponseFields.js';
+import { requestValidationOptions } from './config/validation.js';
 import { loggingHandler } from './shared/middleware/loggingHandler.js';
 import { HttpErrorHandler } from './shared/index.js';
 import { loadAppModules } from './bootstrap/loadModules.js';
@@ -41,6 +43,8 @@ import { installTailnetProxy, tailnetAgentFor } from './bootstrap/tailnetProxy.j
 if (aiConfig.useTailnetProxy) installTailnetProxy();
 
 const app = express();
+// Password hashes are stored on user documents; never let one be serialised into a response.
+app.set('json replacer', stripSensitiveResponseFields);
 // Express generates a weak ETag for every JSON response by default and will reply 304 Not
 // Modified whenever a client's If-None-Match happens to match it — fine for static/cacheable
 // content, wrong here: every route in this API serves live, frequently-changing data (notably
@@ -107,7 +111,7 @@ const moduleOptions: RoutingControllersOptions = {
   currentUserChecker,
   defaultErrorHandler: true,
   development: appConfig.isDevelopment,
-  validation: true,
+  validation: requestValidationOptions,
   cors: corsOptions,
 };
 

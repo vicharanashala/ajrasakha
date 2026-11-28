@@ -135,6 +135,22 @@ export class UserRepository implements IUserRepository {
   }
 
   /**
+   * Finds a user by email ignoring letter case, since the same address may be stored with different casing.
+   */
+  async findByEmailIgnoreCase(
+    email: string,
+    session?: ClientSession,
+  ): Promise<IUser | null> {
+    await this.init();
+    // Escaped and anchored so user input is matched literally and cannot inject regex syntax.
+    const escapedEmail = email.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return this.usersCollection.findOne(
+      {email: new RegExp(`^${escapedEmail}$`, 'i')},
+      {session},
+    );
+  }
+
+  /**
    * Finds a user by ID.
    */
   async findById(

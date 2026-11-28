@@ -16,6 +16,7 @@ import {
   CurrentUser,
   ForbiddenError,
 } from 'routing-controllers';
+import {assertStrongPassword} from '#root/utils/passwordPolicy.js';
 import {OpenAPI, ResponseSchema} from 'routing-controllers-openapi';
 import {inject, injectable} from 'inversify';
 import {CHATBOT_TYPES} from '../types.js';
@@ -52,33 +53,6 @@ export class ChatbotUserManagementController {
     @inject(AUDIT_TRAILS_TYPES.AuditTrailsService)
     private readonly auditTrailsService: IAuditTrailsService,
   ) {}
-
-  private assertStrongPassword(password?: string) {
-    if (!password || !password.trim()) {
-      throw new BadRequestError('Password is required');
-    }
-    if (password.length < 8) {
-      throw new BadRequestError('Password must be at least 8 characters');
-    }
-    if (!/[A-Z]/.test(password)) {
-      throw new BadRequestError(
-        'Password must contain at least one uppercase letter',
-      );
-    }
-    if (!/[a-z]/.test(password)) {
-      throw new BadRequestError(
-        'Password must contain at least one lowercase letter',
-      );
-    }
-    if (!/[0-9]/.test(password)) {
-      throw new BadRequestError('Password must contain at least one number');
-    }
-    if (!/[^A-Za-z0-9]/.test(password)) {
-      throw new BadRequestError(
-        'Password must contain at least one special character',
-      );
-    }
-  }
 
   @Get('/user-growth')
   @HttpCode(200)
@@ -416,10 +390,14 @@ export class ChatbotUserManagementController {
     },
     @CurrentUser() user: IUser,
   ) {
+    // The global authorizationChecker does not enforce @Authorized roles, so the admin check is done here.
+    if (user?.role !== 'admin') {
+      throw new ForbiddenError('Only admins can change user passwords');
+    }
     if (!source) {
       source = 'annam';
     }
-    this.assertStrongPassword(body.newPassword);
+    assertStrongPassword(body.newPassword);
 
     const actorPayload = user
       ? {
@@ -544,7 +522,7 @@ export class ChatbotUserManagementController {
     if (!body.name || !body.name.trim()) {
       throw new BadRequestError('Name is required');
     }
-    this.assertStrongPassword(body.password);
+    assertStrongPassword(body.password);
 
     const actorPayload = user
       ? {

@@ -156,7 +156,7 @@ export const updateUserPassword = async (newPassword: string) => {
 export const changePasswordWithBackend = async (
   currentPassword: string,
   newPassword: string
-): Promise<{ success: boolean; incorrectCurrentPassword: boolean }> => {
+): Promise<{ success: boolean; incorrectCurrentPassword: boolean; errorMessage?: string }> => {
   const token = getLocalAuthToken();
   if (!token) throw new Error("User not logged in");
 
@@ -167,7 +167,12 @@ export const changePasswordWithBackend = async (
     return { success: true, incorrectCurrentPassword: false };
   } catch (error) {
     const message = error instanceof Error ? error.message : "";
-    return { success: false, incorrectCurrentPassword: message === "Incorrect current password" };
+    // Backend messages (e.g. password policy) are safe to show and tell the user what to fix.
+    return {
+      success: false,
+      incorrectCurrentPassword: message === "Incorrect current password",
+      errorMessage: message || undefined,
+    };
   }
 };
 
