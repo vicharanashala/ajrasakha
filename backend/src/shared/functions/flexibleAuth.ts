@@ -1,6 +1,5 @@
 import { injectable } from 'inversify';
 import { ExpressMiddlewareInterface } from 'routing-controllers';
-import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 import { FirebaseAuthService } from '#root/modules/auth/services/FirebaseAuthService.js';
 import { getFromContainer } from 'routing-controllers';
 
@@ -35,8 +34,6 @@ export class FlexibleAuth implements ExpressMiddlewareInterface {
       if (!token) {
         return res.status(401).json({ success: false, message: 'Unauthorized' });
       }
-
-      getFirebaseAuth();
       const firebaseAuthService = getFromContainer(FirebaseAuthService);
       const decoded = await firebaseAuthService.getCurrentUserFromToken(token);
 

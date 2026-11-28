@@ -1,5 +1,5 @@
 import type { HeatmapResponse, WorkLoad } from "@/types";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import type {
   DashboardAnalyticsResponse,
   DashboardFilters,
@@ -12,8 +12,6 @@ import type { ExpertPerformance } from "@/components/dashboard/experts-performan
 import { formatDateLocal } from "@/utils/formatDate";
 import type { DateRange, QuestionsAnalytics } from "@/components/dashboard/questions-analytics";
 import { env } from "@/config/env";
-import { auth } from "@/config/firebase";
-import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -194,12 +192,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
   params.append("startDate", fromDate);
   params.append("endDate", toDate);
 
-  // Get the current Firebase user and token
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-  const token = await getIdToken(firebaseUser);
+  // Get the auth token for the active login provider
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
   const response = await fetch(
     `${this._baseUrl}/level-report?${params.toString()}`,
     {
@@ -239,12 +234,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-metrics?${params.toString()}`,
       {
@@ -270,12 +262,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-trends?${params.toString()}`,
       {
@@ -300,12 +289,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-status-distribution?${params.toString()}`,
       {
@@ -331,12 +317,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-level-distribution?${params.toString()}`,
       {
@@ -361,12 +344,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-top-experts?${params.toString()}`,
       {
@@ -391,12 +371,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
 
-    // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${this._baseUrl}/shift-based-top-approving-experts?${params.toString()}`,
       {
@@ -419,12 +396,9 @@ async downloadLevelWiseReport(fromDate:string,toDate:string): Promise<Blob> {
     params.append("shift", shift);
     params.append("from", timeRange.from);
     params.append("to", timeRange.to);
-     // Get the current Firebase user and token
-      const firebaseUser = auth.currentUser;
-      if (!firebaseUser) {
-        throw new Error("User not authenticated");
-      }
-    const token = await getIdToken(firebaseUser);
+     // Get the auth token for the active login provider
+      const token = await getAuthToken();
+      if (!token) throw new Error("User not authenticated");
     const response = await fetch(
       `${`${API_BASE_URL}/audit-trails`}/shift-based-audit-action-counts?${params.toString()}`,
       {

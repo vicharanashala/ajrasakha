@@ -24,6 +24,13 @@ export const appConfig = {
   adminPassword: env('ADMIN_PASSWORD') || 'admin123',
   sarvamAPI: env('SARVAM_API_KEY'),
   geminiApiKey: env('GEMINI_API_KEY'),
+  // Defaults to true so existing deployments keep Firebase login unless explicitly disabled.
+  enableFirebaseLogin: env('ENABLE_FIREBASE_LOGIN') !== 'false',
+  // Used only when ENABLE_FIREBASE_LOGIN is false: signs the tokens issued for MongoDB email/password login.
+  localAuth: {
+    jwtSecret: env('LOCAL_AUTH_JWT_SECRET') || undefined,
+    tokenTtlSeconds: Number(env('LOCAL_AUTH_TOKEN_TTL_SECONDS')) || 7 * 24 * 60 * 60,
+  },
   // Only for development
   firebase: {
     clientEmail: env('FIREBASE_CLIENT_EMAIL') || undefined,

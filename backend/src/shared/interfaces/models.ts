@@ -60,6 +60,9 @@ export interface IUser {
    *  (Legacy records may hold string[] or { number, name[] }.) */
   kvkCovered?: IKVKCoveredItem[] | null;
   isVerified?: boolean;
+  /** bcrypt hash. Used for login when ENABLE_FIREBASE_LOGIN is false; never return it to clients. */
+  password?: string;
+  passwordChangedAt?: Date;
   isCallAgentActive?: boolean;
   lastAgentActiveAt?: Date;
   Call_centre_manager?: boolean;

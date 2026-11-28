@@ -27,7 +27,7 @@ import {
 import {INotificationRepository} from '#root/shared/database/interfaces/INotificationRepository.js';
 import {IQuestionSubmissionRepository} from '#root/shared/database/interfaces/IQuestionSubmissionRepository.js';
 import {getFromContainer} from 'class-validator';
-import {FirebaseAuthService} from '#root/modules/auth/services/FirebaseAuthService.js';
+import {FirebaseAuthService, withoutPassword} from '#root/modules/auth/services/FirebaseAuthService.js';
 import {IQuestionRepository} from '#root/shared/database/interfaces/IQuestionRepository.js';
 import {sendEmailNotification} from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
@@ -789,7 +789,9 @@ export class UserService extends BaseService {
 
   async getUserByEmail(email: string): Promise<IUser | null> {
     return await this._withTransaction(async (session: ClientSession) => {
-      return await this.userRepo.findByEmail(email, session);
+      const user = await this.userRepo.findByEmail(email, session);
+      // This lookup is public (used before login), so the password hash must never be returned.
+      return user ? withoutPassword(user) : null;
     });
   }
 

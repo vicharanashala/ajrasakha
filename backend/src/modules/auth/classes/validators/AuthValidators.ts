@@ -159,6 +159,17 @@ class VerifySignUpProviderBody {
 
 class ChangePasswordBody {
   @JSONSchema({
+    title: 'Current Password',
+    description: 'Current password. Required when ENABLE_FIREBASE_LOGIN is false.',
+    type: 'string',
+    format: 'password',
+    writeOnly: true,
+  })
+  @IsOptional()
+  @IsString()
+  currentPassword?: string;
+
+  @JSONSchema({
     title: 'New Password',
     description:
       'New password that meets security requirements.  Must contain: <br />\

@@ -1,7 +1,5 @@
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import { env } from "@/config/env";
-import { auth } from "@/config/firebase";
-import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 type LocationMetadata = typeof import("@/features/chatbotDashboard/utils/metaData");
@@ -215,12 +213,8 @@ export class LocationService {
   async downloadStateOrDistrictReport(
     type: "state" | "district",
   ): Promise<Blob> {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = await getIdToken(firebaseUser);
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
     const params = new URLSearchParams({ type });
     const response = await fetch(`${this._baseUrl}/download?${params.toString()}`, {
       method: "GET",

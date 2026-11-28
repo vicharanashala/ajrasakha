@@ -1,5 +1,4 @@
-import { apiFetch, getCurrentUser } from "../api/api-fetch";
-import { getIdToken } from "firebase/auth";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import { env } from "@/config/env";
 import { libraryDocumentUrl } from "@/features/gdb-cleaning/libraryDocument";
 import type {
@@ -158,8 +157,7 @@ class GdbCleaningService {
     // the tab opens straight away, on the click, so the browser does not block it while the file loads
     const tab = window.open("", "_blank");
     try {
-      const user = await getCurrentUser();
-      const token = user ? await getIdToken(user) : null;
+      const token = await getAuthToken();
       const response = await fetch(libraryDocumentUrl(documentId), {
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });

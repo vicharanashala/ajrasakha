@@ -1,29 +1,35 @@
 import { auth } from "@/config/firebase";
+import { getLocalAuthToken } from "@/lib/localAuthToken";
 import { useAuthStore } from "@/stores/auth-store";
 import { getIdToken, type User } from "firebase/auth";
 
 export const getCurrentUser = (): Promise<User | null> => {
+  const firebaseAuth = auth;
+  if (!firebaseAuth) return Promise.resolve(null);
   return new Promise((resolve) => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
+    const unsubscribe = firebaseAuth.onAuthStateChanged((user) => {
       unsubscribe();
       resolve(user);
     });
   });
+};
+
+// Returns the bearer token for the active login provider, or null when logged out.
+export const getAuthToken = async (): Promise<string | null> => {
+  if (!auth) return getLocalAuthToken();
+  const firebaseUser = await getCurrentUser();
+  return firebaseUser ? getIdToken(firebaseUser) : null;
 };
 export const apiFetch = async <T>(
   url: string,
   options: RequestInit = {},
   timeoutMs = 60000
 ): Promise<T | null> => {
-  const firebaseUser = await getCurrentUser();
-
   let token: string | null = null;
-  if (firebaseUser) {
-    try {
-      token = await getIdToken(firebaseUser);
-    } catch (err) {
-      console.error("Failed to get token:", err);
-    }
+  try {
+    token = await getAuthToken();
+  } catch (err) {
+    console.error("Failed to get token:", err);
   }
 
   const isFormData = options.body instanceof FormData;

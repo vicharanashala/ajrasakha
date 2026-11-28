@@ -5,9 +5,10 @@ import {
   GoogleSignUpBody,
   AdminCreateReviewUserBody,
 } from '#auth/classes/index.js';
-import { IAuthService } from '#auth/interfaces/IAuthService.js';
+import { IAuthService, DecodedAuthToken, LocalLoginResult } from '#auth/interfaces/IAuthService.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { injectable, inject } from 'inversify';
+import { ClientSession } from 'mongodb';
 import { BadRequestError, InternalServerError, UnauthorizedError } from 'routing-controllers';
 import { IUser } from '#root/shared/interfaces/models.js';
 import { BaseService } from '#root/shared/classes/BaseService.js';
@@ -19,6 +20,17 @@ import { sendEmailNotification } from '#root/utils/mailer.js';
 import { appConfig } from '#root/config/app.js';
 import { NotificationService } from '#root/modules/notification/services/NotificationService.js';
 import { COORDINATOR_ROLES } from '#root/shared/constants/roles.js';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
+import { signLocalAuthToken, verifyLocalAuthToken } from '#root/utils/localAuthToken.js';
+
+const PASSWORD_HASH_ROUNDS = 10;
+
+// Removes the password hash so user records can be safely returned to clients.
+export function withoutPassword(user: IUser): IUser {
+  const { password: _password, ...safeUser } = user;
+  return safeUser;
+}
 
 /**
  * Custom error thrown during password change operations.
@@ -49,11 +61,40 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     private notificationService: NotificationService,
   ) {
     super(database);
-    this.auth = getFirebaseAuth();
+    // Firebase Admin is only initialised when Firebase login is enabled, so its credentials are optional otherwise.
+    this.auth = appConfig.enableFirebaseLogin ? getFirebaseAuth() : null;
   }
+
+  // Verifies a bearer token from the active login provider and returns its claims.
+  async decodeToken(token: string): Promise<DecodedAuthToken> {
+    if (appConfig.enableFirebaseLogin) {
+      const decoded = await this.auth.verifyIdToken(token);
+      return {
+        uid: decoded.uid,
+        email: decoded.email || '',
+        emailVerified: Boolean(decoded.email_verified),
+        name: decoded.name || '',
+        issuedAt: decoded.iat,
+      };
+    }
+
+    try {
+      const decoded = verifyLocalAuthToken(token);
+      return {
+        uid: decoded.uid,
+        email: decoded.email,
+        // Local accounts have no email verification step; admin approval (isVerified) still applies.
+        emailVerified: true,
+        name: '',
+        issuedAt: decoded.iat,
+      };
+    } catch (err) {
+      throw new UnauthorizedError('Invalid or expired token');
+    }
+  }
+
   async getCurrentUserFromToken(token: string): Promise<IUser> {
-    // Verify the token and decode it to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token);
+    const decodedToken = await this.decodeToken(token);
     const firebaseUID = decodedToken.uid;
 
     // Retrieve the user from our database using the Firebase UID
@@ -62,8 +103,16 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
       console.warn(`Firebase user ${firebaseUID} not found in DB.`);
       throw new UnauthorizedError("User not found in database");
     }
+    // Local tokens issued before the latest password change are revoked, matching Firebase's token revocation.
+    if (
+      !appConfig.enableFirebaseLogin &&
+      user.passwordChangedAt &&
+      Math.floor(new Date(user.passwordChangedAt).getTime() / 1000) > decodedToken.issuedAt
+    ) {
+      throw new UnauthorizedError('Session expired, please log in again');
+    }
     user._id = user._id.toString();
-    return user;
+    return withoutPassword(user);
   }
   async getUserIdFromReq(req: any): Promise<string> {
     // Extract the token from the request headers
@@ -71,9 +120,7 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     if (!token) {
       throw new InternalServerError('No token provided');
     }
-    await this.verifyToken(token);
-    // Decode the token to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token);
+    const decodedToken = await this.decodeToken(token);
     const firebaseUID = decodedToken.uid;
     const user = await this.userRepository.findByFirebaseUID(firebaseUID);
     if (!user) {
@@ -82,19 +129,67 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return user._id.toString();
   }
   async verifyToken(token: string): Promise<boolean> {
-    // Decode and verify the Firebase token
-    const decodedToken = await this.auth.verifyIdToken(token);
-    // // Retrieve the full user record from Firebase
-    // const userRecord = await this.auth.getUser(decodedToken.uid);
-
-    // Map Firebase user data to our application user model
-    if (!decodedToken) {
-      return false;
-    }
+    await this.decodeToken(token);
     return true;
   }
 
+  // Checks an email and password against the bcrypt hash stored in MongoDB and issues a local token.
+  async loginWithPassword(email: string, password: string): Promise<LocalLoginResult> {
+    const trimmedEmail = email.trim();
+    const user =
+      (await this.userRepository.findByEmail(trimmedEmail)) ??
+      (await this.userRepository.findByEmail(trimmedEmail.toLowerCase()));
+
+    // Same message for unknown email and wrong password so accounts cannot be enumerated.
+    const passwordMatches = Boolean(user?.password) && (await bcrypt.compare(password, user.password));
+    if (!user || !passwordMatches) {
+      throw new UnauthorizedError('Invalid email or password');
+    }
+
+    if (!user.firebaseUID) {
+      // Older records may lack an identity key; local tokens need one to resolve the user.
+      user.firebaseUID = `local_${randomUUID()}`;
+      await this.userRepository.edit(user._id.toString(), { firebaseUID: user.firebaseUID });
+    }
+
+    const { token, expiresIn } = signLocalAuthToken(user.firebaseUID, user.email);
+    user._id = user._id.toString();
+    return { idToken: token, expiresIn, user: withoutPassword(user) };
+  }
+
+  // Registers a MongoDB-only account; the user still needs admin approval before logging in.
+  private async signupWithLocalPassword(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } }> {
+    if (!body.firstName.trim()) {
+      throw new BadRequestError("Name cannot be blank or empty spaces");
+    }
+    const email = body.email.trim().toLowerCase();
+    const existingUser =
+      (await this.userRepository.findByEmail(email)) ??
+      (await this.userRepository.findByEmail(body.email.trim()));
+    if (existingUser) {
+      // An existing record without a password must be given one by an admin; signup must not claim it.
+      throw new BadRequestError('An account with this email already exists, Please try login!');
+    }
+
+    const newUser: Partial<IUser> = {
+      firebaseUID: `local_${randomUUID()}`,
+      email,
+      firstName: body.firstName.trim(),
+      lastName: body.lastName || '',
+      role: 'pae_expert',
+      isVerified: false,
+      password: await bcrypt.hash(body.password, PASSWORD_HASH_ROUNDS),
+    };
+    await this.createUserAndNotifyAdmins(newUser);
+
+    const displayName = `${newUser.firstName} ${newUser.lastName}`.trim();
+    return { user: { uid: newUser.firebaseUID, email, displayName, photoURL: '' } };
+  }
+
   async signup(body: SignUpBody): Promise<{ user: { uid: string; email: string; displayName: string; photoURL: string } } | null> {
+    if (!appConfig.enableFirebaseLogin) {
+      return this.signupWithLocalPassword(body);
+    }
     let userRecord: any;
     try {
       if (!body.firstName.trim()) {
@@ -152,9 +247,10 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     }
   }
   async googleSignup(body: GoogleSignUpBody, token: string): Promise<any> {
-    await this.verifyToken(token);
-    // Decode the token to get the Firebase UID
-    const decodedToken = await this.auth.verifyIdToken(token);
+    if (!appConfig.enableFirebaseLogin) {
+      throw new BadRequestError('Google login is disabled');
+    }
+    const decodedToken = await this.decodeToken(token);
     const firebaseUID = decodedToken.uid;
     const user: Partial<IUser> = {
       firebaseUID: firebaseUID,
@@ -209,8 +305,18 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     const isVerified = body.isVerified ?? true;
     let firebaseUser: any;
     let createdFirebaseUser = false;
+    // Without Firebase the bcrypt hash in MongoDB is the only credential, so it is stored on the user.
+    const localCredential: Partial<IUser> = appConfig.enableFirebaseLogin
+      ? {}
+      : {
+        password: await bcrypt.hash(body.password, PASSWORD_HASH_ROUNDS),
+        passwordChangedAt: new Date(),
+      };
 
-    try {
+    if (!appConfig.enableFirebaseLogin) {
+      const existingUser = await this.userRepository.findByEmail(email);
+      firebaseUser = { uid: existingUser?.firebaseUID || `local_${randomUUID()}` };
+    } else try {
       firebaseUser = await this.auth.getUserByEmail(email);
       await this.auth.updateUser(firebaseUser.uid, {
         password: body.password,
@@ -268,13 +374,14 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
               isVerified,
               isBlocked: false,
               status: 'active',
+              ...localCredential,
             },
             session,
           );
           if (!updatedUser) {
             throw new InternalServerError('Failed to update review system user');
           }
-          return updatedUser;
+          return withoutPassword(updatedUser);
         }
 
         const newUser = new User({
@@ -287,11 +394,12 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         });
 
         const createdId = await this.userRepository.create(newUser, session);
+        await this.saveLocalCredential(createdId, localCredential, session);
         const user = await this.userRepository.findById(createdId, session);
         if (!user) {
           throw new InternalServerError('Failed to create review system user');
         }
-        return user;
+        return withoutPassword(user);
       });
 
       return createdUser;
@@ -308,7 +416,10 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
   async changePassword(
     body: ChangePasswordBody,
     requestUser: IUser,
-  ): Promise<{ success: boolean; message: string }> {
+  ): Promise<{ success: boolean; message: string; idToken?: string; expiresIn?: number }> {
+    if (!appConfig.enableFirebaseLogin) {
+      return this.changeLocalPassword(body, requestUser);
+    }
     // Verify user exists in Firebase
     const firebaseUser = await this.auth.getUser(requestUser.firebaseUID);
     if (!firebaseUser) {
@@ -328,10 +439,41 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
     return { success: true, message: 'Password updated successfully' };
   }
 
+  // Updates the stored bcrypt hash after checking the current password, and issues a fresh token.
+  private async changeLocalPassword(
+    body: ChangePasswordBody,
+    requestUser: IUser,
+  ): Promise<{ success: boolean; message: string; idToken: string; expiresIn: number }> {
+    if (body.newPassword !== body.newPasswordConfirm) {
+      throw new ChangePasswordError('New passwords do not match');
+    }
+    const storedUser = await this.userRepository.findByFirebaseUID(requestUser.firebaseUID);
+    if (!storedUser) {
+      throw new ChangePasswordError('User not found');
+    }
+    const currentPasswordMatches =
+      Boolean(body.currentPassword && storedUser.password) &&
+      (await bcrypt.compare(body.currentPassword, storedUser.password));
+    if (!currentPasswordMatches) {
+      throw new ChangePasswordError('Incorrect current password');
+    }
+
+    // passwordChangedAt revokes older tokens, so the caller receives a new one to stay logged in.
+    await this.userRepository.edit(storedUser._id.toString(), {
+      password: await bcrypt.hash(body.newPassword, PASSWORD_HASH_ROUNDS),
+      passwordChangedAt: new Date(),
+    });
+    const { token, expiresIn } = signLocalAuthToken(storedUser.firebaseUID, storedUser.email);
+    return { success: true, message: 'Password updated successfully', idToken: token, expiresIn };
+  }
+
   async updateFirebaseUser(
     firebaseUID: string,
     body: Partial<IUser>,
   ): Promise<void> {
+    if (!appConfig.enableFirebaseLogin) {
+      return;
+    }
     // Update user in Firebase Auth
     await this.auth.updateUser(firebaseUID, {
       displayName: `${body.firstName} ${body.lastName}`,
@@ -367,38 +509,61 @@ export class FirebaseAuthService extends BaseService implements IAuthService {
         isVerified: false,
       };
 
-      await this._withTransaction(async (session) => {
-        const userObj = new User(newUser as IUser); // Assuming User class takes Partial<IUser>
-        const createdId = await this.userRepository.create(userObj, session);
-        if (!createdId) throw new InternalServerError('Failed to create user in database');
-
-        // Notify admins
-        const admins = await this.userRepository.findAdmins(session);
-        const notificationMessage = `A new user ${newUser.firstName} ${newUser.lastName || ''} (${newUser.email}) created and needs to be verified`;
-        const notificationTitle = 'New User Created';
-
-        for (const adminUser of admins) {
-          await this.notificationService.saveTheNotifications(
-            notificationMessage,
-            notificationTitle,
-            createdId,
-            adminUser._id.toString(),
-            'user_verification',
-            session
-          );
-        }
-      });
-
+      await this.createUserAndNotifyAdmins(newUser);
       user = await this.userRepository.findByFirebaseUID(firebaseUID);
     }
 
     if (!user) throw new InternalServerError('User syncing failed');
-    return user;
+    return withoutPassword(user);
+  }
+
+  // Stores the password hash separately because the User transformer only copies profile fields.
+  private async saveLocalCredential(
+    userId: string,
+    credential: Pick<Partial<IUser>, 'password' | 'passwordChangedAt'>,
+    session: ClientSession,
+  ): Promise<void> {
+    if (!credential.password) return;
+    await this.userRepository.edit(
+      userId,
+      { password: credential.password, passwordChangedAt: credential.passwordChangedAt ?? new Date() },
+      session,
+    );
+  }
+
+  // Creates a pending user and notifies every admin that it needs verification.
+  private async createUserAndNotifyAdmins(newUser: Partial<IUser>): Promise<void> {
+    await this._withTransaction(async (session) => {
+      const userObj = new User(newUser as IUser);
+      const createdId = await this.userRepository.create(userObj, session);
+      if (!createdId) throw new InternalServerError('Failed to create user in database');
+      await this.saveLocalCredential(
+        createdId,
+        { password: newUser.password, passwordChangedAt: newUser.passwordChangedAt },
+        session,
+      );
+
+      const admins = await this.userRepository.findAdmins(session);
+      const notificationMessage = `A new user ${newUser.firstName} ${newUser.lastName || ''} (${newUser.email}) created and needs to be verified`;
+      const notificationTitle = 'New User Created';
+
+      for (const adminUser of admins) {
+        await this.notificationService.saveTheNotifications(
+          notificationMessage,
+          notificationTitle,
+          createdId,
+          adminUser._id.toString(),
+          'user_verification',
+          session
+        );
+      }
+    });
   }
 
   async sendVerificationEmail(email: string): Promise<void> {
     try {
-      if (appConfig.isDevelopment) return;
+      // Local login has no email verification step.
+      if (appConfig.isDevelopment || !appConfig.enableFirebaseLogin) return;
       const link = await this.auth.generateEmailVerificationLink(email);
 
       await sendEmailNotification(
@@ -435,6 +600,11 @@ If you face any issues, please contact the admin.`,
   async sendPasswordResetEmail(email: string): Promise<void> {
     try {
       if (appConfig.isDevelopment) return;
+      if (!appConfig.enableFirebaseLogin) {
+        // Reset links come from Firebase; with local login an admin sets the new password instead.
+        console.warn(`Password reset requested for ${email}, but Firebase login is disabled.`);
+        return;
+      }
       const link = await this.auth.generatePasswordResetLink(email);
 
       await sendEmailNotification(

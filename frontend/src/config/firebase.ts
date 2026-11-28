@@ -1,6 +1,9 @@
 import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider } from "firebase/auth";
 import { resolveEnv } from "./runtime-env";
+import { env } from "./env";
+
+export const isFirebaseLoginEnabled = env.enableFirebaseLogin();
 
 export const firebaseConfig = {
   apiKey: resolveEnv("VITE_FIREBASE_API_KEY", import.meta.env.VITE_FIREBASE_API_KEY),
@@ -26,6 +29,7 @@ export const firebaseConfig = {
     import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
   ),
 };
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
+// Firebase is not initialised when login is handled by the backend, so its config can be left empty.
+export const firebaseApp = isFirebaseLoginEnabled ? initializeApp(firebaseConfig) : null;
+export const auth = firebaseApp ? getAuth(firebaseApp) : null;
 export const googleProvider = new GoogleAuthProvider();

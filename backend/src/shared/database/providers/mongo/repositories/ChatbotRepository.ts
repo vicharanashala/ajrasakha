@@ -56,6 +56,7 @@ import {
 } from '#root/shared/interfaces/models.js';
 import {MongoDatabase} from '../MongoDatabase.js';
 import {getFirebaseAuth} from '#root/config/firebaseAdmin.js';
+import {appConfig} from '#root/config/app.js';
 
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
@@ -11435,7 +11436,8 @@ async getAllUserMessageIds(
     await reviewSystemSubscriptions.deleteMany({userId: reviewUserId});
     await reviewSystemUsers.deleteOne({_id: reviewUserId});
 
-    if (user.firebaseUID) {
+    // With local login there is no Firebase account; deleting the Mongo user removes the credential.
+    if (user.firebaseUID && appConfig.enableFirebaseLogin) {
       const firebaseAuth = getFirebaseAuth();
       await firebaseAuth.deleteUser(user.firebaseUID).catch((error: any) => {
         if (error?.code === 'auth/user-not-found') {
@@ -11637,7 +11639,8 @@ async getAllUserMessageIds(
           reviewPasswordUpdated = true;
         }
 
-        if (firebaseUID) {
+        // With local login the bcrypt hash and passwordChangedAt set above already update and revoke credentials.
+        if (firebaseUID && appConfig.enableFirebaseLogin) {
           const firebaseAuth = getFirebaseAuth();
           await firebaseAuth.updateUser(firebaseUID, {
             password: newPassword,

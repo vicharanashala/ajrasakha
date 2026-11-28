@@ -1,6 +1,5 @@
 import type { IUser, IUnverifiedUser, ReviewLevelCount, UserRole } from "@/types";
-import { apiFetch, getCurrentUser } from "../api/api-fetch";
-import { getIdToken } from "firebase/auth";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import type { IUsersNameResponse } from "../api/user/useGetAllUsers";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
@@ -391,9 +390,8 @@ export class UserService {
     if (params.endDate) qs.append("endDate", params.endDate);
     if (params.sendToEmail) qs.append("sendToEmail", "true");
 
-    const user = await getCurrentUser();
-    if (!user) throw new Error("User not authenticated");
-    const token = await getIdToken(user);
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const res = await fetch(
       `${this._baseUrl}/${userId}/activity-report/export?${qs.toString()}`,

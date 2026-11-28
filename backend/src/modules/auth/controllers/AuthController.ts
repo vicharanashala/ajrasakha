@@ -18,7 +18,6 @@ import {
 } from '#auth/interfaces/IAuthService.js';
 import { ChangePasswordError } from '#auth/services/FirebaseAuthService.js';
 import { injectable, inject } from 'inversify';
-import admin from 'firebase-admin';
 import {
   JsonController,
   Post,
@@ -70,7 +69,13 @@ export class AuthController {
   async signup(@Body() body: SignUpBody) {
     const result = await this.authService.signup(body);
     const isDevelopment = appConfig.isDevelopment
-    return { success: true, message: `${isDevelopment ? "Registration completed!" : "Please check your email to verify your account."}`, ...result };
+    // Local login has no verification email; the account only waits for admin approval.
+    const message = isDevelopment
+      ? "Registration completed!"
+      : appConfig.enableFirebaseLogin
+        ? "Please check your email to verify your account."
+        : "Registration completed! Your account needs admin approval before you can log in.";
+    return { success: true, message, ...result };
   }
 
   @OpenAPI({
@@ -149,7 +154,8 @@ export class AuthController {
   ) {
     try {
       const result = await this.authService.changePassword(body, request.user);
-      return { success: true, message: result.message };
+      // Local login revokes older tokens on password change, so a replacement token is returned.
+      return { success: true, message: result.message, idToken: result.idToken, expiresIn: result.expiresIn };
     } catch (error) {
       if (error instanceof ChangePasswordError) {
         throw new HttpError(400, error.message);
@@ -225,6 +231,9 @@ export class AuthController {
   async login(@Body() body: LoginBody) {
     try {
       const { email, password } = body;
+      if (!appConfig.enableFirebaseLogin) {
+        return await this.loginWithLocalPassword(email, password);
+      }
       const data = await fetch(
         `https://identitytoolkit.googleapis.com/v1/accounts:signInWithPassword?key=${appConfig.firebase.apiKey}`,
         {
@@ -293,6 +302,25 @@ export class AuthController {
     }
   }
 
+  // Authenticates against the MongoDB password hash and returns a Firebase-like login payload.
+  private async loginWithLocalPassword(email: string, password: string) {
+    const { idToken, expiresIn, user } = await this.authService.loginWithPassword(email, password);
+    if (user.isVerified === false) {
+      throw new HttpError(
+        401,
+        'Your account is pending admin verification. Please contact an administrator.'
+      );
+    }
+    return {
+      idToken,
+      expiresIn: String(expiresIn),
+      localId: user.firebaseUID,
+      email: user.email,
+      displayName: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+      user,
+    };
+  }
+
   @OpenAPI({
     summary: 'Sync account with database',
     description: 'Syncs the Firebase-authenticated user with the application database. Creates or updates the user record.',
@@ -319,17 +347,16 @@ export class AuthController {
     if (!firebaseToken) throw new HttpError(401, 'No token provided');
 
     try {
-      // Decode the token manually
-      const decodedEmail = await admin.auth().verifyIdToken(firebaseToken);
+      const decodedToken = await this.authService.decodeToken(firebaseToken);
 
-      if (!decodedEmail.email_verified && !appConfig.isDevelopment) {
+      if (!decodedToken.emailVerified && !appConfig.isDevelopment) {
         throw new HttpError(401, 'Please verify your email before syncing account.');
       }
 
       const user = await this.authService.syncUserWithDb(
-        decodedEmail.uid,
-        decodedEmail.email || '',
-        decodedEmail.name || ''
+        decodedToken.uid,
+        decodedToken.email,
+        decodedToken.name
       );
 
       if (user.isVerified === false) {

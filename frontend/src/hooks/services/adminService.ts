@@ -1,5 +1,4 @@
-import { apiFetch, getCurrentUser } from "../api/api-fetch";
-import { getIdToken } from "firebase/auth";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import { env } from "@/config/env";
 import type { IUser, IUserAdminEdit } from "@/types";
 
@@ -82,9 +81,8 @@ export class AdminUserService {
     // Only meaningful for the PAE role — the backend also guards on role === pae_expert.
     if (params.getAnalytics && params.role === "pae_expert") qs.append("getAnalytics", "true");
 
-    const user = await getCurrentUser();
-    if (!user) throw new Error("User not authenticated");
-    const token = await getIdToken(user);
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const res = await fetch(`${this._baseUrl}/admin/all/export?${qs.toString()}`, {
       method: "GET",

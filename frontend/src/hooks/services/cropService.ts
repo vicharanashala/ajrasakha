@@ -1,7 +1,5 @@
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import { env } from "@/config/env";
-import { auth } from "@/config/firebase";
-import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -230,9 +228,8 @@ export class CropService {
   /** Download the AgriTech Management list as Excel. Pass a type to filter
    *  (crop/chemical/weed/pest/disease/custom); omit it to download everything. */
   async downloadList(type?: string): Promise<Blob> {
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) throw new Error("User not authenticated");
-    const token = await getIdToken(firebaseUser);
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
     const qs = type ? `?type=${encodeURIComponent(type)}` : "";
     const response = await fetch(`${this._baseUrl}/download${qs}`, {
       method: "GET",

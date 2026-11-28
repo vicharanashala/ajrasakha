@@ -48,7 +48,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/atoms/dialog";
-import { updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
+import { changePasswordWithBackend, updateUserPassword, verifyCurrentPassword } from "@/lib/firebase";
+import { isFirebaseLoginEnabled } from "@/config/firebase";
 import { calculatePasswordStrength } from "@/components/auth-form";
 import { toast, useToast } from "@/shared/components/toast";
 
@@ -620,28 +621,43 @@ const ProfileForm = ({ user, onSubmit, isUpdating }: ProfileFormProps) => {
     }
 
     setIsChangingPassword(true);
-    // -------- REAUTHENTICATION --------
-    const reauth = await verifyCurrentPassword(user.email, currentPassword);
+    if (!isFirebaseLoginEnabled) {
+      // The backend verifies the current password and updates it in one request.
+      const result = await changePasswordWithBackend(currentPassword, newPassword);
+      if (!result.success) {
+        setPasswordErrors((prev) => ({
+          ...prev,
+          ...(result.incorrectCurrentPassword
+            ? { currentPassword: "Incorrect current password." }
+            : { general: "Failed to update password. Try again." }),
+        }));
+        setIsChangingPassword(false);
+        return;
+      }
+    } else {
+      // -------- REAUTHENTICATION --------
+      const reauth = await verifyCurrentPassword(user.email, currentPassword);
 
-    if (!reauth.success) {
-      setPasswordErrors((prev) => ({
-        ...prev,
-        currentPassword: "Incorrect current password.",
-      }));
-      setIsChangingPassword(false);
-      return; //  STOP — do not update password
-    }
+      if (!reauth.success) {
+        setPasswordErrors((prev) => ({
+          ...prev,
+          currentPassword: "Incorrect current password.",
+        }));
+        setIsChangingPassword(false);
+        return; //  STOP — do not update password
+      }
 
-    // -------- UPDATE PASSWORD --------
-    const update = await updateUserPassword(newPassword);
+      // -------- UPDATE PASSWORD --------
+      const update = await updateUserPassword(newPassword);
 
-    if (!update.success) {
-      setPasswordErrors((prev) => ({
-        ...prev,
-        general: "Failed to update password. Try again.",
-      }));
-      setIsChangingPassword(false);
-      return;
+      if (!update.success) {
+        setPasswordErrors((prev) => ({
+          ...prev,
+          general: "Failed to update password. Try again.",
+        }));
+        setIsChangingPassword(false);
+        return;
+      }
     }
 
     // Success

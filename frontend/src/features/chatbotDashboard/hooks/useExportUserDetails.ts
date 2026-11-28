@@ -1,6 +1,5 @@
 import { useMutation } from "@tanstack/react-query";
-import { getIdToken } from "firebase/auth";
-import { getCurrentUser } from "@/hooks/api/api-fetch";
+import { getAuthToken } from "@/hooks/api/api-fetch";
 import { env } from "@/config/env";
 import { toast } from "sonner";
 import type { UserDetailsFilters } from "../components/UserDetailsPreferenceFilter";
@@ -64,8 +63,7 @@ export function useExportUserDetails() {
   return useMutation({
     mutationFn: async (params: ExportUserDetailsParams) => {
       const searchParams = buildExportSearchParams(params);
-      const firebaseUser = await getCurrentUser();
-      const token = firebaseUser ? await getIdToken(firebaseUser) : null;
+      const token = await getAuthToken();
 
       const res = await fetch(
         `${env.apiBaseUrl()}/analytics/user-details/export?${searchParams.toString()}`,

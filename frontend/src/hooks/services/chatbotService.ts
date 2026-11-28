@@ -1,8 +1,6 @@
 import { env } from "@/config/env";
-import { auth } from "@/config/firebase";
 import type { GrowthResponse } from "@/types";
-import { getIdToken } from "firebase/auth";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -16,9 +14,8 @@ export class ChatbotService {
     downloadFormat: string,
     state: string,
   ): Promise<Blob> {
-    const user = auth.currentUser;
-    if (!user) throw new Error("Not authenticated");
-    const token = await getIdToken(user);
+    const token = await getAuthToken();
+    if (!token) throw new Error("Not authenticated");
     const params = new URLSearchParams({
       startDate,
       endDate,

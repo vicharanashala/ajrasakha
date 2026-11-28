@@ -1,9 +1,5 @@
-// Import the functions you need from the SDKs you need
-import { initializeApp } from "firebase/app";
 import { getAnalytics } from "firebase/analytics";
 import {
-  getAuth,
-  GoogleAuthProvider,
   signInWithEmailAndPassword,
   signOut,
   createUserWithEmailAndPassword,
@@ -12,7 +8,8 @@ import {
   reauthenticateWithCredential,
   updatePassword,
 } from "firebase/auth";
-import { firebaseConfig } from "@/config/firebase";
+import { auth, firebaseApp } from "@/config/firebase";
+import { getLocalAuthToken, setLocalAuthToken } from "@/lib/localAuthToken";
 import { useAuthStore } from "@/stores/auth-store";
 import { UserService } from "@/hooks/services/userService";
 import { AuthService } from "@/hooks/services/authService";
@@ -20,11 +17,23 @@ import { isDevelopment } from "@/shared/app";
 const authService = new AuthService();
 
 
-// Initialize Firebase
-const app = initializeApp(firebaseConfig);
-export const auth = getAuth(app);
-export const provider = new GoogleAuthProvider();
 const userService = new UserService()
+
+// Logs in with the backend's MongoDB password check and stores the issued token (Firebase login disabled).
+const loginWithBackendPassword = async (email: string, password: string) => {
+  const response = await authService.localLogin(email, password);
+  setLocalAuthToken(response.idToken);
+  return {
+    user: {
+      uid: response.localId,
+      email: response.email,
+      displayName: response.displayName,
+      photoURL: "",
+    },
+    appUser: response.user,
+  };
+};
+
 export const loginWithEmail = async (email: string, password: string) => {
   try {
     const user = await userService.Getuser(email)
@@ -41,6 +50,9 @@ export const loginWithEmail = async (email: string, password: string) => {
       throw new Error("User marked as Inactive Please Contact Moderator")
     }
     if (!deniedLogin || user === null) {
+      if (!auth) {
+        return await loginWithBackendPassword(email, password);
+      }
       const result = await signInWithEmailAndPassword(auth, email, password);
 
       // Enforce email verification
@@ -70,6 +82,9 @@ export const loginWithEmail = async (email: string, password: string) => {
     // allow Firebase auth to proceed and return the error from there
     if (error instanceof Error && (error.message.includes("Request failed") || error.message.includes("Failed to"))) {
       try {
+        if (!auth) {
+          return await loginWithBackendPassword(email, password);
+        }
         const result = await signInWithEmailAndPassword(auth, email, password);
         const idToken = await result.user.getIdToken();
         const syncResponse = await authService.accountSync(idToken);
@@ -88,6 +103,7 @@ export const createUserWithEmail = async (
   password: string,
   displayName?: string
 ) => {
+  if (!auth) throw new Error("Firebase login is disabled");
   const userCredential = await createUserWithEmailAndPassword(
     auth,
     email,
@@ -105,7 +121,7 @@ export const createUserWithEmail = async (
 };
 
 export const logout = () => {
-  signOut(auth);
+  if (auth) signOut(auth);
   useAuthStore.getState().clearUser();
 };
 
@@ -113,7 +129,7 @@ export const verifyCurrentPassword = async (
   email: string,
   currentPassword: string
 ) => {
-  if (!auth.currentUser) throw new Error("User not logged in");
+  if (!auth?.currentUser) throw new Error("User not logged in");
 
   const credential = EmailAuthProvider.credential(email, currentPassword);
 
@@ -126,7 +142,7 @@ export const verifyCurrentPassword = async (
 };
 
 export const updateUserPassword = async (newPassword: string) => {
-  if (!auth.currentUser) throw new Error("User not logged in");
+  if (!auth?.currentUser) throw new Error("User not logged in");
 
   try {
     await updatePassword(auth.currentUser, newPassword);
@@ -136,4 +152,23 @@ export const updateUserPassword = async (newPassword: string) => {
   }
 };
 
-export const analytics = getAnalytics(app);
+// Changes the password through the backend when Firebase login is disabled and stores the refreshed token.
+export const changePasswordWithBackend = async (
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; incorrectCurrentPassword: boolean }> => {
+  const token = getLocalAuthToken();
+  if (!token) throw new Error("User not logged in");
+
+  try {
+    const response = await authService.changePassword(token, currentPassword, newPassword);
+    // The backend revokes older tokens on password change, so the new one must replace it.
+    if (response.idToken) setLocalAuthToken(response.idToken);
+    return { success: true, incorrectCurrentPassword: false };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "";
+    return { success: false, incorrectCurrentPassword: message === "Incorrect current password" };
+  }
+};
+
+export const analytics = firebaseApp ? getAnalytics(firebaseApp) : null;

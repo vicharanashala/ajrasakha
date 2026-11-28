@@ -12,6 +12,7 @@ import { PasswordStrength } from "./PasswordStrength";
 import { AuthModeSwitch } from "./AuthModeSwitch";
 import { AuthSubmitButton } from "./AuthSubmitButton";
 import { Check, ArrowLeft } from "lucide-react";
+import { isFirebaseLoginEnabled } from "@/config/firebase";
 
 interface AuthFormProps extends ComponentProps<"div"> {
   mode?: "login" | "signup" | "forgot";
@@ -137,7 +138,8 @@ export const AuthForm = ({ mode: initialMode = "login" }: AuthFormProps) => {
                 handleInputChange={handleInputChange}
                 getPasswordVisibility={getPasswordVisibility}
               />
-              {mode === "login" && (
+              {/* Reset emails come from Firebase; with backend login an admin resets the password. */}
+              {mode === "login" && isFirebaseLoginEnabled && (
                 <div className="flex justify-end -mt-4">
                   <button
                     type="button"

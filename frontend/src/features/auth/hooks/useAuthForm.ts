@@ -3,6 +3,7 @@ import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "sonner";
 import { useNavigate } from "@tanstack/react-router";
 import { loginWithEmail } from "@/lib/firebase";
+import { isFirebaseLoginEnabled } from "@/config/firebase";
 import { useSignup } from "@/hooks/api/auth/useSignup";
 import { useForgotPassword } from "@/hooks/api/auth/useForgotPassword";
 import { calculatePasswordStrength } from "../utils/passwordStrength";
@@ -127,7 +128,8 @@ export const useAuthForm = (
       } else if (mode === "signup") {
         // Call signup API
         const response = await signupMutation({ email, password, firstName, lastName });
-        if (!isDevelopment) {
+        // Backend login has no verification email, so the "check your email" screen is skipped.
+        if (!isDevelopment && isFirebaseLoginEnabled) {
           setIsEmailSent(true);
         }
         toast.success(response?.message || "Registration successful!");

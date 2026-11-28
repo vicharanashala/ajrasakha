@@ -10,15 +10,13 @@ import type {
   QuestionMessageDetailsResponse,
   QuestionFeedbackResponse,
 } from "@/types";
-import { apiFetch } from "../api/api-fetch";
+import { apiFetch, getAuthToken } from "../api/api-fetch";
 import type { QuestionFilter } from "@/features/qa-interface-page/QA-interface";
 import type { GeneratedQuestion } from "@/components/voice-recorder-card";
 import type { AdvanceFilterValues } from "@/components/advanced-question-filter";
 import { formatDateLocal } from "@/utils/formatDate";
 import { env } from "@/config/env";
 import type { ReviewLevelsApiResponse } from "@/features/questions/types";
-import { auth } from "@/config/firebase";
-import { getIdToken } from "firebase/auth";
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -879,13 +877,9 @@ export class QuestionService {
       params.append("endDate", endDate);
     }
 
-    // Get the current Firebase user and token
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const response = await fetch(
       `${this._baseUrl}/download-question-report?${params.toString()}`,
@@ -934,11 +928,8 @@ export class QuestionService {
       params.append("statuses", options.statuses.join(","));
     }
 
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-    const token = await getIdToken(firebaseUser);
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const response = await fetch(
       `${this._baseUrl}/download-tat-report?${params.toString()}`,
@@ -1002,13 +993,9 @@ export class QuestionService {
       params.append("endDate", endDate);
     }
 
-    // Get the current Firebase user and token
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const response = await fetch(
       `${this._baseUrl}/download-overall-report?${params.toString()}`,
@@ -1050,13 +1037,9 @@ export class QuestionService {
       params.append("endDate", endDate);
     }
 
-    // Get the current Firebase user and token
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const response = await fetch(
       `${this._baseUrl}/download-duplicate-questions-report?${params.toString()}`,
@@ -1143,13 +1126,9 @@ export class QuestionService {
       params.append("totalCount", filters.totalCount);
     }
 
-    // Get the current Firebase user and token
-    const firebaseUser = auth.currentUser;
-    if (!firebaseUser) {
-      throw new Error("User not authenticated");
-    }
-
-    const token = await getIdToken(firebaseUser);
+    // Get the auth token for the active login provider
+    const token = await getAuthToken();
+    if (!token) throw new Error("User not authenticated");
 
     const response = await fetch(
       `${this._baseUrl}/download-filtered-report?${params.toString()}`,

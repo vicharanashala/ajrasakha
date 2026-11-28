@@ -13,6 +13,21 @@ import {IUser} from '#shared/interfaces/models.js';
  *
  * @category Auth/Interfaces
  */
+/** Token claims the app relies on, independent of the login provider. */
+export interface DecodedAuthToken {
+  uid: string;
+  email: string;
+  emailVerified: boolean;
+  name: string;
+  issuedAt: number;
+}
+
+export interface LocalLoginResult {
+  idToken: string;
+  expiresIn: number;
+  user: IUser;
+}
+
 export interface IAuthService {
   /**
    * Signs up a new user in the system.
@@ -45,7 +60,9 @@ export interface IAuthService {
   changePassword(
     body: ChangePasswordBody,
     requestUser: IUser,
-  ): Promise<{success: boolean; message: string}>;
+  ): Promise<{success: boolean; message: string; idToken?: string; expiresIn?: number}>;
+  decodeToken(token: string): Promise<DecodedAuthToken>;
+  loginWithPassword(email: string, password: string): Promise<LocalLoginResult>;
 
   /**
    * Retrieves the currently authenticated user based on the provided token.

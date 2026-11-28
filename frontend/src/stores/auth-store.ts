@@ -1,4 +1,5 @@
 import { auth, googleProvider } from "@/config/firebase";
+import { clearLocalAuthToken, getLocalAuthToken } from "@/lib/localAuthToken";
 import { queryClient } from "@/routes/__root";
 import type { AuthUser, ExtendedUserCredential } from "@/types";
 import {
@@ -42,6 +43,7 @@ export const useAuthStore = create<AuthStore>()(
 
         clearUser: () => {
           localStorage.removeItem("firebase-auth-token");
+          clearLocalAuthToken();
           localStorage.removeItem("user-id");
           localStorage.removeItem("user-email");
           localStorage.removeItem("user-firstName");
@@ -60,6 +62,7 @@ export const useAuthStore = create<AuthStore>()(
         loginWithGoogle: async (): Promise<ExtendedUserCredential | null> => {
           set({ loading: true, error: null });
           try {
+            if (!auth) throw new Error("Google login is disabled");
             const result = await signInWithPopup(auth, googleProvider);
             // const token = await getIdToken(result.user);
             const authUser: AuthUser = {
@@ -84,7 +87,8 @@ export const useAuthStore = create<AuthStore>()(
         logout: async () => {
           set({ loading: true });
           try {
-            await signOut(auth);
+            if (auth) await signOut(auth);
+            clearLocalAuthToken();
             queryClient.clear();
             localStorage.removeItem("questionDrafts");
             set(
@@ -99,6 +103,17 @@ export const useAuthStore = create<AuthStore>()(
         },
 
         initAuthListener: () => {
+          if (!auth) {
+            // Local login: the persisted user stays valid while a token exists; an expired token gets a 401 in apiFetch.
+            const hasToken = Boolean(getLocalAuthToken());
+            set((state) => ({
+              user: hasToken ? state.user : null,
+              firebaseUser: null,
+              loading: false,
+              isAuthenticated: hasToken && Boolean(state.user),
+            }));
+            return;
+          }
           set({ loading: true });
           onAuthStateChanged(auth, async (firebaseUser) => {
             if (firebaseUser) {

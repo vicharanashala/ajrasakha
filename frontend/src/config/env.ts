@@ -7,6 +7,7 @@ type EnvKey =
   | "VITE_API_BASE_URL"
 
   // Firebase
+  | "VITE_ENABLE_FIREBASE_LOGIN"
   | "VITE_FIREBASE_API_KEY"
   | "VITE_FIREBASE_AUTH_DOMAIN"
   | "VITE_FIREBASE_PROJECT_ID"
@@ -66,6 +67,9 @@ export const env = {
   apiBaseUrl: () => getEnv("VITE_API_BASE_URL", true, "http://localhost:3000/api"),
 
   enableMocks: () => getEnv("VITE_ENABLE_MOCKS", false, "false") === "true",
+
+  // Defaults to true so Firebase login stays on unless explicitly set to "false".
+  enableFirebaseLogin: () => getEnv("VITE_ENABLE_FIREBASE_LOGIN", false, "true") !== "false",
 
   firebase: {
     apiKey: () => getEnv("VITE_FIREBASE_API_KEY", true, "dummy-firebase-api-key"),

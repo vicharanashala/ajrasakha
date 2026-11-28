@@ -14,6 +14,7 @@ import express from 'express';
 import bodyParser from 'body-parser';
 import { useExpressServer, RoutingControllersOptions } from 'routing-controllers';
 import { appConfig } from './config/app.js';
+import { assertLocalAuthConfigured } from './utils/localAuthToken.js';
 import { loggingHandler } from './shared/middleware/loggingHandler.js';
 import { HttpErrorHandler } from './shared/index.js';
 import { loadAppModules } from './bootstrap/loadModules.js';
@@ -207,6 +208,7 @@ app.use(
   }),
 );
 
+assertLocalAuthConfigured();
 const server = http.createServer(app);
 
 initWebSocket(server);

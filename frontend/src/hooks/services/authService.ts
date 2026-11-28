@@ -1,5 +1,32 @@
 import { env } from "@/config/env";
-import type { ExtendedUserCredential } from "@/types";
+import type { ExtendedUserCredential, IUser } from "@/types";
+
+/** Response of POST /auth/login when the backend checks the password against MongoDB. */
+export interface LocalLoginResponse {
+  idToken: string;
+  expiresIn: string;
+  localId: string;
+  email: string;
+  displayName: string;
+  user: IUser;
+}
+
+export interface ChangePasswordResponse {
+  success: boolean;
+  message: string;
+  idToken?: string;
+}
+
+// Extracts the backend's error message from a failed response, falling back to the status text.
+const readErrorMessage = async (res: Response, fallback: string): Promise<string> => {
+  const text = await res.text();
+  try {
+    const data = JSON.parse(text);
+    return data?.message || fallback;
+  } catch {
+    return text || fallback;
+  }
+};
 
 const API_BASE_URL = env.apiBaseUrl();
 
@@ -68,6 +95,43 @@ export class AuthService {
       console.error("Signup failed!", error);
       throw error;
     }
+  }
+
+  // Logs in with email and password checked by the backend (used when Firebase login is disabled).
+  async localLogin(email: string, password: string): Promise<LocalLoginResponse> {
+    const res = await fetch(`${this._baseUrl}/login`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, "Invalid Credentials"));
+    }
+    return res.json();
+  }
+
+  // Changes the password through the backend, which verifies the current password (local login only).
+  async changePassword(
+    token: string,
+    currentPassword: string,
+    newPassword: string
+  ): Promise<ChangePasswordResponse> {
+    const res = await fetch(`${this._baseUrl}/change-password`, {
+      method: "PATCH",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        currentPassword,
+        newPassword,
+        newPasswordConfirm: newPassword,
+      }),
+    });
+    if (!res.ok) {
+      throw new Error(await readErrorMessage(res, "Failed to update password"));
+    }
+    return res.json();
   }
 
   async accountSync(idToken: string) {

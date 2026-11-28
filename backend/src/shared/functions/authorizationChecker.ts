@@ -1,9 +1,7 @@
 import { FirebaseAuthService } from "#root/modules/auth/services/FirebaseAuthService.js";
 import { getFromContainer } from "routing-controllers";
-import { getFirebaseAuth } from '#root/config/firebaseAdmin.js';
 
 export async function authorizationChecker(action): Promise<boolean> {
-  getFirebaseAuth();
   const firebaseAuthService = getFromContainer(FirebaseAuthService);
   const token = action.request.headers.authorization?.split(' ')[1];
   if (!token) {
