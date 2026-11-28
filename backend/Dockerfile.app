@@ -22,7 +22,47 @@ COPY backend/ .
 RUN rm -rf build tsconfig.tsbuildinfo && pnpm run build
 
 
-FROM node:22-alpine
+# -------------------------
+# Frontend build: used only by the app-with-frontend target, where the backend serves the
+# app on its own port. Same steps as frontend/Dockerfile and the frontend workflows.
+# -------------------------
+FROM node:22-alpine AS frontend-builder
+
+RUN corepack enable && corepack prepare pnpm@10.4.1 --activate
+
+WORKDIR /repo/frontend
+
+# The frontend imports shared code from ../testers-dashboard/frontend/src; its postinstall
+# script links that folder's node_modules to the frontend's, so both must exist before install.
+COPY frontend/package.json frontend/pnpm-lock.yaml ./
+COPY frontend/scripts ./scripts
+COPY testers-dashboard/frontend /repo/testers-dashboard/frontend
+RUN pnpm install --frozen-lockfile
+
+COPY frontend/ ./
+
+# Same origin: the backend serves the app and /api on one port, so the API base is relative.
+ARG VITE_API_BASE_URL=/api
+ARG VITE_ENABLE_MOCKS=false
+ARG VITE_ENABLE_FIREBASE_LOGIN=true
+ARG VITE_FIREBASE_API_KEY
+ARG VITE_FIREBASE_AUTH_DOMAIN
+ARG VITE_FIREBASE_PROJECT_ID
+ARG VITE_FIREBASE_STORAGE_BUCKET
+ARG VITE_FIREBASE_MESSAGING_SENDER_ID
+ARG VITE_FIREBASE_APP_ID
+ARG VITE_FIREBASE_MEASUREMENT_ID
+ARG VITE_SARVAM_API_KEY
+ARG VITE_VAPID_PUBLIC_KEY
+ARG VITE_CARTO_API_KEY
+ARG VITE_FESTIVE_THEME=auto
+
+# index.html loads /runtime-config.js; an empty one keeps the values built in above.
+RUN pnpm exec vite build \
+  && echo 'window.__RUNTIME_CONFIG__ = {};' > dist/runtime-config.js
+
+
+FROM node:22-alpine AS app
 
 RUN apk add --no-cache \
     git \
@@ -73,3 +113,17 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --quiet --tries=1 --spider "http://127.0.0.1:${APP_PORT:-4000}/health" || exit 1
 
 CMD ["sh", "/app/scripts/start.sh"]
+
+
+# -------------------------
+# Backend + frontend on the same port. Selected with `target: app-with-frontend` by
+# backend-deployment.yml and backend-staging-deployment.yml.
+# index.ts serves ../../frontend/dist relative to /app/build, which is /frontend/dist.
+# -------------------------
+FROM app AS app-with-frontend
+COPY --from=frontend-builder /repo/frontend/dist /frontend/dist
+
+
+# Default target stays backend-only: the Docker Compose / Docker Hub images serve the
+# frontend from their own nginx container, so they skip the frontend build entirely.
+FROM app
