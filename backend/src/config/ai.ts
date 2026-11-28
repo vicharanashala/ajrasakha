@@ -1,6 +1,9 @@
 import { env } from '#root/utils/env.js';
 
 export const aiConfig = {
+  // Master toggle for the external AI, agent, OpenAI, GDB, Gemma, MiniMax, WhatsApp server and
+  // AI initial answer calls. Set ENABLE_EXTERNAL_AI_SERVICES=false to skip them all. Defaults to true.
+  enableExternalAiServices: env('ENABLE_EXTERNAL_AI_SERVICES') !== 'false',
   serverIP: env('AI_SERVER_IP') || 'localhost',
   serverPort: Number(env('AI_SERVER_PORT')?.trim()) || 9017,
   // Tailscale's userspace proxy (see scripts/start.sh). SOCKS5 for node http agents
@@ -33,3 +36,12 @@ export const aiConfig = {
   // Chemical Check Service Configuration
   chemicalCheckPort: Number(env('CHEMICAL_CHECK_PORT')?.trim()) || 8002,
 };
+
+// Logs a skip message and returns true when ENABLE_EXTERNAL_AI_SERVICES is false, so the caller can skip its external call.
+export function shouldSkipExternalAiCall(caller: string): boolean {
+  if (aiConfig.enableExternalAiServices) return false;
+  console.warn(
+    `[ENABLE_EXTERNAL_AI_SERVICES=false] Skipping ${caller}. Set ENABLE_EXTERNAL_AI_SERVICES=true to enable it.`,
+  );
+  return true;
+}

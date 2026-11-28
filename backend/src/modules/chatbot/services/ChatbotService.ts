@@ -50,7 +50,7 @@ import {
 import PDFDocument from 'pdfkit';
 import {WhatsappUsers} from '#root/utils/dummyWhatsAppUsers.js';
 import {access} from 'node:fs';
-import {aiConfig} from '#root/config/ai.js';
+import {aiConfig, shouldSkipExternalAiCall} from '#root/config/ai.js';
 import {appConfig} from '#root/config/app.js';
 import {emailConfig} from '#root/config/mail.js';
 import {getISTStartOfToday} from '#root/utils/date.utils.js';
@@ -768,6 +768,10 @@ export class ChatbotService extends BaseService implements IChatbotService {
   private readonly WA_WEBHOOK_API_KEY = appConfig.WA_WEBHOOK_API_KEY;
 
   private async getInactiveUsers() {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('ChatbotService.getInactiveUsers (WhatsApp server URL)')) {
+      return { data: [], total: 0, skip: 0, limit: 100, isPaginated: false };
+    }
     try {
       const response = await axios.get(
         `${this.WHATSAPP_SERVER_URL}/whatsapp/users`,

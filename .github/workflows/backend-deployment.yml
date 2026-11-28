@@ -88,6 +88,7 @@ jobs:
   #         env_vars: |
   #           NODE_ENV=production
   #           ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN || 'true' }}
+  #           ENABLE_EXTERNAL_AI_SERVICES=${{ vars.ENABLE_EXTERNAL_AI_SERVICES || 'true' }}
   #           LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET }}
   #           LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS || '604800' }}
   #           APP_PORT=${{ secrets.APP_PORT }}

@@ -1,7 +1,7 @@
 import 'reflect-metadata';
 import { injectable } from 'inversify';
 import { InternalServerError } from 'routing-controllers';
-import { aiConfig } from '#root/config/ai.js';
+import { aiConfig, shouldSkipExternalAiCall } from '#root/config/ai.js';
 import { FetchAiInitialAnswerBody } from '../classes/validators/AnswerValidator.js';
 import { IAnswerAiService } from '../interfaces/IAnswerAiService.js';
 
@@ -11,6 +11,10 @@ import { IAnswerAiService } from '../interfaces/IAnswerAiService.js';
 @injectable()
 export class AnswerAiService implements IAnswerAiService {
   async fetchAiInitialAnswer(body: FetchAiInitialAnswerBody): Promise<any> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AnswerAiService.fetchAiInitialAnswer (AI initial answer generate URL)')) {
+      throw new InternalServerError('AI initial answer generation is disabled.');
+    }
     try {
       const response = await fetch(aiConfig.aiInitialAnswerGenerateUrl, {
         method: 'POST',

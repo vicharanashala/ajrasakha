@@ -162,6 +162,7 @@ jobs:
           env_vars: |
             NODE_ENV=staging
             ENABLE_FIREBASE_LOGIN=${{ vars.ENABLE_FIREBASE_LOGIN_STAGING || 'true' }}
+            ENABLE_EXTERNAL_AI_SERVICES=${{ vars.ENABLE_EXTERNAL_AI_SERVICES_STAGING || 'true' }}
             LOCAL_AUTH_JWT_SECRET=${{ secrets.LOCAL_AUTH_JWT_SECRET_STAGING }}
             LOCAL_AUTH_TOKEN_TTL_SECONDS=${{ vars.LOCAL_AUTH_TOKEN_TTL_SECONDS_STAGING || '604800' }}
             TAILSCALE_HOSTNAME=gcp-staging

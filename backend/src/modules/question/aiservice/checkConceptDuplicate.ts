@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import {aiConfig} from '#root/config/ai.js';
+import {aiConfig, shouldSkipExternalAiCall} from '#root/config/ai.js';
 
 const gemmaClient = new OpenAI({
   apiKey: aiConfig.gemma_api_key,
@@ -29,6 +29,12 @@ export async function checkConceptDuplicate(
   questionA: string,
   referenceQuestions: string[]
 ): Promise<{ isNonAgri: boolean; matchedIndex: number | null }> {
+  // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+  // Treated as an agri question with no duplicate match, same as the LLM failure fallback.
+  if (shouldSkipExternalAiCall('checkConceptDuplicate (Gemma and MiniMax APIs)')) {
+    return { isNonAgri: false, matchedIndex: null };
+  }
+
   console.log(
     `Checking concept duplication + non-agri for: "${questionA}" against ${referenceQuestions.length} candidate(s)...`
   );

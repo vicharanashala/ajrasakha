@@ -1,4 +1,4 @@
-import { aiConfig } from '#root/config/ai.js';
+import { aiConfig, shouldSkipExternalAiCall } from '#root/config/ai.js';
 import { QuestionSearchResponse, IQuestionAnalysis, IQuestionWithAnswerTexts } from '#root/modules/question/classes/validators/QuestionVaidators.js';
 import { IQuestion } from '#root/shared/index.js';
 import { injectable } from 'inversify';
@@ -30,6 +30,8 @@ export class AiService {
   async getQuestionByContext(
     context: string,
   ): Promise<QuestionSearchResponse> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.getQuestionByContext (agent server)')) return { reviewer: [], golden: [], pop: [] };
     // const response = await fetch(`${this._aiServerUrl}/questions`, {
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
@@ -56,6 +58,8 @@ export class AiService {
     season?: string,
     domain?: string,
   ): Promise<QuestionSearchResponse> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.getQuestionByContextAndMetaData (agent server)')) return { reviewer: [], golden: [], pop: [] };
 
     const response = await fetch(`${this._agentServerUrl}/search`, {
       method: 'POST',
@@ -88,6 +92,8 @@ export class AiService {
     text1: string;
     text2: string;
   }): Promise<{ similarity_score: number }> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.getFinalAnswerByThreshold (AI server)')) return { similarity_score: 0 };
     const response = await fetch(`${this._aiServerUrl}/score`, {
       method: 'POST',
       headers: {
@@ -108,6 +114,10 @@ export class AiService {
   async evaluateAnswers(
     payload: IQuestionWithAnswerTexts,
   ): Promise<IQuestionAnalysis> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.evaluateAnswers (AI server)')) {
+      throw new InternalServerError('AI answer evaluation is disabled.');
+    }
     const response = await fetch(`${this._aiServerUrl}/evaluate`, {
       method: 'POST',
       headers: {
@@ -127,6 +137,8 @@ export class AiService {
   }
 
   async getEmbedding(text: string): Promise<{ embedding: number[] }> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.getEmbedding (AI server)')) return { embedding: [] };
     try {
       const fullUrl = `${this._aiServerUrl}/embed`;
       const response = await fetch(fullUrl, {
@@ -156,6 +168,10 @@ export class AiService {
   async getAnswerByQuestionDetails(
     questionDoc: IQuestion
   ): Promise<{ question: string; answer: string }> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.getAnswerByQuestionDetails (MiniMax server)')) {
+      throw new InternalServerError('AI answer generation is disabled.');
+    }
     try {
       // const fullUrl = `${this._openAIServerUrl}/v1/chat/completions`;
       const fullUrl = `${this._minimaxServerUrl}/v1/chat/completions`
@@ -299,6 +315,8 @@ export class AiService {
       toolResponse?: any;
     }[];
   } | null> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.fetchWhatsAppMessage (WhatsApp server)')) return null;
     try {
       interface AgriFlowResponse {
         values: {
@@ -530,6 +548,8 @@ export class AiService {
     state: string;
     rephrased_query: string;
   }): Promise<GdbSearchResponse | null> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.searchGdb (GDB server)')) return null;
     try {
       const response = await fetch(`${this._gdbServerUrl}/v1/gdb/search`, {
         method: 'POST',
@@ -560,6 +580,8 @@ export class AiService {
     state: string;
     createdAt?: Date | string | null;
   }): Promise<GdbPendingDuplicateResponse | null> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.checkPendingDuplicate (GDB server)')) return null;
     try {
       const response = await fetch(
         `${this._gdbServerUrl}/v1/gdb/check-pending-duplicate`,
@@ -600,6 +622,8 @@ export class AiService {
     if (!text || !text.trim()) {
       return { matches: [] };
     }
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('AiService.detectChemicals (AI server)')) return { matches: [] };
     try {
       console.log(`${this._chemicalCheckServerUrl}/detect-chemicals`);
       const response = await fetch(`${this._chemicalCheckServerUrl}/detect-chemicals`, {

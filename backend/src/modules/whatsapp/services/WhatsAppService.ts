@@ -2,7 +2,7 @@ import axios from 'axios';
 import { appConfig } from '#root/config/app.js';
 import type { IWhatsAppService, Thread, Message, ToolCall } from '../interfaces/IWhatsAppService.js';
 import { InternalServerError, NotFoundError, UnauthorizedError } from 'routing-controllers';
-import { aiConfig } from '#root/config/ai.js';
+import { aiConfig, shouldSkipExternalAiCall } from '#root/config/ai.js';
 import { IUserRepository } from '#root/shared/database/interfaces/IUserRepository.js';
 import { GLOBAL_TYPES } from '#root/types.js';
 import { inject, injectable } from 'inversify';
@@ -21,6 +21,8 @@ export class WhatsAppService implements IWhatsAppService {
   private readonly WA_WEBHOOK_API_KEY = appConfig.WA_WEBHOOK_API_KEY;
 
   async getThreads(): Promise<Thread[]> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('WhatsAppService.getThreads (WhatsApp server)')) return [];
     try {
       const response = await axios.get(`${this.baseUrl}/threads`);
       const data = response.data;
@@ -93,6 +95,8 @@ export class WhatsAppService implements IWhatsAppService {
     phoneNumber: string,
     date: string,
   ): Promise<Message[]> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('WhatsAppService.getThreadDetails (WhatsApp server)')) return [];
     try {
       let threadId = phoneNumber;
       if (!threadId.includes('-')) {
@@ -273,6 +277,10 @@ export class WhatsAppService implements IWhatsAppService {
     skip: number,
     limit: number,
   ): Promise<WhatsappUsersResponse> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('WhatsAppService.getInactiveUsers (WhatsApp server URL)')) {
+      return { data: [], total: 0, skip, limit, isPaginated: true };
+    }
 
     try {
       const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users`, {
@@ -297,6 +305,10 @@ export class WhatsAppService implements IWhatsAppService {
   }
 
   async getAllUsers(): Promise<WhatsappUsersResponse> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('WhatsAppService.getAllUsers (WhatsApp server URL)')) {
+      return { data: [], total: 0, skip: 0, limit: 0, isPaginated: false };
+    }
     try {
       const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users`, {
         params: {
@@ -318,6 +330,8 @@ export class WhatsAppService implements IWhatsAppService {
   }
 
   async getUniqueUsers(): Promise<number> {
+    // Skipped when ENABLE_EXTERNAL_AI_SERVICES=false. Set it to true to enable this call.
+    if (shouldSkipExternalAiCall('WhatsAppService.getUniqueUsers (WhatsApp server URL)')) return 0;
     try {
       const response = await axios.get(`${this.WHATSAPP_SERVER_URL}/whatsapp/users/count`, {
         params: {
